@@ -9,3 +9,19 @@ export const sessionRegistration = {
 	source: "cli",
 	started_at: "2026-09-26T09:00:00+09:00",
 };
+
+export const sessionImport = {
+	...sessionRegistration,
+	issue_identifier: undefined,
+	source: "import",
+	ended_at: "2026-09-26T01:30:00Z",
+	model: "claude-opus-4-1",
+	input_tokens: 120000,
+	output_tokens: 8000,
+	tool_calls: [
+		{ tool: "Bash", calls: 12, failures: 1 },
+		{ tool: "Edit", calls: 5, failures: 0 },
+	],
+	parser_version: "0.1.0",
+};
+delete (sessionImport as Record<string, unknown>).issue_identifier;
