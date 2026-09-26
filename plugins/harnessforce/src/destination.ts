@@ -5,7 +5,7 @@ import type { SessionRegistration } from "../../../packages/semconv/src/schemas/
 export type IngestItem = SessionRegistration | ConfigSnapshot;
 export type Env = Readonly<Record<string, string | undefined>>;
 export type Fetch = (url: URL, init: RequestInit) => Promise<Response>;
-export type KeyKind = "workspace";
+export type KeyKind = "user" | "workspace";
 export type Destination = { ingestBase: URL; key: string; keyKind: KeyKind };
 export type IngestPath = "v1/sessions" | "v1/config-snapshots";
 export type SendOutcome =
@@ -32,14 +32,6 @@ export function ingestUrl(base: URL, path: IngestPath): URL {
 	// originだけのbaseのpathnameは"/"になるため、ここでも末尾の/を除く。
 	url.pathname = `${base.pathname.replace(/\/+$/, "")}/${path}`;
 	return url;
-}
-
-// 利用者用のIngestKey（keychain）はまだ扱わないため、Workspace用のkeyだけを選ぶ。
-export function selectKey(
-	env: Env,
-): { key: string; keyKind: KeyKind } | undefined {
-	const key = env.HARNESSFORCE_INGEST_KEY;
-	return key ? { key, keyKind: "workspace" } : undefined;
 }
 
 // bodyは要素1つの配列として送る（ingest-api.md「汎用ingest API」）。

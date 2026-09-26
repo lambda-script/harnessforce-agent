@@ -1,5 +1,6 @@
 import { execFileSync, spawn } from "node:child_process";
 import {
+	chmodSync,
 	cpSync,
 	existsSync,
 	mkdirSync,
@@ -261,6 +262,67 @@ describe("bundled hook", () => {
 		expect(result.elapsedMs).toBeGreaterThanOrEqual(1900);
 		expect(result.elapsedMs).toBeLessThan(4000);
 	}, 10_000);
+
+	// `hf otel-headers`の代わりのscript。keychainには触れない。
+	function fakeHfOnPath(): string {
+		const dir = tempDir("hf-bin-");
+		const hf = join(dir, "hf");
+		writeFileSync(
+			hf,
+			`#!/bin/sh\n[ "$1" = otel-headers ] && printf '{"Authorization":"Bearer hf_ik_%s_user"}' "$HARNESSFORCE_WORKSPACE_ID"\n`,
+		);
+		chmodSync(hf, 0o755);
+		return dir;
+	}
+
+	it.skipIf(process.platform === "win32")(
+		"sends with the user key from hf on PATH and claims source=cli",
+		async () => {
+			const repo = makeRepo();
+			const ingest = await startIngest("accept");
+			const result = await runBundle(
+				"session-start",
+				{ session_id: "s-1", cwd: repo.dir, source: "startup" },
+				{
+					HARNESSFORCE_ENDPOINT: ingest.endpoint,
+					HARNESSFORCE_WORKSPACE_ID: "ws1",
+					HARNESSFORCE_ISSUE: "ENG-42",
+					PATH: `${fakeHfOnPath()}:${process.env.PATH ?? ""}`,
+				},
+			);
+			expect(result).toMatchObject({ code: 0, stdout: "", stderr: "" });
+			expect(ingest.received[0]?.headers.authorization).toBe(
+				"Bearer hf_ik_ws1_user",
+			);
+			expect(ingest.received[0]?.body).toEqual([
+				expect.objectContaining({
+					source: "cli",
+					issue_identifier: "ENG-42",
+				}),
+			]);
+		},
+	);
+
+	it.skipIf(process.platform === "win32")(
+		"tells the user to run hf init when the user key is revoked",
+		async () => {
+			const repo = makeRepo();
+			const ingest = await startIngest("revoke");
+			const result = await runBundle(
+				"session-start",
+				{ session_id: "s-1", cwd: repo.dir },
+				{
+					HARNESSFORCE_ENDPOINT: ingest.endpoint,
+					HARNESSFORCE_WORKSPACE_ID: "ws1",
+					PATH: `${fakeHfOnPath()}:${process.env.PATH ?? ""}`,
+				},
+			);
+			expect(result.code).toBe(0);
+			expect(JSON.parse(result.stdout)).toEqual({
+				systemMessage: "送信キーが失効しています。`hf init`を実行してください",
+			});
+		},
+	);
 
 	it("exits 0 silently outside a git repository", async () => {
 		const ingest = await startIngest("accept");

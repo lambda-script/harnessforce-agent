@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { homedir } from "node:os";
 import { runHook } from "./hook.js";
 import { managedDirFor } from "./managed.js";
+import { createUserKeyReader, execHf } from "./user-key.js";
 import type { RunGit } from "./vcs.js";
 
 // gitの各呼び出しの上限。repositoryの判定でsessionの開始を待たせない。
@@ -50,5 +51,10 @@ void readStdin()
 			stderr: (text) => process.stderr.write(text),
 			homeDir: homedir(),
 			managedDir: managedDirFor(process.platform),
+			readUserKey: createUserKeyReader({
+				platform: process.platform,
+				env: process.env,
+				exec: execHf,
+			}),
 		}),
 	);

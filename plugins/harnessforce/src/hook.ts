@@ -14,7 +14,6 @@ import {
 	type KeyKind,
 	postItem,
 	type SendOutcome,
-	selectKey,
 } from "./destination.js";
 import { type HookInput, parseHookInput } from "./input.js";
 import {
@@ -25,6 +24,7 @@ import {
 	type Scratchpad,
 	saveRegistration,
 } from "./scratchpad.js";
+import type { UserKeyRead } from "./user-key.js";
 import { type RunGit, resolveProjectRoot, resolveVcs } from "./vcs.js";
 
 export type HookDeps = {
@@ -36,13 +36,19 @@ export type HookDeps = {
 	stderr: (text: string) => void;
 	homeDir: string;
 	managedDir: string;
+	// `hf otel-headers`を起動してkeychainの利用者用IngestKeyを読む。
+	readUserKey: () => Promise<UserKeyRead>;
 };
 
 // correlation.md「hook」の共通の規則が、選んだkeyの種類ごとに定める文言。
 const REVOKED_KEY_MESSAGES: Record<KeyKind, string> = {
+	user: "送信キーが失効しています。`hf init`を実行してください",
 	workspace:
 		"組織の送信キーが失効しています。Workspaceの管理者に連絡してください",
 };
+
+// session registrationのissue_identifierの制約（semantic-conventions.md）。
+const ISSUE_IDENTIFIER = /^\S{1,256}$/;
 
 // resumeとcompactは同じsessionの継続なので送らない。未知のsourceも送らない。
 const REGISTERING_SOURCES = new Set(["startup", "clear", "fork"]);
@@ -56,19 +62,45 @@ type Subject = "session registration" | "config snapshot";
 const report = (deps: HookDeps, subject: Subject, detail: string) =>
 	deps.stderr(`harnessforce: ${subject} ${detail}\n`);
 
+// keyはWorkspace用（managed settingsが配る）を優先し、無ければHARNESSFORCE_WORKSPACE_IDの利用者用のkeyを読む。
+async function selectKey(
+	deps: HookDeps,
+): Promise<{ key: string; keyKind: KeyKind } | undefined> {
+	const workspaceKey = deps.env.HARNESSFORCE_INGEST_KEY;
+	if (workspaceKey) return { key: workspaceKey, keyKind: "workspace" };
+	if (!deps.env.HARNESSFORCE_WORKSPACE_ID) return undefined;
+	const read = await deps.readUserKey();
+	if (read.kind === "failed")
+		deps.stderr("harnessforce: no user key in keychain or read failed\n");
+	return read.kind === "found" ? { key: read.key, keyKind: "user" } : undefined;
+}
+
 // 送信先の判定をkeyの判定より先に行う。両方が無ければ送信先の終端だけを書く。
-function resolveDestination(deps: HookDeps): Destination | undefined {
+async function resolveDestination(
+	deps: HookDeps,
+): Promise<Destination | undefined> {
 	const ingestBase = ingestBaseFrom(deps.env.HARNESSFORCE_ENDPOINT);
 	if (!ingestBase) {
 		report(deps, "session registration", "skipped (invalid endpoint)");
 		return undefined;
 	}
-	const selected = selectKey(deps.env);
+	const selected = await selectKey(deps);
 	if (!selected) {
 		report(deps, "session registration", "skipped (no ingest key)");
 		return undefined;
 	}
 	return { ingestBase, ...selected };
+}
+
+// Workspace用のkeyではsource=cliを名乗らない（control-plane.md「認証の種類と信頼」）。
+function registrationSource(
+	destination: Destination,
+	env: Env,
+): Pick<SessionRegistration, "source" | "issue_identifier"> {
+	const issue = env.HARNESSFORCE_ISSUE;
+	return destination.keyKind === "user" && issue && ISSUE_IDENTIFIER.test(issue)
+		? { source: "cli", issue_identifier: issue }
+		: { source: "hook" };
 }
 
 async function send(
@@ -108,7 +140,7 @@ async function registerSession(
 		agent: "claude_code",
 		session_id: input.sessionId,
 		...vcs,
-		source: "hook",
+		...registrationSource(destination, deps.env),
 		started_at: deps.now().toISOString(),
 	};
 	// 保存に失敗しても登録は送る。UserPromptSubmitはこの保存が無ければ送らない。
@@ -165,7 +197,7 @@ async function onSessionStart(input: HookInput, deps: HookDeps): Promise<void> {
 		return;
 	if (input.scratchpad && (await isMarkedUnauthorized(input.scratchpad)))
 		return;
-	const destination = resolveDestination(deps);
+	const destination = await resolveDestination(deps);
 	if (!destination) return;
 	const outcomes = await Promise.all([
 		registerSession(input, destination, deps).catch(logError(deps)),
@@ -184,7 +216,7 @@ async function onUserPromptSubmit(
 	if (!input.promptId || !pad || (await isMarkedUnauthorized(pad))) return;
 	const saved = await loadRegistration(pad);
 	if (!saved) return;
-	const destination = resolveDestination(deps);
+	const destination = await resolveDestination(deps);
 	if (!destination || !(await claimFirstPrompt(pad))) return;
 	const outcome = await send(
 		destination,
