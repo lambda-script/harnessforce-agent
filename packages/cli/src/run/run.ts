@@ -61,9 +61,15 @@ async function readKeychain(
 	return keychain.get(account).catch(() => stop("keychainUnavailable"));
 }
 
+// 候補の識別子とタイトルはIssueの提供元の外部の利用者が書きうるため、端末の制御文字を表示しない。
+const printable = (text: string) =>
+	text.replace(/[\t\n\r]/g, " ").replace(/\p{Cc}/gu, "");
+
 function candidateList(candidates: readonly IssueCandidate[]): string {
 	const lines = candidates.map(({ identifier, title }) =>
-		title ? `  ${identifier}  ${title}` : `  ${identifier}`,
+		title
+			? `  ${printable(identifier)}  ${printable(title)}`
+			: `  ${printable(identifier)}`,
 	);
 	return [RUN_MESSAGES.candidatesHeader, ...lines].join("\n");
 }

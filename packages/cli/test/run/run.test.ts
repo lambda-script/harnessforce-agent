@@ -262,6 +262,23 @@ describe("hf run", () => {
 		expect(r.launches).toEqual([]);
 	});
 
+	it("does not print terminal control characters from candidate titles", async () => {
+		const r = await runHf(ISSUE_ARGS, {
+			issue: () => ({ status: 404 }),
+			list: () => ({
+				status: 200,
+				body: {
+					data: [
+						issueBody("ENG-\u001b[2J1", "Log\u001b]0;x\u0007in\n\u009bbad"),
+					],
+				},
+			}),
+		});
+		expect(r.err).toBe(
+			"Issueを解決できませんでした。候補:\n  ENG-[2J1  Log]0;xin bad\n",
+		);
+	});
+
 	it("reports a launch failure", async () => {
 		const home = makeHome();
 		const api = await startReadApi({
