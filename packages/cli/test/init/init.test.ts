@@ -111,8 +111,7 @@ describe("hf init", () => {
 			"ws1:api-token": issued.api_token,
 			// 送信先の固定。ingest_endpointのscheme、host、portだけを保存する。
 			"ws1:ingest-origin": "https://ingest.example.test",
-			// 使った接続先のorigin。Read APIへApiTokenを送る先の固定に使う。
-			"ws1:url-origin": new URL(server.base).origin,
+			"ws1:url-origin": `http://127.0.0.1:${new URL(server.base).port}`,
 		});
 		const settings = JSON.parse(home.read() ?? "");
 		expect(settings).toEqual({
@@ -163,11 +162,16 @@ describe("hf init", () => {
 		const server = await startHarnessforce({ basePath: "/hf" });
 		const withUserinfo = server.base.replace("http://", "http://user:pass@");
 		const home = makeHome();
+		const { keychain, items } = fakeKeychain();
 		const result = await runInit(["--url", `${withUserinfo}?x=1#y`], {
 			homeDir: home.home,
+			keychain,
 			openBrowser: fakeBrowser().open,
 		});
 		expect(result.code).toBe(0);
+		expect(items.get("ws1:url-origin")).toBe(
+			`http://127.0.0.1:${new URL(server.base).port}`,
+		);
 		expect(JSON.parse(home.read() ?? "").env.HARNESSFORCE_URL).toBe(
 			server.base,
 		);
@@ -189,8 +193,13 @@ describe("hf init", () => {
 			keychain,
 			openBrowser: fakeBrowser().open,
 		});
-		expect(items.get("ws1:ingest-origin")).toBe("https://ingest.example.test");
-		expect(items.get("ws1:url-origin")).toBe(new URL(server.base).origin);
+		expect(Object.fromEntries(items)).toEqual({
+			"ws1:ingest-key": "hf_ik_ws1_new",
+			"ws1:api-token": "hf_at_token",
+			"ws1:ingest-origin": "https://ingest.example.test",
+			// pathの`/hf`を含めない。
+			"ws1:url-origin": `http://127.0.0.1:${new URL(server.base).port}`,
+		});
 	});
 
 	// 途中で失敗しても、前の接続先のoriginと新しいkeyの組を残さない。
@@ -524,6 +533,31 @@ describe("hf init", () => {
 				}),
 			).toEqual(failed(M.saveFailed));
 			expect(home.read()).toBeUndefined();
+		});
+
+		// 途中で失敗しても、前の接続先のoriginと新しいkeyやtokenの組を残さない。
+		it("leaves no pinned origin when saving fails after the key", async () => {
+			const server = await startHarnessforce();
+			const { keychain, items } = fakeKeychain({
+				items: {
+					"ws1:ingest-key": "hf_ik_ws1_old",
+					"ws1:api-token": "hf_at_old",
+					"ws1:ingest-origin": "https://old-ingest.example.test",
+					"ws1:url-origin": "https://old.example.test",
+				},
+				failWriteOn: "ws1:api-token",
+			});
+			expect(
+				await runInit([], {
+					homeDir: makeHome().home,
+					defaultUrl: server.base,
+					keychain,
+					openBrowser: fakeBrowser().open,
+				}),
+			).toEqual(failed(M.saveFailed));
+			expect(items.get("ws1:ingest-key")).toBe("hf_ik_ws1_new");
+			expect(items.has("ws1:ingest-origin")).toBe(false);
+			expect(items.has("ws1:url-origin")).toBe(false);
 		});
 
 		it("fails when the user settings became unreadable during login", async () => {

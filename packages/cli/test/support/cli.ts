@@ -10,6 +10,8 @@ type FakeKeychainOptions = {
 	items?: Record<string, string>;
 	failRead?: boolean;
 	failWrite?: boolean;
+	// このaccountへの書き込みだけを失敗させる。
+	failWriteOn?: string;
 };
 
 // 実際のkeychainの代わり。itemsは書き込みで更新される。
@@ -27,7 +29,7 @@ export function fakeKeychain(options: FakeKeychainOptions = {}) {
 			return items.get(account);
 		},
 		set: async (account, secret) => {
-			fail(options.failWrite);
+			fail(options.failWrite || account === options.failWriteOn);
 			items.set(account, secret);
 			writes.push(account);
 		},

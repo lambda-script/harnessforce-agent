@@ -100,9 +100,8 @@ async function runInit(url: string | undefined, deps: InitDeps) {
 		deps.fetch,
 	);
 	const issued = issuedOrStop(outcome);
-	await save(issued, base.origin, recordedUrl, settingsPath, deps).catch(
-		(error: unknown) =>
-			stop(error instanceof InitStop ? error.message : "saveFailed"),
+	await save(issued, recordedUrl, settingsPath, deps).catch((error: unknown) =>
+		stop(error instanceof InitStop ? error.message : "saveFailed"),
 	);
 }
 
@@ -178,7 +177,6 @@ function issuedOrStop(outcome: CredentialOutcome): Issued {
 // originを先に消し、途中で失敗しても前の接続先のoriginと新しいkeyやtokenの組を残さない。
 async function save(
 	issued: Issued,
-	connectionOrigin: string,
 	connection: string,
 	settingsPath: string,
 	deps: InitDeps,
@@ -196,7 +194,7 @@ async function save(
 	);
 	await deps.keychain.set(
 		urlOriginAccount(issued.workspaceId),
-		connectionOrigin,
+		new URL(connection).origin,
 	);
 	const current = await readUserSettings(settingsPath);
 	if (current.kind === "invalid") return stop("saveFailed");
