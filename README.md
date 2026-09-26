@@ -1,6 +1,29 @@
 # harnessforce-agent
 Agent-side toolkit for Harnessforce: Claude Code plugin, CLI, and semantic conventions
 
+## Session registration hooks
+
+The `harnessforce` plugin registers each Claude Code session with Harnessforce so that runs can be
+linked to issues. On `SessionStart` (`startup`, `clear`, `fork`) it sends the session ID and the git
+repository, branch and commit of `cwd` to `POST <HARNESSFORCE_ENDPOINT>/v1/sessions`. On the first
+prompt it sends the same registration again with the prompt ID. Prompts, responses and file
+contents are never sent.
+
+- Set `HARNESSFORCE_ENDPOINT` (the ingest base URL; `https:`, or `http:` only for `localhost`,
+  `127.0.0.1` and `[::1]`) and `HARNESSFORCE_INGEST_KEY` (a Workspace ingest key), for example in the
+  managed settings `env`. Hooks do not receive `OTEL_*` variables, so these are separate.
+- Requires Node.js 18 or later on `PATH`. The hook always exits 0: outside a git repository, without
+  configuration, on errors, or after 2 seconds it gives up quietly and writes the reason to stderr
+  (Claude Code's debug log). Without Node.js, Claude Code shows a non-blocking `hook error`.
+- If the key is revoked, Claude Code shows once per session:
+  組織の送信キーが失効しています。Workspaceの管理者に連絡してください
+
+The hook scripts exist only in the build output. `pnpm build` writes a marketplace directory to
+`plugins/harnessforce/dist/marketplace`; register it with
+`/plugin marketplace add <absolute path to plugins/harnessforce/dist/marketplace>` and then
+`/plugin install harnessforce@harnessforce-agent`. The copy of the plugin in this repository has no
+hooks. Public distribution starts once the production domain is decided.
+
 ## Releasing
 
 Publishing to npmjs is disabled until the npm scope exists. To enable it:
