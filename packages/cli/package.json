@@ -1,0 +1,28 @@
+{
+	"name": "@harnessforce/cli",
+	"version": "0.1.0",
+	"description": "Harnessforce command line (hf)",
+	"license": "Apache-2.0",
+	"type": "module",
+	"bin": {
+		"hf": "./dist/bin.js"
+	},
+	"files": [
+		"dist"
+	],
+	"engines": {
+		"node": ">=22.21.1"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/lambda-script/harnessforce-agent.git",
+		"directory": "packages/cli"
+	},
+	"publishConfig": {
+		"access": "public",
+		"provenance": true
+	},
+	"scripts": {
+		"build": "tsc -p tsconfig.build.json"
+	}
+}
