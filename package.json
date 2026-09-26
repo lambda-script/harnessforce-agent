@@ -10,22 +10,24 @@
 		"npmScope": "@harnessforce"
 	},
 	"scripts": {
-		"lint": "biome check .",
+		"lint": "turbo run lint lint:root",
+		"lint:root": "biome check .changeset .claude-plugin plugins scripts tests biome.json package.json tsconfig.json turbo.json vitest.config.ts",
 		"format": "biome format --write .",
-		"typecheck": "tsc -p tsconfig.json",
-		"test": "vitest run",
-		"build": "pnpm -r --filter \"./packages/*\" run build",
-		"check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+		"typecheck": "turbo run typecheck typecheck:root",
+		"typecheck:root": "tsc -p tsconfig.json",
+		"test": "turbo run test test:root",
+		"test:root": "vitest run",
+		"build": "turbo run build",
+		"check": "turbo run lint lint:root typecheck typecheck:root test test:root build",
 		"scope:apply": "node scripts/set-npm-scope.mjs",
 		"version-packages": "changeset version",
-		"release": "pnpm build && changeset publish"
+		"release": "turbo run build && changeset publish"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.3.14",
 		"@changesets/cli": "^2.31.1",
 		"@types/node": "^22.20.4",
-		"ajv": "^8.20.0",
-		"ajv-formats": "^3.0.1",
+		"turbo": "^2.11.4",
 		"typescript": "^6.0.3",
 		"vitest": "^4.1.11"
 	}

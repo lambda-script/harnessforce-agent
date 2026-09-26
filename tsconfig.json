@@ -12,5 +12,5 @@
 		"types": ["node"],
 		"noEmit": true
 	},
-	"include": ["packages/*/src", "packages/*/test", "tests", "vitest.config.ts"]
+	"include": ["tests", "vitest.config.ts"]
 }
