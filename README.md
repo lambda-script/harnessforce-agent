@@ -60,7 +60,7 @@ hooks. Public distribution starts once the production domain is decided.
    sends the SHA-256 hashes of the ingest keys already in the keychain, so the old key for the chosen
    Workspace on this machine is revoked. Keys on other machines stay valid.
 4. It stores both under the keychain service `harnessforce` as `<workspace_id>:ingest-key` and
-   `<workspace_id>:api-token`.
+   `<workspace_id>:api-token`, and pins the ingest endpoint origin as `<workspace_id>:ingest-origin`.
 5. It updates the Claude Code user settings (`~/.claude/settings.json`, or `$CLAUDE_CONFIG_DIR`),
    changing only these keys:
    - `env`: the OTel exporter variables, `HARNESSFORCE_URL`, `HARNESSFORCE_ENDPOINT` and
@@ -70,7 +70,12 @@ hooks. Public distribution starts once the production domain is decided.
 
 `hf otel-headers` prints `{"Authorization":"Bearer <key>"}`. The key is `HARNESSFORCE_INGEST_KEY`
 when that is set, and otherwise the user key for `HARNESSFORCE_WORKSPACE_ID` from the keychain. If
-there is no key, it prints nothing and exits 1.
+there is no key, it prints nothing and exits 1. The user key is printed only when every destination
+variable that is set (`HARNESSFORCE_ENDPOINT`, `OTEL_EXPORTER_OTLP_ENDPOINT` and the per-signal
+`OTEL_EXPORTER_OTLP_*_ENDPOINT`) has the pinned origin. This stops a repository's
+`.claude/settings.json` `env` from pointing the hook at another host to collect the key. Otherwise it
+writes `harnessforce: user key withheld (destination not verified)` to stderr and exits 1. Run
+`hf init` again to re-pin.
 
 The default base URL is a build input: `HARNESSFORCE_BUILD_URL=<apps/web base URL> pnpm build`.
 The build fails without it. The value must be `https:`, or `http:` for localhost.
