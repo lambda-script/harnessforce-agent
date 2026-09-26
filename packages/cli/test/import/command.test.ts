@@ -389,4 +389,15 @@ describe("hf import", () => {
 		await run();
 		expect(hf.sessionBodies()).toEqual([["s000"]]);
 	});
+
+	it("stops when the state file cannot be saved", async () => {
+		const { home, run } = await setup();
+		// directoryを作れないように、同じ名前のfileを置く。
+		writeFileSync(join(home.home, ".harnessforce"), "");
+		expect(await run()).toEqual({
+			code: 1,
+			out: "",
+			err: "取り込みの状態を保存できませんでした\n",
+		});
+	});
 });
