@@ -112,6 +112,17 @@ describe("UserPromptSubmit hook", () => {
 		expect(h.out()).toBe("");
 	});
 
+	it("sends nothing when the saved registration belongs to another session", async () => {
+		const h = harness();
+		const dir = scratchpad();
+		writeFileSync(
+			join(dir, "registration-s-1.json"),
+			JSON.stringify({ session_id: "other", agent: "claude_code" }),
+		);
+		await submit(h, { scratchpad_dir: dir, prompt_id: "p-1" });
+		expect(h.requests).toEqual([]);
+	});
+
 	it.each([
 		["without scratchpad_dir", { prompt_id: "p-1" }],
 		["without prompt_id", { scratchpad_dir: "__dir__" }],

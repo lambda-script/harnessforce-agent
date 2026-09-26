@@ -30,7 +30,7 @@ export async function isMarkedUnauthorized(pad: Scratchpad): Promise<boolean> {
 	);
 }
 
-// 読めない、または壊れた内容は、保存が無い場合と同じに扱う。
+// 読めない、壊れた、または別のsessionの内容は、保存が無い場合と同じに扱う。
 export async function loadRegistration(
 	pad: Scratchpad,
 ): Promise<SessionRegistration | undefined> {
@@ -38,9 +38,11 @@ export async function loadRegistration(
 		const saved: unknown = JSON.parse(
 			await readFile(registrationFile(pad), "utf8"),
 		);
-		return typeof saved === "object" && saved !== null && !Array.isArray(saved)
-			? (saved as SessionRegistration)
-			: undefined;
+		const isThisSession =
+			typeof saved === "object" &&
+			saved !== null &&
+			(saved as { session_id?: unknown }).session_id === pad.sessionId;
+		return isThisSession ? (saved as SessionRegistration) : undefined;
 	} catch {
 		return undefined;
 	}

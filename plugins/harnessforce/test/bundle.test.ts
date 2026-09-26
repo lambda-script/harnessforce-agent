@@ -35,6 +35,10 @@ const identity = {
 	GIT_COMMITTER_NAME: "hook-test",
 	GIT_COMMITTER_EMAIL: "hook-test@example.test",
 };
+const withoutGitVariables = (env: NodeJS.ProcessEnv) =>
+	Object.fromEntries(
+		Object.entries(env).filter(([name]) => !name.startsWith("GIT_")),
+	);
 const cleanups: (() => void)[] = [];
 afterEach(() => {
 	for (const cleanup of cleanups.splice(0)) cleanup();
@@ -44,7 +48,8 @@ function makeRepo() {
 	const dir = realpathSync(mkdtempSync(join(tmpdir(), "hf-repo-")));
 	const git = (...args: string[]) =>
 		execFileSync("git", ["-C", dir, ...args], {
-			env: { ...process.env, ...identity },
+			// 実行中の環境のGIT_DIRなどでtestの外のrepositoryを触らない。
+			env: { ...withoutGitVariables(process.env), ...identity },
 		})
 			.toString()
 			.trim();
@@ -173,10 +178,11 @@ describe("bundled hook", () => {
 		const ingest = await startIngest("accept");
 		const pad = mkdtempSync(join(tmpdir(), "hf-scratch-"));
 		const input = { session_id: "s-1", cwd: repo.dir, scratchpad_dir: pad };
+		// 利用者の環境のGIT_DIRではなく、cwdのrepositoryを登録する。
 		const started = await runBundle(
 			"session-start",
 			{ ...input, source: "startup" },
-			env(ingest.endpoint),
+			{ ...env(ingest.endpoint), GIT_DIR: join(pad, "not-a-repo") },
 		);
 		const prompted = await runBundle(
 			"user-prompt-submit",
