@@ -45,6 +45,14 @@ export class Sink {
 		this.components.push(component);
 	}
 
+	// 異なるfileが同じkind、source、識別子になったか（correlation.md「構成の収集」）。
+	hasDuplicates(): boolean {
+		const keys = new Set(
+			this.components.map((c) => `${c.kind}\0${c.source}\0${c.id}`),
+		);
+		return keys.size !== this.components.length;
+	}
+
 	readonly scope: ScopeFactory = (source, idPrefix = "", version) => {
 		const add = (kind: ComponentKind, id: string, hash: string) =>
 			this.add({

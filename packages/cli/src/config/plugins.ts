@@ -1,9 +1,9 @@
 import { join } from "node:path";
 import {
+	exists,
 	type Guard,
 	isObject,
 	listDirectories,
-	readFileIfExists,
 	readJsonObject,
 } from "./files.js";
 import {
@@ -17,7 +17,9 @@ import {
 // marketplaceとして扱わないorigin（claude-code.md「plugin と marketplace」）。inlineはsession限り、
 // skills-dirはcacheを使わず、syncedは配置が文書化されていない。
 const NON_MARKETPLACE_ORIGINS = new Set(["inline", "skills-dir", "synced"]);
-const PLUGIN_ID = /^([^@\s]+)@([^@\s]+)$/;
+// repositoryのsettingsがplugins rootの外を指せないよう、pathの区切りを含まない名前だけを受け付ける。
+const PLUGIN_ID = /^([A-Za-z0-9._-]+)@([A-Za-z0-9._-]+)$/;
+const isPathSegment = (name: string) => name !== "." && name !== "..";
 const VERSION = /^\S{1,64}$/;
 // 更新または削除で前のversionのdirectoryに書かれる印。
 const ORPHANED_MARK = ".orphaned_at";
@@ -40,9 +42,7 @@ async function liveVersion(
 ): Promise<string | undefined> {
 	const live: string[] = [];
 	for (const version of await listDirectories(pluginDir, guard))
-		if (
-			!(await readFileIfExists(join(pluginDir, version, ORPHANED_MARK), guard))
-		)
+		if (!(await exists(join(pluginDir, version, ORPHANED_MARK), guard)))
 			live.push(version);
 	return live.length === 1 ? live[0] : undefined;
 }
@@ -55,7 +55,13 @@ export async function collectPlugins(
 ): Promise<void> {
 	for (const id of enabledPluginIds(settingsByPrecedence)) {
 		const [, name, marketplace] = PLUGIN_ID.exec(id) ?? [];
-		if (!name || !marketplace || NON_MARKETPLACE_ORIGINS.has(marketplace))
+		if (
+			!name ||
+			!marketplace ||
+			!isPathSegment(name) ||
+			!isPathSegment(marketplace) ||
+			NON_MARKETPLACE_ORIGINS.has(marketplace)
+		)
 			continue;
 		const pluginDir = join(pluginsRoot, "cache", marketplace, name);
 		const version = await liveVersion(pluginDir, guard);

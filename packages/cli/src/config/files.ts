@@ -1,9 +1,11 @@
 import type { Dirent } from "node:fs";
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir, readFile, realpath, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 // correlation.md「構成の収集」: symlinkは辿り、再帰は収集元のdirectoryから8段まで。
 const MAX_DEPTH = 8;
+// repositoryが置いたsymlinkでhookを止めたり待たせたりしないため、通常のfileでこの大きさ以下のものだけを読む。
+const MAX_FILE_BYTES = 1024 * 1024;
 
 export class CollectionExpired extends Error {}
 
@@ -15,7 +17,17 @@ export async function readFileIfExists(
 	guard: Guard,
 ): Promise<Buffer | undefined> {
 	guard();
+	const info = await stat(path).catch(() => undefined);
+	if (!info?.isFile() || info.size > MAX_FILE_BYTES) return undefined;
 	return readFile(path).catch(() => undefined);
+}
+
+export async function exists(path: string, guard: Guard): Promise<boolean> {
+	guard();
+	return stat(path).then(
+		() => true,
+		() => false,
+	);
 }
 
 export async function readJsonObject(
@@ -64,8 +76,14 @@ export async function listFiles(
 	guard: Guard,
 ): Promise<string[]> {
 	const found: string[] = [];
+	// symlinkの循環で同じ実体を何度も辿らないよう、辿ったdirectoryの実体を覚える。
+	const visited = new Set<string>();
 	const walk = async (relative: string, depth: number): Promise<void> => {
 		const current = relative ? join(dir, relative) : dir;
+		guard();
+		const real = await realpath(current).catch(() => undefined);
+		if (real === undefined || visited.has(real)) return;
+		visited.add(real);
 		for (const entry of await entries(current, guard)) {
 			const path = relative ? `${relative}/${entry.name}` : entry.name;
 			const kind = await kindOf(current, entry, guard);

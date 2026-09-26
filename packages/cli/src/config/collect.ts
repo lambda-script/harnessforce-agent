@@ -27,12 +27,18 @@ export type CollectOptions = {
 	homeDir: string;
 	managedDir: string;
 	env: Readonly<Record<string, string | undefined>>;
-	// 上限時間（収集の開始から1秒）を過ぎたらtrue。
+	// 上限時間（COLLECT_BUDGET_MS）を過ぎたらtrue。
 	isExpired: () => boolean;
 };
+// correlation.md「構成の収集」: 収集の開始からの上限時間。hookとhf runで同じ値を使う。
+export const COLLECT_BUDGET_MS = 1000;
+
 export type CollectResult =
 	| { kind: "collected"; components: ConfigComponent[] }
-	| { kind: "skipped"; reason: "timeout" | "too many components" };
+	| {
+			kind: "skipped";
+			reason: "timeout" | "too many components" | "duplicate identifier";
+	  };
 
 // hashを決めるためだけの併合。Claude Codeが値を併合する規則は再現しない（correlation.md「構成の収集」）。
 async function readManagedSettings(
@@ -163,6 +169,8 @@ export async function collectConfig(
 	const sink = new Sink(guard);
 	try {
 		await collectAll(options, sink.scope, guard);
+		// 最後の読み込みの途中で上限を超えた場合も送らない。
+		guard();
 	} catch (error) {
 		if (error instanceof CollectionExpired)
 			return { kind: "skipped", reason: "timeout" };
@@ -170,5 +178,7 @@ export async function collectConfig(
 			return { kind: "skipped", reason: "too many components" };
 		throw error;
 	}
+	if (sink.hasDuplicates())
+		return { kind: "skipped", reason: "duplicate identifier" };
 	return { kind: "collected", components: sortComponents(sink.components) };
 }
