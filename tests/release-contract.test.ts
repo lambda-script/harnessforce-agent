@@ -31,3 +31,23 @@ describe("release contract", () => {
 		expect(pkg.files).toEqual(["dist"]);
 	});
 });
+
+describe("release workflow", () => {
+	const yml = readFileSync(
+		new URL("../.github/workflows/release.yml", import.meta.url),
+		"utf8",
+	);
+
+	it("stays disabled until the repository variable enables it", () =>
+		expect(yml).toContain("if: vars.NPM_PUBLISH_ENABLED == 'true'"));
+	it("grants OIDC for provenance on a GitHub-hosted runner", () => {
+		expect(yml).toContain("id-token: write");
+		expect(yml).toMatch(/runs-on: ubuntu-/);
+	});
+	it("passes the npm credential by an explicit secret name", () => {
+		expect(yml).toContain("NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}");
+		expect(yml).not.toContain("secrets: inherit");
+	});
+	it("verifies the registry after publishing", () =>
+		expect(yml).toContain("node scripts/verify-published.mjs"));
+});
