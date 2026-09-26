@@ -1,3 +1,4 @@
+import { parseAllowedUrl } from "../../../packages/cli/src/url.js";
 import type { ConfigSnapshot } from "../../../packages/semconv/src/schemas/config-snapshot.js";
 import type { SessionRegistration } from "../../../packages/semconv/src/schemas/session-registration.js";
 
@@ -14,22 +15,11 @@ export type SendOutcome =
 
 // correlation.md「hook」の共通の規則: 送信の上限時間。
 const SEND_TIMEOUT_MS = 2000;
-// keyを平文で流さないため、http:はlocalの受信だけに許す。
-const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 // HARNESSFORCE_ENDPOINTはpathを含んでよいbase URL。schemeを確かめ、末尾の/を除いたpathを持つbaseを返す。
 export function ingestBaseFrom(endpoint: string | undefined): URL | undefined {
-	if (!endpoint) return undefined;
-	let base: URL;
-	try {
-		base = new URL(endpoint);
-	} catch {
-		return undefined;
-	}
-	const isAllowedScheme =
-		base.protocol === "https:" ||
-		(base.protocol === "http:" && LOOPBACK_HOSTS.has(base.hostname));
-	if (!isAllowedScheme) return undefined;
+	const base = parseAllowedUrl(endpoint);
+	if (!base) return undefined;
 	// userinfo、query、fragmentは送信先に含めない。
 	const ingestBase = new URL(base.origin);
 	ingestBase.pathname = base.pathname.replace(/\/+$/, "");
