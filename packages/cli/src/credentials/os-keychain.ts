@@ -3,6 +3,7 @@ import { KEYCHAIN_SERVICE, type Keychain } from "./keychain.js";
 type KeyringEntry = {
 	getPassword(): string | null;
 	setPassword(password: string): void;
+	deleteCredential(): boolean;
 };
 
 // @napi-rs/keyringのうち使う部分。testではfakeを渡し、実際のkeychainに触れない。
@@ -55,6 +56,9 @@ export function createOsKeychain({ platform, load }: Options): Keychain {
 		},
 		async set(account, secret) {
 			(await entry(account)).setPassword(secret);
+		},
+		async delete(account) {
+			(await entry(account)).deleteCredential();
 		},
 		async list() {
 			return (await keyring())

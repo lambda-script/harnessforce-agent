@@ -6,6 +6,8 @@ export type Keychain = {
 	isAvailable(): Promise<boolean>;
 	get(account: string): Promise<string | undefined>;
 	set(account: string, secret: string): Promise<void>;
+	// 項目が無くても成功とする。
+	delete(account: string): Promise<void>;
 	list(): Promise<readonly KeychainItem[]>;
 };
 
@@ -17,5 +19,8 @@ export const ingestKeyAccount = (workspaceId: string) =>
 	`${workspaceId}${INGEST_KEY_SUFFIX}`;
 export const apiTokenAccount = (workspaceId: string) =>
 	`${workspaceId}:api-token`;
+// hf initが保存したingestの送信先のorigin。利用者用のkeyはこのoriginへだけ出す。
+export const ingestOriginAccount = (workspaceId: string) =>
+	`${workspaceId}:ingest-origin`;
 export const isIngestKeyAccount = (account: string) =>
 	account.endsWith(INGEST_KEY_SUFFIX);

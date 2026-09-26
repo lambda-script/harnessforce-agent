@@ -31,7 +31,7 @@ export async function run(
 		return 0;
 	}
 	if (command === "otel-headers" && rest.length === 0)
-		return otelHeaders(deps.env, deps.keychain, deps.stdout);
+		return otelHeaders(deps.env, deps.keychain, deps.stdout, deps.stderr);
 	const initArgs = command === "init" ? parseInitArgs(rest) : undefined;
 	if (initArgs) return init(initArgs.url, deps);
 	deps.stderr(USAGE);

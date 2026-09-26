@@ -12,6 +12,8 @@ type FakeKeychainOptions = {
 // 実際のkeychainの代わり。itemsは書き込みで更新される。
 export function fakeKeychain(options: FakeKeychainOptions = {}) {
 	const items = new Map(Object.entries(options.items ?? {}));
+	// 書き込みの順序。deleteは"delete <account>"とする。
+	const writes: string[] = [];
 	const fail = (when: boolean | undefined) => {
 		if (when) throw new Error("keychain failure");
 	};
@@ -24,13 +26,19 @@ export function fakeKeychain(options: FakeKeychainOptions = {}) {
 		set: async (account, secret) => {
 			fail(options.failWrite);
 			items.set(account, secret);
+			writes.push(account);
+		},
+		delete: async (account) => {
+			fail(options.failWrite);
+			items.delete(account);
+			writes.push(`delete ${account}`);
 		},
 		list: async (): Promise<KeychainItem[]> => {
 			fail(options.failRead);
 			return [...items].map(([account, secret]) => ({ account, secret }));
 		},
 	};
-	return { keychain, items };
+	return { keychain, items, writes };
 }
 
 // keychainに触れてはいけないtestで使う。
@@ -42,6 +50,9 @@ export const untouchableKeychain: Keychain = {
 		throw new Error("keychain must not be used");
 	},
 	set: async () => {
+		throw new Error("keychain must not be used");
+	},
+	delete: async () => {
 		throw new Error("keychain must not be used");
 	},
 	list: async () => {

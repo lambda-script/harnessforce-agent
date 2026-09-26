@@ -109,6 +109,8 @@ describe("hf init", () => {
 			...EXISTING,
 			"ws1:ingest-key": issued.ingest_key,
 			"ws1:api-token": issued.api_token,
+			// 送信先の固定。ingest_endpointのscheme、host、portだけを保存する。
+			"ws1:ingest-origin": "https://ingest.example.test",
 		});
 		const settings = JSON.parse(home.read() ?? "");
 		expect(settings).toEqual({
@@ -153,6 +155,56 @@ describe("hf init", () => {
 		expect(JSON.parse(home.read() ?? "").env.HARNESSFORCE_URL).toBe(
 			server.base,
 		);
+	});
+
+	it("records the connection URL without userinfo, query or fragment", async () => {
+		const server = await startHarnessforce({ basePath: "/hf" });
+		const withUserinfo = server.base.replace("http://", "http://user:pass@");
+		const home = makeHome();
+		const result = await runInit(["--url", `${withUserinfo}?x=1#y`], {
+			homeDir: home.home,
+			openBrowser: fakeBrowser().open,
+		});
+		expect(result.code).toBe(0);
+		expect(JSON.parse(home.read() ?? "").env.HARNESSFORCE_URL).toBe(
+			server.base,
+		);
+		expect(home.read()).not.toContain("pass");
+	});
+
+	it("re-pins the origin on a later hf init", async () => {
+		const server = await startHarnessforce();
+		const { keychain, items } = fakeKeychain({
+			items: {
+				"ws1:ingest-key": "hf_ik_ws1_old",
+				"ws1:ingest-origin": "https://old-ingest.example.test",
+			},
+		});
+		await runInit([], {
+			homeDir: makeHome().home,
+			defaultUrl: server.base,
+			keychain,
+			openBrowser: fakeBrowser().open,
+		});
+		expect(items.get("ws1:ingest-origin")).toBe("https://ingest.example.test");
+	});
+
+	// 途中で失敗しても、前の接続先のoriginと新しいkeyの組を残さない。
+	it("deletes the pinned origin before saving the new key", async () => {
+		const server = await startHarnessforce();
+		const { keychain, writes } = fakeKeychain();
+		await runInit([], {
+			homeDir: makeHome().home,
+			defaultUrl: server.base,
+			keychain,
+			openBrowser: fakeBrowser().open,
+		});
+		expect(writes).toEqual([
+			"delete ws1:ingest-origin",
+			"ws1:ingest-key",
+			"ws1:api-token",
+			"ws1:ingest-origin",
+		]);
 	});
 
 	it("honors CLAUDE_CONFIG_DIR for the user settings file", async () => {

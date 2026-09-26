@@ -32,6 +32,9 @@ function fakeKeyring(
 			setPassword(password: string) {
 				store.set(this.#key, password);
 			}
+			deleteCredential() {
+				return store.delete(this.#key);
+			}
 		},
 		findCredentials: (service) =>
 			[...store.entries()]
@@ -64,6 +67,10 @@ describe("OS keychain", () => {
 		await keychain.set("ws1:ingest-key", "hf_ik_ws1_secret");
 		expect(await keychain.get("ws1:ingest-key")).toBe("hf_ik_ws1_secret");
 		expect(await keychain.get("ws2:ingest-key")).toBeUndefined();
+		await keychain.delete("ws1:ingest-key");
+		await keychain.delete("ws1:ingest-key");
+		expect(await keychain.get("ws1:ingest-key")).toBeUndefined();
+		await keychain.set("ws1:ingest-key", "hf_ik_ws1_secret");
 		expect(await keychain.list()).toEqual([
 			{ account: "ws1:ingest-key", secret: "hf_ik_ws1_secret" },
 		]);

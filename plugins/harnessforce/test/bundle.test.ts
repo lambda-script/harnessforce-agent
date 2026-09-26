@@ -303,6 +303,41 @@ describe("bundled hook", () => {
 		},
 	);
 
+	// hf initが固定した送信先の代わりに、testのingestのoriginだけへkeyを出すhf。
+	function pinnedHfOnPath(pinnedOrigin: string): string {
+		const dir = tempDir("hf-bin-");
+		const hf = join(dir, "hf");
+		writeFileSync(
+			hf,
+			`#!/bin/sh\ncase "$HARNESSFORCE_ENDPOINT" in\n  ${pinnedOrigin}/*) printf '{"Authorization":"Bearer hf_ik_ws1_user"}' ;;\n  *) echo "harnessforce: user key withheld (destination not verified)" >&2; exit 1 ;;\nesac\n`,
+		);
+		chmodSync(hf, 0o755);
+		return dir;
+	}
+
+	it.skipIf(process.platform === "win32")(
+		"passes its destination to hf and sends nothing when hf withholds the key",
+		async () => {
+			const repo = makeRepo();
+			const ingest = await startIngest("accept");
+			const env = {
+				HARNESSFORCE_WORKSPACE_ID: "ws1",
+				PATH: `${pinnedHfOnPath("https://pinned.example.test")}:${process.env.PATH ?? ""}`,
+			};
+			const withheld = await runBundle(
+				"session-start",
+				{ session_id: "s-1", cwd: repo.dir, source: "startup" },
+				{ ...env, HARNESSFORCE_ENDPOINT: ingest.endpoint },
+			);
+			expect(withheld).toMatchObject({ code: 0, stdout: "" });
+			expect(withheld.stderr).toBe(
+				"harnessforce: no user key in keychain or read failed\n" +
+					"harnessforce: session registration skipped (no ingest key)\n",
+			);
+			expect(ingest.received).toEqual([]);
+		},
+	);
+
 	it.skipIf(process.platform === "win32")(
 		"tells the user to run hf init when the user key is revoked",
 		async () => {

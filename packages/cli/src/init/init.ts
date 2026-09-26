@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import {
 	apiTokenAccount,
 	ingestKeyAccount,
+	ingestOriginAccount,
 	isIngestKeyAccount,
 	type Keychain,
 } from "../credentials/keychain.js";
@@ -70,8 +71,9 @@ export async function init(
 }
 
 async function runInit(url: string | undefined, deps: InitDeps) {
-	const connection = url ?? deps.defaultUrl;
-	const base = parseAllowedUrl(connection) ?? stop("invalidUrl");
+	const base = parseAllowedUrl(url ?? deps.defaultUrl) ?? stop("invalidUrl");
+	// settingsへは送信先と同じくscheme、host、port、pathだけを書き、userinfoを残さない。
+	const recordedUrl = `${base.origin}${base.pathname.replace(/\/+$/, "")}`;
 	const revokeKeyHashes = await readRevokeKeyHashes(deps.keychain);
 	const settingsPath = userSettingsPath(deps.env, deps.homeDir);
 	// 発行した後に保存で失敗し、再実行のたびにkeyを入れ替えることを避けるため、ログインの前に確かめる。
@@ -97,7 +99,7 @@ async function runInit(url: string | undefined, deps: InitDeps) {
 		deps.fetch,
 	);
 	const issued = issuedOrStop(outcome);
-	await save(issued, connection, settingsPath, deps).catch((error: unknown) =>
+	await save(issued, recordedUrl, settingsPath, deps).catch((error: unknown) =>
 		stop(error instanceof InitStop ? error.message : "saveFailed"),
 	);
 }
@@ -171,17 +173,23 @@ function issuedOrStop(outcome: CredentialOutcome): Issued {
 }
 
 // correlation.md「CLI」の手順5と6。どちらかが失敗したら保存の失敗とする。
+// originを先に消し、途中で失敗しても前の接続先のoriginと新しいkeyの組を残さない。
 async function save(
 	issued: Issued,
 	connection: string,
 	settingsPath: string,
 	deps: InitDeps,
 ): Promise<void> {
+	await deps.keychain.delete(ingestOriginAccount(issued.workspaceId));
 	await deps.keychain.set(
 		ingestKeyAccount(issued.workspaceId),
 		issued.ingestKey,
 	);
 	await deps.keychain.set(apiTokenAccount(issued.workspaceId), issued.apiToken);
+	await deps.keychain.set(
+		ingestOriginAccount(issued.workspaceId),
+		new URL(issued.ingestEndpoint).origin,
+	);
 	const current = await readUserSettings(settingsPath);
 	if (current.kind === "invalid") return stop("saveFailed");
 	await writeUserSettings(
