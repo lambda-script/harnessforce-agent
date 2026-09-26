@@ -135,7 +135,7 @@ describe("parseTranscript", () => {
 		]);
 	});
 
-	it("reports a file without any response as unreadable", async () => {
+	it("has no session to import in a readable file without any model response", async () => {
 		expect(
 			await parseTranscript(
 				transcript(
@@ -147,7 +147,7 @@ describe("parseTranscript", () => {
 					}),
 				),
 			),
-		).toEqual({ kind: "unreadable", skippedLines: 0 });
+		).toEqual({ kind: "empty", skippedLines: 0 });
 	});
 
 	it("reports a file it cannot open as unreadable", async () => {

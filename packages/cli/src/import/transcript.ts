@@ -23,6 +23,8 @@ export type TranscriptSession = {
 
 export type TranscriptResult =
 	| { kind: "session"; session: TranscriptSession; skippedLines: number }
+	// 読めたが、送れるsession（session ID、時刻、modelの応答）が無い。応答の前に終わったsessionなど。
+	| { kind: "empty"; skippedLines: number }
 	| { kind: "unreadable"; skippedLines: number };
 
 // semconvのToken（空白を含まない文字列）と同じ制約。満たさない値は数えない。
@@ -173,8 +175,7 @@ class Accumulator {
 	}
 }
 
-// 読めない行（JSONのobjectでない行）は読み飛ばして数える。fileを開けない場合と、
-// 送れるsession（session ID、時刻、modelの応答）を取り出せない場合は、file全体を読めないものとする。
+// 読めない行（JSONのobjectでない行）は読み飛ばして数える。fileを開けない、または途中で読めなくなった場合は、file全体を読めないものとする。
 export async function parseTranscript(path: string): Promise<TranscriptResult> {
 	const accumulator = new Accumulator();
 	let skippedLines = 0;
@@ -201,5 +202,5 @@ export async function parseTranscript(path: string): Promise<TranscriptResult> {
 	const session = accumulator.result();
 	return session
 		? { kind: "session", session, skippedLines }
-		: { kind: "unreadable", skippedLines };
+		: { kind: "empty", skippedLines };
 }

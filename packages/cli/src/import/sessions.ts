@@ -85,10 +85,8 @@ export async function scanSessions(options: ScanOptions): Promise<SessionScan> {
 		if (modifiedMs !== undefined && modifiedMs < options.sinceMs) continue;
 		const result = await parseTranscript(file);
 		skippedLines += result.skippedLines;
-		if (result.kind === "unreadable") {
-			skippedFiles += 1;
-			continue;
-		}
+		if (result.kind === "unreadable") skippedFiles += 1;
+		if (result.kind !== "session") continue;
 		const { session } = result;
 		if (Date.parse(session.endedAt) < options.sinceMs || !session.cwd) continue;
 		const repository = await repositoryOf(session.cwd);

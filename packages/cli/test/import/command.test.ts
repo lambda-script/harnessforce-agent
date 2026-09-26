@@ -383,7 +383,7 @@ describe("hf import", () => {
 		);
 		expect(await run()).toEqual({
 			code: 0,
-			out: "読めなかった1行と1個のfileを読み飛ばしました\n0件のsessionを取り込みました\n形式が不正なため1件のsessionを取り込めませんでした\n",
+			out: "読めなかった1行と0個のfileを読み飛ばしました\n0件のsessionを取り込みました\n形式が不正なため1件のsessionを取り込めませんでした\n",
 			err: "",
 		});
 		await run();

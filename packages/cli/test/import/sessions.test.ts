@@ -1,4 +1,4 @@
-import { mkdirSync, utimesSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { RunGit } from "../../src/import/repository.js";
@@ -156,7 +156,9 @@ describe("scanSessions", () => {
 			"-work-web/s1.jsonl": {
 				content: `{broken\n${transcript("s1", "/work/web", "2026-09-20T00:00:00Z")}[]\n`,
 			},
+			// 行を読めてもmodelの応答が無いfileは、読み飛ばしたfileに数えない。
 			"-work-web/empty.jsonl": { content: "{broken\n" },
+			"-work-web/locked.jsonl": { content: "{}\n" },
 			"-work-web/notes.txt": { content: "x" },
 			"-work-web/s1/subagents/agent-1.jsonl": {
 				content: transcript("sub", "/work/web", "2026-09-20T00:00:00Z"),
@@ -165,6 +167,7 @@ describe("scanSessions", () => {
 				content: transcript("top", "/work/web", "2026-09-20T00:00:00Z"),
 			},
 		});
+		chmodSync(join(dir, "-work-web/locked.jsonl"), 0o000);
 		const { git } = fakeGit({ "/work/web": "https://github.com/acme/web" });
 		const result = await scan(dir, git);
 		expect(result.sessions.map((s) => s.session_id)).toEqual(["s1"]);
