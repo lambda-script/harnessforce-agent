@@ -98,8 +98,15 @@ export async function scanSessions(options: ScanOptions): Promise<SessionScan> {
 			sessions.set(session.sessionId, toSessionImport(session, repository));
 	}
 	return {
+		// 同じ入力からは同じ順で送り、途中で止まった後も同じsessionから続ける。
 		sessions: [...sessions.values()].sort(
-			(a, b) => Date.parse(a.started_at) - Date.parse(b.started_at),
+			(a, b) =>
+				Date.parse(a.started_at) - Date.parse(b.started_at) ||
+				(a.session_id < b.session_id
+					? -1
+					: a.session_id > b.session_id
+						? 1
+						: 0),
 		),
 		skippedLines,
 		skippedFiles,
