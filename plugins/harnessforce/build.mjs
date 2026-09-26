@@ -47,9 +47,8 @@ function copy(from, to) {
  * （environments.md「接続先」: stagingの検証者はbuildの出力を`/plugin marketplace add`する）。
  * repositoryのhooks/hooks.jsonは空のままにし、scriptを持つこの出力にだけhookを配線する。
  */
-export async function buildMarketplace(
-	outDir = join(pluginDir, "dist/marketplace"),
-) {
+async function buildMarketplace() {
+	const outDir = join(pluginDir, "dist/marketplace");
 	const plugin = join(outDir, "plugins/harnessforce");
 	rmSync(outDir, { recursive: true, force: true });
 	copy(
@@ -79,5 +78,4 @@ export async function buildMarketplace(
 	});
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url))
-	await buildMarketplace();
+await buildMarketplace();

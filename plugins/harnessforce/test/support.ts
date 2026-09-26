@@ -1,13 +1,23 @@
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Ajv } from "ajv";
+import { fullFormats } from "ajv-formats/dist/formats.js";
+import { onTestFinished } from "vitest";
 import { SessionRegistrationSchema } from "../../../packages/semconv/src/schemas/session-registration.js";
-import { compile } from "../../../packages/semconv/test/support/validator.js";
 import type { Env } from "../src/destination.js";
 import type { HookDeps } from "../src/hook.js";
 import type { RunGit } from "../src/vcs.js";
 
-export const isRegistration = compile(SessionRegistrationSchema);
+// 送信内容を、本体が検証に使う公開schemaで確かめる。
+export const isRegistration = (() => {
+	const ajv = new Ajv({ strict: true, allErrors: true });
+	ajv.addFormat("date-time", fullFormats["date-time"]);
+	const validate = ajv.compile(
+		JSON.parse(JSON.stringify(SessionRegistrationSchema)),
+	);
+	return (value: unknown) => validate(value);
+})();
 
 export const REPO = {
 	cwd: "/work/web",
@@ -73,4 +83,11 @@ export function harness(options: HarnessOptions = {}) {
 
 export type Harness = ReturnType<typeof harness>;
 
-export const scratchpad = () => mkdtempSync(join(tmpdir(), "hf-scratch-"));
+// testの終了時に削除する一時directory。testの中でだけ呼ぶ。
+export function tempDir(prefix: string): string {
+	const dir = mkdtempSync(join(tmpdir(), prefix));
+	onTestFinished(() => rmSync(dir, { recursive: true, force: true }));
+	return dir;
+}
+
+export const scratchpad = () => tempDir("hf-scratch-");

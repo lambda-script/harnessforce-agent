@@ -124,22 +124,21 @@ describe("UserPromptSubmit hook", () => {
 	});
 
 	it.each([
-		["without scratchpad_dir", { prompt_id: "p-1" }],
-		["without prompt_id", { scratchpad_dir: "__dir__" }],
+		["without scratchpad_dir", (_dir: string) => ({ prompt_id: "p-1" })],
+		["without prompt_id", (dir: string) => ({ scratchpad_dir: dir })],
 		[
 			"with a session id outside [A-Za-z0-9_-]",
-			{ session_id: "s.1", prompt_id: "p-1", scratchpad_dir: "__dir__" },
+			(dir: string) => ({
+				session_id: "s.1",
+				prompt_id: "p-1",
+				scratchpad_dir: dir,
+			}),
 		],
-	])("sends nothing %s", async (_, input) => {
+	])("sends nothing %s", async (_, inputFor) => {
 		const dir = scratchpad();
 		await start(harness(), { scratchpad_dir: dir });
 		const h = harness();
-		await submit(
-			h,
-			Object.fromEntries(
-				Object.entries(input).map(([k, v]) => [k, v === "__dir__" ? dir : v]),
-			),
-		);
+		await submit(h, inputFor(dir));
 		expect(h.requests).toEqual([]);
 	});
 

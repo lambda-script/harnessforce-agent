@@ -5,13 +5,15 @@ import {
 	mkdtempSync,
 	readFileSync,
 	realpathSync,
+	rmSync,
 } from "node:fs";
 import { createServer, type IncomingHttpHeaders } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { tempDir } from "./support.js";
 
 // turboはtestの前にこのpackageのbuildを実行する。直接vitestを実行する場合は先に`pnpm build`する。
 const built = fileURLToPath(new URL("../dist/marketplace", import.meta.url));
@@ -21,6 +23,9 @@ let hookScript: string;
 beforeAll(() => {
 	marketplace = join(mkdtempSync(join(tmpdir(), "hf-marketplace-")), "out");
 	cpSync(built, marketplace, { recursive: true });
+	afterAll(() =>
+		rmSync(dirname(marketplace), { recursive: true, force: true }),
+	);
 	hookScript = join(
 		marketplace,
 		"plugins/harnessforce/scripts/harnessforce-hook.cjs",
@@ -45,7 +50,7 @@ afterEach(() => {
 });
 
 function makeRepo() {
-	const dir = realpathSync(mkdtempSync(join(tmpdir(), "hf-repo-")));
+	const dir = realpathSync(tempDir("hf-repo-"));
 	const git = (...args: string[]) =>
 		execFileSync("git", ["-C", dir, ...args], {
 			// 実行中の環境のGIT_DIRなどでtestの外のrepositoryを触らない。
@@ -176,7 +181,7 @@ describe("bundled hook", () => {
 	it("registers a real git repository and its first prompt through HTTP", async () => {
 		const repo = makeRepo();
 		const ingest = await startIngest("accept");
-		const pad = mkdtempSync(join(tmpdir(), "hf-scratch-"));
+		const pad = tempDir("hf-scratch-");
 		const input = { session_id: "s-1", cwd: repo.dir, scratchpad_dir: pad };
 		// 利用者の環境のGIT_DIRではなく、cwdのrepositoryを登録する。
 		const started = await runBundle(
@@ -240,6 +245,7 @@ describe("bundled hook", () => {
 		expect(result.stderr).toBe(
 			"harnessforce: session registration failed (TimeoutError)\n",
 		);
+		expect(result.elapsedMs).toBeGreaterThanOrEqual(1900);
 		expect(result.elapsedMs).toBeLessThan(4000);
 	}, 10_000);
 
@@ -247,7 +253,7 @@ describe("bundled hook", () => {
 		const ingest = await startIngest("accept");
 		const result = await runBundle(
 			"session-start",
-			{ session_id: "s-1", cwd: mkdtempSync(join(tmpdir(), "hf-plain-")) },
+			{ session_id: "s-1", cwd: tempDir("hf-plain-") },
 			env(ingest.endpoint),
 		);
 		expect(result).toMatchObject({ code: 0, stdout: "", stderr: "" });

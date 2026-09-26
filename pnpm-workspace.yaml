@@ -1,3 +1,7 @@
 packages:
   - packages/*
   - plugins/*
+
+# esbuildの本体は@esbuild/<platform>のoptional dependencyから解決されるため、postinstallは不要である。
+ignoredBuiltDependencies:
+  - esbuild

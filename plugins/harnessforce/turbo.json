@@ -10,12 +10,8 @@
 			]
 		},
 		"test": {
-			"inputs": [
-				"$TURBO_DEFAULT$",
-				"$TURBO_ROOT$/packages/semconv/src/**",
-				"$TURBO_ROOT$/packages/semconv/test/support/**"
-			],
-			"dependsOn": ["^build", "build"]
+			"inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/semconv/src/**"],
+			"dependsOn": ["build"]
 		},
 		"build": {
 			"inputs": [
