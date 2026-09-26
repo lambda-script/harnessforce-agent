@@ -1,33 +1,15 @@
-import { execFile } from "node:child_process";
 import { homedir } from "node:os";
 import { managedDirFor } from "../../../packages/cli/src/managed.js";
+import { createGitRunner } from "../../../packages/cli/src/process/git.js";
+import {
+	relaunchWithoutRuntimeVariables,
+	spawnSelf,
+} from "../../../packages/cli/src/process/runtime-env.js";
 import { runHook } from "./hook.js";
 import { createUserKeyReader, execHf } from "./user-key.js";
-import type { RunGit } from "./vcs.js";
 
-// gitの各呼び出しの上限。repositoryの判定でsessionの開始を待たせない。
-const GIT_TIMEOUT_MS = 1000;
-
-// GIT_DIRなどが利用者の環境にあると、cwdではなくそのrepositoryを読むため、gitへは渡さない。
-const gitEnv = Object.fromEntries(
-	Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
-);
-
-const runGit: RunGit = (cwd, args) =>
-	new Promise((resolve) => {
-		execFile(
-			"git",
-			["-C", cwd, ...args],
-			{
-				encoding: "utf8",
-				env: gitEnv,
-				timeout: GIT_TIMEOUT_MS,
-				windowsHide: true,
-			},
-			(error, stdout) =>
-				resolve(error ? undefined : stdout.trim() || undefined),
-		);
-	});
+// hookの取り除いた値を戻す子プロセスは無い。受け取った値は子へ渡さない（correlation.md「Node.jsの実行時の変数」）。
+delete process.env.HARNESSFORCE_RUNTIME_ENV;
 
 async function readStdin(): Promise<string> {
 	const chunks: Buffer[] = [];
@@ -39,22 +21,41 @@ async function readStdin(): Promise<string> {
 for (const stream of [process.stdout, process.stderr])
 	stream.on("error", () => {});
 
-void readStdin()
-	.catch(() => "")
-	.then((raw) =>
-		runHook(process.argv[2] ?? "", raw, {
+async function main(): Promise<void> {
+	// stdinを読む前に確かめる。起動し直したprocessが同じstdinから入力を読む。
+	const relaunch = await relaunchWithoutRuntimeVariables({
+		platform: process.platform,
+		env: process.env,
+		stash: false,
+		spawnSelf,
+	});
+	if (relaunch.kind === "failed")
+		process.stderr.write(
+			"harnessforce: session registration skipped (restart failed)\n",
+		);
+	if (relaunch.kind !== "not-needed") return;
+	const raw = await readStdin().catch(() => "");
+	await runHook(process.argv[2] ?? "", raw, {
+		env: process.env,
+		now: () => new Date(),
+		git: createGitRunner({
+			platform: process.platform,
 			env: process.env,
-			now: () => new Date(),
-			git: runGit,
-			fetch: (url, init) => fetch(url, init),
-			stdout: (text) => process.stdout.write(text),
-			stderr: (text) => process.stderr.write(text),
-			homeDir: homedir(),
-			managedDir: managedDirFor(process.platform),
-			readUserKey: createUserKeyReader({
-				platform: process.platform,
-				env: process.env,
-				exec: execHf,
-			}),
+			processCwd: process.cwd(),
+			excludeTarget: true,
 		}),
-	);
+		fetch: (url, init) => fetch(url, init),
+		stdout: (text) => process.stdout.write(text),
+		stderr: (text) => process.stderr.write(text),
+		homeDir: homedir(),
+		managedDir: managedDirFor(process.platform),
+		readUserKey: createUserKeyReader({
+			platform: process.platform,
+			env: process.env,
+			exec: execHf,
+			processCwd: process.cwd(),
+		}),
+	});
+}
+
+void main();

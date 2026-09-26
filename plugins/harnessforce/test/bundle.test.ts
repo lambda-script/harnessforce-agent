@@ -364,6 +364,73 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 			},
 		);
 
+		// correlation.md「Node.jsの実行時の変数」: 取り除いて起動し直してから送る。hfへも渡さない。
+		it.skipIf(process.platform === "win32")(
+			"relaunches without Node runtime variables and sends directly",
+			async () => {
+				const repo = makeRepo();
+				const ingest = await startIngest("accept");
+				const proxied: string[] = [];
+				const proxy = createServer((req, res) => {
+					proxied.push(`${req.method} ${req.url}`);
+					res.writeHead(502).end();
+				});
+				proxy.on("connect", (req, socket) => {
+					proxied.push(`CONNECT ${req.url}`);
+					socket.destroy();
+				});
+				await new Promise<void>((resolve) =>
+					proxy.listen(0, "127.0.0.1", resolve),
+				);
+				cleanups.push(() => {
+					proxy.closeAllConnections();
+					proxy.close();
+				});
+				const proxyUrl = `http://127.0.0.1:${(proxy.address() as AddressInfo).port}`;
+				const hfDir = tempDir("hf-bin-");
+				const envOut = join(hfDir, "env.txt");
+				writeFileSync(
+					join(hfDir, "hf"),
+					`#!/bin/sh\nenv > "${envOut}"\nprintf '{"Authorization":"Bearer hf_ik_ws1_user"}'\n`,
+				);
+				chmodSync(join(hfDir, "hf"), 0o755);
+				const runtime = {
+					NODE_TLS_REJECT_UNAUTHORIZED: "0",
+					NODE_OPTIONS: "--no-deprecation",
+					NODE_USE_ENV_PROXY: "1",
+					HTTP_PROXY: proxyUrl,
+					http_proxy: proxyUrl,
+					HTTPS_PROXY: proxyUrl,
+					NO_PROXY: "",
+					OPENSSL_CONF: "",
+					SSL_CERT_FILE: "/nonexistent.pem",
+				};
+				const result = await runBundle(
+					"session-start",
+					{ session_id: "s-1", cwd: repo.dir, source: "startup" },
+					{
+						...runtime,
+						HARNESSFORCE_ENDPOINT: ingest.endpoint,
+						HARNESSFORCE_WORKSPACE_ID: "ws1",
+						PATH: `${hfDir}:${process.env.PATH ?? ""}`,
+					},
+				);
+				expect(result).toMatchObject({ code: 0, stdout: "" });
+				expect(result.stderr).not.toContain("harnessforce:");
+				expect(proxied).toEqual([]);
+				expect(ingest.received.map((r) => r.headers.authorization)).toEqual([
+					"Bearer hf_ik_ws1_user",
+				]);
+				const hfEnv = readFileSync(envOut, "utf8");
+				for (const name of Object.keys(runtime).filter(
+					(n) => n !== "NODE_USE_ENV_PROXY",
+				))
+					expect(hfEnv).not.toMatch(new RegExp(`^${name}=`, "m"));
+				expect(hfEnv).not.toMatch(/^HARNESSFORCE_RUNTIME_ENV=/m);
+			},
+			10_000,
+		);
+
 		it("exits 0 silently outside a git repository", async () => {
 			const ingest = await startIngest("accept");
 			const result = await runBundle(

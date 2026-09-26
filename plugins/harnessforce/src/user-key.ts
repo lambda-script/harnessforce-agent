@@ -1,7 +1,9 @@
 import { execFile } from "node:child_process";
-import { constants } from "node:fs";
-import { access, stat } from "node:fs/promises";
-import { posix, win32 } from "node:path";
+import {
+	commandLineFor,
+	findCommand,
+	type LookupFileSystem,
+} from "../../../packages/cli/src/process/lookup.js";
 import type { Env } from "./destination.js";
 
 // `hf otel-headers`でkeychainの利用者用IngestKeyを読んだ結果（correlation.md「実行環境」）。
@@ -11,7 +13,6 @@ export type UserKeyRead =
 	| { kind: "missing" }
 	| { kind: "failed" };
 
-export type IsRunnable = (path: string) => Promise<boolean>;
 // 終了コード0で上限時間内に終わったときだけokとする。
 export type ExecHf = (
 	file: string,
@@ -22,46 +23,7 @@ export type ExecHf = (
 // 送信の上限時間（2秒）とは別に数える起動の上限時間。
 const HF_TIMEOUT_MS = 1000;
 const HF_OUTPUT_LIMIT_BYTES = 64 * 1024;
-const DEFAULT_PATHEXT = ".COM;.EXE;.BAT;.CMD";
 const BEARER = /^Bearer (\S+)$/;
-
-type Command = { file: string; args: string[]; verbatim: boolean };
-
-async function findHf(
-	platform: NodeJS.Platform,
-	env: Env,
-	isRunnable: IsRunnable,
-): Promise<string | undefined> {
-	const path = platform === "win32" ? win32 : posix;
-	const extensions =
-		platform === "win32"
-			? (env.PATHEXT ?? DEFAULT_PATHEXT).split(";").filter(Boolean)
-			: [""];
-	// 相対pathのdirectoryはhookのcwdで解決され、repositoryの中のfileを起動しうるため探さない。
-	const dirs = (env.PATH ?? "")
-		.split(path.delimiter)
-		.filter((dir) => path.isAbsolute(dir));
-	for (const dir of dirs)
-		for (const extension of extensions) {
-			const candidate = path.join(dir, `hf${extension}`);
-			if (await isRunnable(candidate)) return candidate;
-		}
-	return undefined;
-}
-
-// Node.jsは.cmdと.batをshellなしで起動するとEINVALで失敗するため、cmd.exeに渡す（nodejs.md）。
-function commandFor(file: string, env: Env): Command | undefined {
-	if (!/\.(cmd|bat)$/i.test(file))
-		return { file, args: ["otel-headers"], verbatim: false };
-	// cmd.exeは引用符の中でも%を展開するため、起動しない。
-	if (file.includes("%")) return undefined;
-	return {
-		file: env.ComSpec ?? "cmd.exe",
-		// /sは最初と最後の引用符を1組取り除くため、外側にもう1組付ける。
-		args: ["/d", "/s", "/c", `""${file}" otel-headers"`],
-		verbatim: true,
-	};
-}
 
 function parseKey(stdout: string): string | undefined {
 	try {
@@ -81,18 +43,33 @@ type ReaderOptions = {
 	platform: NodeJS.Platform;
 	env: Env;
 	exec: ExecHf;
-	isRunnable?: IsRunnable;
+	// hookのprocessの現在のdirectory。入力のcwdと並べて除外の基点にする（correlation.md「commandの解決」）。
+	processCwd: string;
+	fs?: LookupFileSystem;
 };
 
 export function createUserKeyReader({
 	platform,
 	env,
 	exec,
-	isRunnable = isRunnableOn(platform),
-}: ReaderOptions): () => Promise<UserKeyRead> {
-	return async () => {
-		const file = await findHf(platform, env, isRunnable);
-		const command = file === undefined ? undefined : commandFor(file, env);
+	processCwd,
+	fs,
+}: ReaderOptions): (cwd: string) => Promise<UserKeyRead> {
+	return async (cwd) => {
+		const context = {
+			platform,
+			env,
+			bases: [processCwd, cwd],
+			...(fs ? { fs } : {}),
+		};
+		const file = await findCommand("hf", context);
+		// 起動できない`.cmd`（pathが%や!を含む、nodeやcmd.exeが無い）は、hfがPATHに無い場合と同じに扱う。
+		const command =
+			file === undefined
+				? undefined
+				: await commandLineFor(file, ["otel-headers"], context, {
+						quoteArgs: false,
+					});
 		if (!command) return { kind: "missing" };
 		const result = await exec(command.file, command.args, {
 			timeoutMs: HF_TIMEOUT_MS,
@@ -103,19 +80,6 @@ export function createUserKeyReader({
 		return key ? { kind: "found", key } : { kind: "failed" };
 	};
 }
-
-const isRunnableOn =
-	(platform: NodeJS.Platform): IsRunnable =>
-	async (path) => {
-		try {
-			if (!(await stat(path)).isFile()) return false;
-			// WindowsにはPOSIXの実行権限が無く、拡張子で実行できるかが決まる。
-			if (platform !== "win32") await access(path, constants.X_OK);
-			return true;
-		} catch {
-			return false;
-		}
-	};
 
 export const execHf: ExecHf = (file, args, options) =>
 	new Promise((resolve) => {

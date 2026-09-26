@@ -39,7 +39,7 @@ export type HookDeps = {
 	homeDir: string;
 	managedDir: string;
 	// `hf otel-headers`を起動してkeychainの利用者用IngestKeyを読む。
-	readUserKey: () => Promise<UserKeyRead>;
+	readUserKey: (cwd: string) => Promise<UserKeyRead>;
 };
 
 // correlation.md「hook」の共通の規則が、選んだkeyの種類ごとに定める文言。
@@ -65,9 +65,12 @@ const report = (deps: HookDeps, subject: Subject, detail: string) =>
 	deps.stderr(`harnessforce: ${subject} ${detail}\n`);
 
 // 利用者用のkeyは、`hf otel-headers`が送信先の固定を確かめたうえで返す。
-async function selectUserKey(deps: HookDeps): Promise<string | undefined> {
+async function selectUserKey(
+	deps: HookDeps,
+	cwd: string,
+): Promise<string | undefined> {
 	if (!deps.env.HARNESSFORCE_WORKSPACE_ID) return undefined;
-	const read = await deps.readUserKey();
+	const read = await deps.readUserKey(cwd);
 	if (read.kind === "failed")
 		deps.stderr("harnessforce: no user key in keychain or read failed\n");
 	return read.kind === "found" ? read.key : undefined;
@@ -78,6 +81,7 @@ async function selectUserKey(deps: HookDeps): Promise<string | undefined> {
 // 送信先の判定をkeyの判定より先に行い、両方が無ければ送信先の終端だけを書く。
 async function resolveDestination(
 	deps: HookDeps,
+	cwd: string,
 ): Promise<Destination | undefined> {
 	const managed = await readManagedEnv(deps.managedDir, [
 		"HARNESSFORCE_INGEST_KEY",
@@ -95,7 +99,7 @@ async function resolveDestination(
 	}
 	if (workspaceKey)
 		return { ingestBase, key: workspaceKey, keyKind: "workspace" };
-	const userKey = await selectUserKey(deps);
+	const userKey = await selectUserKey(deps, cwd);
 	if (!userKey) {
 		report(deps, "session registration", "skipped (no ingest key)");
 		return undefined;
@@ -208,7 +212,7 @@ async function onSessionStart(input: HookInput, deps: HookDeps): Promise<void> {
 		return;
 	if (input.scratchpad && (await isMarkedUnauthorized(input.scratchpad)))
 		return;
-	const destination = await resolveDestination(deps);
+	const destination = await resolveDestination(deps, input.cwd);
 	if (!destination) return;
 	const outcomes = await Promise.all([
 		registerSession(input, destination, deps).catch(logError(deps)),
@@ -227,7 +231,7 @@ async function onUserPromptSubmit(
 	if (!input.promptId || !pad || (await isMarkedUnauthorized(pad))) return;
 	const saved = await loadRegistration(pad);
 	if (!saved || (await isFirstPromptSent(pad))) return;
-	const destination = await resolveDestination(deps);
+	const destination = await resolveDestination(deps, input.cwd);
 	if (!destination || !(await claimFirstPrompt(pad))) return;
 	const outcome = await send(
 		destination,
