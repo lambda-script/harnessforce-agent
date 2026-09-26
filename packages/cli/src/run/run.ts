@@ -3,6 +3,7 @@ import {
 	ingestKeyAccount,
 	ingestOriginAccount,
 	type Keychain,
+	urlOriginAccount,
 } from "../credentials/keychain.js";
 import { resolveCliDestinations } from "../destinations.js";
 import type { Fetch } from "../init/http.js";
@@ -33,6 +34,7 @@ export type RunDeps = {
 	cwd: string;
 	git: RunGit;
 	now: () => Date;
+	platform: NodeJS.Platform;
 	launch: (launch: Launch) => Promise<LaunchOutcome>;
 };
 
@@ -74,26 +76,51 @@ function candidateList(candidates: readonly IssueCandidate[]): string {
 	return [RUN_MESSAGES.candidatesHeader, ...lines].join("\n");
 }
 
-async function prepareLaunch(args: RunArgs, deps: RunDeps): Promise<Launch> {
-	if (!(await deps.keychain.isAvailable().catch(() => false)))
+type Verified = {
+	workspaceId: string;
+	ingestEndpoint: string;
+	readApiBase: URL;
+	apiToken: string;
+};
+
+// correlation.md「CLI」の確かめる順1〜8。どの終端でもRead APIとingestへ何も送らない。
+async function verifyAccess(deps: RunDeps): Promise<Verified> {
+	const { keychain } = deps;
+	if (!(await keychain.isAvailable().catch(() => false)))
 		stop("keychainUnavailable");
 	const destinations = await resolveCliDestinations(
 		deps.env,
 		userSettingsPath(deps.env, deps.homeDir),
 		deps.defaultUrl,
 	);
-	if (destinations.kind === "initRequired") return stop("initRequired");
-	if (destinations.kind === "invalidUrl") return stop("invalidUrl");
-	const { workspaceId, ingestEndpoint, readApiBase } = destinations;
-	const ingestKey =
-		(await readKeychain(deps.keychain, ingestKeyAccount(workspaceId))) ??
+	const workspaceId = destinations.workspaceId ?? stop("initRequired");
+	if (!(await readKeychain(keychain, ingestKeyAccount(workspaceId))))
 		stop("initRequired");
+	const ingestEndpoint = destinations.ingestEndpoint ?? stop("initRequired");
+	const ingest = parseAllowedUrl(ingestEndpoint) ?? stop("invalidUrl");
+	// hookが拒否する送信先へ、hookと同じ利用者用のkeyのテレメトリを送らせない。
+	const ingestOrigin = await readKeychain(
+		keychain,
+		ingestOriginAccount(workspaceId),
+	);
+	if (!ingestOrigin || ingest.origin !== ingestOrigin) stop("initRequired");
+	const apiToken =
+		(await readKeychain(keychain, apiTokenAccount(workspaceId))) ??
+		stop("issueInitRequired");
+	const readApiBase =
+		parseAllowedUrl(destinations.readApiUrl) ?? stop("invalidUrl");
+	// shellやrepositoryのsettingsが書き換えた接続先へApiTokenを送らない。
+	const urlOrigin = await readKeychain(keychain, urlOriginAccount(workspaceId));
+	if (!urlOrigin || readApiBase.origin !== urlOrigin) stop("initRequired");
+	return { workspaceId, ingestEndpoint, readApiBase, apiToken };
+}
+
+async function prepareLaunch(args: RunArgs, deps: RunDeps): Promise<Launch> {
+	const { workspaceId, ingestEndpoint, readApiBase, apiToken } =
+		await verifyAccess(deps);
 
 	// 手順1: Issueの解決。
 	if (!ISSUE_IDENTIFIER.test(args.issue)) stop("invalidIssue");
-	const apiToken =
-		(await readKeychain(deps.keychain, apiTokenAccount(workspaceId))) ??
-		stop("issueInitRequired");
 	const resolution = await resolveIssue(
 		readApiBase,
 		args.issue,
@@ -117,14 +144,6 @@ async function prepareLaunch(args: RunArgs, deps: RunDeps): Promise<Launch> {
 		now: deps.now,
 	});
 
-	// 手順3: hookが拒否する送信先へ、hookと同じ利用者用のkeyを送らない。
-	const pinnedOrigin = await readKeychain(
-		deps.keychain,
-		ingestOriginAccount(workspaceId),
-	);
-	if (!pinnedOrigin || parseAllowedUrl(ingestEndpoint)?.origin !== pinnedOrigin)
-		stop("initRequired");
-
 	return buildLaunch({
 		agent: args.agent,
 		args: args.agentArgs,
@@ -136,7 +155,7 @@ async function prepareLaunch(args: RunArgs, deps: RunDeps): Promise<Launch> {
 		shellEnv: deps.env,
 		workspaceId,
 		ingestEndpoint,
-		ingestKey,
+		platform: deps.platform,
 	});
 }
 

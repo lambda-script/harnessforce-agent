@@ -1,5 +1,12 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync } from "node:fs";
+import {
+	chmodSync,
+	existsSync,
+	mkdirSync,
+	readdirSync,
+	readFileSync,
+	writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { launchAgent, runGit } from "../../src/run/process.js";
@@ -43,7 +50,7 @@ describe("launchAgent", () => {
 			}),
 		).toEqual({ kind: "failed" }));
 
-	it("fails when the agent cannot be started", async () =>
+	it("fails when the agent is not on PATH", async () =>
 		expect(
 			await launchAgent({
 				command: "hf-run-agent-that-does-not-exist",
@@ -52,6 +59,118 @@ describe("launchAgent", () => {
 			}),
 		).toEqual({ kind: "failed" }));
 });
+
+// agentとして起動し、受け取った引数と`--settings`のfileの状態を書き出すscript。
+function recordingAgent() {
+	const dir = tempDir("hf-agent-");
+	const out = join(dir, "out.json");
+	const agent = join(dir, "claude");
+	writeFileSync(
+		agent,
+		`#!${process.execPath}
+const fs = require("node:fs");
+const argv = process.argv.slice(2);
+const settings = argv[1];
+fs.writeFileSync(${JSON.stringify(out)}, JSON.stringify({
+	argv,
+	mode: fs.statSync(settings).mode & 0o777,
+	content: JSON.parse(fs.readFileSync(settings, "utf8")),
+}));
+`,
+	);
+	chmodSync(agent, 0o755);
+	return {
+		agent,
+		dir,
+		read: () => JSON.parse(readFileSync(out, "utf8")),
+	};
+}
+
+describe.skipIf(process.platform === "win32")(
+	"launchAgent with settings",
+	() => {
+		it("passes an absolute 0600 settings file before the args and deletes it after exit", async () => {
+			const recorder = recordingAgent();
+			const tmpDir = tempDir("hf-run-tmp-");
+			const outcome = await launchAgent(
+				{
+					command: recorder.agent,
+					args: ["-p", "hi"],
+					env: {},
+					settingsEnv: { HARNESSFORCE_ISSUE: "ENG-42" },
+				},
+				{ platform: process.platform, env: {}, cwd: recorder.dir, tmpDir },
+			);
+			expect(outcome).toEqual({ kind: "exited", code: 0 });
+			const seen = recorder.read();
+			expect(seen.argv[0]).toBe("--settings");
+			expect(seen.argv[1]).toMatch(new RegExp(`^${tmpDir}/`));
+			expect(seen.argv.slice(2)).toEqual(["-p", "hi"]);
+			expect(seen.mode).toBe(0o600);
+			expect(seen.content).toEqual({ env: { HARNESSFORCE_ISSUE: "ENG-42" } });
+			expect(existsSync(seen.argv[1])).toBe(false);
+			expect(readdirSync(tmpDir)).toEqual([]);
+		});
+
+		it("resolves a bare command from PATH", async () => {
+			const recorder = recordingAgent();
+			const outcome = await launchAgent(
+				{
+					command: "claude",
+					args: [],
+					env: {},
+					settingsEnv: {},
+				},
+				{
+					platform: process.platform,
+					env: { PATH: recorder.dir },
+					cwd: tempDir("hf-cwd-"),
+					tmpDir: tempDir("hf-run-tmp-"),
+				},
+			);
+			expect(outcome).toEqual({ kind: "exited", code: 0 });
+			expect(recorder.read().argv[0]).toBe("--settings");
+		});
+
+		it("fails without starting the agent when the settings file cannot be created", async () => {
+			const recorder = recordingAgent();
+			expect(
+				await launchAgent(
+					{
+						command: recorder.agent,
+						args: [],
+						env: {},
+						settingsEnv: {},
+					},
+					{
+						platform: process.platform,
+						env: {},
+						cwd: recorder.dir,
+						tmpDir: join(recorder.dir, "missing"),
+					},
+				),
+			).toEqual({ kind: "failed" });
+			expect(existsSync(join(recorder.dir, "out.json"))).toBe(false);
+		});
+
+		it("deletes the settings file when the agent cannot be started", async () => {
+			const tmpDir = tempDir("hf-run-tmp-");
+			const recorder = recordingAgent();
+			expect(
+				await launchAgent(
+					{
+						command: recorder.agent,
+						args: ["a\u0000b"],
+						env: {},
+						settingsEnv: {},
+					},
+					{ platform: process.platform, env: {}, cwd: recorder.dir, tmpDir },
+				),
+			).toEqual({ kind: "failed" });
+			expect(readdirSync(tmpDir)).toEqual([]);
+		});
+	},
+);
 
 describe("runGit", () => {
 	const git = (cwd: string, ...args: string[]) =>

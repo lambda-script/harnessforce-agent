@@ -94,18 +94,28 @@ The build fails without it. The value must be `https:`, or `http:` for localhost
 
 1. It reads the Read API base URL (`HARNESSFORCE_URL`, then `env.HARNESSFORCE_URL` in the Claude Code user
    settings, then the build default), the ingest endpoint (`HARNESSFORCE_ENDPOINT`, then the user
-   settings) and the Workspace (`HARNESSFORCE_WORKSPACE_ID`, then the user settings). Without an ingest
-   endpoint, a Workspace or its user key in the keychain, it asks you to run `hf init`.
+   settings) and the Workspace (`HARNESSFORCE_WORKSPACE_ID`, then the user settings). Before sending
+   anything it checks, in order: the keychain, the Workspace, its user key, the ingest endpoint and its
+   scheme, the ingest origin pinned by `hf init`, the API token, the Read API scheme, and the Read API
+   origin pinned by `hf init`. The first failed check stops it, usually asking you to run `hf init`.
 2. It resolves the Issue with `GET /api/v1/issues/{identifier}` and the stored API token. If the Issue
    does not exist, it prints up to 10 candidates from `GET /api/v1/issues?query=<identifier>` and stops.
 3. It computes the config snapshot ID locally with the same collection as the SessionStart hook.
-4. It refuses to start when the ingest endpoint's origin is not the one `hf init` pinned.
-5. It starts the agent with `HARNESSFORCE_WORKSPACE_ID`, `HARNESSFORCE_ENDPOINT`,
-   `OTEL_EXPORTER_OTLP_ENDPOINT`, the user key in `OTEL_EXPORTER_OTLP_HEADERS`, telemetry and traces
-   enabled, and `OTEL_RESOURCE_ATTRIBUTES` carrying `hf.issue.identifier`, `hf.vcs.repository`,
-   `hf.vcs.branch`, `hf.vcs.commit` and `hf.agent.config_version`. For Claude Code (`claude`) the same
-   values also go in `--settings`, because settings files can override the shell. `HARNESSFORCE_ISSUE`
-   tells the plugin hook to register the session with `source=cli`.
+4. It starts the agent with `HARNESSFORCE_WORKSPACE_ID`, `HARNESSFORCE_ENDPOINT`,
+   `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`, telemetry and traces
+   enabled, `HARNESSFORCE_ISSUE`, and `OTEL_RESOURCE_ATTRIBUTES` carrying `hf.issue.identifier`,
+   `hf.vcs.repository`, `hf.vcs.branch`, `hf.vcs.commit` and `hf.agent.config_version`. It removes
+   `OTEL_EXPORTER_OTLP_HEADERS` and the per-signal `*_HEADERS`, `*_ENDPOINT` and `*_PROTOCOL` variables
+   inherited from the shell. The user key and the API token are never put in the agent's environment,
+   arguments or settings: Claude Code gets the key only through `otelHeadersHelper` (`hf otel-headers`).
+5. For Claude Code (`claude`), the same values also go in a settings file passed as
+   `--settings <absolute path>` before your arguments, because settings files can override the shell.
+   The file is created with mode 0600 in the temp directory and deleted when the agent exits.
+   `HARNESSFORCE_ISSUE` tells the plugin hook to register the session with `source=cli`.
+6. The agent is found on `PATH` (with `PATHEXT` on Windows), or used as given when the command contains a
+   path separator. On Windows, `.cmd` and `.bat` files (such as npm's `claude.cmd`) are started through
+   `%ComSpec% /d /s /c` with every argument quoted; arguments containing `"`, `%`, `!` or a newline are
+   refused.
 
 It exits with the agent's exit code. Prompt and body logging are never turned on.
 

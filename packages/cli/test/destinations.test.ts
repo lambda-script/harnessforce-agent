@@ -27,8 +27,7 @@ describe("resolveCliDestinations", () => {
 			},
 		});
 		expect(await resolveCliDestinations({}, path, DEFAULT_URL)).toEqual({
-			kind: "resolved",
-			readApiBase: new URL("https://settings.example.test/app"),
+			readApiUrl: "https://settings.example.test/app",
 			ingestEndpoint: "https://ingest.settings.test",
 			workspaceId: "ws-settings",
 		});
@@ -43,72 +42,45 @@ describe("resolveCliDestinations", () => {
 				DEFAULT_URL,
 			),
 		).toEqual({
-			kind: "resolved",
-			readApiBase: new URL("https://shell.example.test"),
+			readApiUrl: "https://shell.example.test",
 			ingestEndpoint: "https://ingest.shell.test/base",
 			workspaceId: "ws-shell",
 		});
 	});
 
-	it("falls back to the build default for the Read API only", async () => {
-		const r = await resolveCliDestinations(
-			{
-				HARNESSFORCE_ENDPOINT: "https://ingest.shell.test",
-				HARNESSFORCE_WORKSPACE_ID: "ws1",
-			},
-			missingSettings,
-			DEFAULT_URL,
-		);
-		expect(r).toMatchObject({ readApiBase: new URL(DEFAULT_URL) });
-	});
-
-	it("asks for hf init without an ingest endpoint", async () =>
+	it("falls back to the build default for the Read API only", async () =>
 		expect(
-			await resolveCliDestinations(
-				{ HARNESSFORCE_WORKSPACE_ID: "ws1" },
-				settingsFile({ env: { HARNESSFORCE_URL: "https://a.test" } }),
-				DEFAULT_URL,
-			),
-		).toEqual({ kind: "initRequired" }));
+			await resolveCliDestinations({}, missingSettings, DEFAULT_URL),
+		).toEqual({
+			readApiUrl: DEFAULT_URL,
+			ingestEndpoint: undefined,
+			workspaceId: undefined,
+		}));
 
-	it("asks for hf init without a workspace", async () =>
-		expect(
-			await resolveCliDestinations(
-				{ HARNESSFORCE_ENDPOINT: "https://ingest.test" },
-				missingSettings,
-				DEFAULT_URL,
-			),
-		).toEqual({ kind: "initRequired" }));
-
-	it.each([
-		[{ HARNESSFORCE_URL: "http://app.example.test" }],
-		[{ HARNESSFORCE_ENDPOINT: "http://ingest.example.test" }],
-		[{ HARNESSFORCE_ENDPOINT: "not a url" }],
-	])("rejects a destination that breaks the scheme rule (%j)", async (env) =>
+	// schemeの規則は呼び出し側が確かめる順（correlation.md「CLI」）で検査する。
+	it("returns the values without checking the scheme", async () =>
 		expect(
 			await resolveCliDestinations(
 				{
-					HARNESSFORCE_ENDPOINT: "https://ingest.test",
-					HARNESSFORCE_WORKSPACE_ID: "ws1",
-					...env,
+					HARNESSFORCE_URL: "http://app.example.test",
+					HARNESSFORCE_ENDPOINT: "not a url",
 				},
 				missingSettings,
 				DEFAULT_URL,
 			),
-		).toEqual({ kind: "invalidUrl" }));
+		).toMatchObject({
+			readApiUrl: "http://app.example.test",
+			ingestEndpoint: "not a url",
+		}));
 
-	it("allows http for loopback hosts", async () =>
+	it("treats an empty shell value as absent", async () =>
 		expect(
 			await resolveCliDestinations(
-				{
-					HARNESSFORCE_URL: "http://127.0.0.1:3000",
-					HARNESSFORCE_ENDPOINT: "http://localhost:4318",
-					HARNESSFORCE_WORKSPACE_ID: "ws1",
-				},
-				missingSettings,
+				{ HARNESSFORCE_WORKSPACE_ID: "" },
+				settingsFile({ env: { HARNESSFORCE_WORKSPACE_ID: "ws-settings" } }),
 				DEFAULT_URL,
 			),
-		).toMatchObject({ kind: "resolved" }));
+		).toMatchObject({ workspaceId: "ws-settings" }));
 
 	it.each([
 		["not json"],
@@ -116,19 +88,19 @@ describe("resolveCliDestinations", () => {
 		[{ env: "x" }],
 	])("treats unreadable user settings (%j) as having no values", async (content) =>
 		expect(
-			await resolveCliDestinations(
-				{ HARNESSFORCE_WORKSPACE_ID: "ws1" },
-				settingsFile(content),
-				DEFAULT_URL,
-			),
-		).toEqual({ kind: "initRequired" }));
+			await resolveCliDestinations({}, settingsFile(content), DEFAULT_URL),
+		).toEqual({
+			readApiUrl: DEFAULT_URL,
+			ingestEndpoint: undefined,
+			workspaceId: undefined,
+		}));
 
 	it("ignores non-string settings values", async () =>
 		expect(
 			await resolveCliDestinations(
-				{ HARNESSFORCE_WORKSPACE_ID: "ws1" },
+				{},
 				settingsFile({ env: { HARNESSFORCE_ENDPOINT: 1 } }),
 				DEFAULT_URL,
 			),
-		).toEqual({ kind: "initRequired" }));
+		).toMatchObject({ ingestEndpoint: undefined }));
 });

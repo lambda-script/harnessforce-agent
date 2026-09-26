@@ -1,20 +1,14 @@
 import { isObject } from "./config/files.js";
 import { readUserSettings } from "./init/settings.js";
 import type { Env } from "./otel-headers.js";
-import { parseAllowedUrl } from "./url.js";
 
 // correlation.md「CLIの宛先の決め方」とWorkspaceの決め方。hf runとhf importはClaude Codeの外のshellから起動され、
-// user settingsのenvは環境に無いため、hf initが書いた値を読む。
-export type CliDestinations =
-	| {
-			kind: "resolved";
-			readApiBase: URL;
-			// scheme、host、port、pathを検査済みの値。子プロセスへはこの文字列のまま渡す。
-			ingestEndpoint: string;
-			workspaceId: string;
-	  }
-	| { kind: "initRequired" }
-	| { kind: "invalidUrl" };
+// user settingsのenvは環境に無いため、hf initが書いた値を読む。値の検査は呼び出し側が確かめる順に行う。
+export type CliDestinations = {
+	workspaceId: string | undefined;
+	ingestEndpoint: string | undefined;
+	readApiUrl: string;
+};
 
 const NAMES = [
 	"HARNESSFORCE_URL",
@@ -44,12 +38,9 @@ export async function resolveCliDestinations(
 ): Promise<CliDestinations> {
 	const settings = await readSettingsEnv(settingsPath);
 	const pick = (name: Name) => env[name] || settings[name];
-	const url = pick("HARNESSFORCE_URL") ?? defaultUrl;
-	const ingestEndpoint = pick("HARNESSFORCE_ENDPOINT");
-	const workspaceId = pick("HARNESSFORCE_WORKSPACE_ID");
-	if (!ingestEndpoint || !workspaceId) return { kind: "initRequired" };
-	const readApiBase = parseAllowedUrl(url);
-	if (!readApiBase || !parseAllowedUrl(ingestEndpoint))
-		return { kind: "invalidUrl" };
-	return { kind: "resolved", readApiBase, ingestEndpoint, workspaceId };
+	return {
+		workspaceId: pick("HARNESSFORCE_WORKSPACE_ID"),
+		ingestEndpoint: pick("HARNESSFORCE_ENDPOINT"),
+		readApiUrl: pick("HARNESSFORCE_URL") ?? defaultUrl,
+	};
 }

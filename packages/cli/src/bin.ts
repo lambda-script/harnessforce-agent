@@ -54,5 +54,6 @@ process.exitCode =
 		cwd: process.cwd(),
 		git: runGit,
 		now: () => new Date(),
-		launch: launchAgent,
+		platform: process.platform,
+		launch: (launch) => launchAgent(launch),
 	}));

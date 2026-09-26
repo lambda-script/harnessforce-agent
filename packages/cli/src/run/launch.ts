@@ -17,14 +17,28 @@ export type LaunchRequest = {
 	shellEnv: Env;
 	workspaceId: string;
 	ingestEndpoint: string;
-	ingestKey: string;
+	platform: NodeJS.Platform;
 };
 
 export type Launch = {
 	command: string;
+	// 利用者の引数。`--settings`のfileは起動の直前に作り、この前に置く。
 	args: string[];
 	env: Record<string, string>;
+	// Claude Codeの場合だけ、`--settings`のfileの`env`に書く値。
+	settingsEnv?: Record<string, string>;
 };
+
+// shellの環境から除く変数。他の送信先の資格情報をHarnessforceへ送らず、signal別の送信先で
+// helperの送信先の確認を外させず、signal別のprotocolでhelperのheaderが使われなくなることを防ぐ。
+const STRIPPED_FROM_SHELL = new Set([
+	"OTEL_EXPORTER_OTLP_HEADERS",
+	...["TRACES", "LOGS", "METRICS"].flatMap((signal) => [
+		`OTEL_EXPORTER_OTLP_${signal}_HEADERS`,
+		`OTEL_EXPORTER_OTLP_${signal}_ENDPOINT`,
+		`OTEL_EXPORTER_OTLP_${signal}_PROTOCOL`,
+	]),
+]);
 
 // `--settings`を解釈するagent。basenameで判定する（Windowsのnpmが入れる`claude.cmd`を含む）。
 const CLAUDE_CODE_BINARIES = new Set(["claude", "claude.exe", "claude.cmd"]);
@@ -54,34 +68,36 @@ export function resourceAttributes(
 	return [...kept, ...ours].join(",");
 }
 
-// correlation.md「CLI」の`hf run`の手順3から5。
+// correlation.md「CLI」の`hf run`の手順3から5。利用者用のkeyとApiTokenはどこにも置かない。
 export function buildLaunch(request: LaunchRequest): Launch {
-	// 手順3の値。Claude Codeには手順4で`--settings`の`env`としても同じ値を渡す。
 	const stepThree: Record<string, string> = {
 		HARNESSFORCE_WORKSPACE_ID: request.workspaceId,
 		HARNESSFORCE_ENDPOINT: request.ingestEndpoint,
 		OTEL_EXPORTER_OTLP_ENDPOINT: request.ingestEndpoint,
-		OTEL_EXPORTER_OTLP_HEADERS: `Authorization=Bearer ${request.ingestKey}`,
+		// helperのheaderはHTTPのprotocolでだけ使われる。
+		OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf",
 		CLAUDE_CODE_ENABLE_TELEMETRY: "1",
 		CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: "1",
 		OTEL_RESOURCE_ATTRIBUTES: request.resourceAttributes,
+		// 手順5: pluginのhookがsession registrationに`issue_identifier`と`source=cli`を付ける。
+		HARNESSFORCE_ISSUE: request.issueIdentifier,
 	};
+	// Windowsの環境変数の名前は大文字と小文字を区別しないため、別の綴りの同じ変数も除く。
+	const normalize = (name: string) =>
+		request.platform === "win32" ? name.toUpperCase() : name;
+	const replaced = new Set(
+		[...STRIPPED_FROM_SHELL, ...Object.keys(stepThree)].map(normalize),
+	);
 	const shellEnv = Object.fromEntries(
 		Object.entries(request.shellEnv).filter(
-			(entry): entry is [string, string] => entry[1] !== undefined,
+			(entry): entry is [string, string] =>
+				entry[1] !== undefined && !replaced.has(normalize(entry[0])),
 		),
 	);
-	const settingsArgs = isClaudeCode(request.agent)
-		? ["--settings", JSON.stringify({ env: stepThree })]
-		: [];
 	return {
 		command: request.agent,
-		args: [...settingsArgs, ...request.args],
-		env: {
-			...shellEnv,
-			...stepThree,
-			// 手順5: pluginのhookがsession registrationに`issue_identifier`と`source=cli`を付ける。
-			HARNESSFORCE_ISSUE: request.issueIdentifier,
-		},
+		args: [...request.args],
+		env: { ...shellEnv, ...stepThree },
+		...(isClaudeCode(request.agent) ? { settingsEnv: stepThree } : {}),
 	};
 }
