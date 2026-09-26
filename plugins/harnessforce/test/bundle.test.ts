@@ -2,10 +2,12 @@ import { execFileSync, spawn } from "node:child_process";
 import {
 	cpSync,
 	existsSync,
+	mkdirSync,
 	mkdtempSync,
 	readFileSync,
 	realpathSync,
 	rmSync,
+	writeFileSync,
 } from "node:fs";
 import { createServer, type IncomingHttpHeaders } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -103,7 +105,13 @@ async function startIngest(reply: Reply) {
 	return { endpoint: `http://127.0.0.1:${port}/base/`, received };
 }
 
-function runBundle(event: string, input: object, env: Record<string, string>) {
+// homeは空の一時directoryを既定とし、testを実行する利用者の~/.claudeを読まない。
+function runBundle(
+	event: string,
+	input: object,
+	env: Record<string, string>,
+	home = tempDir("hf-home-"),
+) {
 	return new Promise<{
 		code: number | null;
 		stdout: string;
@@ -112,7 +120,12 @@ function runBundle(event: string, input: object, env: Record<string, string>) {
 	}>((resolve) => {
 		const began = Date.now();
 		const child = spawn(process.execPath, [hookScript, event], {
-			env: { PATH: process.env.PATH ?? "", ...env },
+			env: {
+				PATH: process.env.PATH ?? "",
+				HOME: home,
+				USERPROFILE: home,
+				...env,
+			},
 		});
 		let stdout = "";
 		let stderr = "";
@@ -258,6 +271,60 @@ describe("bundled hook", () => {
 		);
 		expect(result).toMatchObject({ code: 0, stdout: "", stderr: "" });
 		expect(ingest.received).toEqual([]);
+	});
+
+	it("sends a config snapshot of the real home and repository through HTTP", async () => {
+		const repo = makeRepo();
+		writeFileSync(join(repo.dir, "CLAUDE.md"), "Secret team notes\n");
+		const home = tempDir("hf-home-");
+		mkdirSync(join(home, ".claude/skills/ship"), { recursive: true });
+		writeFileSync(join(home, ".claude/skills/ship/SKILL.md"), "ship it\n");
+		const ingest = await startIngest("accept");
+		const result = await runBundle(
+			"session-start",
+			{ session_id: "s-1", cwd: repo.dir, source: "startup" },
+			env(ingest.endpoint),
+			home,
+		);
+		expect(result).toMatchObject({ code: 0, stdout: "" });
+		const snapshot = ingest.received.find((r) =>
+			r.url?.endsWith("/v1/config-snapshots"),
+		);
+		expect(snapshot?.url).toBe("/base/v1/config-snapshots");
+		expect(snapshot?.body).toEqual([
+			{
+				agent: "claude_code",
+				session_id: "s-1",
+				components: [
+					expect.objectContaining({
+						kind: "rule",
+						source: "repository",
+						id: "CLAUDE.md",
+					}),
+					expect.objectContaining({
+						kind: "skill",
+						source: "user",
+						id: "ship",
+					}),
+				],
+			},
+		]);
+		expect(JSON.stringify(snapshot?.body)).not.toContain("Secret team notes");
+	});
+
+	it("sends only the config snapshot outside a git repository", async () => {
+		const cwd = realpathSync(tempDir("hf-plain-"));
+		writeFileSync(join(cwd, "CLAUDE.md"), "plain\n");
+		const ingest = await startIngest("accept");
+		const result = await runBundle(
+			"session-start",
+			{ session_id: "s-1", cwd, source: "startup" },
+			env(ingest.endpoint),
+		);
+		expect(result).toMatchObject({ code: 0, stdout: "" });
+		expect(ingest.received.map((r) => r.url)).toEqual([
+			"/base/v1/config-snapshots",
+		]);
 	});
 
 	it("exits 0 on unreadable input", async () => {

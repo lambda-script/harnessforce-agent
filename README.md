@@ -18,6 +18,22 @@ contents are never sent.
 - If the key is revoked, Claude Code shows once per session:
   組織の送信キーが失効しています。Workspaceの管理者に連絡してください
 
+At the same `SessionStart`, the hook also sends a config snapshot to
+`POST <HARNESSFORCE_ENDPOINT>/v1/config-snapshots`, including outside a git repository. The snapshot
+describes the agent configuration as a list of components. Each component has a kind, a scope and
+an identifier, plus a SHA-256 hash:
+
+- CLAUDE.md files and rules, skills, agents, commands and workflows, from the managed directory,
+  `~/.claude` and the repository root.
+- `hooks`, `permissions` and `model` from each settings file.
+- MCP servers from `.mcp.json`, `~/.claude.json` and `managed-mcp.json`.
+- The same kinds of component from enabled marketplace plugins in the plugin cache.
+
+File contents, settings values and MCP server configuration (URLs, headers, environment) are never
+sent, only their hashes. Nothing is sent when there are no components, and the snapshot is skipped
+when collection takes over 1 second or finds more than 1,000 components. The collector lives in
+`packages/cli/src/config`, so `hf run` can compute the same snapshot ID.
+
 The hook scripts exist only in the build output. `pnpm build` writes a marketplace directory to
 `plugins/harnessforce/dist/marketplace`; register it with
 `/plugin marketplace add <absolute path to plugins/harnessforce/dist/marketplace>` and then
