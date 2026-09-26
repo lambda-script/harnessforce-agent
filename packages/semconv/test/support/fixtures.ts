@@ -129,3 +129,25 @@ export const analysisReport = {
 	},
 	records_skipped: 2,
 };
+
+export const ingestIssue = {
+	external_id: "sheet-row-42",
+	project_key: "OPS",
+	identifier: "OPS-7",
+	title: "Rotate staging credentials",
+	status_category: "started",
+	raw_status: "Doing",
+	is_blocked: false,
+	due_on: "2026-10-01",
+	source_updated_at: "2026-09-26T03:00:00Z",
+};
+
+export const ingestEvent = {
+	event_id: "deploy-2026-09-26-001",
+	event_type: "release.published",
+	occurred_at: "2026-09-26T04:00:00Z",
+	actor_type: "integration",
+	actor_id: "deploy-bot",
+	entity: { type: "artifact", id: "web@1.4.0" },
+	payload: { environment: "production" },
+};
