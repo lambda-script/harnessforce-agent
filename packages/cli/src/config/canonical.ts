@@ -3,7 +3,8 @@ import type { ConfigComponent } from "./component.js";
 
 // correlation.md「構成の収集」とsemantic-conventions.md「Config snapshot」の正規化。
 // JSの既定の比較（UTF-16のcode unitの順）で並べ、hookとhf runで同じ結果にする。
-const byCodeUnit = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+export const byCodeUnit = (a: string, b: string) =>
+	a < b ? -1 : a > b ? 1 : 0;
 
 export function canonicalJson(value: unknown): string {
 	if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;

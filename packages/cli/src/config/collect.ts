@@ -1,5 +1,10 @@
 import { isAbsolute, join } from "node:path";
-import { hashFileContent, sortComponents } from "./canonical.js";
+import {
+	byCodeUnit,
+	hashFileContent,
+	hashValue,
+	sortComponents,
+} from "./canonical.js";
 import type {
 	ComponentKind,
 	ComponentSource,
@@ -8,9 +13,11 @@ import type {
 import {
 	CollectionExpired,
 	type Guard,
+	isObject,
 	listDirectories,
 	listFiles,
 	readFileIfExists,
+	readJsonObject,
 } from "./files.js";
 
 export type CollectOptions = {
@@ -46,6 +53,15 @@ class Collector {
 		if (!IDENTIFIER.test(component.id)) return;
 		if (this.components.length >= MAX_COMPONENTS) throw new TooManyComponents();
 		this.components.push(component);
+	}
+
+	addValue(
+		kind: ComponentKind,
+		source: ComponentSource,
+		id: string,
+		value: unknown,
+	): void {
+		this.add({ kind, source, id, hash: hashValue(value) });
 	}
 
 	async addFile(
@@ -126,6 +142,89 @@ async function collectRules(
 			await c.addFile("rule", source, `rules/${path}`, join(rulesDir, path));
 }
 
+type Settings = Record<string, unknown> | undefined;
+
+// hashを決めるためだけの併合。Claude Codeが値を併合する規則は再現しない（correlation.md「構成の収集」）。
+async function readManagedSettings(
+	managedDir: string,
+	guard: Guard,
+): Promise<Settings> {
+	let merged = await readJsonObject(
+		join(managedDir, "managed-settings.json"),
+		guard,
+	);
+	const dropInDir = join(managedDir, "managed-settings.d");
+	const dropIns = (await listFiles(dropInDir, ".json", false, guard)).sort(
+		byCodeUnit,
+	);
+	for (const name of dropIns) {
+		const dropIn = await readJsonObject(join(dropInDir, name), guard);
+		if (dropIn) merged = { ...merged, ...dropIn };
+	}
+	return merged;
+}
+
+function collectSettings(
+	c: Collector,
+	source: ComponentSource,
+	settings: Settings,
+): void {
+	if (!settings) return;
+	const { hooks, permissions, model } = settings;
+	if (isObject(hooks))
+		for (const [event, value] of Object.entries(hooks))
+			c.addValue("hook", source, event, value);
+	if (isObject(permissions))
+		c.addValue("permissions", source, "permissions", permissions);
+	if (typeof model === "string") c.addValue("model", source, model, model);
+}
+
+function collectMcpServers(
+	c: Collector,
+	source: ComponentSource,
+	servers: unknown,
+): void {
+	if (!isObject(servers)) return;
+	for (const [name, value] of Object.entries(servers))
+		if (isObject(value)) c.addValue("mcp_server", source, name, value);
+}
+
+async function collectMcp(
+	c: Collector,
+	options: CollectOptions,
+	managedSettings: Settings,
+	hasConfigDir: boolean,
+): Promise<void> {
+	const managedMcp = await readJsonObject(
+		join(options.managedDir, "managed-mcp.json"),
+		c.guard,
+	);
+	// 同じ名前はmanaged-mcp.jsonの値を採る。
+	collectMcpServers(c, "managed", {
+		...(isObject(managedSettings?.managedMcpServers)
+			? managedSettings.managedMcpServers
+			: {}),
+		...(isObject(managedMcp?.mcpServers) ? managedMcp.mcpServers : {}),
+	});
+	const projectMcp = await readJsonObject(
+		join(options.projectRoot, ".mcp.json"),
+		c.guard,
+	);
+	collectMcpServers(c, "repository", projectMcp?.mcpServers);
+	// CLAUDE_CONFIG_DIRがある場合の.claude.jsonの場所は文書化されていないため読まない。
+	if (hasConfigDir) return;
+	const global = await readJsonObject(
+		join(options.homeDir, ".claude.json"),
+		c.guard,
+	);
+	collectMcpServers(c, "user", global?.mcpServers);
+	const projects = global?.projects;
+	const project = isObject(projects)
+		? projects[options.projectRoot]
+		: undefined;
+	if (isObject(project)) collectMcpServers(c, "local", project.mcpServers);
+}
+
 async function collectAll(
 	c: Collector,
 	options: CollectOptions,
@@ -166,6 +265,25 @@ async function collectAll(
 		workflows: join(project, "workflows"),
 	});
 	await collectRules(c, "local", projectRoot, ["CLAUDE.local.md"], undefined);
+
+	const managedSettings = await readManagedSettings(managedDir, c.guard);
+	collectSettings(c, "managed", managedSettings);
+	collectSettings(
+		c,
+		"user",
+		await readJsonObject(join(config, "settings.json"), c.guard),
+	);
+	collectSettings(
+		c,
+		"repository",
+		await readJsonObject(join(project, "settings.json"), c.guard),
+	);
+	collectSettings(
+		c,
+		"local",
+		await readJsonObject(join(project, "settings.local.json"), c.guard),
+	);
+	await collectMcp(c, options, managedSettings, configDir !== undefined);
 }
 
 export async function collectConfig(
