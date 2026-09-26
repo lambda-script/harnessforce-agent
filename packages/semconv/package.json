@@ -24,5 +24,8 @@
 	},
 	"scripts": {
 		"build": "tsc -p tsconfig.build.json"
+	},
+	"dependencies": {
+		"@sinclair/typebox": "^0.34.52"
 	}
 }
