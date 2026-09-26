@@ -1,9 +1,8 @@
-import type { SessionRegistration } from "../../../packages/semconv/src/schemas/session-registration.js";
-
 export type Env = Readonly<Record<string, string | undefined>>;
 export type Fetch = (url: URL, init: RequestInit) => Promise<Response>;
 export type KeyKind = "workspace";
-export type Destination = { sessionsUrl: URL; key: string; keyKind: KeyKind };
+export type Destination = { ingestBase: URL; key: string; keyKind: KeyKind };
+export type IngestPath = "v1/sessions" | "v1/config-snapshots";
 export type SendOutcome =
 	| { kind: "accepted" }
 	| { kind: "unauthorized" }
@@ -14,8 +13,8 @@ const SEND_TIMEOUT_MS = 2000;
 // keyを平文で流さないため、http:はlocalの受信だけに許す。
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
-// HARNESSFORCE_ENDPOINTはpathを含んでよいbase URL。末尾の/を1つに正規化してv1/sessionsを連結する。
-export function sessionsUrlFrom(endpoint: string | undefined): URL | undefined {
+// HARNESSFORCE_ENDPOINTはpathを含んでよいbase URL。schemeを確かめ、末尾の/を除いたpathを持つbaseを返す。
+export function ingestBaseFrom(endpoint: string | undefined): URL | undefined {
 	if (!endpoint) return undefined;
 	let base: URL;
 	try {
@@ -27,11 +26,17 @@ export function sessionsUrlFrom(endpoint: string | undefined): URL | undefined {
 		base.protocol === "https:" ||
 		(base.protocol === "http:" && LOOPBACK_HOSTS.has(base.hostname));
 	if (!isAllowedScheme) return undefined;
-	// 文字列の連結で組み立てると、"//host"で始まるpathが別のhostとして解釈されるため、hostを変えずにpathだけを書き換える。
 	// userinfo、query、fragmentは送信先に含めない。
-	const sessionsUrl = new URL(base.origin);
-	sessionsUrl.pathname = `${base.pathname.replace(/\/+$/, "")}/v1/sessions`;
-	return sessionsUrl;
+	const ingestBase = new URL(base.origin);
+	ingestBase.pathname = base.pathname.replace(/\/+$/, "");
+	return ingestBase;
+}
+
+// 文字列の連結で組み立てると、"//host"で始まるpathが別のhostとして解釈されるため、hostを変えずにpathだけを書き換える。
+export function ingestUrl(base: URL, path: IngestPath): URL {
+	const url = new URL(base.origin);
+	url.pathname = `${base.pathname.replace(/\/+$/, "")}/${path}`;
+	return url;
 }
 
 // 利用者用のIngestKey（keychain）はまだ扱わないため、Workspace用のkeyだけを選ぶ。
@@ -42,19 +47,21 @@ export function selectKey(
 	return key ? { key, keyKind: "workspace" } : undefined;
 }
 
-export async function postRegistration(
+// bodyは要素1つの配列として送る（ingest-api.md「汎用ingest API」）。
+export async function postItem(
 	destination: Destination,
-	registration: SessionRegistration,
+	path: IngestPath,
+	item: unknown,
 	fetchImpl: Fetch,
 ): Promise<SendOutcome> {
 	try {
-		const response = await fetchImpl(destination.sessionsUrl, {
+		const response = await fetchImpl(ingestUrl(destination.ingestBase, path), {
 			method: "POST",
 			headers: {
 				authorization: `Bearer ${destination.key}`,
 				"content-type": "application/json",
 			},
-			body: JSON.stringify([registration]),
+			body: JSON.stringify([item]),
 			// redirect先へkeyを渡さない。redirectは送信の失敗として扱う。
 			redirect: "error",
 			signal: AbortSignal.timeout(SEND_TIMEOUT_MS),

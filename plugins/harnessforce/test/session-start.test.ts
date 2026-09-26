@@ -348,6 +348,7 @@ describe("SessionStart hook", () => {
 		});
 		await expect(start(h)).resolves.toBeUndefined();
 		expect(h.out()).toBe("");
-		expect(h.err()).toBe("harnessforce: boom\n");
+		// session registrationとconfig snapshotは別々にgitを使い、それぞれの失敗を書く。
+		expect(h.err()).toBe("harnessforce: boom\nharnessforce: boom\n");
 	});
 });

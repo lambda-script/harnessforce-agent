@@ -4,20 +4,21 @@ import { join } from "node:path";
 import { Ajv } from "ajv";
 import { fullFormats } from "ajv-formats/dist/formats.js";
 import { onTestFinished } from "vitest";
+import { ConfigSnapshotSchema } from "../../../packages/semconv/src/schemas/config-snapshot.js";
 import { SessionRegistrationSchema } from "../../../packages/semconv/src/schemas/session-registration.js";
 import type { Env } from "../src/destination.js";
 import type { HookDeps } from "../src/hook.js";
 import type { RunGit } from "../src/vcs.js";
 
 // 送信内容を、本体が検証に使う公開schemaで確かめる。
-export const isRegistration = (() => {
-	const ajv = new Ajv({ strict: true, allErrors: true });
-	ajv.addFormat("date-time", fullFormats["date-time"]);
-	const validate = ajv.compile(
-		JSON.parse(JSON.stringify(SessionRegistrationSchema)),
-	);
+const ajv = new Ajv({ strict: true, allErrors: true });
+ajv.addFormat("date-time", fullFormats["date-time"]);
+const validator = (schema: object) => {
+	const validate = ajv.compile(JSON.parse(JSON.stringify(schema)));
 	return (value: unknown) => validate(value);
-})();
+};
+export const isRegistration = validator(SessionRegistrationSchema);
+export const isConfigSnapshot = validator(ConfigSnapshotSchema);
 
 export const REPO = {
 	cwd: "/work/web",
@@ -46,6 +47,9 @@ export function fakeGit(
 
 type HarnessOptions = {
 	status?: number;
+	// URLごとに応答のstatusを変える。無ければstatusを使う。
+	statusFor?: (url: string) => number | undefined;
+	homeDir?: string;
 	env?: Env;
 	git?: RunGit;
 	fetchError?: Error;
@@ -62,11 +66,15 @@ export function harness(options: HarnessOptions = {}) {
 			...options.env,
 		},
 		now: () => new Date("2026-09-26T00:00:00Z"),
+		// 既定では存在しないdirectoryを指し、構成が0件（snapshotを送らない）になる。
+		homeDir: options.homeDir ?? "/nonexistent/hf-home",
+		managedDir: "/nonexistent/hf-managed",
 		git: options.git ?? fakeGit(),
 		fetch: async (url, init) => {
 			requests.push({ url: url.href, init });
 			if (options.fetchError) throw options.fetchError;
-			return new Response(null, { status: options.status ?? 200 });
+			const status = options.statusFor?.(url.href) ?? options.status ?? 200;
+			return new Response(null, { status });
 		},
 		stdout: (text) => out.push(text),
 		stderr: (text) => err.push(text),
@@ -76,6 +84,10 @@ export function harness(options: HarnessOptions = {}) {
 		requests,
 		bodies: () =>
 			requests.map((r) => JSON.parse(String(r.init.body)) as unknown[]),
+		bodiesTo: (path: string) =>
+			requests
+				.filter((r) => new URL(r.url).pathname.endsWith(path))
+				.map((r) => JSON.parse(String(r.init.body)) as unknown[]),
 		out: () => out.join(""),
 		err: () => err.join(""),
 	};
