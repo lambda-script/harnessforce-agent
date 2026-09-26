@@ -34,6 +34,7 @@ function memoryFs(
 		isExecutable: async () => true,
 		exists: async (path) => gitMarkers.map(lower).includes(lower(path)),
 		readSmallText: async (path) => contents.get(lower(path)),
+		readHead: async (path) => contents.get(lower(path)),
 	};
 }
 
@@ -43,6 +44,24 @@ const reader = (
 ) => createUserKeyReader({ processCwd, ...options });
 
 describe("resolving hf on PATH", () => {
+	it("starts npm's hf with the hook's node instead of env searching PATH", async () => {
+		const { exec, calls } = fakeExec({ ok: true, stdout: header("k") });
+		const read = reader({
+			platform: "linux",
+			env: { PATH: ":/usr/local/bin" },
+			fs: memoryFs({ "/usr/local/bin/hf": "#!/usr/bin/env node\n" }),
+			exec,
+		});
+		expect(await read("/work/web")).toEqual({ kind: "found", key: "k" });
+		expect(calls).toEqual([
+			{
+				file: process.execPath,
+				args: ["/usr/local/bin/hf", "otel-headers"],
+				verbatim: false,
+			},
+		]);
+	});
+
 	it("runs hf from the first absolute PATH directory that has it", async () => {
 		const { exec, calls } = fakeExec({ ok: true, stdout: header("k") });
 		const read = reader({
@@ -128,7 +147,7 @@ describe("resolving hf on PATH", () => {
 			]);
 		});
 
-		it("starts npm's hf.cmd with node on PATH instead of cmd.exe", async () => {
+		it("starts npm's hf.cmd with the hook's node instead of cmd.exe or node on PATH", async () => {
 			const { exec, calls } = fakeExec({ ok: true, stdout: header("k") });
 			const read = reader({
 				platform: "win32",
@@ -146,7 +165,7 @@ describe("resolving hf on PATH", () => {
 			expect(await read("C:\\repo")).toEqual({ kind: "found", key: "k" });
 			expect(calls).toEqual([
 				{
-					file: "C:\\nodejs\\node.EXE",
+					file: process.execPath,
 					args: [
 						`${npmDir}\\node_modules\\@harnessforce\\cli\\dist\\bin.js`,
 						"otel-headers",

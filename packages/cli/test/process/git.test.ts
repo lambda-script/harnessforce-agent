@@ -10,6 +10,7 @@ const fsWith = (
 	isExecutable: async () => true,
 	exists: async (path) => gitMarkers.includes(path),
 	readSmallText: async () => undefined,
+	readHead: async () => undefined,
 });
 
 function recordingExec(stdout: string | undefined) {

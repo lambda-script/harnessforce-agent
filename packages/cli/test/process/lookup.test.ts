@@ -1,3 +1,7 @@
+import { chmodSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
 	commandLineFor,
@@ -25,6 +29,12 @@ function memoryFs(
 			return text !== undefined && Buffer.byteLength(text) <= maxBytes
 				? text
 				: undefined;
+		},
+		readHead: async (path, maxBytes) => {
+			const text = contents.get(lower(path));
+			return text === undefined
+				? undefined
+				: Buffer.from(text).subarray(0, maxBytes).toString("utf8");
 		},
 	};
 }
@@ -197,6 +207,7 @@ describe("finding a command on PATH", () => {
 
 describe("building the command line on Windows", () => {
 	const shimDir = "C:\\Users\\John Doe\\AppData\\Roaming\\npm";
+	const runningNode = "C:\\Program Files\\nodejs\\node.exe";
 	const context = (
 		files: Record<string, string>,
 		env: Record<string, string> = WIN_ENV,
@@ -204,10 +215,11 @@ describe("building the command line on Windows", () => {
 		platform: "win32" as const,
 		env,
 		bases: ["C:\\repo"],
+		execPath: runningNode,
 		fs: memoryFs(files, { gitMarkers: ["C:\\repo\\.git"] }),
 	});
 
-	it("starts an npm shim with the node.exe next to it, without cmd.exe", async () => {
+	it("starts an npm shim with the running node instead of the node.exe next to it", async () => {
 		const shim = `${shimDir}\\claude.cmd`;
 		const line = await commandLineFor(
 			shim,
@@ -218,7 +230,7 @@ describe("building the command line on Windows", () => {
 			}),
 		);
 		expect(line).toEqual({
-			file: `${shimDir}\\node.exe`,
+			file: runningNode,
 			args: [
 				`${shimDir}\\node_modules\\@anthropic-ai\\claude-code\\cli.js`,
 				"--settings",
@@ -229,7 +241,7 @@ describe("building the command line on Windows", () => {
 		});
 	});
 
-	it("resolves node for an npm shim on PATH outside the repository", async () => {
+	it("starts an npm shim with the running node instead of a node on PATH", async () => {
 		const shim = `${shimDir}\\hf.cmd`;
 		const line = await commandLineFor(
 			shim,
@@ -241,16 +253,16 @@ describe("building the command line on Windows", () => {
 						false,
 					),
 					"C:\\repo\\node.exe": "",
-					"C:\\Program Files\\nodejs\\node.exe": "",
+					"C:\\tools\\node.exe": "",
 				},
 				{
 					...WIN_ENV,
-					PATH: `C:\\repo;C:\\Program Files\\nodejs;${shimDir}`,
+					PATH: `C:\\repo;C:\\tools;${shimDir}`,
 				},
 			),
 		);
 		expect(line).toEqual({
-			file: "C:\\Program Files\\nodejs\\node.EXE",
+			file: runningNode,
 			args: [
 				`${shimDir}\\node_modules\\@harnessforce\\cli\\dist\\bin.js`,
 				"otel-headers",
@@ -259,7 +271,7 @@ describe("building the command line on Windows", () => {
 		});
 	});
 
-	it("cannot start an npm shim when node is only a .cmd or missing", async () => {
+	it("starts an npm shim when no node is on PATH", async () => {
 		const shim = `${shimDir}\\hf.cmd`;
 		expect(
 			await commandLineFor(
@@ -270,7 +282,11 @@ describe("building the command line on Windows", () => {
 					{ ...WIN_ENV, PATH: `C:\\tools;${shimDir}` },
 				),
 			),
-		).toBeUndefined();
+		).toEqual({
+			file: runningNode,
+			args: [`${shimDir}\\x\\bin.js`, "otel-headers"],
+			verbatim: false,
+		});
 	});
 
 	it.each([
@@ -399,6 +415,78 @@ describe("building the command line on Windows", () => {
 });
 
 describe("building the command line elsewhere", () => {
+	const runningNode = "/opt/node/bin/node";
+	const posix = (files: Record<string, string>) => ({
+		platform: "linux" as const,
+		env: { PATH: ":/usr/local/bin:/usr/bin" },
+		bases: ["/work"],
+		execPath: runningNode,
+		fs: memoryFs(files),
+	});
+
+	it.each([
+		["npm's env shebang", "#!/usr/bin/env node\nrequire('./cli');\n"],
+		["a CRLF line", "#!/usr/bin/env node\r\nrequire('./cli');\r\n"],
+		["another env path and tabs", "#!\t/bin/env\tnode \n"],
+	])("starts a Node.js script with %s on the running node", async (_name, text) => {
+		const file = "/usr/local/bin/claude";
+		expect(
+			await commandLineFor(
+				file,
+				["--settings", "/t/s.json"],
+				posix({ [file]: text }),
+			),
+		).toEqual({
+			file: runningNode,
+			args: [file, "--settings", "/t/s.json"],
+			verbatim: false,
+		});
+	});
+
+	it.each([
+		["a shell script", "#!/bin/sh\nexec node x.js\n"],
+		["an absolute node", "#!/usr/local/bin/node\n"],
+		["env with node flags", "#!/usr/bin/env -S node --no-warnings\n"],
+		["env with another program", "#!/usr/bin/env nodejs\n"],
+		["a relative env", "#!env node\n"],
+		["no shebang", "require('./cli');\n"],
+		[
+			"a first line longer than 256 bytes",
+			`#!/usr/bin/env node ${" ".repeat(256)}\n`,
+		],
+		["no line feed", "#!/usr/bin/env node"],
+	])("starts %s as resolved", async (_name, text) => {
+		const file = "/usr/local/bin/tool";
+		expect(await commandLineFor(file, ["a"], posix({ [file]: text }))).toEqual({
+			file,
+			args: ["a"],
+			verbatim: false,
+		});
+	});
+
+	it.skipIf(process.platform === "win32")(
+		"reads the shebang through npm's bin link and passes the link as the script",
+		async () => {
+			const dir = await mkdtemp(join(tmpdir(), "hf-lookup-"));
+			const script = join(dir, "bin.js");
+			writeFileSync(script, "#!/usr/bin/env node\n");
+			chmodSync(script, 0o755);
+			const link = join(dir, "hf");
+			symlinkSync(script, link);
+			expect(
+				await commandLineFor(link, ["otel-headers"], {
+					platform: process.platform,
+					env: {},
+					bases: ["/work"],
+				}),
+			).toEqual({
+				file: process.execPath,
+				args: [link, "otel-headers"],
+				verbatim: false,
+			});
+		},
+	);
+
 	it("starts a .cmd name directly outside Windows", async () => {
 		expect(
 			await commandLineFor("/opt/x.cmd", ["a"], {

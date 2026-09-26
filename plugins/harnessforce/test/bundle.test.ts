@@ -116,6 +116,7 @@ function runBundle(
 	input: object,
 	env: Record<string, string>,
 	home = tempDir("hf-home-"),
+	cwd?: string,
 ) {
 	return new Promise<{
 		code: number | null;
@@ -125,6 +126,7 @@ function runBundle(
 	}>((resolve) => {
 		const began = Date.now();
 		const child = spawn(process.execPath, [hookScript, event], {
+			...(cwd ? { cwd } : {}),
 			env: {
 				PATH: process.env.PATH ?? "",
 				HOME: home,
@@ -361,6 +363,44 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 						"harnessforce: session registration skipped (no ingest key)\n",
 				);
 				expect(ingest.received).toEqual([]);
+			},
+		);
+
+		// correlation.md「commandの解決」のNode.jsのscript: npmのhfは`env`にnodeを探させず、hookのnodeで起動する。
+		it.skipIf(process.platform === "win32")(
+			"starts npm's hf with the hook's node, not a node found through an empty PATH entry",
+			async () => {
+				const repo = makeRepo();
+				const ingest = await startIngest("accept");
+				const hookCwd = tempDir("hf-hook-cwd-");
+				const planted = join(hookCwd, "planted-node-ran");
+				writeFileSync(
+					join(hookCwd, "node"),
+					`#!/bin/sh\ntouch "${planted}"\nexit 1\n`,
+				);
+				chmodSync(join(hookCwd, "node"), 0o755);
+				const hfDir = tempDir("hf-bin-");
+				writeFileSync(
+					join(hfDir, "hf"),
+					`#!/usr/bin/env node\nif (process.argv[2] === "otel-headers") process.stdout.write(JSON.stringify({ Authorization: "Bearer hf_ik_ws1_user" }));\n`,
+				);
+				chmodSync(join(hfDir, "hf"), 0o755);
+				const result = await runBundle(
+					"session-start",
+					{ session_id: "s-1", cwd: repo.dir, source: "startup" },
+					{
+						HARNESSFORCE_ENDPOINT: ingest.endpoint,
+						HARNESSFORCE_WORKSPACE_ID: "ws1",
+						PATH: `:${hfDir}:${process.env.PATH ?? ""}`,
+					},
+					tempDir("hf-home-"),
+					hookCwd,
+				);
+				expect(result).toMatchObject({ code: 0, stdout: "", stderr: "" });
+				expect(existsSync(planted)).toBe(false);
+				expect(ingest.received.map((r) => r.headers.authorization)).toEqual([
+					"Bearer hf_ik_ws1_user",
+				]);
 			},
 		);
 

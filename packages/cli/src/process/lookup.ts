@@ -13,6 +13,8 @@ export type LookupFileSystem = {
 	exists(path: string): Promise<boolean>;
 	// maxBytesを超えるか読めなければundefined。
 	readSmallText(path: string, maxBytes: number): Promise<string | undefined>;
+	// 先頭のmaxBytesまで。読めなければundefined。
+	readHead(path: string, maxBytes: number): Promise<string | undefined>;
 };
 
 export type LookupContext = {
@@ -20,6 +22,8 @@ export type LookupContext = {
 	env: Env;
 	// 除外の基点。processの現在のdirectoryと、hookでは入力のcwd。
 	bases: readonly string[];
+	// Node.jsのscriptを起動する実行file。既定は自身のprocessのもの。
+	execPath?: string;
 	fs?: LookupFileSystem;
 };
 
@@ -27,6 +31,7 @@ export type CommandLine = { file: string; args: string[]; verbatim: boolean };
 
 const DEFAULT_PATHEXT = ".COM;.EXE;.BAT;.CMD";
 const NPM_SHIM_MAX_BYTES = 64 * 1024;
+const SHEBANG_MAX_BYTES = 256;
 // cmd.exeは引用符の中でも%と（遅延展開が有効なら）!を展開し、"は引用を閉じ、改行はcommandを区切る。
 const CMD_UNSAFE = /["%!\r\n]/;
 const NPM_SHIM_PROG_LINE = 'SET "_prog=%dp0%\\node.exe"';
@@ -47,6 +52,24 @@ export function envValue(
 	const upper = name.toUpperCase();
 	const key = Object.keys(env).find((k) => k.toUpperCase() === upper);
 	return key === undefined ? undefined : env[key];
+}
+
+async function readBytes(
+	path: string,
+	length: number,
+): Promise<Buffer | undefined> {
+	try {
+		const handle = await open(path, "r");
+		try {
+			const buffer = Buffer.alloc(length);
+			const { bytesRead } = await handle.read(buffer, 0, length, 0);
+			return buffer.subarray(0, bytesRead);
+		} finally {
+			await handle.close();
+		}
+	} catch {
+		return undefined;
+	}
 }
 
 const defaultFs: LookupFileSystem = {
@@ -74,21 +97,13 @@ const defaultFs: LookupFileSystem = {
 		}
 	},
 	readSmallText: async (path, maxBytes) => {
-		try {
-			const handle = await open(path, "r");
-			try {
-				const buffer = Buffer.alloc(maxBytes + 1);
-				const { bytesRead } = await handle.read(buffer, 0, maxBytes + 1, 0);
-				return bytesRead > maxBytes
-					? undefined
-					: buffer.subarray(0, bytesRead).toString("utf8");
-			} finally {
-				await handle.close();
-			}
-		} catch {
-			return undefined;
-		}
+		const bytes = await readBytes(path, maxBytes + 1);
+		return bytes === undefined || bytes.length > maxBytes
+			? undefined
+			: bytes.toString("utf8");
 	},
+	readHead: async (path, maxBytes) =>
+		(await readBytes(path, maxBytes))?.toString("utf8"),
 };
 
 type Excluded = (dir: string) => boolean;
@@ -200,16 +215,38 @@ async function npmShimScript(
 	return win32.join(win32.dirname(file), script);
 }
 
-async function nodeForShim(
-	shim: string,
+// `#!/usr/bin/env node`の行を持つscriptか。npmのbinのscriptはこの形で、`env`はnodeをPATHから探す。
+async function isEnvNodeScript(
+	file: string,
+	fs: LookupFileSystem,
+): Promise<boolean> {
+	const head = await fs.readHead(file, SHEBANG_MAX_BYTES);
+	const end = head?.indexOf("\n") ?? -1;
+	if (head === undefined || end < 0) return false;
+	const line = head.slice(0, end).replace(/\r$/, "");
+	if (!line.startsWith("#!")) return false;
+	const words = line
+		.slice(2)
+		.split(/[ \t]+/)
+		.filter(Boolean);
+	const [interpreter, program] = words;
+	return (
+		words.length === 2 &&
+		interpreter !== undefined &&
+		posix.isAbsolute(interpreter) &&
+		posix.basename(interpreter) === "env" &&
+		program === "node"
+	);
+}
+
+// correlation.md「commandの解決」のNode.jsのscript。scriptの絶対path、Node.jsのscriptでなければundefined。
+async function nodeScriptFor(
+	file: string,
 	context: LookupContext,
-	excluded: Excluded,
 ): Promise<string | undefined> {
 	const fs = context.fs ?? defaultFs;
-	const local = win32.join(win32.dirname(shim), "node.exe");
-	if (await fs.isFile(local)) return local;
-	const found = await findIn("node", context, excluded);
-	return found === undefined || isBatch(found) ? undefined : found;
+	if (context.platform === "win32") return npmShimScript(file, fs);
+	return (await isEnvNodeScript(file, fs)) ? file : undefined;
 }
 
 function cmdExe(
@@ -236,18 +273,18 @@ export async function commandLineFor(
 	context: LookupContext,
 	{ quoteArgs = true }: { quoteArgs?: boolean } = {},
 ): Promise<CommandLine | undefined> {
+	const script = await nodeScriptFor(file, context);
+	if (script !== undefined)
+		// shimと`env`にnodeを探させず、自身のnodeで起動する。
+		return {
+			file: context.execPath ?? process.execPath,
+			args: [script, ...args],
+			verbatim: false,
+		};
 	if (context.platform !== "win32" || !isBatch(file))
 		return { file, args: [...args], verbatim: false };
-	const excluded = await excludedDirectories(context);
-	const script = await npmShimScript(file, context.fs ?? defaultFs);
-	if (script !== undefined) {
-		// shimはnodeをcmd.exeに探させるため、cmd.exeを介さずにnodeを直接起動する。
-		const node = await nodeForShim(file, context, excluded);
-		return node === undefined
-			? undefined
-			: { file: node, args: [script, ...args], verbatim: false };
-	}
 	if ([file, ...args].some((word) => CMD_UNSAFE.test(word))) return undefined;
+	const excluded = await excludedDirectories(context);
 	const shell = cmdExe(context, excluded);
 	if (shell === undefined) return undefined;
 	const line = quoteArgs
