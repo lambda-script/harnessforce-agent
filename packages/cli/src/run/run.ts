@@ -36,6 +36,8 @@ export type RunDeps = {
 	now: () => Date;
 	platform: NodeJS.Platform;
 	launch: (launch: Launch) => Promise<LaunchOutcome>;
+	// 起動し直す前に取り除いたNode.jsの実行時の変数。agentの環境へだけ戻す。
+	restoredEnv: Record<string, string>;
 };
 
 export type RunArgs = {
@@ -149,7 +151,8 @@ async function prepareLaunch(args: RunArgs, deps: RunDeps): Promise<Launch> {
 			{ issueIdentifier: args.issue, ...context },
 			deps.env.OTEL_RESOURCE_ATTRIBUTES,
 		),
-		shellEnv: deps.env,
+		// 手順3のshellの環境は、実行時の変数を取り除く前の環境とする。
+		shellEnv: { ...deps.env, ...deps.restoredEnv },
 		workspaceId,
 		ingestEndpoint,
 		platform: deps.platform,

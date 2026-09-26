@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 import { createRequire } from "node:module";
+import { homedir, tmpdir } from "node:os";
 import { createOsKeychain } from "./credentials/os-keychain.js";
 import { openBrowser } from "./init/browser.js";
 import { startLoopback } from "./init/loopback.js";
 import { run } from "./main.js";
 import { managedDirFor } from "./managed.js";
+import { createGitRunner } from "./process/git.js";
 import { spawnSelf, takeStashedRuntimeEnv } from "./process/runtime-env.js";
 import { relaunchHf } from "./relaunch.js";
-import { launchAgent, runGit } from "./run/process.js";
-import { homedir, tmpdir } from "node:os";
+import { launchAgent } from "./run/process.js";
 
 // buildが書く既定の接続先（scripts/build-config.mjs）。distのbin.jsと同じdirectoryにある。
 const { url: defaultUrl } = createRequire(import.meta.url)(
@@ -18,7 +19,7 @@ const { url: defaultUrl } = createRequire(import.meta.url)(
 const CALLBACK_TIMEOUT_MS = 5 * 60 * 1000;
 
 const argv = process.argv.slice(2);
-// 起動し直す前のprocessが取り除いた実行時の変数。ブラウザを開くcommandの環境へだけ戻す。
+// 起動し直す前のprocessが取り除いた実行時の変数。agentとブラウザを開くcommandの環境へだけ戻す。
 const restoredEnv = takeStashedRuntimeEnv(process.env, process.platform);
 const relaunched = await relaunchHf(argv, {
 	platform: process.platform,
@@ -52,9 +53,15 @@ process.exitCode =
 		defaultUrl,
 		callbackTimeoutMs: CALLBACK_TIMEOUT_MS,
 		cwd: process.cwd(),
-		git: runGit,
+		git: createGitRunner({
+			platform: process.platform,
+			env: process.env,
+			processCwd: process.cwd(),
+			excludeTarget: false,
+		}),
 		now: () => new Date(),
 		platform: process.platform,
+		restoredEnv,
 		launch: (launch) =>
 			launchAgent(launch, {
 				platform: process.platform,

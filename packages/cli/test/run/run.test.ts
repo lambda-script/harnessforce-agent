@@ -30,6 +30,7 @@ type Setup = {
 	settings?: string;
 	keychain?: (apiOrigin: string) => CliDeps["keychain"];
 	exitCode?: number;
+	restoredEnv?: Record<string, string>;
 };
 
 async function runHf(argv: string[], setup: Setup = {}) {
@@ -60,6 +61,7 @@ async function runHf(argv: string[], setup: Setup = {}) {
 		cwd: home.home,
 		git: async () => undefined,
 		now: () => new Date(0),
+		restoredEnv: setup.restoredEnv ?? {},
 		launch: async (launch) => {
 			launches.push(launch);
 			return { kind: "exited", code: setup.exitCode ?? 0 };
@@ -71,6 +73,22 @@ async function runHf(argv: string[], setup: Setup = {}) {
 const ISSUE_ARGS = ["--issue", "ENG-42", "--", "claude", "-p", "hi"];
 
 describe("hf run", () => {
+	// correlation.md「Node.jsの実行時の変数」: agentには起動し直す前に取り除いた値を戻す。
+	it("gives the agent the Node runtime variables removed before the relaunch", async () => {
+		const r = await runHf(ISSUE_ARGS, {
+			restoredEnv: {
+				HTTPS_PROXY: "http://corp:8080",
+				NODE_EXTRA_CA_CERTS: "/etc/corp.pem",
+			},
+		});
+		expect(r.code).toBe(0);
+		expect(r.launches[0]?.env).toMatchObject({
+			HTTPS_PROXY: "http://corp:8080",
+			NODE_EXTRA_CA_CERTS: "/etc/corp.pem",
+		});
+		expect(r.launches[0]?.settingsEnv).not.toHaveProperty("HTTPS_PROXY");
+	});
+
 	it("launches the agent with the issue attribute and returns its exit code", async () => {
 		const r = await runHf(ISSUE_ARGS, { exitCode: 3 });
 		expect(r.code).toBe(3);

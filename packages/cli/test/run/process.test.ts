@@ -9,7 +9,9 @@ import {
 } from "node:fs";
 import { isAbsolute, join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
-import { launchAgent, runGit } from "../../src/run/process.js";
+import type { RunGit } from "../../src/process/git.js";
+import { createGitRunner } from "../../src/process/git.js";
+import { launchAgent } from "../../src/run/process.js";
 import { tempDir } from "../config/support.js";
 
 // PATHを探さずに起動できるよう、agentは絶対pathで渡す。
@@ -203,7 +205,15 @@ describe.skipIf(process.platform === "win32")(
 	},
 );
 
-describe("runGit", () => {
+describe("running git for hf run", () => {
+	const runGit: RunGit = (cwd, args) =>
+		createGitRunner({
+			platform: process.platform,
+			env: process.env,
+			processCwd: process.cwd(),
+			excludeTarget: false,
+		})(cwd, args);
+
 	const git = (cwd: string, ...args: string[]) =>
 		execFileSync("git", ["-C", cwd, ...args], {
 			env: {

@@ -1,39 +1,16 @@
-import { type ChildProcess, execFile, spawn } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { constants } from "node:os";
 import { join, resolve as resolvePath } from "node:path";
 import type { Env } from "../otel-headers.js";
 import { type CommandLine, commandLine, resolveAgentFile } from "./command.js";
-import type { RunGit } from "./context.js";
 import type { Launch } from "./launch.js";
 import type { LaunchOutcome } from "./run.js";
 
-// gitの各呼び出しの上限。pluginのhookと同じ値で、agentの起動を待たせない。
-const GIT_TIMEOUT_MS = 1000;
 // 端末からのCtrl-Cはagentも受け取る。agentが扱うため、hfは終わらずにagentの終了を待つ。
 const IGNORED_WHILE_RUNNING = ["SIGINT", "SIGQUIT"] as const;
 // hfだけに届いた終了の要求はagentへ渡す。
 const FORWARDED = ["SIGTERM", "SIGHUP"] as const;
-
-export const runGit: RunGit = (cwd, args) =>
-	new Promise((resolve) => {
-		// GIT_DIRなどが環境にあると、cwdではなくそのrepositoryを読むため、gitへは渡さない。
-		// Windowsの環境変数の名前は大文字と小文字を区別しない。
-		const isGitVariable = (name: string) =>
-			(process.platform === "win32" ? name.toUpperCase() : name).startsWith(
-				"GIT_",
-			);
-		const env = Object.fromEntries(
-			Object.entries(process.env).filter(([name]) => !isGitVariable(name)),
-		);
-		execFile(
-			"git",
-			["-C", cwd, ...args],
-			{ encoding: "utf8", env, timeout: GIT_TIMEOUT_MS, windowsHide: true },
-			(error, stdout) =>
-				resolve(error ? undefined : stdout.trim() || undefined),
-		);
-	});
 
 export type LaunchOptions = {
 	platform: NodeJS.Platform;
@@ -53,7 +30,7 @@ export async function launchAgent(
 	const file = await resolveAgentFile(launch.command, options);
 	if (!file) return FAILED;
 	if (!launch.settingsEnv) {
-		const command = commandLine(file, launch.args, options);
+		const command = await commandLine(file, launch.args, options);
 		return command ? spawnAndWait(command, launch.env) : FAILED;
 	}
 	// JSONを引数に直接置かず、利用者だけが読めるfileで渡す。fileを作れなければ起動しない。
@@ -68,7 +45,7 @@ export async function launchAgent(
 			mode: 0o600,
 			flag: "wx",
 		});
-		const command = commandLine(
+		const command = await commandLine(
 			file,
 			["--settings", settingsPath, ...launch.args],
 			options,

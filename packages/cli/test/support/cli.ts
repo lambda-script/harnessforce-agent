@@ -79,6 +79,7 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}) {
 		managedDir: "/nonexistent/hf-managed",
 		defaultUrl: "https://app.example.test",
 		callbackTimeoutMs: 5000,
+		restoredEnv: {},
 		cwd: "/nonexistent/hf-cwd",
 		git: async () => undefined,
 		now: () => new Date(),
