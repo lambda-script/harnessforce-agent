@@ -2,7 +2,13 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { resolveRepository, runGit } from "../../src/import/repository.js";
+import {
+	createImportGit,
+	resolveRepository,
+} from "../../src/import/repository.js";
+
+const runGit = createImportGit(process.env, process.cwd());
+
 import { tempDir } from "../config/support.js";
 
 function repository(remotes: Record<string, string>): string {

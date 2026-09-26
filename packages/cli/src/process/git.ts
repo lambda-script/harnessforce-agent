@@ -10,17 +10,18 @@ export type ExecGit = (
 	file: string,
 	args: readonly string[],
 	env: Record<string, string>,
+	timeoutMs: number,
 ) => Promise<string | undefined>;
 
 // gitの各呼び出しの上限。repositoryの判定でsessionの開始やagentの起動を待たせない。
 const GIT_TIMEOUT_MS = 1000;
 
-const execGit: ExecGit = (file, args, env) =>
+const execGit: ExecGit = (file, args, env, timeoutMs) =>
 	new Promise((resolve) => {
 		execFile(
 			file,
 			args,
-			{ encoding: "utf8", env, timeout: GIT_TIMEOUT_MS, windowsHide: true },
+			{ encoding: "utf8", env, timeout: timeoutMs, windowsHide: true },
 			(error, stdout) =>
 				resolve(error ? undefined : stdout.trim() || undefined),
 		);
@@ -32,6 +33,7 @@ type GitRunnerOptions = {
 	processCwd: string;
 	// hookは入力のcwd（`git -C`の対象）も除外の基点にする（correlation.md「commandの解決」）。
 	excludeTarget: boolean;
+	timeoutMs?: number;
 	fs?: LookupFileSystem;
 	exec?: ExecGit;
 };
@@ -41,6 +43,7 @@ export function createGitRunner({
 	env,
 	processCwd,
 	excludeTarget,
+	timeoutMs = GIT_TIMEOUT_MS,
 	fs,
 	exec = execGit,
 }: GitRunnerOptions): RunGit {
@@ -74,6 +77,6 @@ export function createGitRunner({
 		const file = await gitFor(cwd);
 		return file === undefined
 			? undefined
-			: exec(file, ["-C", cwd, ...args], gitEnv);
+			: exec(file, ["-C", cwd, ...args], gitEnv, timeoutMs);
 	};
 }

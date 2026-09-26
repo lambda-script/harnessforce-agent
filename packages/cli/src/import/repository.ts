@@ -1,29 +1,21 @@
-import { execFile } from "node:child_process";
 import { isAbsolute } from "node:path";
 import { normalizeRepository } from "@harnessforce/semconv";
+import { createGitRunner, type RunGit } from "../process/git.js";
+import type { Env } from "../process/lookup.js";
 
-// gitが失敗、または出力が空ならundefinedを返す。
-export type RunGit = (
-	cwd: string,
-	args: readonly string[],
-) => Promise<string | undefined>;
+export type { RunGit };
 
 // 1つのcwdへのgitの呼び出しの上限。応答しないfilesystemで取り込みを止めない。
 const GIT_TIMEOUT_MS = 5000;
 
-export const runGit: RunGit = (cwd, args) =>
-	new Promise((resolve) => {
-		// GIT_DIRなどが環境にあると、cwdではなくそのrepositoryを読むため、gitへは渡さない。
-		const env = Object.fromEntries(
-			Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
-		);
-		execFile(
-			"git",
-			["-C", cwd, ...args],
-			{ encoding: "utf8", env, timeout: GIT_TIMEOUT_MS, windowsHide: true },
-			(error, stdout) =>
-				resolve(error ? undefined : stdout.trim() || undefined),
-		);
+// correlation.md「commandの解決」: gitは現在のdirectoryとそのrepositoryの外から解決する。
+export const createImportGit = (env: Env, processCwd: string): RunGit =>
+	createGitRunner({
+		platform: process.platform,
+		env,
+		processCwd,
+		excludeTarget: false,
+		timeoutMs: GIT_TIMEOUT_MS,
 	});
 
 // sessionのcwdのrepository（semantic-conventions.md「repositoryの正規化」）。remoteはhookと同じくoriginを優先する。

@@ -1,5 +1,6 @@
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { isObject } from "../config/files.js";
+import { absoluteEnv } from "../config/scope.js";
 import {
 	apiTokenAccount,
 	ingestKeyAccount,
@@ -10,6 +11,7 @@ import {
 import type { Fetch } from "../init/http.js";
 import { INIT_MESSAGES } from "../init/messages.js";
 import { readUserSettings, userSettingsPath } from "../init/settings.js";
+import { readManagedEnv } from "../managed.js";
 import type { Env } from "../otel-headers.js";
 import { parseAllowedUrl } from "../url.js";
 import {
@@ -34,6 +36,7 @@ export type ImportDeps = {
 	stderr: (text: string) => void;
 	fetch: Fetch;
 	homeDir: string;
+	managedDir: string;
 	defaultUrl: string;
 	git: RunGit;
 	now: () => number;
@@ -79,14 +82,28 @@ type Resolved = {
 
 // user settingsの`env`の文字列の値。読めないfileは値が無いものとする。
 async function readSettingsEnv(
-	deps: ImportDeps,
+	path: string,
 ): Promise<Record<string, string | undefined>> {
-	const read = await readUserSettings(userSettingsPath(deps.env, deps.homeDir));
+	const read = await readUserSettings(path);
 	const env = read.kind === "ok" ? read.settings.env : undefined;
 	if (!isObject(env)) return {};
 	return Object.fromEntries(
 		Object.entries(env).filter(([, value]) => typeof value === "string"),
 	) as Record<string, string>;
+}
+
+// correlation.md「session import」の記録の基点。processの環境変数のCLAUDE_CONFIG_DIRはrepositoryの
+// settingsが書き換えられるため読まず、managed settingsのfile、~/.claude/settings.jsonのenvの順に読む。
+// ~/.claude/settings.jsonを固定するのは、環境変数が指すsettingsのfileもrepositoryが用意できるためである。
+async function recordBase(deps: ImportDeps): Promise<string> {
+	const defaultBase = join(deps.homeDir, ".claude");
+	const managed = await readManagedEnv(deps.managedDir, ["CLAUDE_CONFIG_DIR"]);
+	const user = await readSettingsEnv(join(defaultBase, "settings.json"));
+	return (
+		absoluteEnv(managed.CLAUDE_CONFIG_DIR) ??
+		absoluteEnv(user.CLAUDE_CONFIG_DIR) ??
+		defaultBase
+	);
 }
 
 // 送信先のURLからscheme、host、port、pathだけを残す（hookの送信先と同じ規則）。状態fileの鍵にも使う。
@@ -100,7 +117,9 @@ async function resolve(deps: ImportDeps): Promise<Resolved> {
 	// 使えると確かめた後の読み出しの失敗も、keychainを使えない場合と同じ終端とする。
 	const read = (account: string) =>
 		keychain.get(account).catch(() => stop(MESSAGES.keychainUnavailable));
-	const settingsEnv = await readSettingsEnv(deps);
+	const settingsEnv = await readSettingsEnv(
+		userSettingsPath(deps.env, deps.homeDir),
+	);
 	const setting = (name: string) => deps.env[name] || settingsEnv[name];
 
 	const workspaceId =
@@ -175,9 +194,8 @@ async function runImport(deps: ImportDeps): Promise<number> {
 			deps.fetch,
 		),
 	);
-	const settingsDir = dirname(userSettingsPath(deps.env, deps.homeDir));
 	const scan = await scanSessions({
-		projectsDir: join(settingsDir, "projects"),
+		projectsDir: join(await recordBase(deps), "projects"),
 		sinceMs: deps.now() - days * DAY_MS,
 		connected,
 		git: deps.git,

@@ -1,8 +1,9 @@
-import { writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { runGit } from "../../src/import/repository.js";
-import { fakeKeychain } from "../support/cli.js";
+import { createImportGit } from "../../src/import/repository.js";
+import { tempDir } from "../config/support.js";
+import { fakeKeychain, managedDir } from "../support/cli.js";
 import {
 	gitRepository,
 	initializedHome,
@@ -43,11 +44,70 @@ async function setup(
 		runImport({
 			homeDir: home.home,
 			keychain: keychain.keychain,
-			importGit: runGit,
+			importGit: createImportGit(process.env, process.cwd()),
 			...deps,
 		});
 	return { hf, home, keychain, cwd, run };
 }
+
+// correlation.md「session import」: 記録の基点はmanaged settingsのfile、~/.claude/settings.jsonのenvの順に読み、
+// processの環境変数のCLAUDE_CONFIG_DIRは読まない。
+describe("hf import record base", () => {
+	function configDirWith(sessionId: string, cwd: string): string {
+		const dir = tempDir("hf-config-");
+		mkdirSync(join(dir, "projects", "-work-web"), { recursive: true });
+		writeFileSync(
+			join(dir, "projects", "-work-web", `${sessionId}.jsonl`),
+			transcript(sessionId, cwd),
+		);
+		return dir;
+	}
+
+	function addUserEnv(home: string, extra: Record<string, string>) {
+		const path = join(home, ".claude", "settings.json");
+		const settings = JSON.parse(readFileSync(path, "utf8"));
+		writeFileSync(
+			path,
+			JSON.stringify({ ...settings, env: { ...settings.env, ...extra } }),
+		);
+	}
+
+	it("ignores CLAUDE_CONFIG_DIR from the process environment", async () => {
+		const { hf, home, cwd, run } = await setup();
+		const crafted = configDirWith("crafted", cwd);
+		const settings = JSON.parse(
+			readFileSync(join(home.home, ".claude", "settings.json"), "utf8"),
+		);
+		expect(
+			await run({ env: { ...settings.env, CLAUDE_CONFIG_DIR: crafted } }),
+		).toMatchObject({ code: 0 });
+		expect(hf.sessionBodies()).toEqual([["s000"]]);
+	});
+
+	it("reads CLAUDE_CONFIG_DIR from ~/.claude/settings.json", async () => {
+		const { hf, home, cwd, run } = await setup();
+		addUserEnv(home.home, { CLAUDE_CONFIG_DIR: configDirWith("moved", cwd) });
+		expect(await run()).toMatchObject({ code: 0 });
+		expect(hf.sessionBodies()).toEqual([["moved"]]);
+	});
+
+	it("prefers CLAUDE_CONFIG_DIR from the managed settings file", async () => {
+		const { hf, home, cwd, run } = await setup();
+		addUserEnv(home.home, { CLAUDE_CONFIG_DIR: configDirWith("user", cwd) });
+		const managed = managedDir({
+			env: { CLAUDE_CONFIG_DIR: configDirWith("managed", cwd) },
+		});
+		expect(await run({ managedDir: managed })).toMatchObject({ code: 0 });
+		expect(hf.sessionBodies()).toEqual([["managed"]]);
+	});
+
+	it("ignores a relative CLAUDE_CONFIG_DIR", async () => {
+		const { hf, home, run } = await setup();
+		addUserEnv(home.home, { CLAUDE_CONFIG_DIR: "relative/config" });
+		expect(await run()).toMatchObject({ code: 0 });
+		expect(hf.sessionBodies()).toEqual([["s000"]]);
+	});
+});
 
 describe("hf import", () => {
 	it("sends connected sessions with the user key to the destinations saved by hf init", async () => {
