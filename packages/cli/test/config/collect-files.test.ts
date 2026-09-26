@@ -1,14 +1,13 @@
 import { mkdirSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { collectConfig } from "../../src/config/collect.js";
-import { fileHash, fixture, tempDir, writeTree } from "./support.js";
-
-async function components(options: Parameters<typeof collectConfig>[0]) {
-	const result = await collectConfig(options);
-	if (result.kind !== "collected") throw new Error(result.reason);
-	return result.components;
-}
+import {
+	components,
+	fileHash,
+	fixture,
+	tempDir,
+	writeTree,
+} from "./support.js";
 
 describe("file-based components", () => {
 	it("collects rules from every scope with scope-relative identifiers", async () => {

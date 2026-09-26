@@ -3,7 +3,10 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { onTestFinished } from "vitest";
 import { hashFileContent, hashValue } from "../../src/config/canonical.js";
-import type { CollectOptions } from "../../src/config/collect.js";
+import {
+	type CollectOptions,
+	collectConfig,
+} from "../../src/config/collect.js";
 
 // testの終了時に削除する一時directory。testの中でだけ呼ぶ。
 export function tempDir(prefix = "hf-config-"): string {
@@ -45,4 +48,10 @@ export function fixture(env: CollectOptions["env"] = {}) {
 		managed: (files: Record<string, string>) =>
 			writeTree(options.managedDir, files),
 	};
+}
+
+export async function components(options: CollectOptions) {
+	const result = await collectConfig(options);
+	if (result.kind !== "collected") throw new Error(result.reason);
+	return result.components;
 }

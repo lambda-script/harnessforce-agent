@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { collectConfig } from "../../src/config/collect.js";
-import { fixture, hashValue, tempDir, writeTree } from "./support.js";
-
-async function components(options: Parameters<typeof collectConfig>[0]) {
-	const result = await collectConfig(options);
-	if (result.kind !== "collected") throw new Error(result.reason);
-	return result.components;
-}
+import {
+	components,
+	fixture,
+	hashValue,
+	tempDir,
+	writeTree,
+} from "./support.js";
 
 const json = (value: unknown) => JSON.stringify(value, null, 2);
 

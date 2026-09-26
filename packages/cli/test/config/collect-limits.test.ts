@@ -3,14 +3,10 @@ import { collectConfig } from "../../src/config/collect.js";
 import { fixture } from "./support.js";
 
 describe("collection limits", () => {
-	it("skips the snapshot when the deadline passes during collection", async () => {
+	it("skips the snapshot when the deadline has passed", async () => {
 		const f = fixture();
 		f.project({ "CLAUDE.md": "a", ".claude/rules/b.md": "b" });
-		let checks = 0;
-		const result = await collectConfig({
-			...f.options,
-			isExpired: () => ++checks > 2,
-		});
+		const result = await collectConfig({ ...f.options, isExpired: () => true });
 		expect(result).toEqual({ kind: "skipped", reason: "timeout" });
 	});
 

@@ -1,3 +1,7 @@
+import type { ConfigSnapshot } from "../../../packages/semconv/src/schemas/config-snapshot.js";
+import type { SessionRegistration } from "../../../packages/semconv/src/schemas/session-registration.js";
+
+export type IngestItem = SessionRegistration | ConfigSnapshot;
 export type Env = Readonly<Record<string, string | undefined>>;
 export type Fetch = (url: URL, init: RequestInit) => Promise<Response>;
 export type KeyKind = "workspace";
@@ -35,6 +39,7 @@ export function ingestBaseFrom(endpoint: string | undefined): URL | undefined {
 // 文字列の連結で組み立てると、"//host"で始まるpathが別のhostとして解釈されるため、hostを変えずにpathだけを書き換える。
 export function ingestUrl(base: URL, path: IngestPath): URL {
 	const url = new URL(base.origin);
+	// originだけのbaseのpathnameは"/"になるため、ここでも末尾の/を除く。
 	url.pathname = `${base.pathname.replace(/\/+$/, "")}/${path}`;
 	return url;
 }
@@ -51,7 +56,7 @@ export function selectKey(
 export async function postItem(
 	destination: Destination,
 	path: IngestPath,
-	item: unknown,
+	item: IngestItem,
 	fetchImpl: Fetch,
 ): Promise<SendOutcome> {
 	try {

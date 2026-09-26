@@ -1,10 +1,14 @@
-import { collectConfig } from "../../../packages/cli/src/config/collect.js";
+import {
+	COLLECT_BUDGET_MS,
+	collectConfig,
+} from "../../../packages/cli/src/config/collect.js";
 import type { ConfigSnapshot } from "../../../packages/semconv/src/schemas/config-snapshot.js";
 import type { SessionRegistration } from "../../../packages/semconv/src/schemas/session-registration.js";
 import {
 	type Destination,
 	type Env,
 	type Fetch,
+	type IngestItem,
 	type IngestPath,
 	ingestBaseFrom,
 	type KeyKind,
@@ -42,8 +46,6 @@ const REVOKED_KEY_MESSAGES: Record<KeyKind, string> = {
 
 // resumeとcompactは同じsessionの継続なので送らない。未知のsourceも送らない。
 const REGISTERING_SOURCES = new Set(["startup", "clear", "fork"]);
-// correlation.md「構成の収集」: 収集の開始からの上限時間。
-const COLLECT_BUDGET_MS = 1000;
 
 const logError = (deps: HookDeps) => (error: unknown) =>
 	deps.stderr(
@@ -72,7 +74,7 @@ function resolveDestination(deps: HookDeps): Destination | undefined {
 async function send(
 	destination: Destination,
 	path: IngestPath,
-	item: unknown,
+	item: IngestItem,
 	subject: Subject,
 	deps: HookDeps,
 ): Promise<SendOutcome> {
@@ -129,8 +131,9 @@ async function sendConfigSnapshot(
 	destination: Destination,
 	deps: HookDeps,
 ): Promise<SendOutcome | undefined> {
-	const projectRoot = await resolveProjectRoot(input.cwd, deps.git);
+	// 収集の開始はproject rootを求める前とする（correlation.md「構成の収集」）。
 	const startedMs = deps.now().getTime();
+	const projectRoot = await resolveProjectRoot(input.cwd, deps.git);
 	const result = await collectConfig({
 		projectRoot,
 		homeDir: deps.homeDir,

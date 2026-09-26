@@ -291,7 +291,16 @@ describe("bundled hook", () => {
 			r.url?.endsWith("/v1/config-snapshots"),
 		);
 		expect(snapshot?.url).toBe("/base/v1/config-snapshots");
-		expect(snapshot?.body).toEqual([
+		// managedのdirectoryはtestを実行する端末の実pathなので、比較から外す。
+		const [item] = snapshot?.body as {
+			components: { source: string }[];
+		}[];
+		expect([
+			{
+				...item,
+				components: item?.components.filter((c) => c.source !== "managed"),
+			},
+		]).toEqual([
 			{
 				agent: "claude_code",
 				session_id: "s-1",
