@@ -16,6 +16,7 @@ function memoryFs(
 		isExecutable: async () => true,
 		exists: async (path) => gitMarkers.map(lower).includes(lower(path)),
 		readSmallText: async (path) => contents.get(lower(path)),
+		readHead: async (path) => contents.get(lower(path)),
 	};
 }
 
@@ -94,7 +95,7 @@ describe("resolveAgentFile", () => {
 });
 
 describe("commandLine", () => {
-	it("starts npm's claude.cmd with node and passes every argument unquoted", async () => {
+	it("starts npm's claude.cmd with hf's node and passes every argument unquoted", async () => {
 		expect(
 			await commandLine(
 				`${NPM}\\claude.cmd`,
@@ -114,7 +115,7 @@ describe("commandLine", () => {
 				},
 			),
 		).toEqual({
-			file: "C:\\nodejs\\node.EXE",
+			file: process.execPath,
 			args: [
 				`${NPM}\\node_modules\\@anthropic-ai\\claude-code\\cli.js`,
 				"--settings",
@@ -159,6 +160,23 @@ describe("commandLine", () => {
 				fs: memoryFs({ "C:\\tools\\agent.cmd": "" }),
 			}),
 		).toBeUndefined();
+	});
+
+	it("starts npm's claude with hf's node instead of env searching PATH", async () => {
+		expect(
+			await commandLine("/usr/local/bin/claude", ["--settings", "/t/s.json"], {
+				platform: "linux",
+				env: { PATH: ":/usr/local/bin" },
+				cwd: "/work",
+				fs: memoryFs({
+					"/usr/local/bin/claude": "#!/usr/bin/env node\nimport './cli.js';\n",
+				}),
+			}),
+		).toEqual({
+			file: process.execPath,
+			args: ["/usr/local/bin/claude", "--settings", "/t/s.json"],
+			verbatim: false,
+		});
 	});
 
 	it("starts other files directly", async () => {
