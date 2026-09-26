@@ -129,7 +129,7 @@ describe("config snapshot from SessionStart", () => {
 	it("sends neither when the endpoint is invalid and reports it once", async () => {
 		const h = harness({
 			homeDir: homeWithRule(),
-			env: { HARNESSFORCE_ENDPOINT: "http://ingest.example.test" },
+			managed: { HARNESSFORCE_ENDPOINT: "http://ingest.example.test" },
 		});
 		await start(h);
 		expect(h.requests).toEqual([]);

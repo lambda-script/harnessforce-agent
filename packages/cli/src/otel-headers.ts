@@ -3,6 +3,7 @@ import {
 	ingestOriginAccount,
 	type Keychain,
 } from "./credentials/keychain.js";
+import { readManagedEnv } from "./managed.js";
 import { parseAllowedUrl } from "./url.js";
 
 export type Env = Readonly<Record<string, string | undefined>>;
@@ -27,11 +28,12 @@ type KeySelection =
 // keyが得られない場合はstdoutへ何も出力せず失敗し、Claude Codeが利用者へ通知する。
 export async function otelHeaders(
 	env: Env,
+	managedDir: string,
 	keychain: Keychain,
 	stdout: (text: string) => void,
 	stderr: (text: string) => void,
 ): Promise<number> {
-	const selection = await selectKey(env, keychain).catch(
+	const selection = await selectKey(env, managedDir, keychain).catch(
 		(): KeySelection => ({ kind: "none" }),
 	);
 	if (selection.kind === "withheld") stderr(WITHHELD);
@@ -40,10 +42,16 @@ export async function otelHeaders(
 	return 0;
 }
 
-async function selectKey(env: Env, keychain: Keychain): Promise<KeySelection> {
-	// managed settingsが配るWorkspace用のkeyを優先し、テレメトリとsession registrationのkeyを揃える。
-	if (env.HARNESSFORCE_INGEST_KEY)
-		return { kind: "key", key: env.HARNESSFORCE_INGEST_KEY };
+async function selectKey(
+	env: Env,
+	managedDir: string,
+	keychain: Keychain,
+): Promise<KeySelection> {
+	// managed settingsのfileが配るWorkspace用のkeyを優先し、テレメトリとsession registrationのkeyを揃える。
+	// processの環境変数はrepositoryのsettingsが書けるため、Workspace用のkeyには使わない。
+	const managed = await readManagedEnv(managedDir, ["HARNESSFORCE_INGEST_KEY"]);
+	if (managed.HARNESSFORCE_INGEST_KEY)
+		return { kind: "key", key: managed.HARNESSFORCE_INGEST_KEY };
 	const workspaceId = env.HARNESSFORCE_WORKSPACE_ID;
 	if (!workspaceId || !(await keychain.isAvailable())) return { kind: "none" };
 	const key = await keychain.get(ingestKeyAccount(workspaceId));

@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { homedir } from "node:os";
+import { managedDirFor } from "../../../packages/cli/src/managed.js";
 import { runHook } from "./hook.js";
-import { managedDirFor } from "./managed.js";
 import { createUserKeyReader, execHf } from "./user-key.js";
 import type { RunGit } from "./vcs.js";
 

@@ -165,7 +165,7 @@ describe("UserPromptSubmit hook", () => {
 	it("skips with invalid endpoint when the endpoint disappeared", async () => {
 		const dir = scratchpad();
 		await start(harness(), { scratchpad_dir: dir });
-		const h = harness({ env: { HARNESSFORCE_ENDPOINT: undefined } });
+		const h = harness({ managed: { HARNESSFORCE_ENDPOINT: undefined } });
 		await submit(h, { scratchpad_dir: dir, prompt_id: "p-1" });
 		expect(h.requests).toEqual([]);
 		expect(h.err()).toBe(

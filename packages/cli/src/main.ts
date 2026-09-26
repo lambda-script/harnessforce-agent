@@ -2,7 +2,8 @@ import { createRequire } from "node:module";
 import { type InitDeps, init } from "./init/init.js";
 import { otelHeaders } from "./otel-headers.js";
 
-export type CliDeps = InitDeps;
+// managedDirはhf otel-headersがWorkspace用のkeyを読むfileのdirectory。
+export type CliDeps = InitDeps & { managedDir: string };
 
 // src（test）とdist（公開物）のどちらから読んでも、1つ上がpackage.jsonになる。
 const { version } = createRequire(import.meta.url)("../package.json") as {
@@ -31,7 +32,13 @@ export async function run(
 		return 0;
 	}
 	if (command === "otel-headers" && rest.length === 0)
-		return otelHeaders(deps.env, deps.keychain, deps.stdout, deps.stderr);
+		return otelHeaders(
+			deps.env,
+			deps.managedDir,
+			deps.keychain,
+			deps.stdout,
+			deps.stderr,
+		);
 	const initArgs = command === "init" ? parseInitArgs(rest) : undefined;
 	if (initArgs) return init(initArgs.url, deps);
 	deps.stderr(USAGE);

@@ -9,10 +9,15 @@ repository, branch and commit of `cwd` to `POST <HARNESSFORCE_ENDPOINT>/v1/sessi
 prompt it sends the same registration again with the prompt ID. Prompts, responses and file
 contents are never sent.
 
-- Set `HARNESSFORCE_ENDPOINT` (the ingest base URL; `https:`, or `http:` only for `localhost`,
-  `127.0.0.1` and `[::1]`) and `HARNESSFORCE_INGEST_KEY` (a Workspace ingest key), for example in the
-  managed settings `env`. Hooks do not receive `OTEL_*` variables, so these are separate.
-- Without `HARNESSFORCE_INGEST_KEY`, the hook uses the user ingest key that `hf init` stored for
+- For an organization, set `HARNESSFORCE_ENDPOINT` (the ingest base URL; `https:`, or `http:` only
+  for `localhost`, `127.0.0.1` and `[::1]`) and `HARNESSFORCE_INGEST_KEY` (a Workspace ingest key) in
+  the `env` of the managed settings file (`managed-settings.json` or `managed-settings.d/*.json` in
+  the managed directory). The hook reads the Workspace key and its endpoint only from those files,
+  never from the process environment, because a repository's `.claude/settings.json` can set
+  environment variables. Values distributed through MDM or server-managed settings are not read.
+  Hooks do not receive `OTEL_*` variables, so these are separate.
+- Without a managed Workspace key, the hook sends to `HARNESSFORCE_ENDPOINT` from the environment with
+  the user ingest key that `hf init` stored for
   `HARNESSFORCE_WORKSPACE_ID`, reading it by running `hf otel-headers` from `PATH` (1 second limit).
   With a user key and `HARNESSFORCE_ISSUE` (set by `hf run`), the registration claims `source=cli`
   with that issue identifier. A Workspace key never claims `source=cli`.
@@ -68,8 +73,9 @@ hooks. Public distribution starts once the production domain is decided.
    - `otelHeadersHelper`: `hf otel-headers`
    - `enabledPlugins["harnessforce@harnessforce-agent"]`
 
-`hf otel-headers` prints `{"Authorization":"Bearer <key>"}`. The key is `HARNESSFORCE_INGEST_KEY`
-when that is set, and otherwise the user key for `HARNESSFORCE_WORKSPACE_ID` from the keychain. If
+`hf otel-headers` prints `{"Authorization":"Bearer <key>"}`. The key is `HARNESSFORCE_INGEST_KEY` from
+the managed settings file when that is set, and otherwise the user key for
+`HARNESSFORCE_WORKSPACE_ID` from the keychain. If
 there is no key, it prints nothing and exits 1. The user key is printed only when every destination
 variable that is set (`HARNESSFORCE_ENDPOINT`, `OTEL_EXPORTER_OTLP_ENDPOINT` and the per-signal
 `OTEL_EXPORTER_OTLP_*_ENDPOINT`) has the pinned origin. This stops a repository's

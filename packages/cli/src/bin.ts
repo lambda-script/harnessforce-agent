@@ -5,6 +5,7 @@ import { createOsKeychain } from "./credentials/os-keychain.js";
 import { openBrowser } from "./init/browser.js";
 import { startLoopback } from "./init/loopback.js";
 import { run } from "./main.js";
+import { managedDirFor } from "./managed.js";
 
 // buildが書く既定の接続先（scripts/build-config.mjs）。distのbin.jsと同じdirectoryにある。
 const { url: defaultUrl } = createRequire(import.meta.url)(
@@ -26,6 +27,7 @@ process.exitCode = await run(process.argv.slice(2), {
 	openBrowser: (url) => openBrowser(url, process.platform),
 	startLoopback,
 	homeDir: homedir(),
+	managedDir: managedDirFor(process.platform),
 	defaultUrl,
 	callbackTimeoutMs: CALLBACK_TIMEOUT_MS,
 });

@@ -2,6 +2,7 @@ import {
 	COLLECT_BUDGET_MS,
 	collectConfig,
 } from "../../../packages/cli/src/config/collect.js";
+import { readManagedEnv } from "../../../packages/cli/src/managed.js";
 import type { ConfigSnapshot } from "../../../packages/semconv/src/schemas/config-snapshot.js";
 import type { SessionRegistration } from "../../../packages/semconv/src/schemas/session-registration.js";
 import {
@@ -63,34 +64,43 @@ type Subject = "session registration" | "config snapshot";
 const report = (deps: HookDeps, subject: Subject, detail: string) =>
 	deps.stderr(`harnessforce: ${subject} ${detail}\n`);
 
-// keyはWorkspace用（managed settingsが配る）を優先し、無ければHARNESSFORCE_WORKSPACE_IDの利用者用のkeyを読む。
-async function selectKey(
-	deps: HookDeps,
-): Promise<{ key: string; keyKind: KeyKind } | undefined> {
-	const workspaceKey = deps.env.HARNESSFORCE_INGEST_KEY;
-	if (workspaceKey) return { key: workspaceKey, keyKind: "workspace" };
+// 利用者用のkeyは、`hf otel-headers`が送信先の固定を確かめたうえで返す。
+async function selectUserKey(deps: HookDeps): Promise<string | undefined> {
 	if (!deps.env.HARNESSFORCE_WORKSPACE_ID) return undefined;
 	const read = await deps.readUserKey();
 	if (read.kind === "failed")
 		deps.stderr("harnessforce: no user key in keychain or read failed\n");
-	return read.kind === "found" ? { key: read.key, keyKind: "user" } : undefined;
+	return read.kind === "found" ? read.key : undefined;
 }
 
-// 送信先の判定をkeyの判定より先に行う。両方が無ければ送信先の終端だけを書く。
+// Workspace用のkeyとその送信先はmanaged settingsのfileからだけ読む。processの環境変数はrepositoryのsettingsが書けるためである。
+// Workspace用のkeyが無ければ、processの環境変数の送信先と利用者用のkeyを使う。
+// 送信先の判定をkeyの判定より先に行い、両方が無ければ送信先の終端だけを書く。
 async function resolveDestination(
 	deps: HookDeps,
 ): Promise<Destination | undefined> {
-	const ingestBase = ingestBaseFrom(deps.env.HARNESSFORCE_ENDPOINT);
+	const managed = await readManagedEnv(deps.managedDir, [
+		"HARNESSFORCE_INGEST_KEY",
+		"HARNESSFORCE_ENDPOINT",
+	]);
+	const workspaceKey = managed.HARNESSFORCE_INGEST_KEY;
+	const ingestBase = ingestBaseFrom(
+		workspaceKey
+			? managed.HARNESSFORCE_ENDPOINT
+			: deps.env.HARNESSFORCE_ENDPOINT,
+	);
 	if (!ingestBase) {
 		report(deps, "session registration", "skipped (invalid endpoint)");
 		return undefined;
 	}
-	const selected = await selectKey(deps);
-	if (!selected) {
+	if (workspaceKey)
+		return { ingestBase, key: workspaceKey, keyKind: "workspace" };
+	const userKey = await selectUserKey(deps);
+	if (!userKey) {
 		report(deps, "session registration", "skipped (no ingest key)");
 		return undefined;
 	}
-	return { ingestBase, ...selected };
+	return { ingestBase, key: userKey, keyKind: "user" };
 }
 
 // Workspace用のkeyではsource=cliを名乗らない（control-plane.md「認証の種類と信頼」）。

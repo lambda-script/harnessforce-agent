@@ -143,9 +143,24 @@ function runBundle(
 	});
 }
 
+// `hf otel-headers`の代わりのscript。keychainには触れず、固定のkeyを返す。
+function hfReturning(key: string): string {
+	const dir = tempDir("hf-bin-");
+	const hf = join(dir, "hf");
+	writeFileSync(
+		hf,
+		`#!/bin/sh\n[ "$1" = otel-headers ] && printf '{"Authorization":"Bearer ${key}"}'\n`,
+	);
+	chmodSync(hf, 0o755);
+	return dir;
+}
+
+// managed settingsのdirectoryは端末の実pathでbundleからは差し替えられないため、利用者用のkeyの経路で送る。
+// Workspace用のkeyの選び方はunit testで確かめる。
 const env = (endpoint: string) => ({
 	HARNESSFORCE_ENDPOINT: endpoint,
-	HARNESSFORCE_INGEST_KEY: "hf_ik_ws1_secret",
+	HARNESSFORCE_WORKSPACE_ID: "ws1",
+	PATH: `${hfReturning("hf_ik_ws1_secret")}:${process.env.PATH ?? ""}`,
 });
 
 describe("built marketplace", () => {
@@ -191,7 +206,7 @@ describe("built marketplace", () => {
 	});
 });
 
-describe("bundled hook", () => {
+describe.skipIf(process.platform === "win32")("bundled hook", () => {
 	it("registers a real git repository and its first prompt through HTTP", async () => {
 		const repo = makeRepo();
 		const ingest = await startIngest("accept");
@@ -242,8 +257,7 @@ describe("bundled hook", () => {
 		);
 		expect(result.code).toBe(0);
 		expect(JSON.parse(result.stdout)).toEqual({
-			systemMessage:
-				"組織の送信キーが失効しています。Workspaceの管理者に連絡してください",
+			systemMessage: "送信キーが失効しています。`hf init`を実行してください",
 		});
 	});
 
@@ -335,27 +349,6 @@ describe("bundled hook", () => {
 					"harnessforce: session registration skipped (no ingest key)\n",
 			);
 			expect(ingest.received).toEqual([]);
-		},
-	);
-
-	it.skipIf(process.platform === "win32")(
-		"tells the user to run hf init when the user key is revoked",
-		async () => {
-			const repo = makeRepo();
-			const ingest = await startIngest("revoke");
-			const result = await runBundle(
-				"session-start",
-				{ session_id: "s-1", cwd: repo.dir },
-				{
-					HARNESSFORCE_ENDPOINT: ingest.endpoint,
-					HARNESSFORCE_WORKSPACE_ID: "ws1",
-					PATH: `${fakeHfOnPath()}:${process.env.PATH ?? ""}`,
-				},
-			);
-			expect(result.code).toBe(0);
-			expect(JSON.parse(result.stdout)).toEqual({
-				systemMessage: "送信キーが失効しています。`hf init`を実行してください",
-			});
 		},
 	);
 

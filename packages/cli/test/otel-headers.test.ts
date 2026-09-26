@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fakeKeychain, runCli } from "./support/cli.js";
+import { fakeKeychain, managedDir, runCli } from "./support/cli.js";
 
 const header = (key: string) =>
 	`${JSON.stringify({ Authorization: `Bearer ${key}` })}\n`;
@@ -72,17 +72,35 @@ describe("hf otel-headers", () => {
 			}),
 		).toEqual({ code: 0, out: header("hf_ik_ws1_user"), err: "" }));
 
-	it("prints HARNESSFORCE_INGEST_KEY without reading the keychain or the destination", async () =>
+	it("prints the managed Workspace key without reading the keychain or the destination", async () =>
 		// runCliの既定のkeychainは、触れると例外になる。
 		expect(
 			await runCli(["otel-headers"], {
 				env: {
-					HARNESSFORCE_INGEST_KEY: "hf_ik_ws9_managed",
-					HARNESSFORCE_WORKSPACE_ID: "ws1",
 					OTEL_EXPORTER_OTLP_ENDPOINT: "https://elsewhere.example.test",
 				},
+				managedDir: managedDir({
+					env: { HARNESSFORCE_INGEST_KEY: "hf_ik_ws9_managed" },
+				}),
 			}),
 		).toEqual({ code: 0, out: header("hf_ik_ws9_managed"), err: "" }));
+
+	it("ignores HARNESSFORCE_INGEST_KEY from the process environment", async () =>
+		expect(
+			await runCli(["otel-headers"], {
+				env: { ...userEnv, HARNESSFORCE_INGEST_KEY: "hf_ik_evil_key" },
+				keychain: pinned(),
+			}),
+		).toEqual({ code: 0, out: header("hf_ik_ws1_user"), err: "" }));
+
+	it("ignores an unreadable managed file and uses the user key", async () =>
+		expect(
+			await runCli(["otel-headers"], {
+				env: userEnv,
+				keychain: pinned(),
+				managedDir: managedDir(null, { "10.json": "{" }),
+			}),
+		).toEqual({ code: 0, out: header("hf_ik_ws1_user"), err: "" }));
 
 	it.each([
 		[
