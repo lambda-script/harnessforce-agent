@@ -65,7 +65,9 @@ hooks. Public distribution starts once the production domain is decided.
    sends the SHA-256 hashes of the ingest keys already in the keychain, so the old key for the chosen
    Workspace on this machine is revoked. Keys on other machines stay valid.
 4. It stores both under the keychain service `harnessforce` as `<workspace_id>:ingest-key` and
-   `<workspace_id>:api-token`, and pins the ingest endpoint origin as `<workspace_id>:ingest-origin`.
+   `<workspace_id>:api-token`, and pins the ingest endpoint origin as `<workspace_id>:ingest-origin`
+   and the base URL origin as `<workspace_id>:url-origin`. It deletes both origins first and writes
+   them last, so a failure part way never pairs an old origin with a new key or token.
 5. It updates the Claude Code user settings (`~/.claude/settings.json`, or `$CLAUDE_CONFIG_DIR`),
    changing only these keys:
    - `env`: the OTel exporter variables, `HARNESSFORCE_URL`, `HARNESSFORCE_ENDPOINT` and

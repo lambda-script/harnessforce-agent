@@ -111,6 +111,8 @@ describe("hf init", () => {
 			"ws1:api-token": issued.api_token,
 			// 送信先の固定。ingest_endpointのscheme、host、portだけを保存する。
 			"ws1:ingest-origin": "https://ingest.example.test",
+			// 使った接続先のorigin。Read APIへApiTokenを送る先の固定に使う。
+			"ws1:url-origin": new URL(server.base).origin,
 		});
 		const settings = JSON.parse(home.read() ?? "");
 		expect(settings).toEqual({
@@ -172,25 +174,27 @@ describe("hf init", () => {
 		expect(home.read()).not.toContain("pass");
 	});
 
-	it("re-pins the origin on a later hf init", async () => {
-		const server = await startHarnessforce();
+	it("re-pins both origins on a later hf init with another --url", async () => {
+		const server = await startHarnessforce({ basePath: "/hf" });
 		const { keychain, items } = fakeKeychain({
 			items: {
 				"ws1:ingest-key": "hf_ik_ws1_old",
 				"ws1:ingest-origin": "https://old-ingest.example.test",
+				"ws1:url-origin": "https://old.example.test",
 			},
 		});
-		await runInit([], {
+		await runInit(["--url", server.base], {
 			homeDir: makeHome().home,
-			defaultUrl: server.base,
+			defaultUrl: "https://default.example.test",
 			keychain,
 			openBrowser: fakeBrowser().open,
 		});
 		expect(items.get("ws1:ingest-origin")).toBe("https://ingest.example.test");
+		expect(items.get("ws1:url-origin")).toBe(new URL(server.base).origin);
 	});
 
 	// 途中で失敗しても、前の接続先のoriginと新しいkeyの組を残さない。
-	it("deletes the pinned origin before saving the new key", async () => {
+	it("deletes both pinned origins before saving the new key and token", async () => {
 		const server = await startHarnessforce();
 		const { keychain, writes } = fakeKeychain();
 		await runInit([], {
@@ -201,9 +205,11 @@ describe("hf init", () => {
 		});
 		expect(writes).toEqual([
 			"delete ws1:ingest-origin",
+			"delete ws1:url-origin",
 			"ws1:ingest-key",
 			"ws1:api-token",
 			"ws1:ingest-origin",
+			"ws1:url-origin",
 		]);
 	});
 

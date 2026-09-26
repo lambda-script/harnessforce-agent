@@ -5,6 +5,7 @@ import {
 	ingestOriginAccount,
 	isIngestKeyAccount,
 	type Keychain,
+	urlOriginAccount,
 } from "../credentials/keychain.js";
 import type { Env } from "../otel-headers.js";
 import { parseAllowedUrl } from "../url.js";
@@ -99,8 +100,9 @@ async function runInit(url: string | undefined, deps: InitDeps) {
 		deps.fetch,
 	);
 	const issued = issuedOrStop(outcome);
-	await save(issued, recordedUrl, settingsPath, deps).catch((error: unknown) =>
-		stop(error instanceof InitStop ? error.message : "saveFailed"),
+	await save(issued, base.origin, recordedUrl, settingsPath, deps).catch(
+		(error: unknown) =>
+			stop(error instanceof InitStop ? error.message : "saveFailed"),
 	);
 }
 
@@ -173,14 +175,16 @@ function issuedOrStop(outcome: CredentialOutcome): Issued {
 }
 
 // correlation.md「CLI」の手順5と6。どちらかが失敗したら保存の失敗とする。
-// originを先に消し、途中で失敗しても前の接続先のoriginと新しいkeyの組を残さない。
+// originを先に消し、途中で失敗しても前の接続先のoriginと新しいkeyやtokenの組を残さない。
 async function save(
 	issued: Issued,
+	connectionOrigin: string,
 	connection: string,
 	settingsPath: string,
 	deps: InitDeps,
 ): Promise<void> {
 	await deps.keychain.delete(ingestOriginAccount(issued.workspaceId));
+	await deps.keychain.delete(urlOriginAccount(issued.workspaceId));
 	await deps.keychain.set(
 		ingestKeyAccount(issued.workspaceId),
 		issued.ingestKey,
@@ -189,6 +193,10 @@ async function save(
 	await deps.keychain.set(
 		ingestOriginAccount(issued.workspaceId),
 		new URL(issued.ingestEndpoint).origin,
+	);
+	await deps.keychain.set(
+		urlOriginAccount(issued.workspaceId),
+		connectionOrigin,
 	);
 	const current = await readUserSettings(settingsPath);
 	if (current.kind === "invalid") return stop("saveFailed");
