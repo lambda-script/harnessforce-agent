@@ -1,4 +1,5 @@
 import type { Keychain, KeychainItem } from "../../src/credentials/keychain.js";
+import { startLoopback } from "../../src/init/loopback.js";
 import { type CliDeps, run } from "../../src/main.js";
 
 type FakeKeychainOptions = {
@@ -54,6 +55,13 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}) {
 	const code = await run(argv, {
 		env: {},
 		keychain: untouchableKeychain,
+		fetch: (url, init) => fetch(url, init),
+		// 実際のブラウザは開かない。
+		openBrowser: async () => false,
+		startLoopback,
+		homeDir: "/nonexistent/hf-home",
+		defaultUrl: "https://app.example.test",
+		callbackTimeoutMs: 5000,
 		...deps,
 		stdout: (text) => out.push(text),
 		stderr: (text) => err.push(text),

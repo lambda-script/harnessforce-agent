@@ -1,20 +1,25 @@
 import { createRequire } from "node:module";
-import type { Keychain } from "./credentials/keychain.js";
-import { type Env, otelHeaders } from "./otel-headers.js";
+import { type InitDeps, init } from "./init/init.js";
+import { otelHeaders } from "./otel-headers.js";
 
-export type CliDeps = {
-	env: Env;
-	keychain: Keychain;
-	stdout: (text: string) => void;
-	stderr: (text: string) => void;
-};
+export type CliDeps = InitDeps;
 
 // src（test）とdist（公開物）のどちらから読んでも、1つ上がpackage.jsonになる。
 const { version } = createRequire(import.meta.url)("../package.json") as {
 	version: string;
 };
 
-const USAGE = "Usage: hf --version | hf otel-headers\n";
+const USAGE =
+	"Usage: hf --version | hf init [--url <base URL>] | hf otel-headers\n";
+
+// `hf init`の引数。受け付けない形ならundefined。
+function parseInitArgs(
+	args: readonly string[],
+): { url: string | undefined } | undefined {
+	if (args.length === 0) return { url: undefined };
+	if (args.length === 2 && args[0] === "--url") return { url: args[1] };
+	return undefined;
+}
 
 export async function run(
 	argv: readonly string[],
@@ -27,6 +32,8 @@ export async function run(
 	}
 	if (command === "otel-headers" && rest.length === 0)
 		return otelHeaders(deps.env, deps.keychain, deps.stdout);
+	const initArgs = command === "init" ? parseInitArgs(rest) : undefined;
+	if (initArgs) return init(initArgs.url, deps);
 	deps.stderr(USAGE);
 	return 1;
 }
