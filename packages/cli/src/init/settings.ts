@@ -1,5 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import {
+	chmod,
+	mkdir,
+	readFile,
+	rename,
+	rm,
+	stat,
+	writeFile,
+} from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { isObject } from "../config/files.js";
 import { absoluteEnv } from "../config/scope.js";
@@ -13,6 +21,8 @@ export type UserSettingsRead =
 // correlation.md「CLI」の手順6。keychainからheaderを作るhelperで、keyを設定ファイルに書かない。
 const OTEL_HEADERS_HELPER = "hf otel-headers";
 const PLUGIN_ID = "harnessforce@harnessforce-agent";
+// user settingsは他のsecret（apiKeyHelperなど）を持ちうるため、新しいfileは所有者だけが読めるようにする。
+const NEW_FILE_MODE = 0o600;
 
 // 構成の収集のsource `user`と同じfile（configの基点のsettings.json）。
 export function userSettingsPath(env: Env, homeDir: string): string {
@@ -67,8 +77,18 @@ export async function writeUserSettings(
 ): Promise<void> {
 	await mkdir(dirname(path), { recursive: true });
 	const temporary = `${path}.${randomUUID()}.tmp`;
+	// renameで置き換えても、既存のfileの権限を広げない。
+	const mode = await stat(path).then(
+		(existing) => existing.mode & 0o777,
+		() => NEW_FILE_MODE,
+	);
 	try {
-		await writeFile(temporary, `${JSON.stringify(settings, null, 2)}\n`);
+		await writeFile(temporary, `${JSON.stringify(settings, null, 2)}\n`, {
+			mode,
+			flag: "wx",
+		});
+		// umaskの影響を受けないよう、作った後に揃える。
+		await chmod(temporary, mode);
 		await rename(temporary, path);
 	} finally {
 		await rm(temporary, { force: true });

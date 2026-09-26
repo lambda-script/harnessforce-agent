@@ -38,13 +38,14 @@ export async function startLoopback(options: {
 			return;
 		}
 		const received: Callback = {
-			code: url.searchParams.get("code") ?? undefined,
+			// 空のcodeは、codeが無い場合と同じに扱う。
+			code: url.searchParams.get("code") || undefined,
 			state: url.searchParams.get("state") ?? undefined,
 			error: url.searchParams.get("error") ?? undefined,
 		};
 		const isSuccess =
 			!received.error &&
-			received.code !== undefined &&
+			Boolean(received.code) &&
 			received.state === options.state;
 		res.writeHead(200, {
 			"content-type": "text/html; charset=utf-8",

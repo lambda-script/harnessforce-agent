@@ -4,7 +4,7 @@ import type { EventEmitter } from "node:events";
 export type SpawnBrowser = (
 	command: string,
 	args: readonly string[],
-) => EventEmitter;
+) => EventEmitter & { unref(): void };
 
 // 起動したまま終わらないopenerは、ブラウザを開けたものとして扱う。
 const STILL_RUNNING_MS = 3000;
@@ -17,23 +17,25 @@ function openerFor(platform: NodeJS.Platform, url: string): [string, string[]] {
 	return ["xdg-open", [url]];
 }
 
-const spawnDetached: SpawnBrowser = (command, args) =>
+const spawnOpener: SpawnBrowser = (command, args) =>
 	spawn(command, args, { stdio: "ignore", windowsHide: true });
 
 export function openBrowser(
 	url: string,
 	platform: NodeJS.Platform,
-	spawnImpl: SpawnBrowser = spawnDetached,
+	spawnImpl: SpawnBrowser = spawnOpener,
 	stillRunningMs = STILL_RUNNING_MS,
 ): Promise<boolean> {
 	const [command, args] = openerFor(platform, url);
 	return new Promise((resolve) => {
+		const child = spawnImpl(command, args);
+		// ブラウザを前面で動かし続けるopenerでも、hfの終了を待たせない。
+		child.unref();
 		const timer = setTimeout(() => resolve(true), stillRunningMs);
 		const finish = (opened: boolean) => {
 			clearTimeout(timer);
 			resolve(opened);
 		};
-		const child = spawnImpl(command, args);
 		child.once("error", () => finish(false));
 		child.once("exit", (code: number | null) => finish(code === 0));
 	});

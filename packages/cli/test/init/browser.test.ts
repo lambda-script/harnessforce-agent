@@ -8,7 +8,7 @@ function fakeSpawn(outcome: { exitCode?: number; error?: Error; hang?: true }) {
 	const calls: { command: string; args: readonly string[] }[] = [];
 	const spawn: SpawnBrowser = (command, args) => {
 		calls.push({ command, args });
-		const child = new EventEmitter();
+		const child = Object.assign(new EventEmitter(), { unref: () => {} });
 		setImmediate(() => {
 			if (outcome.error) child.emit("error", outcome.error);
 			else if (!outcome.hang) child.emit("exit", outcome.exitCode ?? 0);

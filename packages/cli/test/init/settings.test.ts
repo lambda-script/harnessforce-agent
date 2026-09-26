@@ -1,4 +1,10 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+	chmodSync,
+	mkdirSync,
+	readFileSync,
+	statSync,
+	writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -72,4 +78,18 @@ describe("user settings", () => {
 		await writeUserSettings(path, { env: { A: "1" } });
 		expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ env: { A: "1" } });
 	});
+
+	it.skipIf(process.platform === "win32")(
+		"keeps the mode of an existing file and creates new files as 0600",
+		async () => {
+			const existing = join(tempDir(), "settings.json");
+			writeFileSync(existing, "{}");
+			chmodSync(existing, 0o600);
+			await writeUserSettings(existing, { env: {} });
+			expect(statSync(existing).mode & 0o777).toBe(0o600);
+			const created = join(tempDir(), "settings.json");
+			await writeUserSettings(created, {});
+			expect(statSync(created).mode & 0o777).toBe(0o600);
+		},
+	);
 });

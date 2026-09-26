@@ -181,6 +181,14 @@ describe.skipIf(process.platform === "win32")("starting a real hf", () => {
 		expect(Date.now() - began).toBeLessThan(3000);
 	});
 
+	// Windowsのcmd.exe経由と同じく、止めたprocessの子がstdoutを持ったまま残っても待たない。
+	it("does not wait for a child that keeps stdout open after the limit", async () => {
+		const dir = writeHf("sleep 5 &\nsleep 5");
+		const began = Date.now();
+		expect(await reader(dir)()).toEqual({ kind: "failed" });
+		expect(Date.now() - began).toBeLessThan(3000);
+	});
+
 	it("ignores a non-executable hf", async () => {
 		const dir = tempDir("hf-bin-");
 		writeFileSync(join(dir, "hf"), "#!/bin/sh\n");

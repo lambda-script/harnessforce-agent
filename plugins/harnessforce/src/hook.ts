@@ -18,6 +18,7 @@ import {
 import { type HookInput, parseHookInput } from "./input.js";
 import {
 	claimFirstPrompt,
+	isFirstPromptSent,
 	isMarkedUnauthorized,
 	loadRegistration,
 	markUnauthorized,
@@ -215,7 +216,7 @@ async function onUserPromptSubmit(
 	const pad = input.scratchpad;
 	if (!input.promptId || !pad || (await isMarkedUnauthorized(pad))) return;
 	const saved = await loadRegistration(pad);
-	if (!saved) return;
+	if (!saved || (await isFirstPromptSent(pad))) return;
 	const destination = await resolveDestination(deps);
 	if (!destination || !(await claimFirstPrompt(pad))) return;
 	const outcome = await send(

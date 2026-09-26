@@ -107,6 +107,16 @@ describe("hook key selection", () => {
 		);
 	});
 
+	it("does not start hf again after the first prompt was sent", async () => {
+		const h = harness({ env: userEnv, userKey });
+		const dir = scratchpad();
+		await start(h, { scratchpad_dir: dir });
+		await submit(h, { scratchpad_dir: dir, prompt_id: "p-1" });
+		await submit(h, { scratchpad_dir: dir, prompt_id: "p-2" });
+		expect(h.userKeyReads()).toBe(2);
+		expect(h.requests).toHaveLength(2);
+	});
+
 	it.each([
 		["the user key", { env: userEnv, userKey }, USER_KEY_REVOKED],
 		["the Workspace key", {}, WORKSPACE_KEY_REVOKED],

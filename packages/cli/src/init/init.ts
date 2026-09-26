@@ -97,8 +97,8 @@ async function runInit(url: string | undefined, deps: InitDeps) {
 		deps.fetch,
 	);
 	const issued = issuedOrStop(outcome);
-	await save(issued, connection, settingsPath, deps).catch(() =>
-		stop("saveFailed"),
+	await save(issued, connection, settingsPath, deps).catch((error: unknown) =>
+		stop(error instanceof InitStop ? error.message : "saveFailed"),
 	);
 }
 
@@ -183,7 +183,7 @@ async function save(
 	);
 	await deps.keychain.set(apiTokenAccount(issued.workspaceId), issued.apiToken);
 	const current = await readUserSettings(settingsPath);
-	if (current.kind === "invalid") throw new Error("user settings changed");
+	if (current.kind === "invalid") return stop("saveFailed");
 	await writeUserSettings(
 		settingsPath,
 		mergeUserSettings(current.settings, {

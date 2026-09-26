@@ -48,6 +48,7 @@ describe("loopback", () => {
 		],
 		["a wrong state", "?code=c-1&state=other"],
 		["no code", `?state=${STATE}`],
+		["an empty code", `?code=&state=${STATE}`],
 	])("shows the failure page for %s", async (_, query) => {
 		const loopback = await startLoopback({ state: STATE, timeoutMs: 5000 });
 		const page = await get(`${loopback.redirectUri}${query}`);
