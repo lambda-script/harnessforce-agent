@@ -25,3 +25,29 @@ export const sessionImport = {
 	parser_version: "0.1.0",
 };
 delete (sessionImport as Record<string, unknown>).issue_identifier;
+
+export const configSnapshot = {
+	agent: "claude_code",
+	session_id: sessionRegistration.session_id,
+	components: [
+		{
+			kind: "skill",
+			id: "tdd-workflow",
+			version: "1.2.0",
+			source: "repository",
+			hash: "a".repeat(64),
+		},
+		{
+			kind: "permissions",
+			id: "project",
+			source: "repository",
+			hash: "b".repeat(64),
+		},
+		{
+			kind: "mcp_server",
+			id: "harnessforce",
+			source: "user",
+			hash: "c".repeat(64),
+		},
+	],
+};
