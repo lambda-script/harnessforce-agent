@@ -202,6 +202,22 @@ describe("SessionStart hook", () => {
 		expect(h.requests.map((r) => r.url)).toEqual([url]);
 	});
 
+	it.each([
+		[
+			"https://ingest.example.test//evil.test/base",
+			"https://ingest.example.test//evil.test/base/v1/sessions",
+		],
+		["http://localhost//evil.test/", "http://localhost//evil.test/v1/sessions"],
+		[
+			"https://user:pass@ingest.example.test/base?x=1#y",
+			"https://ingest.example.test/base/v1/sessions",
+		],
+	])("keeps the endpoint host for %s", async (endpoint, url) => {
+		const h = harness({ env: { HARNESSFORCE_ENDPOINT: endpoint } });
+		await start(h);
+		expect(h.requests.map((r) => r.url)).toEqual([url]);
+	});
+
 	it("does not claim source=cli with the workspace key even when HARNESSFORCE_ISSUE is set", async () => {
 		const h = harness({ env: { HARNESSFORCE_ISSUE: "ENG-42" } });
 		await start(h);

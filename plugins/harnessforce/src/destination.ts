@@ -27,10 +27,11 @@ export function sessionsUrlFrom(endpoint: string | undefined): URL | undefined {
 		base.protocol === "https:" ||
 		(base.protocol === "http:" && LOOPBACK_HOSTS.has(base.hostname));
 	if (!isAllowedScheme) return undefined;
-	return new URL(
-		`${base.pathname.replace(/\/+$/, "")}/v1/sessions`,
-		base.origin,
-	);
+	// 文字列の連結で組み立てると、"//host"で始まるpathが別のhostとして解釈されるため、hostを変えずにpathだけを書き換える。
+	// userinfo、query、fragmentは送信先に含めない。
+	const sessionsUrl = new URL(base.origin);
+	sessionsUrl.pathname = `${base.pathname.replace(/\/+$/, "")}/v1/sessions`;
+	return sessionsUrl;
 }
 
 // 利用者用のIngestKey（keychain）はまだ扱わないため、Workspace用のkeyだけを選ぶ。
