@@ -8,6 +8,7 @@ import { run } from "./main.js";
 import { managedDirFor } from "./managed.js";
 import { spawnSelf, takeStashedRuntimeEnv } from "./process/runtime-env.js";
 import { relaunchHf } from "./relaunch.js";
+import { launchAgent, runGit } from "./run/process.js";
 
 // buildが書く既定の接続先（scripts/build-config.mjs）。distのbin.jsと同じdirectoryにある。
 const { url: defaultUrl } = createRequire(import.meta.url)(
@@ -50,4 +51,8 @@ process.exitCode =
 		managedDir: managedDirFor(process.platform),
 		defaultUrl,
 		callbackTimeoutMs: CALLBACK_TIMEOUT_MS,
+		cwd: process.cwd(),
+		git: runGit,
+		now: () => new Date(),
+		launch: launchAgent,
 	}));
