@@ -10,7 +10,9 @@ import {
 } from "./destination.js";
 import { type HookInput, parseHookInput } from "./input.js";
 import {
+	claimFirstPrompt,
 	isMarkedUnauthorized,
+	loadRegistration,
 	markUnauthorized,
 	type Scratchpad,
 	saveRegistration,
@@ -98,8 +100,30 @@ async function onSessionStart(input: HookInput, deps: HookDeps): Promise<void> {
 	await send(destination, registration, input.scratchpad, deps);
 }
 
+// sessionの最初のpromptだけ、SessionStartが保存した登録にprompt_idを加えて送る。SessionStartの送信の再送を兼ねる。
+async function onUserPromptSubmit(
+	input: HookInput,
+	deps: HookDeps,
+): Promise<void> {
+	const pad = input.scratchpad;
+	if (!input.promptId || !pad || (await isMarkedUnauthorized(pad))) return;
+	const saved = await loadRegistration(pad);
+	if (!saved) return;
+	const destination = resolveDestination(deps);
+	if (!destination || !(await claimFirstPrompt(pad))) return;
+	await send(
+		destination,
+		{ ...saved, first_prompt_id: input.promptId },
+		pad,
+		deps,
+	);
+}
+
 type Handler = (input: HookInput, deps: HookDeps) => Promise<void>;
-const HANDLERS = new Map<string, Handler>([["session-start", onSessionStart]]);
+const HANDLERS = new Map<string, Handler>([
+	["session-start", onSessionStart],
+	["user-prompt-submit", onUserPromptSubmit],
+]);
 
 export async function runHook(
 	event: string,
