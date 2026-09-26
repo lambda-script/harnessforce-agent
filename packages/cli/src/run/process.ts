@@ -1,4 +1,4 @@
-import { execFile, spawn } from "node:child_process";
+import { type ChildProcess, execFile, spawn } from "node:child_process";
 import { constants } from "node:os";
 import type { RunGit } from "./context.js";
 import type { Launch } from "./launch.js";
@@ -28,10 +28,16 @@ export const runGit: RunGit = (cwd, args) =>
 
 export function launchAgent(launch: Launch): Promise<LaunchOutcome> {
 	return new Promise((resolve) => {
-		const child = spawn(launch.command, launch.args, {
-			env: launch.env,
-			stdio: "inherit",
-		});
+		let child: ChildProcess;
+		try {
+			child = spawn(launch.command, launch.args, {
+				env: launch.env,
+				stdio: "inherit",
+			});
+		} catch {
+			// NULを含む引数などはspawnが同期的に拒否する。
+			return resolve({ kind: "failed" });
+		}
 		const ignore = () => {};
 		const forward = (signal: NodeJS.Signals) => child.kill(signal);
 		for (const signal of IGNORED_WHILE_RUNNING) process.on(signal, ignore);

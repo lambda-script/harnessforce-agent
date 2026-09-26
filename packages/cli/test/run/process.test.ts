@@ -34,6 +34,15 @@ describe("launchAgent", () => {
 			}),
 		).toEqual({ kind: "exited", code: 143 }));
 
+	it("fails when the arguments cannot be passed to a process", async () =>
+		expect(
+			await launchAgent({
+				command: process.execPath,
+				args: ["a\u0000b"],
+				env: {},
+			}),
+		).toEqual({ kind: "failed" }));
+
 	it("fails when the agent cannot be started", async () =>
 		expect(
 			await launchAgent({
