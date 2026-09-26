@@ -1,0 +1,11 @@
+{
+	"name": "harnessforce-agent",
+	"owner": { "name": "Lambda Script" },
+	"plugins": [
+		{
+			"name": "harnessforce",
+			"source": "./plugins/harnessforce",
+			"description": "Send Claude Code sessions to Harnessforce and link them to your issues"
+		}
+	]
+}
