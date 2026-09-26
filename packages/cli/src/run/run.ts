@@ -64,14 +64,11 @@ async function readKeychain(
 }
 
 // 候補の識別子とタイトルはIssueの提供元の外部の利用者が書きうるため、端末の制御文字を表示しない。
-const printable = (text: string) =>
-	text.replace(/[\t\n\r]/g, " ").replace(/\p{Cc}/gu, "");
+const printable = (text: string) => text.replace(/\p{Cc}/gu, "");
 
 function candidateList(candidates: readonly IssueCandidate[]): string {
-	const lines = candidates.map(({ identifier, title }) =>
-		title
-			? `  ${printable(identifier)}  ${printable(title)}`
-			: `  ${printable(identifier)}`,
+	const lines = candidates.map(
+		({ identifier, title }) => `${printable(identifier)}  ${printable(title)}`,
 	);
 	return [RUN_MESSAGES.candidatesHeader, ...lines].join("\n");
 }
@@ -105,7 +102,7 @@ async function verifyAccess(deps: RunDeps): Promise<Verified> {
 	);
 	if (!ingestOrigin || ingest.origin !== ingestOrigin) stop("initRequired");
 	const apiToken =
-		(await readKeychain(keychain, apiTokenAccount(workspaceId))) ??
+		(await readKeychain(keychain, apiTokenAccount(workspaceId))) ||
 		stop("issueInitRequired");
 	const readApiBase =
 		parseAllowedUrl(destinations.readApiUrl) ?? stop("invalidUrl");

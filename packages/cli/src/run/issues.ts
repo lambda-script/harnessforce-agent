@@ -44,20 +44,21 @@ async function get(
 	}
 }
 
+// read-api.md「共通の約束」の一覧の形で、要素が`identifier`と`title`を持つものだけを受け付ける。
 function parseCandidates(
 	body: Record<string, unknown> | undefined,
 ): IssueCandidate[] | undefined {
 	const data = body?.data;
+	const nextCursor = body?.next_cursor;
 	if (!Array.isArray(data)) return undefined;
+	if (nextCursor !== null && typeof nextCursor !== "string") return undefined;
 	const candidates: IssueCandidate[] = [];
 	for (const item of data.slice(0, MAX_CANDIDATES)) {
 		const identifier = (item as Record<string, unknown> | null)?.identifier;
 		const title = (item as Record<string, unknown> | null)?.title;
-		if (typeof identifier !== "string") return undefined;
-		candidates.push({
-			identifier,
-			title: typeof title === "string" ? title : "",
-		});
+		if (typeof identifier !== "string" || typeof title !== "string")
+			return undefined;
+		candidates.push({ identifier, title });
 	}
 	return candidates;
 }

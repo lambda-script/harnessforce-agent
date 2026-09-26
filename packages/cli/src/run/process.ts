@@ -1,7 +1,7 @@
 import { type ChildProcess, execFile, spawn } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { constants, tmpdir } from "node:os";
-import { join } from "node:path";
+import { constants } from "node:os";
+import { join, resolve as resolvePath } from "node:path";
 import type { Env } from "../otel-headers.js";
 import { type CommandLine, commandLine, resolveAgentFile } from "./command.js";
 import type { RunGit } from "./context.js";
@@ -18,8 +18,13 @@ const FORWARDED = ["SIGTERM", "SIGHUP"] as const;
 export const runGit: RunGit = (cwd, args) =>
 	new Promise((resolve) => {
 		// GIT_DIRなどが環境にあると、cwdではなくそのrepositoryを読むため、gitへは渡さない。
+		// Windowsの環境変数の名前は大文字と小文字を区別しない。
+		const isGitVariable = (name: string) =>
+			(process.platform === "win32" ? name.toUpperCase() : name).startsWith(
+				"GIT_",
+			);
 		const env = Object.fromEntries(
-			Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_")),
+			Object.entries(process.env).filter(([name]) => !isGitVariable(name)),
 		);
 		execFile(
 			"git",
@@ -43,12 +48,7 @@ const FAILED: LaunchOutcome = { kind: "failed" };
 // correlation.md「CLI」の`hf run`の手順4、7、8。
 export async function launchAgent(
 	launch: Launch,
-	options: LaunchOptions = {
-		platform: process.platform,
-		env: process.env,
-		cwd: process.cwd(),
-		tmpDir: tmpdir(),
-	},
+	options: LaunchOptions,
 ): Promise<LaunchOutcome> {
 	const file = await resolveAgentFile(launch.command, options);
 	if (!file) return FAILED;
@@ -57,7 +57,8 @@ export async function launchAgent(
 		return command ? spawnAndWait(command, launch.env) : FAILED;
 	}
 	// JSONを引数に直接置かず、利用者だけが読めるfileで渡す。fileを作れなければ起動しない。
-	const dir = await mkdtemp(join(options.tmpDir, "hf-run-")).catch(
+	// `--settings`には絶対pathを渡す。TMPDIRが相対pathでもcwdに依らず同じfileを指す。
+	const dir = await mkdtemp(join(resolvePath(options.tmpDir), "hf-run-")).catch(
 		() => undefined,
 	);
 	if (!dir) return FAILED;
@@ -76,7 +77,8 @@ export async function launchAgent(
 	} catch {
 		return FAILED;
 	} finally {
-		await rm(dir, { recursive: true, force: true });
+		// 削除できなくても（Windowsで子孫がfileを開いたままなど）agentの終了コードで終わる。fileは秘密を含まない。
+		await rm(dir, { recursive: true, force: true }).catch(() => {});
 	}
 }
 

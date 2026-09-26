@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { createRequire } from "node:module";
-import { homedir } from "node:os";
 import { createOsKeychain } from "./credentials/os-keychain.js";
 import { openBrowser } from "./init/browser.js";
 import { startLoopback } from "./init/loopback.js";
@@ -9,6 +8,7 @@ import { managedDirFor } from "./managed.js";
 import { spawnSelf, takeStashedRuntimeEnv } from "./process/runtime-env.js";
 import { relaunchHf } from "./relaunch.js";
 import { launchAgent, runGit } from "./run/process.js";
+import { homedir, tmpdir } from "node:os";
 
 // buildが書く既定の接続先（scripts/build-config.mjs）。distのbin.jsと同じdirectoryにある。
 const { url: defaultUrl } = createRequire(import.meta.url)(
@@ -55,5 +55,11 @@ process.exitCode =
 		git: runGit,
 		now: () => new Date(),
 		platform: process.platform,
-		launch: (launch) => launchAgent(launch),
+		launch: (launch) =>
+			launchAgent(launch, {
+				platform: process.platform,
+				env: process.env,
+				cwd: process.cwd(),
+				tmpDir: tmpdir(),
+			}),
 	}));

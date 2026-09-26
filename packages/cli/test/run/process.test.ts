@@ -7,25 +7,35 @@ import {
 	readFileSync,
 	writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 import { launchAgent, runGit } from "../../src/run/process.js";
 import { tempDir } from "../config/support.js";
 
+// PATHを探さずに起動できるよう、agentは絶対pathで渡す。
+const options = (env: Record<string, string> = {}) => ({
+	platform: process.platform,
+	env,
+	cwd: process.cwd(),
+	tmpDir: tempDir("hf-run-tmp-"),
+});
+
 describe("launchAgent", () => {
 	it("runs the agent with the given environment and returns its exit code", async () => {
 		const out = join(tempDir("hf-launch-"), "env.json");
-		const outcome = await launchAgent({
-			command: process.execPath,
-			args: [
-				"-e",
-				`require("node:fs").writeFileSync(${JSON.stringify(out)}, JSON.stringify({ issue: process.env.HARNESSFORCE_ISSUE, argv: process.argv.slice(1) })); process.exit(7)`,
-				"a b",
-			],
-			env: { HARNESSFORCE_ISSUE: "ENG-42" },
-		});
+		const outcome = await launchAgent(
+			{
+				command: process.execPath,
+				args: [
+					"-e",
+					`require("node:fs").writeFileSync(${JSON.stringify(out)}, JSON.stringify({ issue: process.env.HARNESSFORCE_ISSUE, argv: process.argv.slice(1) })); process.exit(7)`,
+					"a b",
+				],
+				env: { HARNESSFORCE_ISSUE: "ENG-42" },
+			},
+			options(),
+		);
 		expect(outcome).toEqual({ kind: "exited", code: 7 });
-		const { readFileSync } = await import("node:fs");
 		expect(JSON.parse(readFileSync(out, "utf8"))).toEqual({
 			issue: "ENG-42",
 			argv: ["a b"],
@@ -34,29 +44,38 @@ describe("launchAgent", () => {
 
 	it("reports a signal as 128 plus its number", async () =>
 		expect(
-			await launchAgent({
-				command: process.execPath,
-				args: ["-e", "process.kill(process.pid, 'SIGTERM')"],
-				env: {},
-			}),
+			await launchAgent(
+				{
+					command: process.execPath,
+					args: ["-e", "process.kill(process.pid, 'SIGTERM')"],
+					env: {},
+				},
+				options(),
+			),
 		).toEqual({ kind: "exited", code: 143 }));
 
 	it("fails when the arguments cannot be passed to a process", async () =>
 		expect(
-			await launchAgent({
-				command: process.execPath,
-				args: ["a\u0000b"],
-				env: {},
-			}),
+			await launchAgent(
+				{
+					command: process.execPath,
+					args: ["a\u0000b"],
+					env: {},
+				},
+				options(),
+			),
 		).toEqual({ kind: "failed" }));
 
 	it("fails when the agent is not on PATH", async () =>
 		expect(
-			await launchAgent({
-				command: "hf-run-agent-that-does-not-exist",
-				args: [],
-				env: { PATH: "/nonexistent" },
-			}),
+			await launchAgent(
+				{
+					command: "hf-run-agent-that-does-not-exist",
+					args: [],
+					env: {},
+				},
+				options({ PATH: tempDir("hf-empty-path-") }),
+			),
 		).toEqual({ kind: "failed" }));
 });
 
@@ -110,6 +129,18 @@ describe.skipIf(process.platform === "win32")(
 			expect(seen.content).toEqual({ env: { HARNESSFORCE_ISSUE: "ENG-42" } });
 			expect(existsSync(seen.argv[1])).toBe(false);
 			expect(readdirSync(tmpDir)).toEqual([]);
+		});
+
+		it("passes the settings file as an absolute path even from a relative temp directory", async () => {
+			const recorder = recordingAgent();
+			const tmpDir = relative(process.cwd(), tempDir("hf-run-tmp-"));
+			expect(
+				await launchAgent(
+					{ command: recorder.agent, args: [], env: {}, settingsEnv: {} },
+					{ platform: process.platform, env: {}, cwd: recorder.dir, tmpDir },
+				),
+			).toEqual({ kind: "exited", code: 0 });
+			expect(isAbsolute(recorder.read().argv[1])).toBe(true);
 		});
 
 		it("resolves a bare command from PATH", async () => {

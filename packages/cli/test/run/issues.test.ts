@@ -92,7 +92,24 @@ describe("resolveIssue", () => {
 	it.each([
 		["a non-200 status", { status: 503 }],
 		["a body without data", { status: 200, body: { items: [] } }],
-		["an item without an identifier", { status: 200, body: { data: [{}] } }],
+		[
+			"an item without an identifier",
+			{ status: 200, body: { data: [{ title: "t" }], next_cursor: null } },
+		],
+		// read-api.md: 一覧の要素は少なくとも`identifier`と`title`を持つ。
+		[
+			"an item without a title",
+			{
+				status: 200,
+				body: { data: [{ identifier: "ENG-1" }], next_cursor: null },
+			},
+		],
+		// read-api.md「共通の約束」: 一覧の応答は`{"data": [...], "next_cursor": <文字列またはnull>}`。
+		["a body without next_cursor", { status: 200, body: { data: [] } }],
+		[
+			"a next_cursor that is not a string or null",
+			{ status: 200, body: { data: [], next_cursor: 1 } },
+		],
 		["a body that is not JSON", { status: 200 }],
 	])("fails when the candidate list has %s", async (_, reply) => {
 		const api = await startReadApi({ list: () => reply as never });

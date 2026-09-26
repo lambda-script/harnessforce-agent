@@ -70,7 +70,7 @@ export function resourceAttributes(
 
 // correlation.md「CLI」の`hf run`の手順3から5。利用者用のkeyとApiTokenはどこにも置かない。
 export function buildLaunch(request: LaunchRequest): Launch {
-	const stepThree: Record<string, string> = {
+	const injectedEnv: Record<string, string> = {
 		HARNESSFORCE_WORKSPACE_ID: request.workspaceId,
 		HARNESSFORCE_ENDPOINT: request.ingestEndpoint,
 		OTEL_EXPORTER_OTLP_ENDPOINT: request.ingestEndpoint,
@@ -86,7 +86,7 @@ export function buildLaunch(request: LaunchRequest): Launch {
 	const normalize = (name: string) =>
 		request.platform === "win32" ? name.toUpperCase() : name;
 	const replaced = new Set(
-		[...STRIPPED_FROM_SHELL, ...Object.keys(stepThree)].map(normalize),
+		[...STRIPPED_FROM_SHELL, ...Object.keys(injectedEnv)].map(normalize),
 	);
 	const shellEnv = Object.fromEntries(
 		Object.entries(request.shellEnv).filter(
@@ -97,7 +97,7 @@ export function buildLaunch(request: LaunchRequest): Launch {
 	return {
 		command: request.agent,
 		args: [...request.args],
-		env: { ...shellEnv, ...stepThree },
-		...(isClaudeCode(request.agent) ? { settingsEnv: stepThree } : {}),
+		env: { ...shellEnv, ...injectedEnv },
+		...(isClaudeCode(request.agent) ? { settingsEnv: injectedEnv } : {}),
 	};
 }

@@ -333,7 +333,7 @@ describe("hf run", () => {
 		});
 		expect(r.code).toBe(1);
 		expect(r.err).toBe(
-			"Issueを解決できませんでした。候補:\n  ENG-420  Login\n  ENG-421\n",
+			"Issueを解決できませんでした。候補:\nENG-420  Login\nENG-421  \n",
 		);
 		expect(r.launches).toEqual([]);
 	});
@@ -345,13 +345,14 @@ describe("hf run", () => {
 				status: 200,
 				body: {
 					data: [
-						issueBody("ENG-\u001b[2J1", "Log\u001b]0;x\u0007in\n\u009bbad"),
+						issueBody("ENG-\u001b[2J1", "Log\u001b]0;x\u0007in\n\t\u009bbad"),
 					],
+					next_cursor: null,
 				},
 			}),
 		});
 		expect(r.err).toBe(
-			"Issueを解決できませんでした。候補:\n  ENG-[2J1  Log]0;xin bad\n",
+			"Issueを解決できませんでした。候補:\nENG-[2J1  Log]0;xinbad\n",
 		);
 	});
 
