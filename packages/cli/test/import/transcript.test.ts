@@ -150,6 +150,16 @@ describe("parseTranscript", () => {
 		).toEqual({ kind: "empty", skippedLines: 0 });
 	});
 
+	// correlation.md「session import」: 読めない行はJSONのobjectでない行で、空の行も含む。
+	it("counts a blank line as an unreadable line", async () =>
+		expect(
+			await parseTranscript(
+				transcript(
+					`${response("m1", "claude-a", "2026-09-20T01:00:00Z")}\n   \n`,
+				),
+			),
+		).toMatchObject({ kind: "session", skippedLines: 2 }));
+
 	it("reports a file it cannot open as unreadable", async () => {
 		const file = transcript(response("m1", "claude-a", "2026-09-20T01:00:00Z"));
 		chmodSync(file, 0o000);

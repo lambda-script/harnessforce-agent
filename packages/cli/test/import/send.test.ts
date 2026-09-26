@@ -29,7 +29,7 @@ const json = (
 		status,
 		headers,
 	});
-const ok = (rejected: { index: number; reason: string }[] = [], accepted = 0) =>
+const ok = (rejected: { index: number; reason: string }[], accepted: number) =>
 	json(200, { accepted, rejected });
 
 // 要求ごとに次の応答を返す。bodyはsession IDの配列として記録する。
@@ -43,7 +43,8 @@ function server(...replies: (Response | Error)[]) {
 				(s) => s.session_id,
 			),
 		);
-		const reply = replies.shift() ?? ok();
+		const batchSize = bodies.at(-1)?.length ?? 0;
+		const reply = replies.shift() ?? ok([], batchSize);
 		if (reply instanceof Error) throw reply;
 		return reply;
 	};
@@ -100,10 +101,17 @@ describe("sendSessions", () => {
 	});
 
 	it("records schema rejections as sent and counts them", async () => {
-		const { fetch } = server(ok([{ index: 1, reason: "schema: model" }]));
+		const { fetch } = server(ok([{ index: 1, reason: "schema: model" }], 2));
 		const { result, recorded } = run(fetch, sessions(3));
 		expect(await result).toEqual({ kind: "done", imported: 2, invalid: 1 });
 		expect(recorded).toEqual([["s0", "s1", "s2"]]);
+	});
+
+	// correlation.md「session import」: 取り込んだ件数は`accepted`の合計とする。
+	it("counts imported sessions from accepted", async () => {
+		const { fetch } = server(ok([], 60), ok([], 1));
+		const { result } = run(fetch, sessions(101));
+		expect(await result).toEqual({ kind: "done", imported: 61, invalid: 0 });
 	});
 
 	it.each([
@@ -111,11 +119,14 @@ describe("sendSessions", () => {
 		["workspace_read_only"],
 	])("stops on %s without recording those sessions", async (reason) => {
 		const { fetch, bodies } = server(
-			ok(),
-			ok([
-				{ index: 0, reason },
-				{ index: 2, reason: "bad" },
-			]),
+			ok([], 100),
+			ok(
+				[
+					{ index: 0, reason },
+					{ index: 2, reason: "bad" },
+				],
+				98,
+			),
 		);
 		const { result, recorded } = run(fetch, sessions(250));
 		// 取り込めなかった1件と、送らなかった3回目の50件。
@@ -133,7 +144,7 @@ describe("sendSessions", () => {
 			json(429, undefined, { "retry-after": "7" }),
 			json(503),
 			json(429, undefined, { "retry-after": "120" }),
-			ok(),
+			ok([], 2),
 		);
 		const { result, sleeps } = run(fetch, sessions(2));
 		expect(await result).toEqual({ kind: "done", imported: 2, invalid: 0 });
@@ -143,7 +154,13 @@ describe("sendSessions", () => {
 
 	it("fails after three resends without recording the batch, keeping earlier batches", async () => {
 		const busy = () => json(503, undefined, { "retry-after": "1" });
-		const { fetch, bodies } = server(ok(), busy(), busy(), busy(), busy());
+		const { fetch, bodies } = server(
+			ok([], 100),
+			busy(),
+			busy(),
+			busy(),
+			busy(),
+		);
 		const { result, recorded, sleeps } = run(fetch, sessions(150));
 		expect(await result).toEqual({ kind: "failed" });
 		expect(bodies).toHaveLength(5);
@@ -164,7 +181,14 @@ describe("sendSessions", () => {
 		["500", json(500)],
 		["a redirect", json(307, undefined, { location: "https://evil.test/" })],
 		["a body that is not a result", json(200, { ok: true })],
-		["a rejected index outside the batch", ok([{ index: 5, reason: "x" }])],
+		["a rejected index outside the batch", ok([{ index: 5, reason: "x" }], 0)],
+		// ingest-api.md: 200の本文は`{accepted, rejected[]}`。
+		["a result without accepted", json(200, { rejected: [] })],
+		[
+			"an accepted that is not a count",
+			json(200, { accepted: "1", rejected: [] }),
+		],
+		["a negative accepted", json(200, { accepted: -1, rejected: [] })],
 		["a connection failure", new TypeError("fetch failed")],
 		["a timeout", new DOMException("timeout", "TimeoutError")],
 	])("fails on %s without resending", async (_, reply) => {

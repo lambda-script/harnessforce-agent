@@ -82,6 +82,8 @@ export async function recordSentSessions(
 		destinations: { ...state.destinations, [key]: { sessions } },
 	};
 	await mkdir(dirname(path), { recursive: true, mode: DIR_MODE });
+	// mkdirのmodeは新しく作るときだけ効くため、既にあるdirectoryも揃える。
+	await chmod(dirname(path), DIR_MODE);
 	const temporary = `${path}.${randomUUID()}.tmp`;
 	try {
 		await writeFile(temporary, `${JSON.stringify(next)}\n`, {

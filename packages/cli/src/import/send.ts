@@ -37,7 +37,7 @@ type SendOptions = {
 
 type Rejection = { index: number; reason: string };
 type Reply =
-	| { kind: "accepted"; rejected: Rejection[] }
+	| { kind: "accepted"; accepted: number; rejected: Rejection[] }
 	| { kind: "busy"; retryAfterMs: number }
 	| { kind: "unauthorized" }
 	| { kind: "failed" };
@@ -48,12 +48,19 @@ function retryAfterMs(header: string | null): number {
 	return Math.min(seconds, MAX_RETRY_AFTER_SECONDS) * 1000;
 }
 
-// ingest-api.md「汎用ingest API」の200の応答。indexが要求の外を指すものは解釈できない。
-function parseRejected(
+// ingest-api.md「汎用ingest API」の200の応答`{accepted, rejected[]}`。indexが要求の外を指すものは解釈できない。
+function parseResult(
 	body: Record<string, unknown> | undefined,
 	size: number,
-): Rejection[] | undefined {
+): { accepted: number; rejected: Rejection[] } | undefined {
 	if (!body || !Array.isArray(body.rejected)) return undefined;
+	const { accepted } = body;
+	if (
+		typeof accepted !== "number" ||
+		!Number.isInteger(accepted) ||
+		accepted < 0
+	)
+		return undefined;
 	const rejected: Rejection[] = [];
 	for (const item of body.rejected as unknown[]) {
 		const { index, reason } = (item ?? {}) as Record<string, unknown>;
@@ -67,7 +74,7 @@ function parseRejected(
 			return undefined;
 		rejected.push({ index, reason });
 	}
-	return rejected;
+	return { accepted, rejected };
 }
 
 async function post(
@@ -97,11 +104,8 @@ async function post(
 				};
 			return { kind: "failed" };
 		}
-		const rejected = parseRejected(
-			await readJsonObject(response),
-			batch.length,
-		);
-		return rejected ? { kind: "accepted", rejected } : { kind: "failed" };
+		const result = parseResult(await readJsonObject(response), batch.length);
+		return result ? { kind: "accepted", ...result } : { kind: "failed" };
 	} catch {
 		return { kind: "failed" };
 	}
@@ -145,9 +149,9 @@ export async function sendSessions(options: SendOptions): Promise<SendResult> {
 				notImported: limitedIndexes.size + unsent,
 			};
 		}
-		const invalidInBatch = new Set(reply.rejected.map((r) => r.index)).size;
-		invalid += invalidInBatch;
-		imported += batch.length - invalidInBatch;
+		invalid += new Set(reply.rejected.map((r) => r.index)).size;
+		// correlation.md「session import」: 取り込んだ件数は`accepted`の合計とする。
+		imported += reply.accepted;
 	}
 	return { kind: "done", imported, invalid };
 }

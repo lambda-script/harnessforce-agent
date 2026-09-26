@@ -185,7 +185,6 @@ export async function parseTranscript(path: string): Promise<TranscriptResult> {
 			crlfDelay: Number.POSITIVE_INFINITY,
 		});
 		for await (const text of lines) {
-			if (text.trim() === "") continue;
 			let row: unknown;
 			try {
 				row = JSON.parse(text);

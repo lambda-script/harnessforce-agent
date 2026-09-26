@@ -202,18 +202,19 @@ describe("hf import", () => {
 		});
 
 		it("when the ingest endpoint points to another origin than hf init pinned", async () => {
-			const { hf, run } = await setup();
+			const { hf, home, run } = await setup();
 			expect(
 				await run({
 					env: { HARNESSFORCE_ENDPOINT: "https://attacker.example.test" },
 				}),
 			).toEqual({ code: 1, out: "", err: RUN_INIT });
 			expect(hf.requests).toEqual([]);
+			expect(home.readState()).toBeUndefined();
 		});
 
 		// repositoryのsettingsの`env`が書き換えたHARNESSFORCE_URLへApiTokenを送らない。
 		it("when the connection URL points to another origin than hf init pinned", async () => {
-			const { hf, home, run } = await setup();
+			const { home, run } = await setup();
 			await run();
 			const state = home.readState();
 			const fetched: string[] = [];
@@ -227,7 +228,6 @@ describe("hf import", () => {
 				}),
 			).toEqual({ code: 1, out: "", err: RUN_INIT });
 			expect(fetched).toEqual([]);
-			expect(hf.requests).toHaveLength(3);
 			expect(home.readState()).toBe(state);
 		});
 

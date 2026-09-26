@@ -55,11 +55,11 @@ function parsePage(
 	);
 	if (repositories.some((repository) => repository === undefined))
 		return undefined;
-	if (nextCursor !== undefined && nextCursor !== null) {
-		if (typeof nextCursor !== "string" || nextCursor === "") return undefined;
-		return { repositories: repositories as string[], nextCursor };
-	}
-	return { repositories: repositories as string[], nextCursor: undefined };
+	// read-api.md「共通の約束」: next_cursorは文字列またはnullで、無いページは一覧の形ではない。
+	if (nextCursor === null)
+		return { repositories: repositories as string[], nextCursor: undefined };
+	if (typeof nextCursor !== "string" || nextCursor === "") return undefined;
+	return { repositories: repositories as string[], nextCursor };
 }
 
 // read-api.md `GET /api/v1/repositories`: GitHub Appで接続済みのrepositoryを、cursorを辿って全ページ取得する。

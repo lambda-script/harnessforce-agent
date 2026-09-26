@@ -81,6 +81,8 @@ describe("listConnectedRepositories", () => {
 			() => json(200, { data: [{ repository: 1 }], next_cursor: null }),
 		],
 		["a cursor that repeats", () => page([], "same")],
+		// read-api.md「共通の約束」: next_cursorは文字列またはnull。
+		["a page without next_cursor", () => json(200, { data: [] })],
 		[
 			"a connection failure",
 			() => Promise.reject(new TypeError("fetch failed")),

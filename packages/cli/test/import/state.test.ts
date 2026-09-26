@@ -1,4 +1,11 @@
-import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import {
+	chmodSync,
+	mkdirSync,
+	readdirSync,
+	readFileSync,
+	statSync,
+	writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -53,6 +60,14 @@ describe("import state", () => {
 				"ws-a https://ingest.example.test/base": { sessions: ["s1"] },
 			},
 		});
+	});
+
+	it("restricts an existing directory to the owner", async () => {
+		const home = tempDir("hf-home-");
+		mkdirSync(join(home, ".harnessforce"), { mode: 0o755 });
+		chmodSync(join(home, ".harnessforce"), 0o755);
+		await recordSentSessions(importStatePath(home), A, ["s1"]);
+		expect(statSync(join(home, ".harnessforce")).mode & 0o777).toBe(0o700);
 	});
 
 	it("treats a broken state file as nothing sent and replaces it", async () => {
