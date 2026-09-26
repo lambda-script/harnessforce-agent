@@ -5,6 +5,7 @@ import {
 	ingestKeyAccount,
 	ingestOriginAccount,
 	type Keychain,
+	urlOriginAccount,
 } from "../credentials/keychain.js";
 import type { Fetch } from "../init/http.js";
 import { INIT_MESSAGES } from "../init/messages.js";
@@ -117,6 +118,10 @@ async function resolve(deps: ImportDeps): Promise<Resolved> {
 	const readBase =
 		parseAllowedUrl(setting("HARNESSFORCE_URL") ?? deps.defaultUrl) ??
 		stop(MESSAGES.invalidUrl);
+	// Claude Codeの中から起動するとrepositoryのsettingsがHARNESSFORCE_URLを書き換えうるため、
+	// hf initが使った接続先のoriginへだけApiTokenを送る。
+	const pinnedUrlOrigin = await read(urlOriginAccount(workspaceId));
+	if (pinnedUrlOrigin !== readBase.origin) stop(MESSAGES.runInit);
 	return {
 		destination: { workspaceId, endpoint: withoutExtras(endpoint) },
 		endpoint,

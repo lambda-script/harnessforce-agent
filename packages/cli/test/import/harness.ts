@@ -175,6 +175,8 @@ export function initializedKeychain(
 		items[`${ws}:ingest-key`] = `hf_ik_${ws}_user`;
 		items[`${ws}:api-token`] = `hf_at_${ws}`;
 		items[`${ws}:ingest-origin`] = origin;
+		// このharnessは接続先とingestを同じserverで受けるため、どちらのoriginも同じ値になる。
+		items[`${ws}:url-origin`] = origin;
 	}
 	return fakeKeychain({ items: { ...items, ...extra } });
 }

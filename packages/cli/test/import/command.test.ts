@@ -176,6 +176,7 @@ describe("hf import", () => {
 			["the api token is missing", "ws1:api-token"],
 			["the user ingest key is missing", "ws1:ingest-key"],
 			["no origin was pinned", "ws1:ingest-origin"],
+			["no connection origin was pinned", "ws1:url-origin"],
 		])("when %s", async (_, account) => {
 			const { hf, home, run, keychain } = await setup();
 			keychain.items.delete(account);
@@ -208,6 +209,26 @@ describe("hf import", () => {
 				}),
 			).toEqual({ code: 1, out: "", err: RUN_INIT });
 			expect(hf.requests).toEqual([]);
+		});
+
+		// repositoryのsettingsの`env`が書き換えたHARNESSFORCE_URLへApiTokenを送らない。
+		it("when the connection URL points to another origin than hf init pinned", async () => {
+			const { hf, home, run } = await setup();
+			await run();
+			const state = home.readState();
+			const fetched: string[] = [];
+			expect(
+				await run({
+					env: { HARNESSFORCE_URL: "https://attacker.example.test" },
+					fetch: (url, init) => {
+						fetched.push(String(url));
+						return fetch(url, init);
+					},
+				}),
+			).toEqual({ code: 1, out: "", err: RUN_INIT });
+			expect(fetched).toEqual([]);
+			expect(hf.requests).toHaveLength(3);
+			expect(home.readState()).toBe(state);
 		});
 
 		it.each([

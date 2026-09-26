@@ -133,7 +133,8 @@ work done before the plugin was installed can be linked to issues too. Run `hf i
 - Only sessions whose `cwd` is in a repository connected to the Workspace are sent. The connected
   repositories come from `GET <HARNESSFORCE_URL>/api/v1/repositories` (all pages) and the import
   window from `session_import_days` (`GET <HARNESSFORCE_URL>/api/v1/workspace`), both with the API
-  token.
+  token. The API token is sent only when the origin of `HARNESSFORCE_URL` matches the one pinned by
+  `hf init`; otherwise nothing is sent and it asks you to run `hf init`.
 - Sessions are sent 100 at a time to `POST <HARNESSFORCE_ENDPOINT>/v1/imports/sessions` with the user
   ingest key, only when the endpoint origin matches the one pinned by `hf init`. `429` and `503` are
   retried up to 3 times after `Retry-After` (at most 60 seconds).
