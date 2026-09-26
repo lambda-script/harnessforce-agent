@@ -88,6 +88,27 @@ writes `harnessforce: user key withheld (destination not verified)` to stderr an
 The default base URL is a build input: `HARNESSFORCE_BUILD_URL=<apps/web base URL> pnpm build`.
 The build fails without it. The value must be `https:`, or `http:` for localhost.
 
+## Launching an agent for an Issue (`hf run`)
+
+`hf run --issue <identifier> -- <agent> [args]` links the session to an Issue before it starts:
+
+1. It reads the Read API base URL (`HARNESSFORCE_URL`, then `env.HARNESSFORCE_URL` in the Claude Code user
+   settings, then the build default), the ingest endpoint (`HARNESSFORCE_ENDPOINT`, then the user
+   settings) and the Workspace (`HARNESSFORCE_WORKSPACE_ID`, then the user settings). Without an ingest
+   endpoint, a Workspace or its user key in the keychain, it asks you to run `hf init`.
+2. It resolves the Issue with `GET /api/v1/issues/{identifier}` and the stored API token. If the Issue
+   does not exist, it prints up to 10 candidates from `GET /api/v1/issues?query=<identifier>` and stops.
+3. It computes the config snapshot ID locally with the same collection as the SessionStart hook.
+4. It refuses to start when the ingest endpoint's origin is not the one `hf init` pinned.
+5. It starts the agent with `HARNESSFORCE_WORKSPACE_ID`, `HARNESSFORCE_ENDPOINT`,
+   `OTEL_EXPORTER_OTLP_ENDPOINT`, the user key in `OTEL_EXPORTER_OTLP_HEADERS`, telemetry and traces
+   enabled, and `OTEL_RESOURCE_ATTRIBUTES` carrying `hf.issue.identifier`, `hf.vcs.repository`,
+   `hf.vcs.branch`, `hf.vcs.commit` and `hf.agent.config_version`. For Claude Code (`claude`) the same
+   values also go in `--settings`, because settings files can override the shell. `HARNESSFORCE_ISSUE`
+   tells the plugin hook to register the session with `source=cli`.
+
+It exits with the agent's exit code. Prompt and body logging are never turned on.
+
 ## Releasing
 
 Publishing to npmjs is disabled until the npm scope exists. To enable it:
