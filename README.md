@@ -119,6 +119,33 @@ The build fails without it. The value must be `https:`, or `http:` for localhost
 
 It exits with the agent's exit code. Prompt and body logging are never turned on.
 
+## Importing past sessions (`hf import`)
+
+`hf import` sends metadata of past Claude Code sessions on this machine to Harnessforce, so that
+work done before the plugin was installed can be linked to issues too. Run `hf init` first.
+
+- It reads the transcripts in `~/.claude/projects/<project>/<session>.jsonl` (or
+  `$CLAUDE_CONFIG_DIR/projects`). Their format is not documented, so the parser is versioned
+  (`parser_version`), and unreadable lines and files are skipped and counted.
+- Only these values are sent: session ID, first prompt ID, start and end time, repository, branch,
+  the most used model, input and output token counts (without cache tokens), and the number of calls
+  and failures per tool. Prompts, responses and tool inputs and outputs are never sent.
+- Only sessions whose `cwd` is in a repository connected to the Workspace are sent. The connected
+  repositories come from `GET <HARNESSFORCE_URL>/api/v1/repositories` (all pages) and the import
+  window from `session_import_days` (`GET <HARNESSFORCE_URL>/api/v1/workspace`), both with the API
+  token.
+- Sessions are sent 100 at a time to `POST <HARNESSFORCE_ENDPOINT>/v1/imports/sessions` with the user
+  ingest key, only when the endpoint origin matches the one pinned by `hf init`. `429` and `503` are
+  retried up to 3 times after `Retry-After` (at most 60 seconds).
+- Sent sessions are recorded in `~/.harnessforce/import-state.json` per Workspace and ingest endpoint,
+  so running it again continues where it stopped and never sends a session twice to the same place.
+  Sessions dropped because of the monthly event limit or a read-only Workspace are not recorded and
+  are sent by a later run.
+
+The Workspace, the connection URL and the ingest endpoint come from `HARNESSFORCE_WORKSPACE_ID`,
+`HARNESSFORCE_URL` and `HARNESSFORCE_ENDPOINT` in the environment, and otherwise from the `env` that
+`hf init` wrote to the Claude Code user settings.
+
 ## Releasing
 
 Publishing to npmjs is disabled until the npm scope exists. To enable it:
