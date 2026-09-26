@@ -1,0 +1,20 @@
+{
+	"$schema": "https://turborepo.com/schema.json",
+	"extends": ["//"],
+	"tasks": {
+		"typecheck": {
+			"inputs": [
+				"$TURBO_DEFAULT$",
+				"$TURBO_ROOT$/tsconfig.json",
+				"$TURBO_ROOT$/packages/semconv/src/**"
+			]
+		},
+		"test": {
+			"inputs": [
+				"$TURBO_DEFAULT$",
+				"$TURBO_ROOT$/packages/semconv/src/**",
+				"$TURBO_ROOT$/packages/semconv/test/support/**"
+			]
+		}
+	}
+}

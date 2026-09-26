@@ -1,0 +1,19 @@
+{
+	"name": "harnessforce-plugin",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Source of the harnessforce Claude Code plugin hooks (not published to npm)",
+	"license": "Apache-2.0",
+	"type": "module",
+	"scripts": {
+		"lint": "biome check .",
+		"typecheck": "tsc -p tsconfig.json",
+		"test": "vitest run"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.3.14",
+		"@types/node": "^22.20.4",
+		"typescript": "^6.0.3",
+		"vitest": "^4.1.11"
+	}
+}
