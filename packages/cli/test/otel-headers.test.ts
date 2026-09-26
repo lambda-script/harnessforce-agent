@@ -60,6 +60,18 @@ describe("hf otel-headers", () => {
 			}),
 		).toEqual({ code: 0, out: header("hf_ik_ws1_user"), err: "" }));
 
+	it("accepts userinfo on the pinned host and ignores empty destination variables", async () =>
+		expect(
+			await runCli(["otel-headers"], {
+				env: {
+					HARNESSFORCE_WORKSPACE_ID: "ws1",
+					HARNESSFORCE_ENDPOINT: "https://u:p@ingest.example.test/base",
+					OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: "",
+				},
+				keychain: pinned(),
+			}),
+		).toEqual({ code: 0, out: header("hf_ik_ws1_user"), err: "" }));
+
 	it("prints HARNESSFORCE_INGEST_KEY without reading the keychain or the destination", async () =>
 		// runCliの既定のkeychainは、触れると例外になる。
 		expect(
@@ -89,6 +101,20 @@ describe("hf otel-headers", () => {
 			{
 				...userEnv,
 				HARNESSFORCE_ENDPOINT: "https://ingest.example.test:8443",
+			},
+		],
+		[
+			"a destination has a trailing dot host",
+			{
+				...userEnv,
+				HARNESSFORCE_ENDPOINT: "https://ingest.example.test./base",
+			},
+		],
+		[
+			"a destination hides another host behind userinfo",
+			{
+				...userEnv,
+				HARNESSFORCE_ENDPOINT: "https://ingest.example.test@evil.example.test",
 			},
 		],
 		[

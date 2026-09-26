@@ -84,9 +84,9 @@ describe("user settings", () => {
 		async () => {
 			const existing = join(tempDir(), "settings.json");
 			writeFileSync(existing, "{}");
-			chmodSync(existing, 0o600);
+			chmodSync(existing, 0o640);
 			await writeUserSettings(existing, { env: {} });
-			expect(statSync(existing).mode & 0o777).toBe(0o600);
+			expect(statSync(existing).mode & 0o777).toBe(0o640);
 			const created = join(tempDir(), "settings.json");
 			await writeUserSettings(created, {});
 			expect(statSync(created).mode & 0o777).toBe(0o600);
