@@ -48,6 +48,14 @@ export async function loadRegistration(
 	}
 }
 
+// 送らないpromptで`hf`を起動しないよう、送信先とkeyを判定する前に確かめる。
+export async function isFirstPromptSent(pad: Scratchpad): Promise<boolean> {
+	return access(firstPromptSentMark(pad)).then(
+		() => true,
+		() => false,
+	);
+}
+
 // 印をwxで排他的に作るため、同時に届いたpromptでもtrueになるのは1つだけである。
 export async function claimFirstPrompt(pad: Scratchpad): Promise<boolean> {
 	return writeFile(firstPromptSentMark(pad), "", { flag: "wx" }).then(

@@ -137,8 +137,8 @@ describe("SessionStart hook", () => {
 		],
 		["not a URL", { HARNESSFORCE_ENDPOINT: "ingest" }],
 		["another scheme", { HARNESSFORCE_ENDPOINT: "ftp://ingest.example.test" }],
-	])("skips with invalid endpoint when the endpoint is %s", async (_, env) => {
-		const h = harness({ env });
+	])("skips with invalid endpoint when the endpoint is %s", async (_, managed) => {
+		const h = harness({ managed });
 		await start(h);
 		expect(h.requests).toEqual([]);
 		expect(h.out()).toBe("");
@@ -149,7 +149,7 @@ describe("SessionStart hook", () => {
 
 	it("reports only the endpoint when both endpoint and key are missing", async () => {
 		const h = harness({
-			env: {
+			managed: {
 				HARNESSFORCE_ENDPOINT: undefined,
 				HARNESSFORCE_INGEST_KEY: undefined,
 			},
@@ -165,7 +165,11 @@ describe("SessionStart hook", () => {
 		["empty", ""],
 	])("skips with no ingest key when the key is %s", async (_, key) => {
 		const h = harness({
-			env: { HARNESSFORCE_INGEST_KEY: key, HARNESSFORCE_WORKSPACE_ID: "ws1" },
+			managed: { HARNESSFORCE_INGEST_KEY: key },
+			env: {
+				HARNESSFORCE_ENDPOINT: "https://ingest.example.test",
+				HARNESSFORCE_WORKSPACE_ID: "ws1",
+			},
 		});
 		const dir = scratchpad();
 		await start(h, { scratchpad_dir: dir });
@@ -197,7 +201,7 @@ describe("SessionStart hook", () => {
 		],
 		["http://[::1]:8787", "http://[::1]:8787/v1/sessions"],
 	])("sends %s to %s", async (endpoint, url) => {
-		const h = harness({ env: { HARNESSFORCE_ENDPOINT: endpoint } });
+		const h = harness({ managed: { HARNESSFORCE_ENDPOINT: endpoint } });
 		await start(h);
 		expect(h.requests.map((r) => r.url)).toEqual([url]);
 	});
@@ -213,7 +217,7 @@ describe("SessionStart hook", () => {
 			"https://ingest.example.test/base/v1/sessions",
 		],
 	])("keeps the endpoint host for %s", async (endpoint, url) => {
-		const h = harness({ env: { HARNESSFORCE_ENDPOINT: endpoint } });
+		const h = harness({ managed: { HARNESSFORCE_ENDPOINT: endpoint } });
 		await start(h);
 		expect(h.requests.map((r) => r.url)).toEqual([url]);
 	});

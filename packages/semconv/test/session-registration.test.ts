@@ -21,7 +21,15 @@ describe("session registration", () => {
 		expect(check({ ...minimal, source: "hook" })).toBe(true);
 	});
 
+	// control-plane.md「Issueの識別子」: 修飾後の形を含めて空白を含まない1〜256文字。
+	it("accepts a 256-character issue identifier", () =>
+		expect(
+			check({ ...sessionRegistration, issue_identifier: "x".repeat(256) }),
+		).toBe(true));
+
 	it.each([
+		["a 257-character issue identifier", { issue_identifier: "x".repeat(257) }],
+		["an issue identifier with spaces", { issue_identifier: "ENG 42" }],
 		["offset-less started_at", { started_at: "2026-09-26T09:00:00" }],
 		["unknown source", { source: "webhook" }],
 		["unknown agent", { agent: "cursor" }],
