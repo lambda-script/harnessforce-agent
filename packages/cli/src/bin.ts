@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import { createRequire } from "node:module";
 import { homedir, tmpdir } from "node:os";
+import { setTimeout as delay } from "node:timers/promises";
 import { createOsKeychain } from "./credentials/os-keychain.js";
+import { createImportGit } from "./import/repository.js";
 import { openBrowser } from "./init/browser.js";
 import { startLoopback } from "./init/loopback.js";
 import { run } from "./main.js";
@@ -69,4 +71,6 @@ process.exitCode =
 				cwd: process.cwd(),
 				tmpDir: tmpdir(),
 			}),
+		importGit: createImportGit(process.env, process.cwd()),
+		sleep: (ms) => delay(ms),
 	}));

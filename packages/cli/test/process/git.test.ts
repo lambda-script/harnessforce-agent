@@ -14,9 +14,19 @@ const fsWith = (
 });
 
 function recordingExec(stdout: string | undefined) {
-	const calls: { file: string; args: readonly string[]; env: object }[] = [];
-	const exec: ExecGit = async (file, args, env) => {
-		calls.push({ file, args, env });
+	const calls: {
+		file: string;
+		args: readonly string[];
+		env: object;
+		timeoutMs?: number;
+	}[] = [];
+	const exec: ExecGit = async (file, args, env, timeoutMs) => {
+		calls.push({
+			file,
+			args,
+			env,
+			...(timeoutMs === 1000 ? {} : { timeoutMs }),
+		});
 		return stdout;
 	};
 	return { exec, calls };
@@ -44,6 +54,21 @@ describe("running git", () => {
 				env: { PATH: "/repo/bin:/usr/bin", HOME: "/h" },
 			},
 		]);
+	});
+
+	it("uses the given time limit", async () => {
+		const { exec, calls } = recordingExec("x");
+		const git = createGitRunner({
+			platform: "linux",
+			env: { PATH: "/usr/bin" },
+			processCwd: "/",
+			excludeTarget: false,
+			timeoutMs: 5000,
+			fs: fsWith(["/usr/bin/git"]),
+			exec,
+		});
+		await git("/work", ["remote"]);
+		expect(calls[0]?.timeoutMs).toBe(5000);
 	});
 
 	it("also excludes the target directory for the hook", async () => {

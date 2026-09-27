@@ -1,10 +1,14 @@
 import { createRequire } from "node:module";
+import { type ImportDeps, importCommand } from "./import/command.js";
 import { type InitDeps, init } from "./init/init.js";
 import { otelHeaders } from "./otel-headers.js";
 import { type RunArgs, type RunDeps, runIssue } from "./run/run.js";
 
 // managedDirはhf otel-headersがWorkspace用のkeyを読むfileと、hf runが構成を集めるmanagedの基点のdirectory。
-export type CliDeps = InitDeps & RunDeps;
+// hf importはgitの呼び出しの上限がhf runと異なるため、別のrunnerをimportGitで受け取る。
+export type CliDeps = InitDeps &
+	RunDeps &
+	Omit<ImportDeps, "git" | "now"> & { importGit: ImportDeps["git"] };
 
 // src（test）とdist（公開物）のどちらから読んでも、1つ上がpackage.jsonになる。
 const { version } = createRequire(import.meta.url)("../package.json") as {
@@ -12,7 +16,7 @@ const { version } = createRequire(import.meta.url)("../package.json") as {
 };
 
 const USAGE =
-	"Usage: hf --version | hf init [--url <base URL>] | hf otel-headers | hf run --issue <identifier> -- <agent> [args]\n";
+	"Usage: hf --version | hf init [--url <base URL>] | hf import | hf otel-headers | hf run --issue <identifier> -- <agent> [args]\n";
 
 // `hf init`の引数。受け付けない形ならundefined。
 function parseInitArgs(
@@ -48,6 +52,12 @@ export async function run(
 			deps.stdout,
 			deps.stderr,
 		);
+	if (command === "import" && rest.length === 0)
+		return importCommand({
+			...deps,
+			git: deps.importGit,
+			now: () => deps.now().getTime(),
+		});
 	const initArgs = command === "init" ? parseInitArgs(rest) : undefined;
 	if (initArgs) return init(initArgs.url, deps);
 	const runArgs = command === "run" ? parseRunArgs(rest) : undefined;
