@@ -1,3 +1,4 @@
+import { isAbsolute } from "node:path";
 // package名ではなくsourceをbundleする。package entryはtypeboxのschemaごとbundleに入り、
 // npm scopeを変える（scripts/set-npm-scope.mjs）とpackage名のimportが壊れるためである。
 import { normalizeRepository } from "../../../packages/semconv/src/repository.js";
@@ -30,4 +31,13 @@ export async function resolveVcs(
 		...(branch === undefined ? {} : { branch }),
 		...(commit === undefined ? {} : { commit }),
 	};
+}
+
+// correlation.md「構成の収集」: project rootはrepositoryのroot。repositoryの外やgitの失敗ではcwd。
+export async function resolveProjectRoot(
+	cwd: string,
+	git: RunGit,
+): Promise<string> {
+	const topLevel = await git(cwd, ["rev-parse", "--show-toplevel"]);
+	return topLevel && isAbsolute(topLevel) ? topLevel : cwd;
 }

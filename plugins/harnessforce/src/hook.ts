@@ -1,12 +1,20 @@
+import {
+	COLLECT_BUDGET_MS,
+	collectConfig,
+} from "../../../packages/cli/src/config/collect.js";
+import type { ConfigSnapshot } from "../../../packages/semconv/src/schemas/config-snapshot.js";
 import type { SessionRegistration } from "../../../packages/semconv/src/schemas/session-registration.js";
 import {
 	type Destination,
 	type Env,
 	type Fetch,
+	type IngestItem,
+	type IngestPath,
+	ingestBaseFrom,
 	type KeyKind,
-	postRegistration,
+	postItem,
+	type SendOutcome,
 	selectKey,
-	sessionsUrlFrom,
 } from "./destination.js";
 import { type HookInput, parseHookInput } from "./input.js";
 import {
@@ -17,7 +25,7 @@ import {
 	type Scratchpad,
 	saveRegistration,
 } from "./scratchpad.js";
-import { type RunGit, resolveVcs } from "./vcs.js";
+import { type RunGit, resolveProjectRoot, resolveVcs } from "./vcs.js";
 
 export type HookDeps = {
 	env: Env;
@@ -26,6 +34,8 @@ export type HookDeps = {
 	fetch: Fetch;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
+	homeDir: string;
+	managedDir: string;
 };
 
 // correlation.md「hook」の共通の規則が、選んだkeyの種類ごとに定める文言。
@@ -42,33 +52,44 @@ const logError = (deps: HookDeps) => (error: unknown) =>
 		`harnessforce: ${error instanceof Error ? error.message : String(error)}\n`,
 	);
 
-const report = (deps: HookDeps, detail: string) =>
-	deps.stderr(`harnessforce: session registration ${detail}\n`);
+type Subject = "session registration" | "config snapshot";
+const report = (deps: HookDeps, subject: Subject, detail: string) =>
+	deps.stderr(`harnessforce: ${subject} ${detail}\n`);
 
 // 送信先の判定をkeyの判定より先に行う。両方が無ければ送信先の終端だけを書く。
 function resolveDestination(deps: HookDeps): Destination | undefined {
-	const sessionsUrl = sessionsUrlFrom(deps.env.HARNESSFORCE_ENDPOINT);
-	if (!sessionsUrl) {
-		report(deps, "skipped (invalid endpoint)");
+	const ingestBase = ingestBaseFrom(deps.env.HARNESSFORCE_ENDPOINT);
+	if (!ingestBase) {
+		report(deps, "session registration", "skipped (invalid endpoint)");
 		return undefined;
 	}
 	const selected = selectKey(deps.env);
 	if (!selected) {
-		report(deps, "skipped (no ingest key)");
+		report(deps, "session registration", "skipped (no ingest key)");
 		return undefined;
 	}
-	return { sessionsUrl, ...selected };
+	return { ingestBase, ...selected };
 }
 
 async function send(
 	destination: Destination,
-	registration: SessionRegistration,
+	path: IngestPath,
+	item: IngestItem,
+	subject: Subject,
+	deps: HookDeps,
+): Promise<SendOutcome> {
+	const outcome = await postItem(destination, path, item, deps.fetch);
+	if (outcome.kind === "failed")
+		report(deps, subject, `failed (${outcome.reason})`);
+	return outcome;
+}
+
+// 同じsessionで表示は1回まで。SessionStartで登録とsnapshotの両方が401でも1回だけ呼ぶ。
+async function notifyRevokedKey(
+	destination: Destination,
 	pad: Scratchpad | undefined,
 	deps: HookDeps,
 ): Promise<void> {
-	const outcome = await postRegistration(destination, registration, deps.fetch);
-	if (outcome.kind === "failed") report(deps, `failed (${outcome.reason})`);
-	if (outcome.kind !== "unauthorized") return;
 	const message = REVOKED_KEY_MESSAGES[destination.keyKind];
 	deps.stderr(`${message}\n`);
 	// exit 0のhookのstderrは利用者に届かないため、systemMessageでも示す。
@@ -76,15 +97,13 @@ async function send(
 	if (pad) await markUnauthorized(pad).catch(logError(deps));
 }
 
-async function onSessionStart(input: HookInput, deps: HookDeps): Promise<void> {
-	if (input.source !== undefined && !REGISTERING_SOURCES.has(input.source))
-		return;
-	if (input.scratchpad && (await isMarkedUnauthorized(input.scratchpad)))
-		return;
-	const destination = resolveDestination(deps);
-	if (!destination) return;
+async function registerSession(
+	input: HookInput,
+	destination: Destination,
+	deps: HookDeps,
+): Promise<SendOutcome | undefined> {
 	const vcs = await resolveVcs(input.cwd, deps.git);
-	if (!vcs) return;
+	if (!vcs) return undefined;
 	const registration: SessionRegistration = {
 		agent: "claude_code",
 		session_id: input.sessionId,
@@ -97,7 +116,63 @@ async function onSessionStart(input: HookInput, deps: HookDeps): Promise<void> {
 		await saveRegistration(input.scratchpad, registration).catch(
 			logError(deps),
 		);
-	await send(destination, registration, input.scratchpad, deps);
+	return send(
+		destination,
+		"v1/sessions",
+		registration,
+		"session registration",
+		deps,
+	);
+}
+
+// gitのrepositoryの外でも送る。componentsが0件なら送らない。
+async function sendConfigSnapshot(
+	input: HookInput,
+	destination: Destination,
+	deps: HookDeps,
+): Promise<SendOutcome | undefined> {
+	// 収集の開始はproject rootを求める前とする（correlation.md「構成の収集」）。
+	const startedMs = deps.now().getTime();
+	const projectRoot = await resolveProjectRoot(input.cwd, deps.git);
+	const result = await collectConfig({
+		projectRoot,
+		homeDir: deps.homeDir,
+		managedDir: deps.managedDir,
+		env: deps.env,
+		isExpired: () => deps.now().getTime() - startedMs > COLLECT_BUDGET_MS,
+	});
+	if (result.kind === "skipped") {
+		report(deps, "config snapshot", `skipped (${result.reason})`);
+		return undefined;
+	}
+	if (result.components.length === 0) return undefined;
+	const snapshot: ConfigSnapshot = {
+		agent: "claude_code",
+		session_id: input.sessionId,
+		components: result.components,
+	};
+	return send(
+		destination,
+		"v1/config-snapshots",
+		snapshot,
+		"config snapshot",
+		deps,
+	);
+}
+
+async function onSessionStart(input: HookInput, deps: HookDeps): Promise<void> {
+	if (input.source !== undefined && !REGISTERING_SOURCES.has(input.source))
+		return;
+	if (input.scratchpad && (await isMarkedUnauthorized(input.scratchpad)))
+		return;
+	const destination = resolveDestination(deps);
+	if (!destination) return;
+	const outcomes = await Promise.all([
+		registerSession(input, destination, deps).catch(logError(deps)),
+		sendConfigSnapshot(input, destination, deps).catch(logError(deps)),
+	]);
+	if (outcomes.some((outcome) => outcome?.kind === "unauthorized"))
+		await notifyRevokedKey(destination, input.scratchpad, deps);
 }
 
 // sessionの最初のpromptだけ、SessionStartが保存した登録にprompt_idを加えて送る。SessionStartの送信の再送を兼ねる。
@@ -111,12 +186,15 @@ async function onUserPromptSubmit(
 	if (!saved) return;
 	const destination = resolveDestination(deps);
 	if (!destination || !(await claimFirstPrompt(pad))) return;
-	await send(
+	const outcome = await send(
 		destination,
+		"v1/sessions",
 		{ ...saved, first_prompt_id: input.promptId },
-		pad,
+		"session registration",
 		deps,
 	);
+	if (outcome.kind === "unauthorized")
+		await notifyRevokedKey(destination, pad, deps);
 }
 
 type Handler = (input: HookInput, deps: HookDeps) => Promise<void>;
