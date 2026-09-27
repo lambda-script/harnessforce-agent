@@ -1,3 +1,5 @@
+import { parseStoredApiToken } from "../credentials/api-token.js";
+import { createApiTokenSession } from "../credentials/api-token-session.js";
 import {
 	apiTokenAccount,
 	ingestKeyAccount,
@@ -36,6 +38,7 @@ export type RunDeps = {
 	now: () => Date;
 	platform: NodeJS.Platform;
 	launch: (launch: Launch) => Promise<LaunchOutcome>;
+	sleep: (ms: number) => Promise<void>;
 	// 起動し直す前に取り除いたNode.jsの実行時の変数。agentの環境へだけ戻す。
 	restoredEnv: Record<string, string>;
 };
@@ -79,7 +82,7 @@ type Verified = {
 	workspaceId: string;
 	ingestEndpoint: string;
 	readApiBase: URL;
-	apiToken: string;
+	accessToken: string;
 };
 
 // correlation.md「CLI」の確かめる順1〜8。どの終端でもRead APIとingestへ何も送らない。
@@ -103,30 +106,49 @@ async function verifyAccess(deps: RunDeps): Promise<Verified> {
 		ingestOriginAccount(workspaceId),
 	);
 	if (!ingestOrigin || ingest.origin !== ingestOrigin) stop("initRequired");
+	// 形の違う値（以前のversionのhf initが保存した値を含む）は、ApiTokenが無いものとして扱う。
 	const apiToken =
-		(await readKeychain(keychain, apiTokenAccount(workspaceId))) ||
-		stop("issueInitRequired");
+		parseStoredApiToken(
+			await readKeychain(keychain, apiTokenAccount(workspaceId)),
+			workspaceId,
+		) ?? stop("issueInitRequired");
 	const readApiBase =
 		parseAllowedUrl(destinations.readApiUrl) ?? stop("invalidUrl");
 	// shellやrepositoryのsettingsが書き換えた接続先へApiTokenを送らない。
 	const urlOrigin = await readKeychain(keychain, urlOriginAccount(workspaceId));
 	if (!urlOrigin || readApiBase.origin !== urlOrigin) stop("initRequired");
-	return { workspaceId, ingestEndpoint, readApiBase, apiToken };
+	return {
+		workspaceId,
+		ingestEndpoint,
+		readApiBase,
+		accessToken: apiToken.accessToken,
+	};
 }
 
 async function prepareLaunch(args: RunArgs, deps: RunDeps): Promise<Launch> {
-	const { workspaceId, ingestEndpoint, readApiBase, apiToken } =
+	const { workspaceId, ingestEndpoint, readApiBase, accessToken } =
 		await verifyAccess(deps);
 
 	// 手順1: Issueの解決。
 	if (!ISSUE_IDENTIFIER.test(args.issue)) stop("invalidIssue");
+	// sessionは、access tokenの期限切れと401でrefreshしたtokenへAuthorizationを置き換える。
+	const readFetch = createApiTokenSession({
+		keychain: deps.keychain,
+		workspaceId,
+		readBase: readApiBase,
+		fetch: deps.fetch,
+		now: () => deps.now().getTime(),
+		sleep: deps.sleep,
+		homeDir: deps.homeDir,
+	}).authorizedFetch(deps.fetch);
 	const resolution = await resolveIssue(
 		readApiBase,
 		args.issue,
-		apiToken,
-		deps.fetch,
+		accessToken,
+		readFetch,
 	);
-	if (resolution.kind === "unauthorized") stop("issueInitRequired");
+	// 401はrefreshしても使えるaccess tokenを得られなかった場合だけ届く。
+	if (resolution.kind === "unauthorized") stop("loginExpired");
 	if (resolution.kind === "failed") stop("issueFailed");
 	if (resolution.kind === "candidates") {
 		if (resolution.candidates.length === 0) stop("noMatch");

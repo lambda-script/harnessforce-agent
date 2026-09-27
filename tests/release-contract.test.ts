@@ -48,6 +48,11 @@ describe("release workflow", () => {
 		expect(yml).toContain("NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}");
 		expect(yml).not.toContain("secrets: inherit");
 	});
+	// environments.md「接続先」: CLIの接続先はbuildの入力として1か所で与え、既定値で補わない。
+	it("builds the CLI with the connection URL from the repository variable", () =>
+		expect(yml).toContain(
+			"HARNESSFORCE_BUILD_URL: ${{ vars.HARNESSFORCE_BUILD_URL }}",
+		));
 	it("verifies the registry after publishing", () =>
 		expect(yml).toContain("node scripts/verify-published.mjs"));
 });

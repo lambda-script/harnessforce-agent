@@ -4,7 +4,12 @@ import type { CliDeps } from "../../src/main.js";
 import type { Launch } from "../../src/run/launch.js";
 import { makeHome } from "../init/harness.js";
 import { fakeKeychain, runCli } from "../support/cli.js";
-import { issueBody, type Reply, startReadApi } from "./read-api.js";
+import {
+	issueBody,
+	type Reply,
+	startReadApi,
+	storedToken,
+} from "./read-api.js";
 
 const INGEST = "https://ingest.example.test/base";
 // Read APIはtestごとに空いているportで待ち受けるため、url-originはそのoriginを受け取って作る。
@@ -15,7 +20,7 @@ const pinnedKeychain =
 			items: Object.fromEntries(
 				Object.entries({
 					"ws1:ingest-key": "hf_ik_ws1_key",
-					"ws1:api-token": "hf_at_token",
+					"ws1:api-token": storedToken("ws1", "token"),
 					"ws1:ingest-origin": "https://ingest.example.test",
 					"ws1:url-origin": apiOrigin,
 					...extra,
@@ -26,6 +31,7 @@ const pinnedKeychain =
 type Setup = {
 	issue?: (identifier: string) => Reply;
 	list?: (query: string | null) => Reply;
+	refresh?: Reply;
 	env?: Record<string, string>;
 	settings?: string;
 	keychain?: (apiOrigin: string) => CliDeps["keychain"];
@@ -39,6 +45,7 @@ async function runHf(argv: string[], setup: Setup = {}) {
 			setup.issue ??
 			((id) => ({ status: 200, body: issueBody(id) }) satisfies Reply),
 		list: setup.list,
+		refresh: setup.refresh,
 	});
 	const home = makeHome(setup.settings);
 	const launches: Launch[] = [];
@@ -109,7 +116,9 @@ describe("hf run", () => {
 			HARNESSFORCE_ISSUE: "ENG-42",
 			HARNESSFORCE_WORKSPACE_ID: "ws1",
 		});
-		expect(r.api.requests[0]?.headers.authorization).toBe("Bearer hf_at_token");
+		expect(r.api.requests[0]?.headers.authorization).toBe(
+			"Bearer hf_at_ws1_token",
+		);
 	});
 
 	// keyはotelHeadersHelperを通してだけClaude Codeへ届く。
@@ -120,7 +129,8 @@ describe("hf run", () => {
 		expect(r.code).toBe(0);
 		const launch = JSON.stringify(r.launches);
 		expect(launch).not.toContain("hf_ik_ws1_key");
-		expect(launch).not.toContain("hf_at_token");
+		expect(launch).not.toContain("hf_at_ws1_token");
+		expect(launch).not.toContain("hf_rt_ws1_token");
 		expect(launch).not.toContain("Bearer");
 		expect(r.launches[0]?.env).not.toHaveProperty("OTEL_EXPORTER_OTLP_HEADERS");
 	});
@@ -156,7 +166,7 @@ describe("hf run", () => {
 			keychain: (apiOrigin) =>
 				pinnedKeychain({
 					"ws2:ingest-key": "hf_ik_ws2_key",
-					"ws2:api-token": "hf_at_ws2",
+					"ws2:api-token": storedToken("ws2", "token"),
 					"ws2:ingest-origin": "https://ingest.ws2.test",
 					"ws2:url-origin": apiOrigin,
 				})(apiOrigin),
@@ -176,7 +186,9 @@ describe("hf run", () => {
 			HARNESSFORCE_WORKSPACE_ID: "ws2",
 			HARNESSFORCE_ENDPOINT: "https://ingest.ws2.test",
 		});
-		expect(r.api.requests[0]?.headers.authorization).toBe("Bearer hf_at_ws2");
+		expect(r.api.requests[0]?.headers.authorization).toBe(
+			"Bearer hf_at_ws2_token",
+		);
 	});
 
 	it.each([
@@ -294,17 +306,43 @@ describe("hf run", () => {
 		});
 	});
 
+	// correlation.md「ApiTokenの失効」。
+	it("refreshes an expired access token, resolves the Issue with the new token and launches", async () => {
+		const r = await runHf(ISSUE_ARGS, {
+			issue: () => ({ status: 200, body: issueBody("ENG-42") }),
+			keychain: (apiOrigin) =>
+				pinnedKeychain({
+					"ws1:api-token": storedToken("ws1", "token", "1970-01-01T00:00:00Z"),
+				})(apiOrigin),
+		});
+		expect(r.code).toBe(0);
+		expect(r.api.requests.map((q) => q.headers.authorization)).toEqual([
+			undefined,
+			undefined,
+			"Bearer hf_at_ws1_refreshed",
+		]);
+		expect(r.launches).toHaveLength(1);
+	});
+
 	describe("terminals of the Issue resolution", () => {
 		const cases: [string, Setup, string][] = [
 			[
-				"a 401 on resolution",
+				"a 401 on resolution that persists after the refresh",
 				{ issue: () => ({ status: 401 }) },
-				"Issueを解決できませんでした。`hf init`を実行してください",
+				"ログインの有効期限が切れました。`hf init`を実行してください",
 			],
 			[
-				"a 401 on candidates",
+				"a 401 on candidates that persists after the refresh",
 				{ issue: () => ({ status: 404 }), list: () => ({ status: 401 }) },
-				"Issueを解決できませんでした。`hf init`を実行してください",
+				"ログインの有効期限が切れました。`hf init`を実行してください",
+			],
+			[
+				"a rejected refresh after a 401",
+				{
+					issue: () => ({ status: 401 }),
+					refresh: { status: 400, body: { error: "invalid_grant" } },
+				},
+				"ログインの有効期限が切れました。`hf init`を実行してください",
 			],
 			[
 				"a 500 on resolution",

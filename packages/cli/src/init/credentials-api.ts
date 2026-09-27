@@ -1,3 +1,7 @@
+import {
+	parseTokenPair,
+	type StoredApiToken,
+} from "../credentials/api-token.js";
 import { parseAllowedUrl } from "../url.js";
 import {
 	type Fetch,
@@ -12,12 +16,13 @@ export type CredentialRequest = {
 	client_id: string;
 	redirect_uri: string;
 	revoke_key_hashes: readonly string[];
+	revoke_api_token_hashes: readonly string[];
 };
 
 export type Issued = {
 	workspaceId: string;
 	ingestKey: string;
-	apiToken: string;
+	apiToken: StoredApiToken;
 	ingestEndpoint: string;
 };
 
@@ -41,23 +46,22 @@ function parseIssued(body: Record<string, unknown>): Issued | undefined {
 	const {
 		workspace_id: workspaceId,
 		ingest_key: ingestKey,
-		api_token: apiToken,
 		ingest_endpoint: ingestEndpoint,
 	} = body;
 	if (
 		typeof workspaceId !== "string" ||
 		typeof ingestKey !== "string" ||
-		typeof apiToken !== "string" ||
-		typeof ingestEndpoint !== "string"
+		typeof ingestEndpoint !== "string" ||
+		!WORKSPACE_ID.test(workspaceId)
 	)
 		return undefined;
+	const apiToken = parseTokenPair(body, workspaceId);
 	const isValid =
-		WORKSPACE_ID.test(workspaceId) &&
 		ingestKey.startsWith(`hf_ik_${workspaceId}_`) &&
 		NO_WHITESPACE.test(ingestKey) &&
-		NO_WHITESPACE.test(apiToken) &&
+		apiToken !== undefined &&
 		parseAllowedUrl(ingestEndpoint) !== undefined;
-	return isValid
+	return isValid && apiToken
 		? { workspaceId, ingestKey, apiToken, ingestEndpoint }
 		: undefined;
 }

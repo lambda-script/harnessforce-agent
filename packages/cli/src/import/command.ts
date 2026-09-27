@@ -1,6 +1,8 @@
 import { join } from "node:path";
 import { isObject } from "../config/files.js";
 import { absoluteEnv } from "../config/scope.js";
+import { parseStoredApiToken } from "../credentials/api-token.js";
+import { createApiTokenSession } from "../credentials/api-token-session.js";
 import {
 	apiTokenAccount,
 	ingestKeyAccount,
@@ -55,6 +57,7 @@ const MESSAGES = {
 	sendFailed:
 		"Harnessforceとの通信に失敗しました。もう一度`hf import`を実行すると続きから取り込みます",
 	revoked: "送信キーが失効しています。`hf init`を実行してください",
+	loginExpired: "ログインの有効期限が切れました。`hf init`を実行してください",
 	stateFailed: "取り込みの状態を保存できませんでした",
 } as const;
 
@@ -76,7 +79,7 @@ type Resolved = {
 	destination: Destination;
 	endpoint: URL;
 	ingestKey: string;
-	apiToken: string;
+	accessToken: string;
 	readBase: URL;
 };
 
@@ -132,8 +135,12 @@ async function resolve(deps: ImportDeps): Promise<Resolved> {
 	// hookが拒否する送信先へ、hookと同じ利用者用のkeyを送らない。
 	const pinnedOrigin = await read(ingestOriginAccount(workspaceId));
 	if (pinnedOrigin !== endpoint.origin) stop(MESSAGES.runInit);
+	// 形の違う値（以前のversionのhf initが保存した値を含む）は、ApiTokenが無いものとして扱う。
 	const apiToken =
-		(await read(apiTokenAccount(workspaceId))) ?? stop(MESSAGES.runInit);
+		parseStoredApiToken(
+			await read(apiTokenAccount(workspaceId)),
+			workspaceId,
+		) ?? stop(MESSAGES.runInit);
 	const readBase =
 		parseAllowedUrl(setting("HARNESSFORCE_URL") ?? deps.defaultUrl) ??
 		stop(MESSAGES.invalidUrl);
@@ -145,15 +152,18 @@ async function resolve(deps: ImportDeps): Promise<Resolved> {
 		destination: { workspaceId, endpoint: withoutExtras(endpoint) },
 		endpoint,
 		ingestKey,
-		apiToken,
+		accessToken: apiToken.accessToken,
 		readBase,
 	};
 }
 
 function unwrap<T>(outcome: ReadOutcome<T>): T {
 	if (outcome.kind === "ok") return outcome.value;
+	// 401はrefreshしても使えるaccess tokenを得られなかった場合だけ届く。
 	return stop(
-		outcome.kind === "unauthorized" ? MESSAGES.runInit : MESSAGES.readFailed,
+		outcome.kind === "unauthorized"
+			? MESSAGES.loginExpired
+			: MESSAGES.readFailed,
 	);
 }
 
@@ -180,18 +190,28 @@ function report(result: SendResult, deps: ImportDeps): number {
 
 async function runImport(deps: ImportDeps): Promise<number> {
 	const resolved = await resolve(deps);
+	const readFetch = createApiTokenSession({
+		keychain: deps.keychain,
+		workspaceId: resolved.destination.workspaceId,
+		readBase: resolved.readBase,
+		fetch: deps.fetch,
+		now: deps.now,
+		sleep: deps.sleep,
+		homeDir: deps.homeDir,
+	}).authorizedFetch(deps.fetch);
+	// sessionは、access tokenの期限切れと401でrefreshしたtokenへAuthorizationを置き換える。
 	const connected = unwrap(
 		await listConnectedRepositories(
 			resolved.readBase,
-			resolved.apiToken,
-			deps.fetch,
+			resolved.accessToken,
+			readFetch,
 		),
 	);
 	const days = unwrap(
 		await fetchSessionImportDays(
 			resolved.readBase,
-			resolved.apiToken,
-			deps.fetch,
+			resolved.accessToken,
+			readFetch,
 		),
 	);
 	const scan = await scanSessions({

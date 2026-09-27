@@ -7,6 +7,7 @@ export const RUN_MESSAGES = {
 	invalidUrl: INIT_MESSAGES.invalidUrl,
 	invalidIssue: "Issueの識別子が不正です",
 	issueInitRequired: "Issueを解決できませんでした。`hf init`を実行してください",
+	loginExpired: "ログインの有効期限が切れました。`hf init`を実行してください",
 	issueFailed: "Issueを解決できず、候補も取得できませんでした",
 	noMatch: "一致するIssueがありません",
 	candidatesHeader: "Issueを解決できませんでした。候補:",

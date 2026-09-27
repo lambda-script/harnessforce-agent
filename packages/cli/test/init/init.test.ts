@@ -10,6 +10,7 @@ import {
 	runInit,
 	sha256,
 	startHarnessforce,
+	storedApiToken,
 } from "./harness.js";
 
 // correlation.md「CLI」の`hf init`が定める文言。
@@ -20,6 +21,8 @@ const M = {
 	keychain: "OSのキーチェーンを利用できないため、送信キーを保存できません",
 	tooManyKeys:
 		"keychainにある送信キーが多すぎるため、`hf init`を実行できません",
+	tooManyCredentials:
+		"keychainにある送信キーまたはログインの情報が多すぎるため、`hf init`を実行できません",
 	settings: "Claude Codeのuser settingsを読めません",
 	network:
 		"Harnessforceとの通信に失敗しました。もう一度`hf init`を実行してください",
@@ -46,8 +49,17 @@ const failed = (message: string) => ({ code: 1, out: "", err: `${message}\n` });
 
 const EXISTING = {
 	"ws1:ingest-key": "hf_ik_ws1_old",
-	"ws1:api-token": "hf_at_old",
+	"ws1:api-token": storedApiToken("ws1", "old"),
 	"ws2:ingest-key": "hf_ik_ws2_other",
+	"ws2:api-token": storedApiToken("ws2", "other"),
+};
+
+// 応答の4つの値を、受け取ったままの文字列で保存する。
+const issuedApiToken = {
+	access_token: issued.access_token,
+	access_token_expires_at: issued.access_token_expires_at,
+	refresh_token: issued.refresh_token,
+	refresh_token_expires_at: issued.refresh_token_expires_at,
 };
 
 describe("hf init", () => {
@@ -99,16 +111,24 @@ describe("hf init", () => {
 				sha256("hf_ik_ws1_old"),
 				sha256("hf_ik_ws2_other"),
 			]),
+			// keychainのすべてのApiTokenのrefresh tokenのhash。
+			revoke_api_token_hashes: expect.arrayContaining([
+				sha256("hf_rt_ws1_old"),
+				sha256("hf_rt_ws2_other"),
+			]),
 		});
 		expect(body.revoke_key_hashes).toHaveLength(2);
+		expect(body.revoke_api_token_hashes).toHaveLength(2);
 		expect(codeChallenge(body.code_verifier as string)).toBe(
 			query.code_challenge,
 		);
 
-		expect(Object.fromEntries(items)).toEqual({
-			...EXISTING,
+		const { "ws1:api-token": apiToken, ...rest } = Object.fromEntries(items);
+		expect(JSON.parse(apiToken ?? "")).toEqual(issuedApiToken);
+		const { "ws1:api-token": _old, ...existingRest } = EXISTING;
+		expect(rest).toEqual({
+			...existingRest,
 			"ws1:ingest-key": issued.ingest_key,
-			"ws1:api-token": issued.api_token,
 			// 送信先の固定。ingest_endpointのscheme、host、portだけを保存する。
 			"ws1:ingest-origin": "https://ingest.example.test",
 			"ws1:url-origin": `http://127.0.0.1:${new URL(server.base).port}`,
@@ -136,7 +156,8 @@ describe("hf init", () => {
 			},
 		});
 		expect(home.read()).not.toContain(issued.ingest_key);
-		expect(home.read()).not.toContain(issued.api_token);
+		expect(home.read()).not.toContain(issued.access_token);
+		expect(home.read()).not.toContain(issued.refresh_token);
 	});
 
 	it("uses --url instead of the build default, including a path, and records it", async () => {
@@ -195,7 +216,7 @@ describe("hf init", () => {
 		});
 		expect(Object.fromEntries(items)).toEqual({
 			"ws1:ingest-key": "hf_ik_ws1_new",
-			"ws1:api-token": "hf_at_token",
+			"ws1:api-token": expect.stringContaining(issued.refresh_token),
 			"ws1:ingest-origin": "https://ingest.example.test",
 			// pathの`/hf`を含めない。
 			"ws1:url-origin": `http://127.0.0.1:${new URL(server.base).port}`,
@@ -305,6 +326,44 @@ describe("hf init", () => {
 				}),
 			).toEqual(failed(M.tooManyKeys));
 			expect(server.metadataRequests()).toEqual([]);
+		});
+
+		it("stops when the keychain holds more than 100 ApiTokens", async () => {
+			const server = await startHarnessforce();
+			const items = Object.fromEntries(
+				Array.from({ length: 101 }, (_, i) => [
+					`ws${i}:api-token`,
+					storedApiToken(`ws${i}`, "t"),
+				]),
+			);
+			expect(
+				await runInit([], {
+					homeDir: makeHome().home,
+					defaultUrl: server.base,
+					keychain: fakeKeychain({ items }).keychain,
+				}),
+			).toEqual(failed(M.tooManyCredentials));
+			expect(server.metadataRequests()).toEqual([]);
+		});
+
+		it("does not send a hash for an ApiToken item it cannot read", async () => {
+			const server = await startHarnessforce();
+			const { keychain } = fakeKeychain({
+				items: {
+					"ws1:api-token": "hf_at_from_an_older_hf_init",
+					"ws2:api-token": storedApiToken("ws2", "other"),
+				},
+			});
+			const result = await runInit([], {
+				homeDir: makeHome().home,
+				defaultUrl: server.base,
+				keychain,
+				openBrowser: fakeBrowser().open,
+			});
+			expect(result.code).toBe(0);
+			expect(server.credentialRequests[0]?.body).toMatchObject({
+				revoke_api_token_hashes: [sha256("hf_rt_ws2_other")],
+			});
 		});
 
 		it.each([
@@ -480,7 +539,20 @@ describe("hf init", () => {
 				{ ...issued, workspace_id: "ws_1", ingest_key: "hf_ik_ws_1_k" },
 				M.network,
 			],
-			[201, { ...issued, api_token: "has space" }, M.network],
+			[201, { ...issued, access_token: "hf_at_ws1_has space" }, M.network],
+			[201, { ...issued, access_token: "hf_at_ws2_other" }, M.network],
+			[201, { ...issued, refresh_token: "hf_at_ws1_new" }, M.network],
+			[
+				201,
+				{ ...issued, access_token_expires_at: "2026-09-28T01:00:00" },
+				M.network,
+			],
+			[
+				201,
+				{ ...issued, refresh_token_expires_at: "not an instant" },
+				M.network,
+			],
+			[201, { ...issued, refresh_token_expires_at: undefined }, M.network],
 			[
 				201,
 				{ ...issued, ingest_endpoint: "http://ingest.example.test" },
@@ -541,7 +613,7 @@ describe("hf init", () => {
 			const { keychain, items } = fakeKeychain({
 				items: {
 					"ws1:ingest-key": "hf_ik_ws1_old",
-					"ws1:api-token": "hf_at_old",
+					"ws1:api-token": storedApiToken("ws1", "old"),
 					"ws1:ingest-origin": "https://old-ingest.example.test",
 					"ws1:url-origin": "https://old.example.test",
 				},
