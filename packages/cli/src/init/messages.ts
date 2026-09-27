@@ -7,6 +7,8 @@ export const INIT_MESSAGES = {
 		"OSのキーチェーンを利用できないため、送信キーを保存できません",
 	tooManyKeys:
 		"keychainにある送信キーが多すぎるため、`hf init`を実行できません",
+	tooManyCredentials:
+		"keychainにある送信キーまたはログインの情報が多すぎるため、`hf init`を実行できません",
 	settingsUnreadable: "Claude Codeのuser settingsを読めません",
 	network:
 		"Harnessforceとの通信に失敗しました。もう一度`hf init`を実行してください",

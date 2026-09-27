@@ -14,11 +14,12 @@ export type Keychain = {
 // correlation.md「CLI」の手順5。
 export const KEYCHAIN_SERVICE = "harnessforce";
 const INGEST_KEY_SUFFIX = ":ingest-key";
+const API_TOKEN_SUFFIX = ":api-token";
 
 export const ingestKeyAccount = (workspaceId: string) =>
 	`${workspaceId}${INGEST_KEY_SUFFIX}`;
 export const apiTokenAccount = (workspaceId: string) =>
-	`${workspaceId}:api-token`;
+	`${workspaceId}${API_TOKEN_SUFFIX}`;
 // hf initが保存したingestの送信先のorigin。利用者用のkeyはこのoriginへだけ出す。
 export const ingestOriginAccount = (workspaceId: string) =>
 	`${workspaceId}:ingest-origin`;
@@ -27,3 +28,8 @@ export const urlOriginAccount = (workspaceId: string) =>
 	`${workspaceId}:url-origin`;
 export const isIngestKeyAccount = (account: string) =>
 	account.endsWith(INGEST_KEY_SUFFIX);
+// `<workspace_id>:api-token`のWorkspaceのid。ApiTokenの項目でなければundefined。
+export const apiTokenWorkspaceId = (account: string) =>
+	account.endsWith(API_TOKEN_SUFFIX)
+		? account.slice(0, -API_TOKEN_SUFFIX.length)
+		: undefined;

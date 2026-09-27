@@ -20,9 +20,21 @@ type Reply = {
 export const issued = {
 	workspace_id: "ws1",
 	ingest_key: "hf_ik_ws1_new",
-	api_token: "hf_at_token",
 	ingest_endpoint: "https://ingest.example.test/base",
+	access_token: "hf_at_ws1_new",
+	access_token_expires_at: "2026-09-28T01:00:00.000Z",
+	refresh_token: "hf_rt_ws1_new",
+	refresh_token_expires_at: "2026-12-27T09:00:00+09:00",
 };
+
+// keychainの`<workspace_id>:api-token`に保存する1つのJSONのobject（correlation.md「CLI」の手順5）。
+export const storedApiToken = (workspaceId: string, name: string) =>
+	JSON.stringify({
+		access_token: `hf_at_${workspaceId}_${name}`,
+		access_token_expires_at: "2026-09-28T01:00:00Z",
+		refresh_token: `hf_rt_${workspaceId}_${name}`,
+		refresh_token_expires_at: "2026-12-27T00:00:00Z",
+	});
 
 // Harnessforce（apps/web）の代わり。authorization server metadataと発行のendpointだけを持つ。
 export async function startHarnessforce(

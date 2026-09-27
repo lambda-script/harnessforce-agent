@@ -1,6 +1,11 @@
 import { createHash } from "node:crypto";
 import {
+	parseStoredApiToken,
+	serializeApiToken,
+} from "../credentials/api-token.js";
+import {
 	apiTokenAccount,
+	apiTokenWorkspaceId,
 	ingestKeyAccount,
 	ingestOriginAccount,
 	isIngestKeyAccount,
@@ -42,8 +47,8 @@ export type InitDeps = {
 
 // apps/webがあらかじめ登録した固定のpublic client。
 const CLIENT_ID = "harnessforce-cli";
-// POST /api/v1/cli/credentialsが受け付けるrevoke_key_hashesの上限。
-const MAX_REVOKE_KEY_HASHES = 100;
+// POST /api/v1/cli/credentialsが受け付けるrevoke_key_hashesとrevoke_api_token_hashesの上限。
+const MAX_REVOKE_HASHES = 100;
 
 // 途中の終端はこの値で抜け、表示と終了コードを1か所で決める。
 class InitStop {
@@ -75,7 +80,7 @@ async function runInit(url: string | undefined, deps: InitDeps) {
 	const base = parseAllowedUrl(url ?? deps.defaultUrl) ?? stop("invalidUrl");
 	// settingsへは送信先と同じくscheme、host、port、pathだけを書き、userinfoを残さない。
 	const recordedUrl = `${base.origin}${base.pathname.replace(/\/+$/, "")}`;
-	const revokeKeyHashes = await readRevokeKeyHashes(deps.keychain);
+	const revoke = await readRevokeHashes(deps.keychain);
 	const settingsPath = userSettingsPath(deps.env, deps.homeDir);
 	// 発行した後に保存で失敗し、再実行のたびにkeyを入れ替えることを避けるため、ログインの前に確かめる。
 	if ((await readUserSettings(settingsPath)).kind === "invalid")
@@ -95,7 +100,8 @@ async function runInit(url: string | undefined, deps: InitDeps) {
 			code_verifier: secrets.codeVerifier,
 			client_id: CLIENT_ID,
 			redirect_uri: redirectUri,
-			revoke_key_hashes: revokeKeyHashes,
+			revoke_key_hashes: revoke.keyHashes,
+			revoke_api_token_hashes: revoke.apiTokenHashes,
 		},
 		deps.fetch,
 	);
@@ -105,15 +111,28 @@ async function runInit(url: string | undefined, deps: InitDeps) {
 	);
 }
 
-async function readRevokeKeyHashes(keychain: Keychain): Promise<string[]> {
+// correlation.md「CLI」の手順1。keychainの利用者用IngestKeyすべてのhashと、ApiTokenすべてのrefresh tokenのhash。
+async function readRevokeHashes(
+	keychain: Keychain,
+): Promise<{ keyHashes: string[]; apiTokenHashes: string[] }> {
 	if (!(await keychain.isAvailable())) stop("keychainUnavailable");
 	const items =
 		(await keychain.list().catch(() => undefined)) ??
 		stop("keychainUnavailable");
-	const hashes = items
+	const keyHashes = items
 		.filter((item) => isIngestKeyAccount(item.account))
 		.map((item) => sha256Hex(item.secret));
-	return hashes.length > MAX_REVOKE_KEY_HASHES ? stop("tooManyKeys") : hashes;
+	if (keyHashes.length > MAX_REVOKE_HASHES) stop("tooManyKeys");
+	const apiTokenHashes = items.flatMap((item) => {
+		const workspaceId = apiTokenWorkspaceId(item.account);
+		const token =
+			workspaceId === undefined
+				? undefined
+				: parseStoredApiToken(item.secret, workspaceId);
+		return token ? [sha256Hex(token.refreshToken)] : [];
+	});
+	if (apiTokenHashes.length > MAX_REVOKE_HASHES) stop("tooManyCredentials");
+	return { keyHashes, apiTokenHashes };
 }
 
 async function logIn(
@@ -187,7 +206,10 @@ async function save(
 		ingestKeyAccount(issued.workspaceId),
 		issued.ingestKey,
 	);
-	await deps.keychain.set(apiTokenAccount(issued.workspaceId), issued.apiToken);
+	await deps.keychain.set(
+		apiTokenAccount(issued.workspaceId),
+		serializeApiToken(issued.apiToken),
+	);
 	await deps.keychain.set(
 		ingestOriginAccount(issued.workspaceId),
 		new URL(issued.ingestEndpoint).origin,
