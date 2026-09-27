@@ -61,11 +61,14 @@ hooks. Public distribution starts once the production domain is decided.
 2. It logs in with the browser: OAuth 2.0 authorization code with PKCE, a `127.0.0.1` loopback
    redirect, the endpoint discovered from `/.well-known/oauth-authorization-server`, and a 5 minute
    wait. If the browser cannot be opened, it prints the URL.
-3. It asks `POST <base URL>/api/v1/cli/credentials` for a user ingest key and an API token. It also
-   sends the SHA-256 hashes of the ingest keys already in the keychain, so the old key for the chosen
-   Workspace on this machine is revoked. Keys on other machines stay valid.
+3. It asks `POST <base URL>/api/v1/cli/credentials` for a user ingest key and an API token (a 1 hour
+   access token and a 90 day refresh token). It also sends the SHA-256 hashes of the ingest keys and of
+   the API tokens' refresh tokens already in the keychain (at most 100 of each), so the old key and
+   token for the chosen Workspace on this machine are revoked. Keys and tokens on other machines stay
+   valid.
 4. It stores both under the keychain service `harnessforce` as `<workspace_id>:ingest-key` and
-   `<workspace_id>:api-token`, and pins the ingest endpoint origin as `<workspace_id>:ingest-origin`
+   `<workspace_id>:api-token` (a JSON object with the access token, the refresh token and their
+   expiries), and pins the ingest endpoint origin as `<workspace_id>:ingest-origin`
    and the base URL origin as `<workspace_id>:url-origin`. It deletes both origins first and writes
    them last, so a failure part way never pairs an old origin with a new key or token.
 5. It updates the Claude Code user settings (`~/.claude/settings.json`, or `$CLAUDE_CONFIG_DIR`),
@@ -84,6 +87,17 @@ variable that is set (`HARNESSFORCE_ENDPOINT`, `OTEL_EXPORTER_OTLP_ENDPOINT` and
 `.claude/settings.json` `env` from pointing the hook at another host to collect the key. Otherwise it
 writes `harnessforce: user key withheld (destination not verified)` to stderr and exits 1. Run
 `hf init` again to re-pin.
+
+### Refreshing the API token
+
+`hf import` and `hf run --issue` call the Read API with the access token. When it has expired, or the
+Read API answers 401 once, they take `~/.harnessforce/token.lock`, read the keychain again (another
+process may have refreshed already), and exchange the refresh token at the `token_endpoint` from the
+authorization server metadata of the base URL, only when that endpoint is on the pinned base URL
+origin. The new pair replaces `<workspace_id>:api-token`. A lock older than 60 seconds is treated as
+abandoned, and waiting more than 30 seconds for it counts as a failed refresh. If the refresh fails, or
+the refreshed token is also answered with 401, they stop with
+「ログインの有効期限が切れました。`hf init`を実行してください」.
 
 The default base URL is a build input: `HARNESSFORCE_BUILD_URL=<apps/web base URL> pnpm build`.
 The build fails without it. The value must be `https:`, or `http:` for localhost.
