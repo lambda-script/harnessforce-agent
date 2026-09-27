@@ -157,11 +157,16 @@ Publishing to npmjs is disabled until the npm scope exists. To enable it:
 3. Create a granular access token with read/write on that scope (publish must bypass 2FA), then:
    `gh secret set NPM_TOKEN -R lambda-script/harnessforce-agent`
 4. In repository Settings → Actions → General, allow GitHub Actions to create pull requests.
-5. `gh variable set NPM_PUBLISH_ENABLED --body true -R lambda-script/harnessforce-agent`
-6. Provide the production `HARNESSFORCE_BUILD_URL` to the `Release` workflow (the CLI build fails
-   without it), then re-run the latest `Release` workflow on `main`. It publishes 0.1.0 with provenance and fails
+5. Set the CLI's default connection URL as a repository variable. The `Release` workflow passes
+   `vars.HARNESSFORCE_BUILD_URL` to the build, which bakes it into `@harnessforce/cli`
+   (`packages/cli/scripts/build-config.mjs`) and fails when it is missing, so a release never falls back
+   to a default. Use the production `apps/web` base URL once it is recorded in the Harnessforce
+   `docs/specs/infrastructure/environments.md` ("接続先"); staging builds must not be published:
+   `gh variable set HARNESSFORCE_BUILD_URL --body https://<apps/web host> -R lambda-script/harnessforce-agent`
+6. `gh variable set NPM_PUBLISH_ENABLED --body true -R lambda-script/harnessforce-agent`
+7. Re-run the latest `Release` workflow on `main`. It publishes 0.1.0 with provenance and fails
    unless `npm view <scope>/semconv@0.1.0 version` and `npm view <scope>/cli@0.1.0 version` resolve.
-7. Confirm the provenance badge on each package page on npmjs.com.
+8. Confirm the provenance badge on each package page on npmjs.com.
 
 Later releases: add a changeset (`pnpm changeset`) in the Delivery PR. Merging to `main` opens the
 "chore: version packages" PR, and merging that PR publishes the packages.

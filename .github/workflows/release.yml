@@ -22,6 +22,9 @@ jobs:
       contents: write
       pull-requests: write
       id-token: write
+    env:
+      # CLIの既定の接続先（buildの入力）。未設定ならbuildが失敗し、既定値で補わない。設定する値はREADMEの「Releasing」を参照。
+      HARNESSFORCE_BUILD_URL: ${{ vars.HARNESSFORCE_BUILD_URL }}
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
