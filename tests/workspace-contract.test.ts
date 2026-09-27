@@ -4,14 +4,17 @@ import { describe, expect, it } from "vitest";
 const read = (p: string) =>
 	JSON.parse(readFileSync(new URL(`../${p}`, import.meta.url), "utf8"));
 const root = read("package.json");
-const packages = readdirSync(new URL("../packages", import.meta.url)).map(
-	(dir) => ({ dir, pkg: read(`packages/${dir}/package.json`) }),
+const workspaces = ["packages", "plugins"].flatMap((parent) =>
+	readdirSync(new URL(`../${parent}`, import.meta.url)).map((name) => ({
+		dir: `${parent}/${name}`,
+		pkg: read(`${parent}/${name}/package.json`),
+	})),
 );
 const tasks = ["lint", "typecheck", "test", "build"] as const;
 
 describe("turborepo workspace", () => {
 	// turboはscriptを持たないpackageを黙ってskipするため、欠落はgateの抜けになる。
-	it.each(packages)("$dir defines every pipeline task", ({ pkg }) => {
+	it.each(workspaces)("$dir defines every pipeline task", ({ pkg }) => {
 		for (const task of tasks) expect(pkg.scripts?.[task]).toBeTypeOf("string");
 	});
 

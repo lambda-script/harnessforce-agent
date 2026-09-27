@@ -29,7 +29,8 @@ describe("plugin skeleton", () => {
 			),
 		).toBe(true));
 
-	it("ships no hook behavior yet", () =>
+	// hookのscriptはbuildの出力（plugins/harnessforce/dist/marketplace）にだけある。repositoryから直接導入しても存在しないscriptを起動しない。
+	it("wires no hooks in the repository copy of the plugin", () =>
 		expect(read("plugins/harnessforce/hooks/hooks.json")).toEqual({
 			hooks: {},
 		}));
