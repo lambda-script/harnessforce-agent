@@ -26,6 +26,13 @@ describe("applyScope", () => {
 			"@acme-hf/semconv",
 			"@acme-hf/cli",
 		]);
+		// sourceがpackage名でimportする内部依存も、新しいscopeで解決される。
+		const launch = readFileSync(
+			join(dir, "packages", "cli", "src", "run", "launch.ts"),
+			"utf8",
+		);
+		expect(launch).toContain('from "@acme-hf/semconv"');
+		expect(launch).not.toContain("@harnessforce/");
 		expect(readFileSync(join(dir, "README.md"), "utf8")).toBe(
 			"npm i @acme-hf/cli\n",
 		);

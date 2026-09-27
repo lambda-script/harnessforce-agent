@@ -29,6 +29,9 @@ importers:
 
   packages/cli:
     dependencies:
+      '@harnessforce/semconv':
+        specifier: workspace:*
+        version: link:../semconv
       '@napi-rs/keyring':
         specifier: ^2.1.0
         version: 2.1.0

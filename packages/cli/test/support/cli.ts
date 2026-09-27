@@ -79,6 +79,14 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}) {
 		managedDir: "/nonexistent/hf-managed",
 		defaultUrl: "https://app.example.test",
 		callbackTimeoutMs: 5000,
+		restoredEnv: {},
+		cwd: "/nonexistent/hf-cwd",
+		git: async () => undefined,
+		now: () => new Date(),
+		platform: "linux",
+		launch: async () => {
+			throw new Error("the agent must not be launched");
+		},
 		...deps,
 		stdout: (text) => out.push(text),
 		stderr: (text) => err.push(text),

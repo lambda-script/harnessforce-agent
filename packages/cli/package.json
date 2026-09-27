@@ -35,6 +35,7 @@
 		"vitest": "^4.1.11"
 	},
 	"dependencies": {
+		"@harnessforce/semconv": "workspace:*",
 		"@napi-rs/keyring": "^2.1.0"
 	}
 }

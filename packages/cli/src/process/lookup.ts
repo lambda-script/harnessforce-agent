@@ -154,24 +154,29 @@ function candidateNames(name: string, context: LookupContext): string[] {
 	return extensions.map((e) => `${name}${e}`);
 }
 
+// 通常のfileで、Windows以外では実行権限を持つもの。WindowsにはPOSIXの実行権限が無く、拡張子で決まる。
+export async function isRunnable(
+	file: string,
+	context: Pick<LookupContext, "platform" | "fs">,
+): Promise<boolean> {
+	const fs = context.fs ?? defaultFs;
+	if (!(await fs.isFile(file))) return false;
+	return context.platform === "win32" || fs.isExecutable(file);
+}
+
 async function findIn(
 	name: string,
 	context: LookupContext,
 	excluded: Excluded,
 ): Promise<string | undefined> {
 	const path = pathFor(context.platform);
-	const fs = context.fs ?? defaultFs;
 	const dirs = (envValue(context.env, "PATH", context.platform) ?? "")
 		.split(path.delimiter)
 		.filter((dir) => dir !== "" && path.isAbsolute(dir) && !excluded(dir));
 	for (const dir of dirs)
 		for (const candidate of candidateNames(name, context)) {
 			const file = path.join(dir, candidate);
-			if (!(await fs.isFile(file))) continue;
-			// WindowsにはPOSIXの実行権限が無く、拡張子で実行できるかが決まる。
-			if (context.platform !== "win32" && !(await fs.isExecutable(file)))
-				continue;
-			return file;
+			if (await isRunnable(file, context)) return file;
 		}
 	return undefined;
 }
