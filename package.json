@@ -1,0 +1,34 @@
+{
+	"name": "harnessforce-agent",
+	"private": true,
+	"type": "module",
+	"packageManager": "pnpm@10.24.0",
+	"engines": {
+		"node": ">=22.21.1"
+	},
+	"config": {
+		"npmScope": "@harnessforce"
+	},
+	"scripts": {
+		"lint": "turbo run lint lint:root",
+		"lint:root": "biome check .changeset .claude-plugin plugins scripts tests biome.json package.json tsconfig.json turbo.json vitest.config.ts",
+		"format": "biome format --write .",
+		"typecheck": "turbo run typecheck typecheck:root",
+		"typecheck:root": "tsc -p tsconfig.json",
+		"test": "turbo run test test:root",
+		"test:root": "vitest run",
+		"build": "turbo run build",
+		"check": "turbo run lint lint:root typecheck typecheck:root test test:root build",
+		"scope:apply": "node scripts/set-npm-scope.mjs",
+		"version-packages": "changeset version",
+		"release": "turbo run build && changeset publish"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.3.14",
+		"@changesets/cli": "^2.31.1",
+		"@types/node": "^22.20.4",
+		"turbo": "^2.11.4",
+		"typescript": "^6.0.3",
+		"vitest": "^4.1.11"
+	}
+}

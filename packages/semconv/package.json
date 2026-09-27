@@ -1,0 +1,42 @@
+{
+	"name": "@harnessforce/semconv",
+	"version": "0.1.0",
+	"description": "Harnessforce semantic conventions: hf.* attributes and ingest JSON Schemas",
+	"license": "Apache-2.0",
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/lambda-script/harnessforce-agent.git",
+		"directory": "packages/semconv"
+	},
+	"publishConfig": {
+		"access": "public",
+		"provenance": true
+	},
+	"scripts": {
+		"lint": "biome check .",
+		"typecheck": "tsc -p tsconfig.json",
+		"test": "vitest run",
+		"build": "tsc -p tsconfig.build.json"
+	},
+	"dependencies": {
+		"@sinclair/typebox": "^0.34.52"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.3.14",
+		"@types/node": "^22.20.4",
+		"ajv": "^8.20.0",
+		"ajv-formats": "^3.0.1",
+		"typescript": "^6.0.3",
+		"vitest": "^4.1.11"
+	}
+}
