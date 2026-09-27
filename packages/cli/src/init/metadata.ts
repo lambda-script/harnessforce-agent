@@ -5,12 +5,12 @@ const WELL_KNOWN = "/.well-known/oauth-authorization-server";
 
 const withoutTrailingSlash = (value: string) => value.replace(/\/+$/, "");
 
-// 接続先をissuerとするauthorization server metadata（RFC 8414）からauthorization endpointを知る。
+// 接続先をissuerとするauthorization server metadata（RFC 8414）。
 // 取得できない、またはissuerが接続先と一致しない場合はundefined。
-export async function discoverAuthorizationEndpoint(
+async function fetchMetadata(
 	base: URL,
 	fetchImpl: Fetch,
-): Promise<URL | undefined> {
+): Promise<Record<string, unknown> | undefined> {
 	const issuer = withoutTrailingSlash(`${base.origin}${base.pathname}`);
 	// RFC 8414 §3.1: well-knownはhostとissuerのpathの間に挿入する。
 	const metadataUrl = new URL(base.origin);
@@ -29,12 +29,41 @@ export async function discoverAuthorizationEndpoint(
 		// RFC 8414 §3.3: issuerが一致しないmetadataは使わない。
 		if (
 			typeof metadata?.issuer !== "string" ||
-			withoutTrailingSlash(metadata.issuer) !== issuer ||
-			typeof metadata.authorization_endpoint !== "string"
+			withoutTrailingSlash(metadata.issuer) !== issuer
 		)
 			return undefined;
-		return parseAllowedUrl(metadata.authorization_endpoint);
+		return metadata;
 	} catch {
 		return undefined;
 	}
+}
+
+const endpointOf = (
+	metadata: Record<string, unknown> | undefined,
+	name: string,
+) => {
+	const value = metadata?.[name];
+	return typeof value === "string" ? parseAllowedUrl(value) : undefined;
+};
+
+export async function discoverAuthorizationEndpoint(
+	base: URL,
+	fetchImpl: Fetch,
+): Promise<URL | undefined> {
+	return endpointOf(
+		await fetchMetadata(base, fetchImpl),
+		"authorization_endpoint",
+	);
+}
+
+// correlation.md「ApiTokenの失効」: refresh tokenを接続先の外へ送らないため、接続先と同じoriginのtoken endpointだけを使う。
+export async function discoverTokenEndpoint(
+	base: URL,
+	fetchImpl: Fetch,
+): Promise<URL | undefined> {
+	const endpoint = endpointOf(
+		await fetchMetadata(base, fetchImpl),
+		"token_endpoint",
+	);
+	return endpoint?.origin === base.origin ? endpoint : undefined;
 }

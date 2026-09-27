@@ -29,7 +29,24 @@ type HarnessforceOptions = {
 	workspace?: Reply;
 	// ingestの要求ごとの応答。尽きたらすべて受け付ける。
 	ingest?: Reply[];
+	// Read APIが401を返すaccess token。
+	unauthorizedTokens?: readonly string[];
+	// token endpointの応答。無ければ`refreshed`の組を返す。
+	refresh?: Reply;
 };
+
+// keychainの`<workspace_id>:api-token`の値（correlation.md「CLI」の手順5）。
+export const storedToken = (
+	workspaceId: string,
+	name: string,
+	accessTokenExpiresAt = new Date(NOW + 60 * 60 * 1000).toISOString(),
+) =>
+	JSON.stringify({
+		access_token: `hf_at_${workspaceId}_${name}`,
+		access_token_expires_at: accessTokenExpiresAt,
+		refresh_token: `hf_rt_${workspaceId}_${name}`,
+		refresh_token_expires_at: new Date(NOW + 90 * 86_400_000).toISOString(),
+	});
 
 // Harnessforceの代わり。Read API（/app）とingest（/ingest）を同じportで持つ。
 export async function startHarnessforce(options: HarnessforceOptions = {}) {
@@ -43,7 +60,14 @@ export async function startHarnessforce(options: HarnessforceOptions = {}) {
 		requests.push({
 			path: `${req.method} ${url.pathname}${url.search}`,
 			headers: req.headers,
-			body: text ? JSON.parse(text) : undefined,
+			// token endpointへのformは文字列のまま、それ以外はJSONとして解析して残す。
+			body: req.headers["content-type"]?.startsWith(
+				"application/x-www-form-urlencoded",
+			)
+				? text
+				: text
+					? JSON.parse(text)
+					: undefined,
 		});
 		const reply = (r: Reply) =>
 			res
@@ -52,6 +76,28 @@ export async function startHarnessforce(options: HarnessforceOptions = {}) {
 					...r.headers,
 				})
 				.end(r.body === undefined ? undefined : JSON.stringify(r.body));
+		if (url.pathname === "/.well-known/oauth-authorization-server/app")
+			return reply({
+				status: 200,
+				body: {
+					issuer: `${origin}/app`,
+					authorization_endpoint: `${origin}/app/oauth/authorize`,
+					token_endpoint: `${origin}/app/oauth/token`,
+				},
+			});
+		if (req.method === "POST" && url.pathname === "/app/oauth/token")
+			return reply(
+				options.refresh ?? {
+					status: 200,
+					body: JSON.parse(storedToken("ws1", "refreshed")),
+				},
+			);
+		const bearer = req.headers.authorization?.replace(/^Bearer /, "") ?? "";
+		if (
+			url.pathname.startsWith("/app/api/v1/") &&
+			options.unauthorizedTokens?.includes(bearer)
+		)
+			return reply({ status: 401 });
 		if (req.method === "GET" && url.pathname === "/app/api/v1/repositories")
 			return reply(
 				options.repositories?.(url.searchParams.get("cursor")) ?? {
@@ -86,7 +132,7 @@ export async function startHarnessforce(options: HarnessforceOptions = {}) {
 	const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 	const sessionBodies = () =>
 		requests
-			.filter((r) => r.path.startsWith("POST "))
+			.filter((r) => r.path.startsWith("POST /ingest/"))
 			.map((r) =>
 				(r.body as { session_id: string }[]).map((s) => s.session_id),
 			);
@@ -173,7 +219,7 @@ export function initializedKeychain(
 	const items: Record<string, string> = {};
 	for (const ws of workspaces) {
 		items[`${ws}:ingest-key`] = `hf_ik_${ws}_user`;
-		items[`${ws}:api-token`] = `hf_at_${ws}`;
+		items[`${ws}:api-token`] = storedToken(ws, "current");
 		items[`${ws}:ingest-origin`] = origin;
 		// このharnessは接続先とingestを同じserverで受けるため、どちらのoriginも同じ値になる。
 		items[`${ws}:url-origin`] = origin;

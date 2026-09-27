@@ -8,12 +8,15 @@ import {
 	gitRepository,
 	initializedHome,
 	initializedKeychain,
+	NOW,
 	runImport,
 	startHarnessforce,
+	storedToken,
 	transcript,
 } from "./harness.js";
 
 const RUN_INIT = "`hf init`を実行してください\n";
+const EXPIRED = "ログインの有効期限が切れました。`hf init`を実行してください\n";
 const READ_FAILED =
 	"Harnessforceとの通信に失敗しました。もう一度`hf import`を実行してください\n";
 const SEND_FAILED =
@@ -122,7 +125,9 @@ describe("hf import", () => {
 			"GET /app/api/v1/workspace",
 			"POST /ingest/v1/imports/sessions",
 		]);
-		expect(hf.requests[0]?.headers.authorization).toBe("Bearer hf_at_ws1");
+		expect(hf.requests[0]?.headers.authorization).toBe(
+			"Bearer hf_at_ws1_current",
+		);
 		expect(hf.requests[2]?.headers.authorization).toBe("Bearer hf_ik_ws1_user");
 		expect(hf.requests[2]?.body).toEqual([
 			expect.objectContaining({
@@ -310,12 +315,12 @@ describe("hf import", () => {
 			[
 				"the repository list is unauthorized",
 				{ repositories: () => ({ status: 401 }) },
-				RUN_INIT,
+				EXPIRED,
 			],
 			[
 				"the workspace is unauthorized",
 				{ workspace: { status: 401 } },
-				RUN_INIT,
+				EXPIRED,
 			],
 			[
 				"the repository list fails",
@@ -337,6 +342,58 @@ describe("hf import", () => {
 			expect(await run()).toEqual({ code: 1, out: "", err });
 			expect(hf.sessionBodies()).toEqual([]);
 			expect(home.readState()).toBeUndefined();
+		});
+	});
+
+	// correlation.md「ApiTokenの失効」。
+	describe("ApiToken refresh", () => {
+		it("refreshes on a 401, retries and stores the new pair", async () => {
+			const { hf, keychain, run } = await setup({
+				unauthorizedTokens: ["hf_at_ws1_current"],
+			});
+			expect(await run()).toMatchObject({ code: 0 });
+			expect(hf.sessionBodies()).toEqual([["s000"]]);
+			expect(keychain.items.get("ws1:api-token")).toBe(
+				storedToken("ws1", "refreshed"),
+			);
+			expect(
+				hf.requests
+					.filter((r) => r.path.startsWith("GET /app/api/v1/repositories"))
+					.map((r) => r.headers.authorization),
+			).toEqual(["Bearer hf_at_ws1_current", "Bearer hf_at_ws1_refreshed"]);
+		});
+
+		it("refreshes an expired access token before reading", async () => {
+			const { hf, keychain, run } = await setup();
+			keychain.items.set(
+				"ws1:api-token",
+				storedToken("ws1", "current", new Date(NOW).toISOString()),
+			);
+			expect(await run()).toMatchObject({ code: 0 });
+			expect(hf.requests[0]?.path).toBe(
+				"GET /.well-known/oauth-authorization-server/app",
+			);
+			expect(
+				hf.requests.find((r) => r.path.startsWith("GET /app/api/v1/"))?.headers
+					.authorization,
+			).toBe("Bearer hf_at_ws1_refreshed");
+		});
+
+		it("stops as expired without sending when the refresh is rejected", async () => {
+			const { hf, home, run } = await setup({
+				unauthorizedTokens: ["hf_at_ws1_current"],
+				refresh: { status: 400, body: { error: "invalid_grant" } },
+			});
+			expect(await run()).toEqual({ code: 1, out: "", err: EXPIRED });
+			expect(hf.sessionBodies()).toEqual([]);
+			expect(home.readState()).toBeUndefined();
+		});
+
+		it("treats an ApiToken stored by an older hf init as missing", async () => {
+			const { hf, keychain, run } = await setup();
+			keychain.items.set("ws1:api-token", "hf_at_ws1_plain");
+			expect(await run()).toEqual({ code: 1, out: "", err: RUN_INIT });
+			expect(hf.requests).toEqual([]);
 		});
 	});
 
