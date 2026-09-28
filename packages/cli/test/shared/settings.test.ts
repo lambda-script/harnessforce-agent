@@ -13,7 +13,7 @@ import {
 	readUserSettings,
 	userSettingsPath,
 	writeUserSettings,
-} from "../../src/init/settings.js";
+} from "../../src/shared/settings.js";
 
 describe("user settings", () => {
 	it("lives in ~/.claude unless CLAUDE_CONFIG_DIR is an absolute path", () => {

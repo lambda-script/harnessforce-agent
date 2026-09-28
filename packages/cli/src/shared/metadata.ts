@@ -1,6 +1,6 @@
 import type { Fetch } from "@harnessforce/agent-core/types";
 import { parseAllowedUrl } from "@harnessforce/agent-core/url";
-import { REQUEST_TIMEOUT_MS, readJsonObject } from "./http.js";
+import { REQUEST_TIMEOUT_MS, readJsonObjectBody } from "./http.js";
 
 const WELL_KNOWN = "/.well-known/oauth-authorization-server";
 
@@ -26,7 +26,7 @@ async function fetchMetadata(
 			await response.body?.cancel();
 			return undefined;
 		}
-		const metadata = await readJsonObject(response);
+		const metadata = await readJsonObjectBody(response);
 		// RFC 8414 §3.3: issuerが一致しないmetadataは使わない。
 		if (
 			typeof metadata?.issuer !== "string" ||

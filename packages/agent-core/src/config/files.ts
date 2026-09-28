@@ -1,6 +1,7 @@
 import type { Dirent } from "node:fs";
 import { readdir, readFile, realpath, stat } from "node:fs/promises";
 import { join } from "node:path";
+import { isObject } from "../object.js";
 
 // correlation.md「構成の収集」: symlinkは辿り、再帰は収集元のdirectoryから8段まで。
 const MAX_DEPTH = 8;
@@ -30,7 +31,7 @@ export async function exists(path: string, guard: Guard): Promise<boolean> {
 	);
 }
 
-export async function readJsonObject(
+export async function readJsonObjectFile(
 	path: string,
 	guard: Guard,
 ): Promise<Record<string, unknown> | undefined> {
@@ -43,9 +44,6 @@ export async function readJsonObject(
 		return undefined;
 	}
 }
-
-export const isObject = (value: unknown): value is Record<string, unknown> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
 
 async function entries(dir: string, guard: Guard): Promise<Dirent[]> {
 	guard();

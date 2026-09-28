@@ -1,4 +1,4 @@
-import { INIT_MESSAGES } from "../init/messages.js";
+import { INIT_MESSAGES } from "../shared/messages.js";
 
 // correlation.md「CLIの宛先の決め方」「CLI」の`hf run`が定める文言。
 export const RUN_MESSAGES = {

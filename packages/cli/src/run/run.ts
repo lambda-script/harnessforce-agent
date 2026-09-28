@@ -12,7 +12,7 @@ import {
 	urlOriginAccount,
 } from "../credentials/keychain.js";
 import { resolveCliDestinations } from "../destinations.js";
-import { userSettingsPath } from "../init/settings.js";
+import { userSettingsPath } from "../shared/settings.js";
 import { resolveLaunchContext } from "./context.js";
 import { type IssueCandidate, resolveIssue } from "./issues.js";
 import { buildLaunch, type Launch, resourceAttributes } from "./launch.js";

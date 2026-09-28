@@ -1,13 +1,13 @@
 import { join } from "node:path";
+import { isObject } from "../object.js";
 import type { Env } from "../types.js";
 import { byCodeUnit, sortComponents } from "./canonical.js";
 import type { ConfigComponent } from "./component.js";
 import {
 	CollectionExpired,
 	type Guard,
-	isObject,
 	listFiles,
-	readJsonObject,
+	readJsonObjectFile,
 } from "./files.js";
 import { collectPlugins } from "./plugins.js";
 import {
@@ -46,7 +46,7 @@ async function readManagedSettings(
 	managedDir: string,
 	guard: Guard,
 ): Promise<Settings> {
-	let merged = await readJsonObject(
+	let merged = await readJsonObjectFile(
 		join(managedDir, "managed-settings.json"),
 		guard,
 	);
@@ -55,7 +55,7 @@ async function readManagedSettings(
 		byCodeUnit,
 	);
 	for (const name of dropIns) {
-		const dropIn = await readJsonObject(join(dropInDir, name), guard);
+		const dropIn = await readJsonObjectFile(join(dropInDir, name), guard);
 		if (dropIn) merged = { ...merged, ...dropIn };
 	}
 	return merged;
@@ -118,16 +118,19 @@ async function collectAll(
 
 	const settings = {
 		managed: await readManagedSettings(managedDir, guard),
-		user: await readJsonObject(join(config, "settings.json"), guard),
-		repository: await readJsonObject(join(project, "settings.json"), guard),
-		local: await readJsonObject(join(project, "settings.local.json"), guard),
+		user: await readJsonObjectFile(join(config, "settings.json"), guard),
+		repository: await readJsonObjectFile(join(project, "settings.json"), guard),
+		local: await readJsonObjectFile(
+			join(project, "settings.local.json"),
+			guard,
+		),
 	};
 	collectSettings(managed, settings.managed);
 	collectSettings(userScope, settings.user);
 	collectSettings(repository, settings.repository);
 	collectSettings(local, settings.local);
 
-	const managedMcp = await readJsonObject(
+	const managedMcp = await readJsonObjectFile(
 		join(managedDir, "managed-mcp.json"),
 		guard,
 	);
@@ -136,14 +139,17 @@ async function collectAll(
 		...objectAt(settings.managed, "managedMcpServers"),
 		...objectAt(managedMcp, "mcpServers"),
 	});
-	const projectMcp = await readJsonObject(
+	const projectMcp = await readJsonObjectFile(
 		join(projectRoot, ".mcp.json"),
 		guard,
 	);
 	collectMcpServers(repository, projectMcp?.mcpServers);
 	// CLAUDE_CONFIG_DIRがある場合の.claude.jsonの場所は文書化されていないため読まない。
 	if (!configDir) {
-		const global = await readJsonObject(join(homeDir, ".claude.json"), guard);
+		const global = await readJsonObjectFile(
+			join(homeDir, ".claude.json"),
+			guard,
+		);
 		collectMcpServers(userScope, global?.mcpServers);
 		collectMcpServers(
 			local,

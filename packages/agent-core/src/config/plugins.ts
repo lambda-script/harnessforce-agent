@@ -1,10 +1,10 @@
 import { join } from "node:path";
+import { isObject } from "../object.js";
 import {
 	exists,
 	type Guard,
-	isObject,
 	listDirectories,
-	readJsonObject,
+	readJsonObjectFile,
 } from "./files.js";
 import {
 	collectHooks,
@@ -80,11 +80,11 @@ export async function collectPlugins(
 		});
 		collectHooks(
 			s,
-			(await readJsonObject(join(root, "hooks/hooks.json"), guard))?.hooks,
+			(await readJsonObjectFile(join(root, "hooks/hooks.json"), guard))?.hooks,
 		);
 		collectMcpServers(
 			s,
-			(await readJsonObject(join(root, ".mcp.json"), guard))?.mcpServers,
+			(await readJsonObjectFile(join(root, ".mcp.json"), guard))?.mcpServers,
 		);
 	}
 }

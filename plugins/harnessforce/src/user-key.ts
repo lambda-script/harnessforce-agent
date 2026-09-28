@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { isObject } from "@harnessforce/agent-core/object";
 import {
 	commandLineFor,
 	findCommand,
@@ -28,9 +29,8 @@ const BEARER = /^Bearer (\S+)$/;
 function parseKey(stdout: string): string | undefined {
 	try {
 		const value: unknown = JSON.parse(stdout);
-		if (typeof value !== "object" || value === null || Array.isArray(value))
-			return undefined;
-		const authorization = (value as Record<string, unknown>).Authorization;
+		if (!isObject(value)) return undefined;
+		const authorization = value.Authorization;
 		return typeof authorization === "string"
 			? BEARER.exec(authorization)?.[1]
 			: undefined;

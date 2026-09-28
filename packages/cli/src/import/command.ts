@@ -1,7 +1,7 @@
 import { join } from "node:path";
-import { isObject } from "@harnessforce/agent-core/config/files";
 import { absoluteEnv } from "@harnessforce/agent-core/config/scope";
 import { readManagedEnv } from "@harnessforce/agent-core/managed";
+import { isObject } from "@harnessforce/agent-core/object";
 import type { RunGit } from "@harnessforce/agent-core/process/git";
 import type { Env, Fetch } from "@harnessforce/agent-core/types";
 import { parseAllowedUrl, withoutExtras } from "@harnessforce/agent-core/url";
@@ -15,8 +15,8 @@ import {
 	urlOriginAccount,
 } from "../credentials/keychain.js";
 import { resolveCliDestinations } from "../destinations.js";
-import { INIT_MESSAGES } from "../init/messages.js";
-import { readUserSettings, userSettingsPath } from "../init/settings.js";
+import { INIT_MESSAGES } from "../shared/messages.js";
+import { readUserSettings, userSettingsPath } from "../shared/settings.js";
 import {
 	fetchSessionImportDays,
 	listConnectedRepositories,

@@ -1,4 +1,5 @@
 import { isAbsolute, join } from "node:path";
+import { isObject } from "../object.js";
 import { hashFileContent, hashValue } from "./canonical.js";
 import type {
 	ComponentKind,
@@ -7,7 +8,6 @@ import type {
 } from "./component.js";
 import {
 	type Guard,
-	isObject,
 	listDirectories,
 	listFiles,
 	readFileIfExists,

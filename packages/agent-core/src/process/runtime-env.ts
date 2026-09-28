@@ -1,5 +1,6 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { constants } from "node:os";
+import { isObject } from "../object.js";
 import type { Env } from "../types.js";
 
 // correlation.md「Node.jsの実行時の変数」。NODE_EXTRA_CA_CERTSとNODE_OPTIONSは起動時にだけ読まれ、
@@ -120,8 +121,7 @@ export function takeStashedRuntimeEnv(
 	} catch {
 		return {};
 	}
-	if (typeof value !== "object" || value === null || Array.isArray(value))
-		return {};
+	if (!isObject(value)) return {};
 	return Object.fromEntries(
 		Object.entries(value).filter(
 			(entry): entry is [string, string] =>

@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { byCodeUnit } from "./config/canonical.js";
-import { isObject, listFiles, readJsonObject } from "./config/files.js";
+import { listFiles, readJsonObjectFile } from "./config/files.js";
+import { isObject } from "./object.js";
 
 // fileで配るmanaged settingsのdirectory（correlation.md「構成の収集」、claude-code.md「設定」）。
 const MANAGED_DIRS: Partial<Record<NodeJS.Platform, string>> = {
@@ -32,7 +33,7 @@ export async function readManagedEnv<Name extends string>(
 		names.map((name) => [name, undefined]),
 	) as Record<Name, string | undefined>;
 	for (const file of files) {
-		const env = (await readJsonObject(file, noGuard))?.env;
+		const env = (await readJsonObjectFile(file, noGuard))?.env;
 		if (!isObject(env)) continue;
 		for (const name of names)
 			if (typeof env[name] === "string") values[name] = env[name];

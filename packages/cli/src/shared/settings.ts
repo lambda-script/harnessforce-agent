@@ -9,8 +9,8 @@ import {
 	writeFile,
 } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { isObject } from "@harnessforce/agent-core/config/files";
 import { absoluteEnv } from "@harnessforce/agent-core/config/scope";
+import { isObject } from "@harnessforce/agent-core/object";
 import type { Env } from "@harnessforce/agent-core/types";
 
 type Settings = Record<string, unknown>;

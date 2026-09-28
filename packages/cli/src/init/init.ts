@@ -14,21 +14,21 @@ import {
 	type Keychain,
 	urlOriginAccount,
 } from "../credentials/keychain.js";
+import { INIT_MESSAGES, type InitMessage } from "../shared/messages.js";
+import { discoverAuthorizationEndpoint } from "../shared/metadata.js";
+import {
+	mergeUserSettings,
+	readUserSettings,
+	userSettingsPath,
+	writeUserSettings,
+} from "../shared/settings.js";
 import {
 	type CredentialOutcome,
 	type Issued,
 	requestCredentials,
 } from "./credentials-api.js";
 import type { Callback, startLoopback } from "./loopback.js";
-import { INIT_MESSAGES, type InitMessage } from "./messages.js";
-import { discoverAuthorizationEndpoint } from "./metadata.js";
 import { createLoginSecrets, type LoginSecrets } from "./pkce.js";
-import {
-	mergeUserSettings,
-	readUserSettings,
-	userSettingsPath,
-	writeUserSettings,
-} from "./settings.js";
 
 export type InitDeps = {
 	env: Env;

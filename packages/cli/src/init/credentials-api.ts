@@ -4,7 +4,7 @@ import {
 	parseTokenPair,
 	type StoredApiToken,
 } from "../credentials/api-token.js";
-import { REQUEST_TIMEOUT_MS, readJsonObject } from "./http.js";
+import { REQUEST_TIMEOUT_MS, readJsonObjectBody } from "../shared/http.js";
 
 export type CredentialRequest = {
 	code: string;
@@ -110,7 +110,7 @@ export async function requestCredentials(
 				signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
 			},
 		);
-		return classify(response.status, await readJsonObject(response));
+		return classify(response.status, await readJsonObjectBody(response));
 	} catch {
 		return { kind: "unexpected" };
 	}

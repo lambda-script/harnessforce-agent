@@ -1,5 +1,6 @@
 import { createReadStream } from "node:fs";
 import { createInterface } from "node:readline";
+import { isObject } from "@harnessforce/agent-core/object";
 
 // Claude Codeのtranscript（~/.claude/projects/<project>/<session>.jsonl）の形式は公式に文書化されていない
 // （claude-code.md）。解釈を変えたらこのversionを上げ、送るsessionにparser_versionとして付ける。
@@ -44,8 +45,6 @@ const INSTANT =
 const DETACHED = "HEAD";
 
 type Row = Record<string, unknown>;
-const isRow = (value: unknown): value is Row =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
 const count = (value: unknown) =>
 	typeof value === "number" && Number.isSafeInteger(value) && value >= 0
 		? value
@@ -85,7 +84,7 @@ class Accumulator {
 			this.cwd = row.cwd;
 		if (this.branch === undefined && isToken(row.gitBranch))
 			this.branch = row.gitBranch;
-		const message = isRow(row.message) ? row.message : {};
+		const message = isObject(row.message) ? row.message : {};
 		if (row.type === "user") this.addUser(row, message);
 		else this.addResponse(message);
 	}
@@ -96,7 +95,7 @@ class Accumulator {
 		if (!Array.isArray(message.content)) return;
 		for (const block of message.content)
 			if (
-				isRow(block) &&
+				isObject(block) &&
 				block.type === "tool_result" &&
 				block.is_error === true &&
 				typeof block.tool_use_id === "string"
@@ -108,7 +107,7 @@ class Accumulator {
 		if (Array.isArray(message.content))
 			for (const block of message.content)
 				if (
-					isRow(block) &&
+					isObject(block) &&
 					block.type === "tool_use" &&
 					typeof block.id === "string" &&
 					isToken(block.name, MAX_TOOL_NAME)
@@ -122,7 +121,7 @@ class Accumulator {
 		)
 			return;
 		this.responses.set(message.id, message.model);
-		const usage = isRow(message.usage) ? message.usage : {};
+		const usage = isObject(message.usage) ? message.usage : {};
 		this.inputTokens += count(usage.input_tokens);
 		this.outputTokens += count(usage.output_tokens);
 	}
@@ -192,7 +191,7 @@ export async function parseTranscript(path: string): Promise<TranscriptResult> {
 				skippedLines += 1;
 				continue;
 			}
-			if (isRow(row)) accumulator.add(row);
+			if (isObject(row)) accumulator.add(row);
 			else skippedLines += 1;
 		}
 	} catch {

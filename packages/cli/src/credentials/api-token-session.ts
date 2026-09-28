@@ -1,6 +1,6 @@
 import type { Fetch } from "@harnessforce/agent-core/types";
-import { REQUEST_TIMEOUT_MS, readJsonObject } from "../init/http.js";
-import { discoverTokenEndpoint } from "../init/metadata.js";
+import { REQUEST_TIMEOUT_MS, readJsonObjectBody } from "../shared/http.js";
+import { discoverTokenEndpoint } from "../shared/metadata.js";
 import {
 	parseStoredApiToken,
 	parseTokenPair,
@@ -61,7 +61,7 @@ async function requestRefresh(
 			redirect: "manual",
 			signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
 		});
-		const body = await readJsonObject(response);
+		const body = await readJsonObjectBody(response);
 		if (response.status === 400 && body?.error === "invalid_grant")
 			return { kind: "invalid_grant" };
 		const token =
