@@ -1,5 +1,5 @@
 import type { Fetch } from "@harnessforce/agent-core/types";
-import { parseAllowedUrl } from "@harnessforce/agent-core/url";
+import { parseAllowedUrl, underBase } from "@harnessforce/agent-core/url";
 import type {
 	ConfigSnapshot,
 	SessionRegistration,
@@ -27,14 +27,6 @@ export function ingestBaseFrom(endpoint: string | undefined): URL | undefined {
 	return ingestBase;
 }
 
-// 文字列の連結で組み立てると、"//host"で始まるpathが別のhostとして解釈されるため、hostを変えずにpathだけを書き換える。
-function ingestUrl(base: URL, path: IngestPath): URL {
-	const url = new URL(base.origin);
-	// originだけのbaseのpathnameは"/"になるため、ここでも末尾の/を除く。
-	url.pathname = `${base.pathname.replace(/\/+$/, "")}/${path}`;
-	return url;
-}
-
 // bodyは要素1つの配列として送る（ingest-api.md「汎用ingest API」）。
 export async function postItem(
 	destination: Destination,
@@ -43,7 +35,7 @@ export async function postItem(
 	fetchImpl: Fetch,
 ): Promise<SendOutcome> {
 	try {
-		const response = await fetchImpl(ingestUrl(destination.ingestBase, path), {
+		const response = await fetchImpl(underBase(destination.ingestBase, path), {
 			method: "POST",
 			headers: {
 				authorization: `Bearer ${destination.key}`,

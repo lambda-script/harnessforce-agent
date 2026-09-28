@@ -4,7 +4,7 @@ import { absoluteEnv } from "@harnessforce/agent-core/config/scope";
 import { readManagedEnv } from "@harnessforce/agent-core/managed";
 import type { RunGit } from "@harnessforce/agent-core/process/git";
 import type { Env, Fetch } from "@harnessforce/agent-core/types";
-import { parseAllowedUrl } from "@harnessforce/agent-core/url";
+import { parseAllowedUrl, withoutExtras } from "@harnessforce/agent-core/url";
 import { parseStoredApiToken } from "../credentials/api-token.js";
 import { createApiTokenSession } from "../credentials/api-token-session.js";
 import {
@@ -108,10 +108,6 @@ async function recordBase(deps: ImportDeps): Promise<string> {
 		defaultBase
 	);
 }
-
-// 送信先のURLからscheme、host、port、pathだけを残す（hookの送信先と同じ規則）。状態fileの鍵にも使う。
-const withoutExtras = (url: URL) =>
-	`${url.origin}${url.pathname.replace(/\/+$/, "")}`;
 
 // correlation.md「CLI」のWorkspaceの決め方、「CLIの宛先の決め方」、送信先の固定。
 async function resolve(deps: ImportDeps): Promise<Resolved> {

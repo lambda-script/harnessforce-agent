@@ -1,3 +1,4 @@
+import { isIssueIdentifier } from "@harnessforce/agent-core/issue";
 import type { RunGit } from "@harnessforce/agent-core/process/git";
 import type { Env, Fetch } from "@harnessforce/agent-core/types";
 import { parseAllowedUrl } from "@harnessforce/agent-core/url";
@@ -48,9 +49,6 @@ export type RunArgs = {
 	agent: string;
 	agentArgs: readonly string[];
 };
-
-// session registrationの`issue_identifier`の制約（semantic-conventions.md）。
-const ISSUE_IDENTIFIER = /^\S{1,300}$/;
 
 // 途中の終端はこの値で抜け、表示と終了コードを1か所で決める。
 class RunStop {
@@ -130,7 +128,7 @@ async function prepareLaunch(args: RunArgs, deps: RunDeps): Promise<Launch> {
 		await verifyAccess(deps);
 
 	// 手順1: Issueの解決。
-	if (!ISSUE_IDENTIFIER.test(args.issue)) stop("invalidIssue");
+	if (!isIssueIdentifier(args.issue)) stop("invalidIssue");
 	// sessionは、access tokenの期限切れと401でrefreshしたtokenへAuthorizationを置き換える。
 	const readFetch = createApiTokenSession({
 		keychain: deps.keychain,

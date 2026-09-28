@@ -15,3 +15,15 @@ export function parseAllowedUrl(value: string | undefined): URL | undefined {
 		(url.protocol === "http:" && LOOPBACK_HOSTS.has(url.hostname));
 	return isAllowed ? url : undefined;
 }
+
+// 接続先のpathの後ろにpathを連結する。文字列で連結すると"//host"で始まるpathが別のhostになるため、URLで組み立てる。
+export function underBase(base: URL, path: string): URL {
+	const url = new URL(base.origin);
+	// originだけのbaseのpathnameは"/"になるため、末尾の/を除いてから連結する。
+	url.pathname = `${base.pathname.replace(/\/+$/, "")}/${path}`;
+	return url;
+}
+
+// scheme、host、port、pathだけを残し、末尾の/を除いた文字列。userinfo、query、fragmentを記録や鍵に含めない。
+export const withoutExtras = (url: URL) =>
+	`${url.origin}${url.pathname.replace(/\/+$/, "")}`;

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { Env, Fetch } from "@harnessforce/agent-core/types";
-import { parseAllowedUrl } from "@harnessforce/agent-core/url";
+import { parseAllowedUrl, withoutExtras } from "@harnessforce/agent-core/url";
 import {
 	parseStoredApiToken,
 	serializeApiToken,
@@ -78,7 +78,7 @@ export async function init(
 async function runInit(url: string | undefined, deps: InitDeps) {
 	const base = parseAllowedUrl(url ?? deps.defaultUrl) ?? stop("invalidUrl");
 	// settingsへは送信先と同じくscheme、host、port、pathだけを書き、userinfoを残さない。
-	const recordedUrl = `${base.origin}${base.pathname.replace(/\/+$/, "")}`;
+	const recordedUrl = withoutExtras(base);
 	const revoke = await readRevokeHashes(deps.keychain);
 	const settingsPath = userSettingsPath(deps.env, deps.homeDir);
 	// 発行した後に保存で失敗し、再実行のたびにkeyを入れ替えることを避けるため、ログインの前に確かめる。
