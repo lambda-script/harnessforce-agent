@@ -1,5 +1,6 @@
 import {
 	copyFileSync,
+	cpSync,
 	mkdirSync,
 	readFileSync,
 	rmSync,
@@ -95,6 +96,9 @@ async function buildMarketplace() {
 		join(plugin, ".claude-plugin/plugin.json"),
 	);
 	copy(join(repoRoot, "LICENSE"), join(plugin, "LICENSE"));
+	cpSync(join(pluginDir, "skills"), join(plugin, "skills"), {
+		recursive: true,
+	});
 	writeFileSync(
 		join(plugin, ".mcp.json"),
 		`${JSON.stringify(mcpJson(connection), null, 2)}\n`,

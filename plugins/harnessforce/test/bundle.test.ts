@@ -231,6 +231,19 @@ describe("built marketplace", () => {
 		});
 	});
 
+	it("bundles the run recording skill unchanged", () =>
+		expect(
+			readFileSync(
+				join(marketplace, "plugins/harnessforce/skills/record-run/SKILL.md"),
+				"utf8",
+			),
+		).toBe(
+			readFileSync(
+				new URL("../skills/record-run/SKILL.md", import.meta.url),
+				"utf8",
+			),
+		));
+
 	// hookは`${CLAUDE_PLUGIN_ROOT}`だけを頼りに起動するため、entryが読む本体は分割せず1つのfileにする。
 	it("ships the hook as the entry and a single main bundle", () =>
 		expect(
