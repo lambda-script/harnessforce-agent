@@ -151,21 +151,25 @@ describe("resolveLaunchContext", () => {
 		expect(context).not.toHaveProperty("configVersion");
 	});
 
-	it("does not inject the config version for duplicate identifiers", async () => {
-		const dirs = project();
-		writeTree(dirs.repo, {
-			".claude/agents/a/b.md": "x",
-			".claude/agents/a:b.md": "y",
-		});
-		const { git } = fakeGit({});
-		const context = await resolveLaunchContext({
-			cwd: dirs.repo,
-			git,
-			homeDir: dirs.home,
-			managedDir: dirs.managed,
-			env: {},
-			now: () => new Date(0),
-		});
-		expect(context).toEqual({});
-	});
+	// Windowsのfile名は`:`を含めず、`a:b.md`と`a/b.md`の衝突を作れない。
+	it.skipIf(process.platform === "win32")(
+		"does not inject the config version for duplicate identifiers",
+		async () => {
+			const dirs = project();
+			writeTree(dirs.repo, {
+				".claude/agents/a/b.md": "x",
+				".claude/agents/a:b.md": "y",
+			});
+			const { git } = fakeGit({});
+			const context = await resolveLaunchContext({
+				cwd: dirs.repo,
+				git,
+				homeDir: dirs.home,
+				managedDir: dirs.managed,
+				env: {},
+				now: () => new Date(0),
+			});
+			expect(context).toEqual({});
+		},
+	);
 });

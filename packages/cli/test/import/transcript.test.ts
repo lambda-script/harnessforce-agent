@@ -160,14 +160,20 @@ describe("parseTranscript", () => {
 			),
 		).toMatchObject({ kind: "session", skippedLines: 2 }));
 
-	it("reports a file it cannot open as unreadable", async () => {
-		const file = transcript(response("m1", "claude-a", "2026-09-20T01:00:00Z"));
-		chmodSync(file, 0o000);
-		expect(await parseTranscript(file)).toEqual({
-			kind: "unreadable",
-			skippedLines: 0,
-		});
-	});
+	// Windowsではchmod 0o000がreadを拒否せず、開けないfileを作れない。
+	it.skipIf(process.platform === "win32")(
+		"reports a file it cannot open as unreadable",
+		async () => {
+			const file = transcript(
+				response("m1", "claude-a", "2026-09-20T01:00:00Z"),
+			);
+			chmodSync(file, 0o000);
+			expect(await parseTranscript(file)).toEqual({
+				kind: "unreadable",
+				skippedLines: 0,
+			});
+		},
+	);
 
 	it("has a semantic version", () =>
 		expect(PARSER_VERSION).toMatch(/^\d+\.\d+\.\d+$/));

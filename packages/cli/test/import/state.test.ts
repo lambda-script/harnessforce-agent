@@ -45,12 +45,22 @@ describe("import state", () => {
 		expect(await readSentSessions(path, STAGING)).toEqual(new Set());
 	});
 
-	it("is readable only by the owner and written without leftovers", async () => {
+	// WindowsはPOSIXのpermission bitを持たず、modeが常に0o666系になる。
+	it.skipIf(process.platform === "win32")(
+		"is readable only by the owner",
+		async () => {
+			const home = tempDir("hf-home-");
+			const path = importStatePath(home);
+			await recordSentSessions(path, A, ["s1"]);
+			expect(statSync(path).mode & 0o777).toBe(0o600);
+			expect(statSync(join(home, ".harnessforce")).mode & 0o777).toBe(0o700);
+		},
+	);
+
+	it("is written without leftovers", async () => {
 		const home = tempDir("hf-home-");
 		const path = importStatePath(home);
 		await recordSentSessions(path, A, ["s1"]);
-		expect(statSync(path).mode & 0o777).toBe(0o600);
-		expect(statSync(join(home, ".harnessforce")).mode & 0o777).toBe(0o700);
 		expect(readdirSync(join(home, ".harnessforce"))).toEqual([
 			"import-state.json",
 		]);
@@ -62,13 +72,17 @@ describe("import state", () => {
 		});
 	});
 
-	it("restricts an existing directory to the owner", async () => {
-		const home = tempDir("hf-home-");
-		mkdirSync(join(home, ".harnessforce"), { mode: 0o755 });
-		chmodSync(join(home, ".harnessforce"), 0o755);
-		await recordSentSessions(importStatePath(home), A, ["s1"]);
-		expect(statSync(join(home, ".harnessforce")).mode & 0o777).toBe(0o700);
-	});
+	// WindowsはPOSIXのpermission bitを持たず、chmodで所有者だけに絞れない。
+	it.skipIf(process.platform === "win32")(
+		"restricts an existing directory to the owner",
+		async () => {
+			const home = tempDir("hf-home-");
+			mkdirSync(join(home, ".harnessforce"), { mode: 0o755 });
+			chmodSync(join(home, ".harnessforce"), 0o755);
+			await recordSentSessions(importStatePath(home), A, ["s1"]);
+			expect(statSync(join(home, ".harnessforce")).mode & 0o777).toBe(0o700);
+		},
+	);
 
 	it("treats a broken state file as nothing sent and replaces it", async () => {
 		const path = join(tempDir("hf-state-"), "import-state.json");
