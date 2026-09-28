@@ -218,6 +218,11 @@ describe("hf run", () => {
 				KEYCHAIN,
 			],
 			[
+				"1: keychain availability check failure",
+				{ keychain: () => fakeKeychain({ failAvailability: true }).keychain },
+				KEYCHAIN,
+			],
+			[
 				"1: keychain read failure",
 				{ keychain: () => fakeKeychain({ failRead: true }).keychain },
 				KEYCHAIN,

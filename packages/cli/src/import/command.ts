@@ -10,6 +10,7 @@ import {
 	type Keychain,
 	urlOriginAccount,
 } from "../credentials/keychain.js";
+import { resolveCliDestinations } from "../destinations.js";
 import type { Fetch } from "../init/http.js";
 import { INIT_MESSAGES } from "../init/messages.js";
 import { readUserSettings, userSettingsPath } from "../init/settings.js";
@@ -116,21 +117,21 @@ const withoutExtras = (url: URL) =>
 // correlation.md「CLI」のWorkspaceの決め方、「CLIの宛先の決め方」、送信先の固定。
 async function resolve(deps: ImportDeps): Promise<Resolved> {
 	const { keychain } = deps;
-	if (!(await keychain.isAvailable())) stop(MESSAGES.keychainUnavailable);
+	if (!(await keychain.isAvailable().catch(() => false)))
+		stop(MESSAGES.keychainUnavailable);
 	// 使えると確かめた後の読み出しの失敗も、keychainを使えない場合と同じ終端とする。
 	const read = (account: string) =>
 		keychain.get(account).catch(() => stop(MESSAGES.keychainUnavailable));
-	const settingsEnv = await readSettingsEnv(
+	const destinations = await resolveCliDestinations(
+		deps.env,
 		userSettingsPath(deps.env, deps.homeDir),
+		deps.defaultUrl,
 	);
-	const setting = (name: string) => deps.env[name] || settingsEnv[name];
 
-	const workspaceId =
-		setting("HARNESSFORCE_WORKSPACE_ID") ?? stop(MESSAGES.runInit);
+	const workspaceId = destinations.workspaceId ?? stop(MESSAGES.runInit);
 	const ingestKey =
 		(await read(ingestKeyAccount(workspaceId))) ?? stop(MESSAGES.runInit);
-	const rawEndpoint =
-		setting("HARNESSFORCE_ENDPOINT") ?? stop(MESSAGES.runInit);
+	const rawEndpoint = destinations.ingestEndpoint ?? stop(MESSAGES.runInit);
 	const endpoint = parseAllowedUrl(rawEndpoint) ?? stop(MESSAGES.invalidUrl);
 	// hookが拒否する送信先へ、hookと同じ利用者用のkeyを送らない。
 	const pinnedOrigin = await read(ingestOriginAccount(workspaceId));
@@ -142,8 +143,7 @@ async function resolve(deps: ImportDeps): Promise<Resolved> {
 			workspaceId,
 		) ?? stop(MESSAGES.runInit);
 	const readBase =
-		parseAllowedUrl(setting("HARNESSFORCE_URL") ?? deps.defaultUrl) ??
-		stop(MESSAGES.invalidUrl);
+		parseAllowedUrl(destinations.readApiUrl) ?? stop(MESSAGES.invalidUrl);
 	// Claude Codeの中から起動するとrepositoryのsettingsがHARNESSFORCE_URLを書き換えうるため、
 	// hf initが使った接続先のoriginへだけApiTokenを送る。
 	const pinnedUrlOrigin = await read(urlOriginAccount(workspaceId));

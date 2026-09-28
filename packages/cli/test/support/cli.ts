@@ -7,6 +7,8 @@ import { tempDir } from "../config/support.js";
 
 type FakeKeychainOptions = {
 	available?: boolean;
+	// 使えるかの確認そのものを失敗させる。
+	failAvailability?: boolean;
 	items?: Record<string, string>;
 	failRead?: boolean;
 	failWrite?: boolean;
@@ -23,7 +25,10 @@ export function fakeKeychain(options: FakeKeychainOptions = {}) {
 		if (when) throw new Error("keychain failure");
 	};
 	const keychain: Keychain = {
-		isAvailable: async () => options.available ?? true,
+		isAvailable: async () => {
+			fail(options.failAvailability);
+			return options.available ?? true;
+		},
 		get: async (account) => {
 			fail(options.failRead);
 			return items.get(account);
