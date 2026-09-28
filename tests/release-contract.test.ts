@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 
@@ -34,6 +34,27 @@ describe("release contract", () => {
 		expect(pkg.license).toBe("Apache-2.0");
 		expect(pkg.files).toEqual(["dist"]);
 	});
+
+	// npmはfilesに関係なくpackageのREADMEを同梱し、package pageに表示する。
+	it.each(packages)("$dir links its npm page to the repository", ({
+		dir,
+		pkg,
+	}) => {
+		expect(pkg.homepage).toBe(
+			`https://github.com/lambda-script/harnessforce-agent/tree/main/packages/${dir}#readme`,
+		);
+		expect(pkg.bugs).toEqual({
+			url: "https://github.com/lambda-script/harnessforce-agent/issues",
+		});
+		expect(pkg.keywords).toEqual(expect.arrayContaining(["harnessforce"]));
+		expect(
+			existsSync(new URL(`../packages/${dir}/README.md`, import.meta.url)),
+		).toBe(true);
+	});
+
+	// correlation.md「実行環境」: hookが使う端末のNode.js 18以上でhfを起動し、hfはsemconvを実行時に読む。
+	it.each(packages)("$dir runs on Node.js 18 and later", ({ pkg }) =>
+		expect(pkg.engines).toEqual({ node: ">=18" }));
 });
 
 // 公開の手順はrunbookにだけ書き、release.ymlのcommentはそこを指す（document-classes）。
