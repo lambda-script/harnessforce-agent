@@ -1,9 +1,9 @@
+import { compileSchema } from "@harnessforce/test-support/validator";
 import { describe, expect, it } from "vitest";
 import { AnalysisReportSchema } from "../src/schemas/analysis-report.js";
 import { analysisReport as r } from "./support/fixtures.js";
-import { compile } from "./support/validator.js";
 
-const check = compile(AnalysisReportSchema);
+const check = compileSchema(AnalysisReportSchema);
 
 describe("analysis report", () => {
 	it("accepts the example", () => expect(check(r)).toBe(true));

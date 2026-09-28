@@ -1,7 +1,7 @@
+import type { Fetch } from "@harnessforce/agent-core/types";
 import type { SessionImport } from "@harnessforce/semconv";
 import { describe, expect, it } from "vitest";
 import { sendSessions } from "../../src/import/send.js";
-import type { Fetch } from "../../src/init/http.js";
 
 const ENDPOINT = new URL("https://ingest.example.test/base");
 const session = (id: string): SessionImport => ({

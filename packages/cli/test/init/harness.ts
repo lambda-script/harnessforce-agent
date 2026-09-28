@@ -3,9 +3,10 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingHttpHeaders } from "node:http";
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
+import type { TokenExpiry } from "@harnessforce/test-support/api-token";
+import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { onTestFinished } from "vitest";
 import type { CliDeps } from "../../src/main.js";
-import { tempDir } from "../config/support.js";
 import { fakeKeychain, runCli } from "../support/cli.js";
 
 export const sha256 = (value: string) =>
@@ -27,17 +28,14 @@ export const issued = {
 	refresh_token_expires_at: "2026-12-27T09:00:00+09:00",
 };
 
-// keychainの`<workspace_id>:api-token`に保存する1つのJSONのobject（correlation.md「CLI」の手順5）。
-export const storedApiToken = (workspaceId: string, name: string) =>
-	JSON.stringify({
-		access_token: `hf_at_${workspaceId}_${name}`,
-		access_token_expires_at: "2026-09-28T01:00:00Z",
-		refresh_token: `hf_rt_${workspaceId}_${name}`,
-		refresh_token_expires_at: "2026-12-27T00:00:00Z",
-	});
+// keychainに既にある`<workspace_id>:api-token`の期限。
+export const TOKEN_EXPIRY: TokenExpiry = {
+	accessToken: "2026-09-28T01:00:00Z",
+	refreshToken: "2026-12-27T00:00:00Z",
+};
 
 // Harnessforce（apps/web）の代わり。authorization server metadataと発行のendpointだけを持つ。
-export async function startHarnessforce(
+export async function startCredentialsServer(
 	options: {
 		metadata?: (base: string) => Reply;
 		credentials?: Reply;

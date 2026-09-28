@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { storedToken } from "@harnessforce/test-support/api-token";
 import { describe, expect, it } from "vitest";
 import type { CliDeps } from "../../src/main.js";
 import type { Launch } from "../../src/run/launch.js";
@@ -8,7 +9,7 @@ import {
 	issueBody,
 	type Reply,
 	startReadApi,
-	storedToken,
+	TOKEN_EXPIRY,
 } from "./read-api.js";
 
 const INGEST = "https://ingest.example.test/base";
@@ -20,7 +21,7 @@ const pinnedKeychain =
 			items: Object.fromEntries(
 				Object.entries({
 					"ws1:ingest-key": "hf_ik_ws1_key",
-					"ws1:api-token": storedToken("ws1", "token"),
+					"ws1:api-token": storedToken("ws1", "token", TOKEN_EXPIRY),
 					"ws1:ingest-origin": "https://ingest.example.test",
 					"ws1:url-origin": apiOrigin,
 					...extra,
@@ -166,7 +167,7 @@ describe("hf run", () => {
 			keychain: (apiOrigin) =>
 				pinnedKeychain({
 					"ws2:ingest-key": "hf_ik_ws2_key",
-					"ws2:api-token": storedToken("ws2", "token"),
+					"ws2:api-token": storedToken("ws2", "token", TOKEN_EXPIRY),
 					"ws2:ingest-origin": "https://ingest.ws2.test",
 					"ws2:url-origin": apiOrigin,
 				})(apiOrigin),
@@ -317,7 +318,10 @@ describe("hf run", () => {
 			issue: () => ({ status: 200, body: issueBody("ENG-42") }),
 			keychain: (apiOrigin) =>
 				pinnedKeychain({
-					"ws1:api-token": storedToken("ws1", "token", "1970-01-01T00:00:00Z"),
+					"ws1:api-token": storedToken("ws1", "token", {
+						...TOKEN_EXPIRY,
+						accessToken: "1970-01-01T00:00:00Z",
+					}),
 				})(apiOrigin),
 		});
 		expect(r.code).toBe(0);

@@ -1,12 +1,11 @@
+import { readManagedEnv } from "@harnessforce/agent-core/managed";
+import type { Env } from "@harnessforce/agent-core/types";
+import { parseAllowedUrl } from "@harnessforce/agent-core/url";
 import {
 	ingestKeyAccount,
 	ingestOriginAccount,
 	type Keychain,
 } from "./credentials/keychain.js";
-import { readManagedEnv } from "./managed.js";
-import { parseAllowedUrl } from "./url.js";
-
-export type Env = Readonly<Record<string, string | undefined>>;
 
 // 利用者用のkeyを付けて送られうる送信先（correlation.md「CLI」の送信先の固定）。
 const DESTINATION_VARIABLES = [

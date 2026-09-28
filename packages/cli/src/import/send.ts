@@ -1,10 +1,7 @@
+import type { Fetch } from "@harnessforce/agent-core/types";
+import { underBase } from "@harnessforce/agent-core/url";
 import type { SessionImport } from "@harnessforce/semconv";
-import {
-	type Fetch,
-	REQUEST_TIMEOUT_MS,
-	readJsonObject,
-	underBase,
-} from "../init/http.js";
+import { REQUEST_TIMEOUT_MS, readJsonObjectBody } from "../shared/http.js";
 
 // ingest-api.md: `/v1/imports/sessions`は1 requestあたり最大100 session。
 const BATCH_SIZE = 100;
@@ -104,7 +101,10 @@ async function post(
 				};
 			return { kind: "failed" };
 		}
-		const result = parseResult(await readJsonObject(response), batch.length);
+		const result = parseResult(
+			await readJsonObjectBody(response),
+			batch.length,
+		);
 		return result ? { kind: "accepted", ...result } : { kind: "failed" };
 	} catch {
 		return { kind: "failed" };

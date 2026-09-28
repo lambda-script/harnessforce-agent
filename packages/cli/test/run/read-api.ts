@@ -1,5 +1,9 @@
 import { createServer, type IncomingHttpHeaders } from "node:http";
 import type { AddressInfo } from "node:net";
+import {
+	storedToken,
+	type TokenExpiry,
+} from "@harnessforce/test-support/api-token";
 import { onTestFinished } from "vitest";
 
 export type Reply = { status: number; body?: unknown; delayMs?: number };
@@ -43,7 +47,7 @@ export async function startReadApi(
 			return reply(
 				options.refresh ?? {
 					status: 200,
-					body: JSON.parse(storedToken("ws1", "refreshed")),
+					body: JSON.parse(storedToken("ws1", "refreshed", TOKEN_EXPIRY)),
 				},
 			);
 		if (req.method !== "GET") return reply({ status: 405 });
@@ -71,18 +75,11 @@ export async function startReadApi(
 	return { base, requests };
 }
 
-// keychainの`<workspace_id>:api-token`の値（correlation.md「CLI」の手順5）。hf runは実際の時計で期限を判定する。
-export const storedToken = (
-	workspaceId: string,
-	name: string,
-	accessTokenExpiresAt = "2099-01-01T00:00:00Z",
-) =>
-	JSON.stringify({
-		access_token: `hf_at_${workspaceId}_${name}`,
-		access_token_expires_at: accessTokenExpiresAt,
-		refresh_token: `hf_rt_${workspaceId}_${name}`,
-		refresh_token_expires_at: "2099-03-01T00:00:00Z",
-	});
+// hf runは実際の時計で期限を判定するため、期限の切れないtokenを既定にする。
+export const TOKEN_EXPIRY: TokenExpiry = {
+	accessToken: "2099-01-01T00:00:00Z",
+	refreshToken: "2099-03-01T00:00:00Z",
+};
 
 export const issueBody = (
 	identifier: string,

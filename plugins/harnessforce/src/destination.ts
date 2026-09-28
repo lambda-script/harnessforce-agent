@@ -1,10 +1,11 @@
-import { parseAllowedUrl } from "../../../packages/cli/src/url.js";
-import type { ConfigSnapshot } from "../../../packages/semconv/src/schemas/config-snapshot.js";
-import type { SessionRegistration } from "../../../packages/semconv/src/schemas/session-registration.js";
+import type { Fetch } from "@harnessforce/agent-core/types";
+import { parseAllowedUrl, underBase } from "@harnessforce/agent-core/url";
+import type {
+	ConfigSnapshot,
+	SessionRegistration,
+} from "@harnessforce/semconv";
 
 export type IngestItem = SessionRegistration | ConfigSnapshot;
-export type Env = Readonly<Record<string, string | undefined>>;
-export type Fetch = (url: URL, init: RequestInit) => Promise<Response>;
 export type KeyKind = "user" | "workspace";
 export type Destination = { ingestBase: URL; key: string; keyKind: KeyKind };
 export type IngestPath = "v1/sessions" | "v1/config-snapshots";
@@ -26,14 +27,6 @@ export function ingestBaseFrom(endpoint: string | undefined): URL | undefined {
 	return ingestBase;
 }
 
-// 文字列の連結で組み立てると、"//host"で始まるpathが別のhostとして解釈されるため、hostを変えずにpathだけを書き換える。
-function ingestUrl(base: URL, path: IngestPath): URL {
-	const url = new URL(base.origin);
-	// originだけのbaseのpathnameは"/"になるため、ここでも末尾の/を除く。
-	url.pathname = `${base.pathname.replace(/\/+$/, "")}/${path}`;
-	return url;
-}
-
 // bodyは要素1つの配列として送る（ingest-api.md「汎用ingest API」）。
 export async function postItem(
 	destination: Destination,
@@ -42,7 +35,7 @@ export async function postItem(
 	fetchImpl: Fetch,
 ): Promise<SendOutcome> {
 	try {
-		const response = await fetchImpl(ingestUrl(destination.ingestBase, path), {
+		const response = await fetchImpl(underBase(destination.ingestBase, path), {
 			method: "POST",
 			headers: {
 				authorization: `Bearer ${destination.key}`,

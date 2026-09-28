@@ -4,6 +4,7 @@
 	"description": "Harnessforce semantic conventions: hf.* attributes and ingest JSON Schemas",
 	"license": "Apache-2.0",
 	"type": "module",
+	"sideEffects": false,
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
@@ -33,9 +34,8 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.3.14",
+		"@harnessforce/test-support": "workspace:*",
 		"@types/node": "^22.20.4",
-		"ajv": "^8.20.0",
-		"ajv-formats": "^3.0.1",
 		"typescript": "^7.0.2",
 		"vitest": "^4.1.11"
 	}

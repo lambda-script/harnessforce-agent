@@ -1,12 +1,12 @@
+import { compileSchema } from "@harnessforce/test-support/validator";
 import { describe, expect, it } from "vitest";
 import {
 	COMPONENT_KINDS,
 	ConfigSnapshotSchema,
 } from "../src/schemas/config-snapshot.js";
 import { configSnapshot } from "./support/fixtures.js";
-import { compile } from "./support/validator.js";
 
-const check = compile(ConfigSnapshotSchema);
+const check = compileSchema(ConfigSnapshotSchema);
 const withComponent = (c: object) => ({ ...configSnapshot, components: [c] });
 
 describe("config snapshot", () => {

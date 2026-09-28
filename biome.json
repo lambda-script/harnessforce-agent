@@ -1,13 +1,153 @@
 {
 	"$schema": "https://biomejs.dev/schemas/2.3.14/schema.json",
-	"vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
-	"files": { "includes": ["**", "!!**/dist"] },
-	"linter": { "enabled": true, "rules": { "recommended": true } },
-	"formatter": { "enabled": true },
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true
+	},
+	"files": {
+		"includes": ["**", "!!**/dist"]
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			"nursery": {
+				"noImportCycles": "error"
+			}
+		}
+	},
+	"formatter": {
+		"enabled": true
+	},
 	"overrides": [
 		{
 			"includes": ["plugins/harnessforce/src/entry.cjs"],
-			"javascript": { "formatter": { "trailingCommas": "es5" } }
+			"javascript": {
+				"formatter": {
+					"trailingCommas": "es5"
+				}
+			}
+		},
+		{
+			"includes": ["packages/*/*", "plugins/*/*"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noRestrictedImports": {
+							"level": "error",
+							"options": {
+								"patterns": [
+									{
+										"group": ["../**"],
+										"message": "Import another workspace package by its package name, not by a relative path across package roots."
+									}
+								]
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["packages/*/*/*", "plugins/*/*/*"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noRestrictedImports": {
+							"level": "error",
+							"options": {
+								"patterns": [
+									{
+										"group": ["../../**"],
+										"message": "Import another workspace package by its package name, not by a relative path across package roots."
+									}
+								]
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["packages/*/*/*/*", "plugins/*/*/*/*"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noRestrictedImports": {
+							"level": "error",
+							"options": {
+								"patterns": [
+									{
+										"group": ["../../../**"],
+										"message": "Import another workspace package by its package name, not by a relative path across package roots."
+									}
+								]
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["packages/*/*/*/*/*", "plugins/*/*/*/*/*"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noRestrictedImports": {
+							"level": "error",
+							"options": {
+								"patterns": [
+									{
+										"group": ["../../../../**"],
+										"message": "Import another workspace package by its package name, not by a relative path across package roots."
+									}
+								]
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["packages/*/*/*/*/*/*", "plugins/*/*/*/*/*/*"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noRestrictedImports": {
+							"level": "error",
+							"options": {
+								"patterns": [
+									{
+										"group": ["../../../../../**"],
+										"message": "Import another workspace package by its package name, not by a relative path across package roots."
+									}
+								]
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["tests/**", "scripts/**"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noRestrictedImports": {
+							"level": "error",
+							"options": {
+								"patterns": [
+									{
+										"group": ["../packages/**", "../plugins/**"],
+										"message": "Import another workspace package by its package name, not by a relative path across package roots."
+									}
+								]
+							}
+						}
+					}
+				}
+			}
 		}
 	]
 }

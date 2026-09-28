@@ -1,8 +1,9 @@
 import type { Dirent } from "node:fs";
 import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
+import type { RunGit } from "@harnessforce/agent-core/process/git";
+import { resolveRepository } from "@harnessforce/agent-core/vcs";
 import type { SessionImport } from "@harnessforce/semconv";
-import { type RunGit, resolveRepository } from "./repository.js";
 import {
 	PARSER_VERSION,
 	parseTranscript,

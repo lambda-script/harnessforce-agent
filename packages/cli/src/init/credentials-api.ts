@@ -1,14 +1,10 @@
+import type { Fetch } from "@harnessforce/agent-core/types";
+import { parseAllowedUrl, underBase } from "@harnessforce/agent-core/url";
 import {
 	parseTokenPair,
 	type StoredApiToken,
 } from "../credentials/api-token.js";
-import { parseAllowedUrl } from "../url.js";
-import {
-	type Fetch,
-	REQUEST_TIMEOUT_MS,
-	readJsonObject,
-	underBase,
-} from "./http.js";
+import { REQUEST_TIMEOUT_MS, readJsonObjectBody } from "../shared/http.js";
 
 export type CredentialRequest = {
 	code: string;
@@ -114,7 +110,7 @@ export async function requestCredentials(
 				signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
 			},
 		);
-		return classify(response.status, await readJsonObject(response));
+		return classify(response.status, await readJsonObjectBody(response));
 	} catch {
 		return { kind: "unexpected" };
 	}

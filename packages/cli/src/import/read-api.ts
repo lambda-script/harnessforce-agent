@@ -1,9 +1,6 @@
-import {
-	type Fetch,
-	REQUEST_TIMEOUT_MS,
-	readJsonObject,
-	underBase,
-} from "../init/http.js";
+import type { Fetch } from "@harnessforce/agent-core/types";
+import { underBase } from "@harnessforce/agent-core/url";
+import { REQUEST_TIMEOUT_MS, readJsonObjectBody } from "../shared/http.js";
 
 // correlation.md「session import」: 401は「`hf init`を実行してください」、それ以外の失敗は通信の失敗として終える。
 export type ReadOutcome<T> =
@@ -33,7 +30,7 @@ async function getJson(
 			await response.body?.cancel();
 			return response.status === 401 ? { kind: "unauthorized" } : FAILED;
 		}
-		const body = await readJsonObject(response);
+		const body = await readJsonObjectBody(response);
 		return body ? { kind: "ok", value: body } : FAILED;
 	} catch {
 		return FAILED;

@@ -1,10 +1,11 @@
 import { execFile } from "node:child_process";
+import { isObject } from "@harnessforce/agent-core/object";
 import {
 	commandLineFor,
 	findCommand,
 	type LookupFileSystem,
-} from "../../../packages/cli/src/process/lookup.js";
-import type { Env } from "./destination.js";
+} from "@harnessforce/agent-core/process/lookup";
+import type { Env } from "@harnessforce/agent-core/types";
 
 // `hf otel-headers`でkeychainの利用者用IngestKeyを読んだ結果（correlation.md「実行環境」）。
 // missingは`hf`がPATHに無い場合、failedは`hf`があって読み出しに失敗した（keyが無い場合を含む）場合。
@@ -28,9 +29,8 @@ const BEARER = /^Bearer (\S+)$/;
 function parseKey(stdout: string): string | undefined {
 	try {
 		const value: unknown = JSON.parse(stdout);
-		if (typeof value !== "object" || value === null || Array.isArray(value))
-			return undefined;
-		const authorization = (value as Record<string, unknown>).Authorization;
+		if (!isObject(value)) return undefined;
+		const authorization = value.Authorization;
 		return typeof authorization === "string"
 			? BEARER.exec(authorization)?.[1]
 			: undefined;

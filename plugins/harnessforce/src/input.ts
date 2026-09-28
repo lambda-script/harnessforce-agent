@@ -1,4 +1,5 @@
 import { isAbsolute } from "node:path";
+import { isObject } from "@harnessforce/agent-core/object";
 import type { Scratchpad } from "./scratchpad.js";
 
 export type HookInput = {
@@ -23,9 +24,7 @@ const absolutePath = (value: unknown) =>
 function parseJsonObject(raw: string): Record<string, unknown> | undefined {
 	try {
 		const value: unknown = JSON.parse(raw);
-		return typeof value === "object" && value !== null && !Array.isArray(value)
-			? (value as Record<string, unknown>)
-			: undefined;
+		return isObject(value) ? value : undefined;
 	} catch {
 		return undefined;
 	}

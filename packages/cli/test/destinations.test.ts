@@ -1,8 +1,8 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { describe, expect, it } from "vitest";
 import { resolveCliDestinations } from "../src/destinations.js";
-import { tempDir } from "./config/support.js";
 
 const DEFAULT_URL = "https://app.example.test";
 

@@ -1,13 +1,13 @@
+import { compileSchema } from "@harnessforce/test-support/validator";
 import { describe, expect, it } from "vitest";
 import {
 	IngestEventSchema,
 	IngestIssueSchema,
 } from "../src/schemas/ingest-items.js";
 import { ingestEvent, ingestIssue } from "./support/fixtures.js";
-import { compile } from "./support/validator.js";
 
-const issue = compile(IngestIssueSchema);
-const event = compile(IngestEventSchema);
+const issue = compileSchema(IngestIssueSchema);
+const event = compileSchema(IngestEventSchema);
 
 describe("ingest issue", () => {
 	it("accepts the example", () => expect(issue(ingestIssue)).toBe(true));

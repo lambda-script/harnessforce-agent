@@ -1,11 +1,11 @@
 import { chmodSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { describe, expect, it } from "vitest";
 import {
 	PARSER_VERSION,
 	parseTranscript,
 } from "../../src/import/transcript.js";
-import { tempDir } from "../config/support.js";
 
 const FIXTURE = join(import.meta.dirname, "fixtures", "session.jsonl");
 const SESSION = "4b1c2d3e-0000-4000-8000-000000000001";

@@ -1,9 +1,9 @@
+import type { Fetch } from "@harnessforce/agent-core/types";
 import { describe, expect, it } from "vitest";
 import {
 	fetchSessionImportDays,
 	listConnectedRepositories,
 } from "../../src/import/read-api.js";
-import type { Fetch } from "../../src/init/http.js";
 
 const BASE = new URL("https://app.example.test/base/");
 const json = (status: number, body: unknown) =>

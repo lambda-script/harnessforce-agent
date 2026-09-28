@@ -5,12 +5,18 @@
 			"entry": ["scripts/*.mjs", "tests/**/*.test.ts"],
 			"project": ["scripts/**", "tests/**", "*.ts"]
 		},
+		"packages/agent-core": {
+			"project": ["src/**", "test/**", "*.ts"]
+		},
 		"packages/cli": {
 			"project": ["src/**", "scripts/**", "test/**", "*.ts"]
 		},
 		"packages/semconv": {
 			"entry": ["src/index.ts"],
 			"project": ["src/**", "test/**", "*.ts"]
+		},
+		"packages/test-support": {
+			"project": ["src/**", "*.ts"]
 		},
 		"plugins/harnessforce": {
 			"entry": ["src/main.ts", "src/entry.cjs"],

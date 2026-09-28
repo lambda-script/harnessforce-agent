@@ -3,10 +3,14 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingHttpHeaders } from "node:http";
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
+import {
+	storedToken,
+	type TokenExpiry,
+} from "@harnessforce/test-support/api-token";
+import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { onTestFinished } from "vitest";
 import { importStatePath } from "../../src/import/state.js";
 import type { CliDeps } from "../../src/main.js";
-import { tempDir } from "../config/support.js";
 import { fakeKeychain, runCli } from "../support/cli.js";
 
 export const NOW = Date.parse("2026-09-27T00:00:00Z");
@@ -35,21 +39,13 @@ type HarnessforceOptions = {
 	refresh?: Reply;
 };
 
-// keychainの`<workspace_id>:api-token`の値（correlation.md「CLI」の手順5）。
-export const storedToken = (
-	workspaceId: string,
-	name: string,
-	accessTokenExpiresAt = new Date(NOW + 60 * 60 * 1000).toISOString(),
-) =>
-	JSON.stringify({
-		access_token: `hf_at_${workspaceId}_${name}`,
-		access_token_expires_at: accessTokenExpiresAt,
-		refresh_token: `hf_rt_${workspaceId}_${name}`,
-		refresh_token_expires_at: new Date(NOW + 90 * 86_400_000).toISOString(),
-	});
+export const TOKEN_EXPIRY: TokenExpiry = {
+	accessToken: new Date(NOW + 60 * 60 * 1000).toISOString(),
+	refreshToken: new Date(NOW + 90 * 86_400_000).toISOString(),
+};
 
 // Harnessforceの代わり。Read API（/app）とingest（/ingest）を同じportで持つ。
-export async function startHarnessforce(options: HarnessforceOptions = {}) {
+export async function startImportServer(options: HarnessforceOptions = {}) {
 	const requests: Request[] = [];
 	const ingestReplies = [...(options.ingest ?? [])];
 	const server = createServer(async (req, res) => {
@@ -89,7 +85,7 @@ export async function startHarnessforce(options: HarnessforceOptions = {}) {
 			return reply(
 				options.refresh ?? {
 					status: 200,
-					body: JSON.parse(storedToken("ws1", "refreshed")),
+					body: JSON.parse(storedToken("ws1", "refreshed", TOKEN_EXPIRY)),
 				},
 			);
 		const bearer = req.headers.authorization?.replace(/^Bearer /, "") ?? "";
@@ -219,7 +215,7 @@ export function initializedKeychain(
 	const items: Record<string, string> = {};
 	for (const ws of workspaces) {
 		items[`${ws}:ingest-key`] = `hf_ik_${ws}_user`;
-		items[`${ws}:api-token`] = storedToken(ws, "current");
+		items[`${ws}:api-token`] = storedToken(ws, "current", TOKEN_EXPIRY);
 		items[`${ws}:ingest-origin`] = origin;
 		// このharnessは接続先とingestを同じserverで受けるため、どちらのoriginも同じ値になる。
 		items[`${ws}:url-origin`] = origin;

@@ -1,14 +1,18 @@
 import {
 	COLLECT_BUDGET_MS,
 	collectConfig,
-} from "../../../packages/cli/src/config/collect.js";
-import { readManagedEnv } from "../../../packages/cli/src/managed.js";
-import type { ConfigSnapshot } from "../../../packages/semconv/src/schemas/config-snapshot.js";
-import type { SessionRegistration } from "../../../packages/semconv/src/schemas/session-registration.js";
+} from "@harnessforce/agent-core/config/collect";
+import { isIssueIdentifier } from "@harnessforce/agent-core/issue";
+import { readManagedEnv } from "@harnessforce/agent-core/managed";
+import type { RunGit } from "@harnessforce/agent-core/process/git";
+import type { Env, Fetch } from "@harnessforce/agent-core/types";
+import { resolveProjectRoot, resolveVcs } from "@harnessforce/agent-core/vcs";
+import type {
+	ConfigSnapshot,
+	SessionRegistration,
+} from "@harnessforce/semconv";
 import {
 	type Destination,
-	type Env,
-	type Fetch,
 	type IngestItem,
 	type IngestPath,
 	ingestBaseFrom,
@@ -27,7 +31,6 @@ import {
 	saveRegistration,
 } from "./scratchpad.js";
 import type { UserKeyRead } from "./user-key.js";
-import { type RunGit, resolveProjectRoot, resolveVcs } from "./vcs.js";
 
 export type HookDeps = {
 	env: Env;
@@ -48,9 +51,6 @@ const REVOKED_KEY_MESSAGES: Record<KeyKind, string> = {
 	workspace:
 		"組織の送信キーが失効しています。Workspaceの管理者に連絡してください",
 };
-
-// session registrationのissue_identifierの制約（semantic-conventions.md）。
-const ISSUE_IDENTIFIER = /^\S{1,300}$/;
 
 // resumeとcompactは同じsessionの継続なので送らない。未知のsourceも送らない。
 const REGISTERING_SOURCES = new Set(["startup", "clear", "fork"]);
@@ -113,7 +113,7 @@ function registrationSource(
 	env: Env,
 ): Pick<SessionRegistration, "source" | "issue_identifier"> {
 	const issue = env.HARNESSFORCE_ISSUE;
-	return destination.keyKind === "user" && issue && ISSUE_IDENTIFIER.test(issue)
+	return destination.keyKind === "user" && issue && isIssueIdentifier(issue)
 		? { source: "cli", issue_identifier: issue }
 		: { source: "hook" };
 }

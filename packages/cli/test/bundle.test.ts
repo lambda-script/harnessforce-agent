@@ -9,8 +9,8 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { describe, expect, it } from "vitest";
-import { tempDir } from "./config/support.js";
 
 // turboはtestの前にこのpackageのbuildを実行する。直接vitestを実行する場合は先に`pnpm build`する。
 const packageDir = fileURLToPath(new URL("..", import.meta.url));
@@ -39,6 +39,25 @@ describe("built hf", () => {
 			(specifier) => !specifier.startsWith("node:"),
 		);
 		expect(new Set(packages)).toEqual(new Set(EXTERNALS));
+	});
+
+	// agent-coreはnpmへ公開しないため、公開するtarball（package.jsonとdist）から参照させない。
+	it("keeps the private agent-core out of the published package", () => {
+		const manifest = JSON.parse(
+			readFileSync(join(packageDir, "package.json"), "utf8"),
+		);
+		for (const field of [
+			"dependencies",
+			"optionalDependencies",
+			"peerDependencies",
+		])
+			expect(manifest[field] ?? {}).not.toHaveProperty(
+				"@harnessforce/agent-core",
+			);
+		for (const file of readdirSync(dist, { recursive: true }))
+			expect(readFileSync(join(dist, String(file)), "utf8")).not.toContain(
+				"@harnessforce/agent-core",
+			);
 	});
 
 	// 依存packageのうち外部に残したものだけを置いた場所で起動し、それ以外をbundleに取り込んだことを確かめる。

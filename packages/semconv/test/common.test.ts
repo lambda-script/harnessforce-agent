@@ -1,3 +1,4 @@
+import { compileSchema } from "@harnessforce/test-support/validator";
 import { Type } from "@sinclair/typebox";
 import { describe, expect, it } from "vitest";
 import {
@@ -9,10 +10,11 @@ import {
 	Sha256Hex,
 	Token,
 } from "../src/schemas/common.js";
-import { compile } from "./support/validator.js";
 
 const one = (schema: unknown) =>
-	compile(Type.Object({ v: schema as never }, { additionalProperties: false }));
+	compileSchema(
+		Type.Object({ v: schema as never }, { additionalProperties: false }),
+	);
 
 describe("Instant", () => {
 	const check = one(Instant);

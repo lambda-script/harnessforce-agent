@@ -1,10 +1,10 @@
 import { homedir } from "node:os";
-import { managedDirFor } from "../../../packages/cli/src/managed.js";
-import { createGitRunner } from "../../../packages/cli/src/process/git.js";
+import { managedDirFor } from "@harnessforce/agent-core/managed";
+import { createGitRunner } from "@harnessforce/agent-core/process/git";
 import {
 	relaunchWithoutRuntimeVariables,
 	spawnSelf,
-} from "../../../packages/cli/src/process/runtime-env.js";
+} from "@harnessforce/agent-core/process/runtime-env";
 import { runHook } from "./hook.js";
 import { createUserKeyReader, execHf } from "./user-key.js";
 

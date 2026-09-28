@@ -1,7 +1,8 @@
 import {
 	relaunchWithoutRuntimeVariables,
 	type SpawnSelf,
-} from "./process/runtime-env.js";
+} from "@harnessforce/agent-core/process/runtime-env";
+import type { Env } from "@harnessforce/agent-core/types";
 
 // keyやtokenを送るsubcommand。`hf otel-headers`は通信を行わないため起動し直さない（correlation.md「Node.jsの実行時の変数」）。
 const SENDING_COMMANDS = new Set(["init", "run", "import"]);
@@ -9,7 +10,7 @@ const RESTART_FAILED = "hfを起動し直せませんでした";
 
 type RelaunchDeps = {
 	platform: NodeJS.Platform;
-	env: Readonly<Record<string, string | undefined>>;
+	env: Env;
 	spawnSelf: SpawnSelf;
 	stderr: (text: string) => void;
 };

@@ -16,12 +16,12 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
 	managedDirFor,
 	readManagedEnv,
-} from "../../../packages/cli/src/managed.js";
-import { tempDir } from "./support.js";
+} from "@harnessforce/agent-core/managed";
+import { tempDir } from "@harnessforce/test-support/temp-dir";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 // turboはtestの前にこのpackageのbuildを実行する。直接vitestを実行する場合は先に`pnpm build`する。
 const built = fileURLToPath(new URL("../dist/marketplace", import.meta.url));
@@ -217,6 +217,18 @@ describe("built marketplace", () => {
 		expect(
 			readdirSync(join(marketplace, "plugins/harnessforce/scripts")).sort(),
 		).toEqual(["harnessforce-hook-main.cjs", "harnessforce-hook.cjs"]));
+
+	// hookはsemconvからrepositoryの正規化だけを使う。schemaの実装を起動のたびに読み込まない。
+	it("leaves the semconv schemas out of the hook bundle", () =>
+		expect(
+			readFileSync(
+				join(
+					marketplace,
+					"plugins/harnessforce/scripts/harnessforce-hook-main.cjs",
+				),
+				"utf8",
+			),
+		).not.toMatch(/typebox/i));
 });
 
 // bundleは端末の実際のmanaged settingsを読む。Workspace用のkeyを配られた端末では、testの送信がそのkeyで本番の送信先へ届くため実行しない。

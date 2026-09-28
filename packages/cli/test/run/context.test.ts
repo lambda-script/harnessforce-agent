@@ -1,9 +1,11 @@
 import { join } from "node:path";
+import { snapshotId } from "@harnessforce/agent-core/config/canonical";
+import { collectConfig } from "@harnessforce/agent-core/config/collect";
+import type { RunGit } from "@harnessforce/agent-core/process/git";
+import { tempDir } from "@harnessforce/test-support/temp-dir";
+import { writeTree } from "@harnessforce/test-support/write-tree";
 import { describe, expect, it } from "vitest";
-import { snapshotId } from "../../src/config/canonical.js";
-import { collectConfig } from "../../src/config/collect.js";
-import { type RunGit, resolveLaunchContext } from "../../src/run/context.js";
-import { tempDir, writeTree } from "../config/support.js";
+import { resolveLaunchContext } from "../../src/run/context.js";
 
 type GitAnswers = Record<string, string | undefined>;
 

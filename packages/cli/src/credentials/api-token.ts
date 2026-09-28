@@ -1,4 +1,4 @@
-import { isObject } from "../config/files.js";
+import { isObject } from "@harnessforce/agent-core/object";
 
 // keychainの`<workspace_id>:api-token`に保存する形（correlation.md「CLI」の手順5）。値は受け取ったままの文字列で持つ。
 export type StoredApiToken = {

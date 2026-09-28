@@ -1,18 +1,11 @@
-import { parseStoredApiToken } from "../credentials/api-token.js";
+import { isIssueIdentifier } from "@harnessforce/agent-core/issue";
+import type { RunGit } from "@harnessforce/agent-core/process/git";
+import type { Env, Fetch } from "@harnessforce/agent-core/types";
+import { type AccessMessages, verifyCliAccess } from "../credentials/access.js";
 import { createApiTokenSession } from "../credentials/api-token-session.js";
-import {
-	apiTokenAccount,
-	ingestKeyAccount,
-	ingestOriginAccount,
-	type Keychain,
-	urlOriginAccount,
-} from "../credentials/keychain.js";
-import { resolveCliDestinations } from "../destinations.js";
-import type { Fetch } from "../init/http.js";
-import { userSettingsPath } from "../init/settings.js";
-import type { Env } from "../otel-headers.js";
-import { parseAllowedUrl } from "../url.js";
-import { type RunGit, resolveLaunchContext } from "./context.js";
+import type { Keychain } from "../credentials/keychain.js";
+import { runUntilStop, stopWith } from "../shared/stop.js";
+import { resolveLaunchContext } from "./context.js";
 import { type IssueCandidate, resolveIssue } from "./issues.js";
 import { buildLaunch, type Launch, resourceAttributes } from "./launch.js";
 import {
@@ -49,24 +42,7 @@ export type RunArgs = {
 	agentArgs: readonly string[];
 };
 
-// session registrationの`issue_identifier`の制約（semantic-conventions.md）。
-const ISSUE_IDENTIFIER = /^\S{1,300}$/;
-
-// 途中の終端はこの値で抜け、表示と終了コードを1か所で決める。
-class RunStop {
-	constructor(readonly text: string) {}
-}
-const stop = (message: RunMessage): never => {
-	throw new RunStop(RUN_MESSAGES[message]);
-};
-
-// keychainの読み出しの失敗は、keychainを使えない場合と同じ終端にする。
-async function readKeychain(
-	keychain: Keychain,
-	account: string,
-): Promise<string | undefined> {
-	return keychain.get(account).catch(() => stop("keychainUnavailable"));
-}
+const stop = (message: RunMessage): never => stopWith(RUN_MESSAGES[message]);
 
 // 候補の識別子とタイトルはIssueの提供元の外部の利用者が書きうるため、端末の制御文字を表示しない。
 const printable = (text: string) => text.replace(/\p{Cc}/gu, "");
@@ -78,59 +54,20 @@ function candidateList(candidates: readonly IssueCandidate[]): string {
 	return [RUN_MESSAGES.candidatesHeader, ...lines].join("\n");
 }
 
-type Verified = {
-	workspaceId: string;
-	ingestEndpoint: string;
-	readApiBase: URL;
-	accessToken: string;
+const ACCESS_MESSAGES: AccessMessages = {
+	keychainUnavailable: RUN_MESSAGES.keychainUnavailable,
+	initRequired: RUN_MESSAGES.initRequired,
+	invalidUrl: RUN_MESSAGES.invalidUrl,
+	apiTokenMissing: RUN_MESSAGES.issueInitRequired,
 };
 
-// correlation.md「CLI」の確かめる順1〜8。どの終端でもRead APIとingestへ何も送らない。
-async function verifyAccess(deps: RunDeps): Promise<Verified> {
-	const { keychain } = deps;
-	if (!(await keychain.isAvailable().catch(() => false)))
-		stop("keychainUnavailable");
-	const destinations = await resolveCliDestinations(
-		deps.env,
-		userSettingsPath(deps.env, deps.homeDir),
-		deps.defaultUrl,
-	);
-	const workspaceId = destinations.workspaceId ?? stop("initRequired");
-	if (!(await readKeychain(keychain, ingestKeyAccount(workspaceId))))
-		stop("initRequired");
-	const ingestEndpoint = destinations.ingestEndpoint ?? stop("initRequired");
-	const ingest = parseAllowedUrl(ingestEndpoint) ?? stop("invalidUrl");
-	// hookが拒否する送信先へ、hookと同じ利用者用のkeyのテレメトリを送らせない。
-	const ingestOrigin = await readKeychain(
-		keychain,
-		ingestOriginAccount(workspaceId),
-	);
-	if (!ingestOrigin || ingest.origin !== ingestOrigin) stop("initRequired");
-	// 形の違う値（以前のversionのhf initが保存した値を含む）は、ApiTokenが無いものとして扱う。
-	const apiToken =
-		parseStoredApiToken(
-			await readKeychain(keychain, apiTokenAccount(workspaceId)),
-			workspaceId,
-		) ?? stop("issueInitRequired");
-	const readApiBase =
-		parseAllowedUrl(destinations.readApiUrl) ?? stop("invalidUrl");
-	// shellやrepositoryのsettingsが書き換えた接続先へApiTokenを送らない。
-	const urlOrigin = await readKeychain(keychain, urlOriginAccount(workspaceId));
-	if (!urlOrigin || readApiBase.origin !== urlOrigin) stop("initRequired");
-	return {
-		workspaceId,
-		ingestEndpoint,
-		readApiBase,
-		accessToken: apiToken.accessToken,
-	};
-}
-
 async function prepareLaunch(args: RunArgs, deps: RunDeps): Promise<Launch> {
+	// correlation.md「CLI」の確かめる順1〜8。
 	const { workspaceId, ingestEndpoint, readApiBase, accessToken } =
-		await verifyAccess(deps);
+		await verifyCliAccess(deps, ACCESS_MESSAGES);
 
 	// 手順1: Issueの解決。
-	if (!ISSUE_IDENTIFIER.test(args.issue)) stop("invalidIssue");
+	if (!isIssueIdentifier(args.issue)) stop("invalidIssue");
 	// sessionは、access tokenの期限切れと401でrefreshしたtokenへAuthorizationを置き換える。
 	const readFetch = createApiTokenSession({
 		keychain: deps.keychain,
@@ -152,7 +89,7 @@ async function prepareLaunch(args: RunArgs, deps: RunDeps): Promise<Launch> {
 	if (resolution.kind === "failed") stop("issueFailed");
 	if (resolution.kind === "candidates") {
 		if (resolution.candidates.length === 0) stop("noMatch");
-		throw new RunStop(candidateList(resolution.candidates));
+		stopWith(candidateList(resolution.candidates));
 	}
 
 	// 手順2: 起動する前に分かる値。
@@ -182,17 +119,11 @@ async function prepareLaunch(args: RunArgs, deps: RunDeps): Promise<Launch> {
 }
 
 // correlation.md「CLI」の`hf run --issue <識別子> -- <agent> [args]`。
-export async function runIssue(args: RunArgs, deps: RunDeps): Promise<number> {
-	let launch: Launch;
-	try {
-		launch = await prepareLaunch(args, deps);
-	} catch (error) {
-		if (!(error instanceof RunStop)) throw error;
-		deps.stderr(`${error.text}\n`);
+export function runIssue(args: RunArgs, deps: RunDeps): Promise<number> {
+	return runUntilStop(async () => {
+		const outcome = await deps.launch(await prepareLaunch(args, deps));
+		if (outcome.kind === "exited") return outcome.code;
+		deps.stderr(`${launchFailedMessage(args.agent)}\n`);
 		return 1;
-	}
-	const outcome = await deps.launch(launch);
-	if (outcome.kind === "exited") return outcome.code;
-	deps.stderr(`${launchFailedMessage(args.agent)}\n`);
-	return 1;
+	}, deps.stderr);
 }

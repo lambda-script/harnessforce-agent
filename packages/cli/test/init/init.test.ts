@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { storedToken } from "@harnessforce/test-support/api-token";
 import { describe, expect, it } from "vitest";
 import { codeChallenge } from "../../src/init/pkce.js";
 import { fakeKeychain, untouchableKeychain } from "../support/cli.js";
@@ -9,8 +10,8 @@ import {
 	makeHome,
 	runInit,
 	sha256,
-	startHarnessforce,
-	storedApiToken,
+	startCredentialsServer,
+	TOKEN_EXPIRY,
 } from "./harness.js";
 
 // correlation.md「CLI」の`hf init`が定める文言。
@@ -49,9 +50,9 @@ const failed = (message: string) => ({ code: 1, out: "", err: `${message}\n` });
 
 const EXISTING = {
 	"ws1:ingest-key": "hf_ik_ws1_old",
-	"ws1:api-token": storedApiToken("ws1", "old"),
+	"ws1:api-token": storedToken("ws1", "old", TOKEN_EXPIRY),
 	"ws2:ingest-key": "hf_ik_ws2_other",
-	"ws2:api-token": storedApiToken("ws2", "other"),
+	"ws2:api-token": storedToken("ws2", "other", TOKEN_EXPIRY),
 };
 
 // 応答の4つの値を、受け取ったままの文字列で保存する。
@@ -64,7 +65,7 @@ const issuedApiToken = {
 
 describe("hf init", () => {
 	it("logs in, issues credentials, stores them and writes user settings", async () => {
-		const server = await startHarnessforce();
+		const server = await startCredentialsServer();
 		const browser = fakeBrowser();
 		const { keychain, items } = fakeKeychain({ items: EXISTING });
 		const home = makeHome(
@@ -161,7 +162,7 @@ describe("hf init", () => {
 	});
 
 	it("uses --url instead of the build default, including a path, and records it", async () => {
-		const server = await startHarnessforce({ basePath: "/hf" });
+		const server = await startCredentialsServer({ basePath: "/hf" });
 		const browser = fakeBrowser();
 		const home = makeHome();
 		const result = await runInit(["--url", server.base], {
@@ -180,7 +181,7 @@ describe("hf init", () => {
 	});
 
 	it("records the connection URL without userinfo, query or fragment", async () => {
-		const server = await startHarnessforce({ basePath: "/hf" });
+		const server = await startCredentialsServer({ basePath: "/hf" });
 		const withUserinfo = server.base.replace("http://", "http://user:pass@");
 		const home = makeHome();
 		const { keychain, items } = fakeKeychain();
@@ -200,7 +201,7 @@ describe("hf init", () => {
 	});
 
 	it("re-pins both origins on a later hf init with another --url", async () => {
-		const server = await startHarnessforce({ basePath: "/hf" });
+		const server = await startCredentialsServer({ basePath: "/hf" });
 		const { keychain, items } = fakeKeychain({
 			items: {
 				"ws1:ingest-key": "hf_ik_ws1_old",
@@ -225,7 +226,7 @@ describe("hf init", () => {
 
 	// 途中で失敗しても、前の接続先のoriginと新しいkeyの組を残さない。
 	it("deletes both pinned origins before saving the new key and token", async () => {
-		const server = await startHarnessforce();
+		const server = await startCredentialsServer();
 		const { keychain, writes } = fakeKeychain();
 		await runInit([], {
 			homeDir: makeHome().home,
@@ -244,7 +245,7 @@ describe("hf init", () => {
 	});
 
 	it("honors CLAUDE_CONFIG_DIR for the user settings file", async () => {
-		const server = await startHarnessforce();
+		const server = await startCredentialsServer();
 		const home = makeHome();
 		const configDir = makeHome().home;
 		await runInit([], {
@@ -261,7 +262,7 @@ describe("hf init", () => {
 	});
 
 	it("prints the authorization URL when the browser cannot be opened and keeps waiting", async () => {
-		const server = await startHarnessforce();
+		const server = await startCredentialsServer();
 		const browser = fakeBrowser({ opens: false, favicon: true });
 		const result = await runInit([], {
 			homeDir: makeHome().home,
@@ -299,7 +300,7 @@ describe("hf init", () => {
 			["the keychain is unavailable", { available: false }],
 			["the keychain items cannot be read", { failRead: true }],
 		])("stops when %s", async (_, options) => {
-			const server = await startHarnessforce();
+			const server = await startCredentialsServer();
 			expect(
 				await runInit([], {
 					homeDir: makeHome().home,
@@ -311,7 +312,7 @@ describe("hf init", () => {
 		});
 
 		it("stops when the keychain holds more than 100 ingest keys", async () => {
-			const server = await startHarnessforce();
+			const server = await startCredentialsServer();
 			const items = Object.fromEntries(
 				Array.from({ length: 101 }, (_, i) => [
 					`ws${i}:ingest-key`,
@@ -329,11 +330,11 @@ describe("hf init", () => {
 		});
 
 		it("stops when the keychain holds more than 100 ApiTokens", async () => {
-			const server = await startHarnessforce();
+			const server = await startCredentialsServer();
 			const items = Object.fromEntries(
 				Array.from({ length: 101 }, (_, i) => [
 					`ws${i}:api-token`,
-					storedApiToken(`ws${i}`, "t"),
+					storedToken(`ws${i}`, "t", TOKEN_EXPIRY),
 				]),
 			);
 			expect(
@@ -347,11 +348,11 @@ describe("hf init", () => {
 		});
 
 		it("does not send a hash for an ApiToken item it cannot read", async () => {
-			const server = await startHarnessforce();
+			const server = await startCredentialsServer();
 			const { keychain } = fakeKeychain({
 				items: {
 					"ws1:api-token": "hf_at_from_an_older_hf_init",
-					"ws2:api-token": storedApiToken("ws2", "other"),
+					"ws2:api-token": storedToken("ws2", "other", TOKEN_EXPIRY),
 				},
 			});
 			const result = await runInit([], {
@@ -372,7 +373,7 @@ describe("hf init", () => {
 			'{"env":[]}',
 			'{"enabledPlugins":"x"}',
 		])("stops when the user settings are %s", async (content) => {
-			const server = await startHarnessforce();
+			const server = await startCredentialsServer();
 			const home = makeHome(content);
 			expect(
 				await runInit([], { homeDir: home.home, defaultUrl: server.base }),
@@ -418,7 +419,7 @@ describe("hf init", () => {
 				(base: string) => ({ status: 200, body: { issuer: `${base}/` } }),
 			],
 		])("fails on %s without opening the browser", async (_, metadata) => {
-			const server = await startHarnessforce({ metadata });
+			const server = await startCredentialsServer({ metadata });
 			const browser = fakeBrowser();
 			expect(
 				await runInit([], {
@@ -431,7 +432,7 @@ describe("hf init", () => {
 		});
 
 		it("accepts an issuer that differs only by a trailing slash", async () => {
-			const server = await startHarnessforce({
+			const server = await startCredentialsServer({
 				metadata: (base) => ({
 					status: 200,
 					body: {
@@ -466,7 +467,7 @@ describe("hf init", () => {
 			["another error", { error: "server_error" }, M.loginFailed],
 			["no code", {}, M.loginFailed],
 		])("ends on %s without sending the code", async (_, params, message) => {
-			const server = await startHarnessforce();
+			const server = await startCredentialsServer();
 			const browser = fakeBrowser({
 				query: (authorization) => ({
 					state: authorization.searchParams.get("state") ?? "",
@@ -489,7 +490,7 @@ describe("hf init", () => {
 		});
 
 		it("times out when no callback arrives", async () => {
-			const server = await startHarnessforce();
+			const server = await startCredentialsServer();
 			expect(
 				await runInit([], {
 					homeDir: makeHome().home,
@@ -501,7 +502,7 @@ describe("hf init", () => {
 		});
 
 		it("ends when the loopback cannot listen", async () => {
-			const server = await startHarnessforce();
+			const server = await startCredentialsServer();
 			const browser = fakeBrowser();
 			expect(
 				await runInit([], {
@@ -560,7 +561,7 @@ describe("hf init", () => {
 			],
 			[201, "not an object", M.network],
 		])("maps %i %j to its terminal and changes nothing", async (status, body, message) => {
-			const server = await startHarnessforce({
+			const server = await startCredentialsServer({
 				credentials: { status, body },
 			});
 			const { keychain, items } = fakeKeychain({ items: EXISTING });
@@ -578,7 +579,7 @@ describe("hf init", () => {
 		});
 
 		it("fails when Harnessforce cannot be reached for the credentials", async () => {
-			const server = await startHarnessforce();
+			const server = await startCredentialsServer();
 			const result = await runInit([], {
 				homeDir: makeHome().home,
 				defaultUrl: server.base,
@@ -594,7 +595,7 @@ describe("hf init", () => {
 
 	describe("saving", () => {
 		it("fails when the keychain cannot be written, leaving settings alone", async () => {
-			const server = await startHarnessforce();
+			const server = await startCredentialsServer();
 			const home = makeHome();
 			expect(
 				await runInit([], {
@@ -609,11 +610,11 @@ describe("hf init", () => {
 
 		// 途中で失敗しても、前の接続先のoriginと新しいkeyやtokenの組を残さない。
 		it("leaves no pinned origin when saving fails after the key", async () => {
-			const server = await startHarnessforce();
+			const server = await startCredentialsServer();
 			const { keychain, items } = fakeKeychain({
 				items: {
 					"ws1:ingest-key": "hf_ik_ws1_old",
-					"ws1:api-token": storedApiToken("ws1", "old"),
+					"ws1:api-token": storedToken("ws1", "old", TOKEN_EXPIRY),
 					"ws1:ingest-origin": "https://old-ingest.example.test",
 					"ws1:url-origin": "https://old.example.test",
 				},
@@ -633,7 +634,7 @@ describe("hf init", () => {
 		});
 
 		it("fails when the user settings became unreadable during login", async () => {
-			const server = await startHarnessforce();
+			const server = await startCredentialsServer();
 			const home = makeHome("{}");
 			const { keychain, items } = fakeKeychain();
 			const browser = fakeBrowser({

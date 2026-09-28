@@ -1,9 +1,9 @@
+import { compileSchema } from "@harnessforce/test-support/validator";
 import { describe, expect, it } from "vitest";
 import { SessionImportSchema } from "../src/schemas/session-import.js";
 import { sessionImport } from "./support/fixtures.js";
-import { compile } from "./support/validator.js";
 
-const check = compile(SessionImportSchema);
+const check = compileSchema(SessionImportSchema);
 
 describe("session import", () => {
 	it("accepts the example", () => expect(check(sessionImport)).toBe(true));

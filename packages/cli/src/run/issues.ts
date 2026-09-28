@@ -1,9 +1,6 @@
-import {
-	type Fetch,
-	REQUEST_TIMEOUT_MS,
-	readJsonObject,
-	underBase,
-} from "../init/http.js";
+import type { Fetch } from "@harnessforce/agent-core/types";
+import { underBase } from "@harnessforce/agent-core/url";
+import { REQUEST_TIMEOUT_MS, readJsonObjectBody } from "../shared/http.js";
 
 export type IssueCandidate = { identifier: string; title: string };
 
@@ -38,7 +35,10 @@ async function get(
 			redirect: "manual",
 			signal: AbortSignal.timeout(timeoutMs),
 		});
-		return { status: response.status, body: await readJsonObject(response) };
+		return {
+			status: response.status,
+			body: await readJsonObjectBody(response),
+		};
 	} catch {
 		return undefined;
 	}

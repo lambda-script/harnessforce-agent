@@ -1,14 +1,17 @@
 import { chmodSync, mkdirSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import type { RunGit } from "@harnessforce/agent-core/process/git";
+import { SessionImportSchema } from "@harnessforce/semconv";
+import { tempDir } from "@harnessforce/test-support/temp-dir";
+import { compileSchema } from "@harnessforce/test-support/validator";
 import { describe, expect, it } from "vitest";
-import type { RunGit } from "../../src/import/repository.js";
 import { scanSessions } from "../../src/import/sessions.js";
 import { PARSER_VERSION } from "../../src/import/transcript.js";
-import { tempDir } from "../config/support.js";
-import { isSessionImport } from "../support/validator.js";
 
 const NOW = Date.parse("2026-09-27T00:00:00Z");
 const DAY = 24 * 60 * 60 * 1000;
+// 公開するschemaで、送る要素を検証する。
+const isSessionImport = compileSchema(SessionImportSchema);
 
 const line = (value: unknown) => `${JSON.stringify(value)}\n`;
 function transcript(sessionId: string, cwd: string, endedAt: string): string {

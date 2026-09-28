@@ -1,0 +1,26 @@
+{
+	"name": "@harnessforce/agent-core",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Logic shared by the hf CLI and the Claude Code plugin hook, bundled into both (not published to npm)",
+	"license": "Apache-2.0",
+	"type": "module",
+	"exports": {
+		"./*": "./src/*.ts"
+	},
+	"scripts": {
+		"lint": "biome check .",
+		"typecheck": "tsc -p tsconfig.json",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@harnessforce/semconv": "workspace:*"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.3.14",
+		"@harnessforce/test-support": "workspace:*",
+		"@types/node": "^22.20.4",
+		"typescript": "^7.0.2",
+		"vitest": "^4.1.11"
+	}
+}

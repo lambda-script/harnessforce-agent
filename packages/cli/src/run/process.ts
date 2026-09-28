@@ -2,7 +2,7 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { constants } from "node:os";
 import { join, resolve as resolvePath } from "node:path";
-import type { Env } from "../otel-headers.js";
+import type { Env } from "@harnessforce/agent-core/types";
 import { type CommandLine, commandLine, resolveAgentFile } from "./command.js";
 import type { Launch } from "./launch.js";
 import type { LaunchOutcome } from "./run.js";
