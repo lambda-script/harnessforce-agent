@@ -16,12 +16,12 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
 	managedDirFor,
 	readManagedEnv,
 } from "../../../packages/cli/src/managed.js";
-import { tempDir } from "./support.js";
 
 // turboはtestの前にこのpackageのbuildを実行する。直接vitestを実行する場合は先に`pnpm build`する。
 const built = fileURLToPath(new URL("../dist/marketplace", import.meta.url));

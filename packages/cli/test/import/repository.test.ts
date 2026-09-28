@@ -9,7 +9,7 @@ import {
 
 const runGit = createImportGit(process.env, process.cwd());
 
-import { tempDir } from "../config/support.js";
+import { tempDir } from "@harnessforce/test-support/temp-dir";
 
 function repository(remotes: Record<string, string>): string {
 	const dir = tempDir("hf-repo-");

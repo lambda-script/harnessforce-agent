@@ -1,13 +1,8 @@
 import { mkdirSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
+import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { describe, expect, it } from "vitest";
-import {
-	components,
-	fileHash,
-	fixture,
-	tempDir,
-	writeTree,
-} from "./support.js";
+import { components, fileHash, fixture, writeTree } from "./support.js";
 
 describe("file-based components", () => {
 	it("collects rules from every scope with scope-relative identifiers", async () => {

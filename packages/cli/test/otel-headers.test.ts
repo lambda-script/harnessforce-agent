@@ -1,5 +1,6 @@
+import { managedDir } from "@harnessforce/test-support/managed-dir";
 import { describe, expect, it } from "vitest";
-import { fakeKeychain, managedDir, runCli } from "./support/cli.js";
+import { fakeKeychain, runCli } from "./support/cli.js";
 
 const header = (key: string) =>
 	`${JSON.stringify({ Authorization: `Bearer ${key}` })}\n`;

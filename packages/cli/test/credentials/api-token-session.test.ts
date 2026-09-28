@@ -8,12 +8,12 @@ import {
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { dirname } from "node:path";
+import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { describe, expect, it, onTestFinished } from "vitest";
 import {
 	createApiTokenSession,
 	tokenLockPath,
 } from "../../src/credentials/api-token-session.js";
-import { tempDir } from "../config/support.js";
 import { fakeKeychain } from "../support/cli.js";
 
 const NOW = Date.parse("2026-09-28T00:00:00Z");

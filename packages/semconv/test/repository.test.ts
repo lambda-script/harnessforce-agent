@@ -1,10 +1,10 @@
+import { compileSchema } from "@harnessforce/test-support/validator";
 import { describe, expect, it } from "vitest";
 import * as semconv from "../src/index.js";
 import { normalizeRepository } from "../src/repository.js";
 import { RepositorySlug } from "../src/schemas/common.js";
-import { compile } from "./support/validator.js";
 
-const isSlug = compile(RepositorySlug);
+const isSlug = compileSchema(RepositorySlug);
 
 describe("normalizeRepository", () => {
 	it.each([

@@ -4,12 +4,10 @@ import { parse } from "yaml";
 
 const read = (p: string) =>
 	JSON.parse(readFileSync(new URL(`../${p}`, import.meta.url), "utf8"));
-const packages = readdirSync(new URL("../packages", import.meta.url)).map(
-	(dir) => ({
-		dir,
-		pkg: read(`packages/${dir}/package.json`),
-	}),
-);
+// privateのpackageはchangesetsが公開しない。
+const packages = readdirSync(new URL("../packages", import.meta.url))
+	.map((dir) => ({ dir, pkg: read(`packages/${dir}/package.json`) }))
+	.filter(({ pkg }) => !pkg.private);
 
 const atLeast = (version: string, minimum: string) => {
 	const [a = 0, b = 0, c = 0] = version.split(".").map(Number);

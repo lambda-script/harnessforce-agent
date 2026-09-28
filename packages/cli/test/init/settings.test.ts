@@ -6,6 +6,7 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { describe, expect, it } from "vitest";
 import {
 	mergeUserSettings,
@@ -13,7 +14,6 @@ import {
 	userSettingsPath,
 	writeUserSettings,
 } from "../../src/init/settings.js";
-import { tempDir } from "../config/support.js";
 
 describe("user settings", () => {
 	it("lives in ~/.claude unless CLAUDE_CONFIG_DIR is an absolute path", () => {
@@ -29,7 +29,9 @@ describe("user settings", () => {
 	});
 
 	it("reads a missing file as empty settings", async () =>
-		expect(await readUserSettings(join(tempDir(), "settings.json"))).toEqual({
+		expect(
+			await readUserSettings(join(tempDir("hf-settings-"), "settings.json")),
+		).toEqual({
 			kind: "ok",
 			settings: {},
 		}));
@@ -40,13 +42,13 @@ describe("user settings", () => {
 		["env that is not an object", '{"env":"x"}'],
 		["enabledPlugins that is not an object", '{"enabledPlugins":[]}'],
 	])("rejects %s", async (_, content) => {
-		const path = join(tempDir(), "settings.json");
+		const path = join(tempDir("hf-settings-"), "settings.json");
 		writeFileSync(path, content);
 		expect(await readUserSettings(path)).toEqual({ kind: "invalid" });
 	});
 
 	it("rejects a path that cannot be read as a file", async () => {
-		const path = join(tempDir(), "settings.json");
+		const path = join(tempDir("hf-settings-"), "settings.json");
 		mkdirSync(path);
 		expect(await readUserSettings(path)).toEqual({ kind: "invalid" });
 	});
@@ -73,7 +75,7 @@ describe("user settings", () => {
 		}));
 
 	it("writes through a temporary file and creates the directory", async () => {
-		const dir = join(tempDir(), "nested");
+		const dir = join(tempDir("hf-settings-"), "nested");
 		const path = join(dir, "settings.json");
 		await writeUserSettings(path, { env: { A: "1" } });
 		expect(JSON.parse(readFileSync(path, "utf8"))).toEqual({ env: { A: "1" } });
@@ -82,12 +84,12 @@ describe("user settings", () => {
 	it.skipIf(process.platform === "win32")(
 		"keeps the mode of an existing file and creates new files as 0600",
 		async () => {
-			const existing = join(tempDir(), "settings.json");
+			const existing = join(tempDir("hf-settings-"), "settings.json");
 			writeFileSync(existing, "{}");
 			chmodSync(existing, 0o640);
 			await writeUserSettings(existing, { env: {} });
 			expect(statSync(existing).mode & 0o777).toBe(0o640);
-			const created = join(tempDir(), "settings.json");
+			const created = join(tempDir("hf-settings-"), "settings.json");
 			await writeUserSettings(created, {});
 			expect(statSync(created).mode & 0o777).toBe(0o600);
 		},

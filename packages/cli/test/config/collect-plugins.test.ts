@@ -1,10 +1,10 @@
+import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { describe, expect, it } from "vitest";
 import {
 	components,
 	fileHash,
 	fixture,
 	hashValue,
-	tempDir,
 	writeTree,
 } from "./support.js";
 

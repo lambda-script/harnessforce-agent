@@ -1,9 +1,10 @@
 import { join } from "node:path";
+import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { describe, expect, it } from "vitest";
 import { snapshotId } from "../../src/config/canonical.js";
 import { collectConfig } from "../../src/config/collect.js";
 import { type RunGit, resolveLaunchContext } from "../../src/run/context.js";
-import { tempDir, writeTree } from "../config/support.js";
+import { writeTree } from "../config/support.js";
 
 type GitAnswers = Record<string, string | undefined>;
 

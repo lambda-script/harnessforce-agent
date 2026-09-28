@@ -8,11 +8,11 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { isAbsolute, join, relative } from "node:path";
+import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { describe, expect, it } from "vitest";
 import type { RunGit } from "../../src/process/git.js";
 import { createGitRunner } from "../../src/process/git.js";
 import { launchAgent } from "../../src/run/process.js";
-import { tempDir } from "../config/support.js";
 
 // PATHを探さずに起動できるよう、agentは絶対pathで渡す。
 const options = (env: Record<string, string> = {}) => ({

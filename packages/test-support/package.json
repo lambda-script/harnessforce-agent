@@ -1,0 +1,29 @@
+{
+	"name": "@harnessforce/test-support",
+	"version": "0.0.0",
+	"private": true,
+	"description": "Test helpers shared by the harnessforce-agent workspaces (not published to npm)",
+	"license": "Apache-2.0",
+	"type": "module",
+	"exports": {
+		"./*": "./src/*.ts"
+	},
+	"scripts": {
+		"lint": "biome check .",
+		"typecheck": "tsc -p tsconfig.json",
+		"test": "vitest run --passWithNoTests"
+	},
+	"dependencies": {
+		"ajv": "^8.20.0",
+		"ajv-formats": "^3.0.1"
+	},
+	"peerDependencies": {
+		"vitest": "^4.1.11"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.3.14",
+		"@types/node": "^22.20.4",
+		"typescript": "^7.0.2",
+		"vitest": "^4.1.11"
+	}
+}

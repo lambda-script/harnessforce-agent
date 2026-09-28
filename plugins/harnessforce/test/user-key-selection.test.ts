@@ -1,3 +1,4 @@
+import { managedDir } from "@harnessforce/test-support/managed-dir";
 import { describe, expect, it } from "vitest";
 import { runHook } from "../src/hook.js";
 import {
@@ -5,7 +6,6 @@ import {
 	harness,
 	isRegistration,
 	MANAGED_ENV,
-	managedDir,
 	REPO,
 	scratchpad,
 } from "./support.js";

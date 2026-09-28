@@ -12,6 +12,9 @@
 			"entry": ["src/index.ts"],
 			"project": ["src/**", "test/**", "*.ts"]
 		},
+		"packages/test-support": {
+			"project": ["src/**", "*.ts"]
+		},
 		"plugins/harnessforce": {
 			"entry": ["src/main.ts", "src/entry.cjs"],
 			"project": ["src/**", "test/**", "*.ts", "*.mjs"],

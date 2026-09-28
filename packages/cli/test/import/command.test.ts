@@ -1,17 +1,19 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { storedToken } from "@harnessforce/test-support/api-token";
+import { managedDir } from "@harnessforce/test-support/managed-dir";
+import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { describe, expect, it } from "vitest";
 import { createImportGit } from "../../src/import/repository.js";
-import { tempDir } from "../config/support.js";
-import { fakeKeychain, managedDir } from "../support/cli.js";
+import { fakeKeychain } from "../support/cli.js";
 import {
 	gitRepository,
 	initializedHome,
 	initializedKeychain,
 	NOW,
 	runImport,
-	startHarnessforce,
-	storedToken,
+	startImportServer,
+	TOKEN_EXPIRY,
 	transcript,
 } from "./harness.js";
 
@@ -23,10 +25,10 @@ const SEND_FAILED =
 	"Harnessforceとの通信に失敗しました。もう一度`hf import`を実行すると続きから取り込みます\n";
 
 async function setup(
-	options: Parameters<typeof startHarnessforce>[0] = {},
+	options: Parameters<typeof startImportServer>[0] = {},
 	sessionCount = 1,
 ) {
-	const hf = await startHarnessforce(options);
+	const hf = await startImportServer(options);
 	const cwd = gitRepository();
 	const sessions = Object.fromEntries(
 		Array.from({ length: sessionCount }, (_, i) => [
@@ -173,7 +175,7 @@ describe("hf import", () => {
 
 	it("prefers the shell environment over user settings", async () => {
 		const { hf, run } = await setup();
-		const shell = await startHarnessforce();
+		const shell = await startImportServer();
 		const keychain = initializedKeychain(shell.origin);
 		await run({
 			keychain: keychain.keychain,
@@ -187,7 +189,7 @@ describe("hf import", () => {
 	});
 
 	it("uses the build default when the user settings hold an empty connection URL", async () => {
-		const hf = await startHarnessforce();
+		const hf = await startImportServer();
 		const home = initializedHome(
 			{
 				HARNESSFORCE_URL: "",
@@ -297,7 +299,7 @@ describe("hf import", () => {
 		});
 
 		it("when there is no workspace or ingest endpoint", async () => {
-			const hf = await startHarnessforce();
+			const hf = await startImportServer();
 			const keychain = initializedKeychain(hf.origin);
 			const envs: Record<string, string>[] = [
 				{ HARNESSFORCE_ENDPOINT: hf.ingestUrl },
@@ -314,7 +316,7 @@ describe("hf import", () => {
 
 		// correlation.md「CLIの宛先の決め方」をhf runと同じ関数で決める。空のuser settingsの値は無いものとする。
 		it("when the user settings hold an empty ingest endpoint", async () => {
-			const hf = await startHarnessforce();
+			const hf = await startImportServer();
 			const keychain = initializedKeychain(hf.origin);
 			const home = initializedHome({
 				HARNESSFORCE_URL: hf.appUrl,
@@ -415,7 +417,7 @@ describe("hf import", () => {
 			expect(await run()).toMatchObject({ code: 0 });
 			expect(hf.sessionBodies()).toEqual([["s000"]]);
 			expect(keychain.items.get("ws1:api-token")).toBe(
-				storedToken("ws1", "refreshed"),
+				storedToken("ws1", "refreshed", TOKEN_EXPIRY),
 			);
 			expect(
 				hf.requests
@@ -428,7 +430,10 @@ describe("hf import", () => {
 			const { hf, keychain, run } = await setup();
 			keychain.items.set(
 				"ws1:api-token",
-				storedToken("ws1", "current", new Date(NOW).toISOString()),
+				storedToken("ws1", "current", {
+					...TOKEN_EXPIRY,
+					accessToken: new Date(NOW).toISOString(),
+				}),
 			);
 			expect(await run()).toMatchObject({ code: 0 });
 			expect(hf.requests[0]?.path).toBe(

@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
+import { compileSchema } from "@harnessforce/test-support/validator";
 import { describe, expect, it } from "vitest";
 import * as semconv from "../src/index.js";
 import * as fx from "./support/fixtures.js";
-import { compile } from "./support/validator.js";
 
 const examples: Record<keyof typeof semconv.SCHEMAS, unknown> = {
 	"session-registration": fx.sessionRegistration,
@@ -21,7 +21,9 @@ describe("public entry", () => {
 		expect(json.$id).toBe(
 			`urn:harnessforce:semconv:${semconv.SEMCONV_MAJOR}:${name}`,
 		);
-		expect(compile(json)(examples[name as keyof typeof examples])).toBe(true);
+		expect(compileSchema(json)(examples[name as keyof typeof examples])).toBe(
+			true,
+		);
 	});
 
 	it("keeps SEMCONV_MAJOR in sync with the package major", () => {

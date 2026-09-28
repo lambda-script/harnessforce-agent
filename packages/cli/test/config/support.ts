@@ -1,19 +1,11 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { onTestFinished } from "vitest";
+import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { hashFileContent, hashValue } from "../../src/config/canonical.js";
 import {
 	type CollectOptions,
 	collectConfig,
 } from "../../src/config/collect.js";
-
-// testの終了時に削除する一時directory。testの中でだけ呼ぶ。
-export function tempDir(prefix = "hf-config-"): string {
-	const dir = mkdtempSync(join(tmpdir(), prefix));
-	onTestFinished(() => rmSync(dir, { recursive: true, force: true }));
-	return dir;
-}
 
 export function writeTree(root: string, files: Record<string, string>): void {
 	for (const [path, content] of Object.entries(files)) {
@@ -29,7 +21,7 @@ export { hashValue };
 
 // project、home、managedを別々の一時directoryに置く。CLAUDE_CONFIG_DIRなどはenvで与える。
 export function fixture(env: CollectOptions["env"] = {}) {
-	const root = tempDir();
+	const root = tempDir("hf-config-");
 	const options: CollectOptions = {
 		projectRoot: join(root, "project"),
 		homeDir: join(root, "home"),

@@ -7,13 +7,13 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { describe, expect, it } from "vitest";
 import {
 	importStatePath,
 	readSentSessions,
 	recordSentSessions,
 } from "../../src/import/state.js";
-import { tempDir } from "../config/support.js";
 
 const A = { workspaceId: "ws-a", endpoint: "https://ingest.example.test/base" };
 const B = { workspaceId: "ws-b", endpoint: "https://ingest.example.test/base" };

@@ -1,6 +1,6 @@
+import { managedDir } from "@harnessforce/test-support/managed-dir";
 import { expect, it } from "vitest";
 import { managedDirFor, readManagedEnv } from "../src/managed.js";
-import { managedDir } from "./support/cli.js";
 
 it.each([
 	["darwin", "/Library/Application Support/ClaudeCode"],
