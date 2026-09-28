@@ -22,6 +22,7 @@ import {
 	userSettingsPath,
 	writeUserSettings,
 } from "../shared/settings.js";
+import { isStop, runUntilStop, stopWith } from "../shared/stop.js";
 import {
 	type CredentialOutcome,
 	type Issued,
@@ -49,30 +50,17 @@ const CLIENT_ID = "harnessforce-cli";
 // POST /api/v1/cli/credentialsが受け付けるrevoke_key_hashesとrevoke_api_token_hashesの上限。
 const MAX_REVOKE_HASHES = 100;
 
-// 途中の終端はこの値で抜け、表示と終了コードを1か所で決める。
-class InitStop {
-	constructor(readonly message: InitMessage) {}
-}
-const stop = (message: InitMessage): never => {
-	throw new InitStop(message);
-};
+const stop = (message: InitMessage): never => stopWith(INIT_MESSAGES[message]);
 
 const sha256Hex = (value: string) =>
 	createHash("sha256").update(value, "utf8").digest("hex");
 
-export async function init(
-	url: string | undefined,
-	deps: InitDeps,
-): Promise<number> {
-	try {
+export function init(url: string | undefined, deps: InitDeps): Promise<number> {
+	return runUntilStop(async () => {
 		await runInit(url, deps);
 		deps.stdout(`${INIT_MESSAGES.success}\n`);
 		return 0;
-	} catch (error) {
-		if (!(error instanceof InitStop)) throw error;
-		deps.stderr(`${INIT_MESSAGES[error.message]}\n`);
-		return 1;
-	}
+	}, deps.stderr);
 }
 
 async function runInit(url: string | undefined, deps: InitDeps) {
@@ -105,8 +93,11 @@ async function runInit(url: string | undefined, deps: InitDeps) {
 		deps.fetch,
 	);
 	const issued = issuedOrStop(outcome);
-	await save(issued, recordedUrl, settingsPath, deps).catch((error: unknown) =>
-		stop(error instanceof InitStop ? error.message : "saveFailed"),
+	await save(issued, recordedUrl, settingsPath, deps).catch(
+		(error: unknown) => {
+			if (isStop(error)) throw error;
+			return stop("saveFailed");
+		},
 	);
 }
 

@@ -4,19 +4,13 @@ import { readManagedEnv } from "@harnessforce/agent-core/managed";
 import { isObject } from "@harnessforce/agent-core/object";
 import type { RunGit } from "@harnessforce/agent-core/process/git";
 import type { Env, Fetch } from "@harnessforce/agent-core/types";
-import { parseAllowedUrl, withoutExtras } from "@harnessforce/agent-core/url";
-import { parseStoredApiToken } from "../credentials/api-token.js";
+import { withoutExtras } from "@harnessforce/agent-core/url";
+import { type AccessMessages, verifyCliAccess } from "../credentials/access.js";
 import { createApiTokenSession } from "../credentials/api-token-session.js";
-import {
-	apiTokenAccount,
-	ingestKeyAccount,
-	ingestOriginAccount,
-	type Keychain,
-	urlOriginAccount,
-} from "../credentials/keychain.js";
-import { resolveCliDestinations } from "../destinations.js";
+import type { Keychain } from "../credentials/keychain.js";
 import { INIT_MESSAGES } from "../shared/messages.js";
-import { readUserSettings, userSettingsPath } from "../shared/settings.js";
+import { readUserSettings } from "../shared/settings.js";
+import { runUntilStop, stopWith } from "../shared/stop.js";
 import {
 	fetchSessionImportDays,
 	listConnectedRepositories,
@@ -68,19 +62,11 @@ const limitMessage = {
 		`Workspaceが閲覧のみのため、${count}件のsessionを取り込めませんでした。閲覧のみが解除された後に\`hf import\`を再実行すると続きから取り込みます`,
 };
 
-class ImportStop {
-	constructor(readonly message: string) {}
-}
-const stop = (message: string): never => {
-	throw new ImportStop(message);
-};
-
-type Resolved = {
-	destination: Destination;
-	endpoint: URL;
-	ingestKey: string;
-	accessToken: string;
-	readBase: URL;
+const ACCESS_MESSAGES: AccessMessages = {
+	keychainUnavailable: MESSAGES.keychainUnavailable,
+	initRequired: MESSAGES.runInit,
+	invalidUrl: MESSAGES.invalidUrl,
+	apiTokenMissing: MESSAGES.runInit,
 };
 
 // user settingsの`env`の文字列の値。読めないfileは値が無いものとする。
@@ -109,53 +95,10 @@ async function recordBase(deps: ImportDeps): Promise<string> {
 	);
 }
 
-// correlation.md「CLI」のWorkspaceの決め方、「CLIの宛先の決め方」、送信先の固定。
-async function resolve(deps: ImportDeps): Promise<Resolved> {
-	const { keychain } = deps;
-	if (!(await keychain.isAvailable().catch(() => false)))
-		stop(MESSAGES.keychainUnavailable);
-	// 使えると確かめた後の読み出しの失敗も、keychainを使えない場合と同じ終端とする。
-	const read = (account: string) =>
-		keychain.get(account).catch(() => stop(MESSAGES.keychainUnavailable));
-	const destinations = await resolveCliDestinations(
-		deps.env,
-		userSettingsPath(deps.env, deps.homeDir),
-		deps.defaultUrl,
-	);
-
-	const workspaceId = destinations.workspaceId ?? stop(MESSAGES.runInit);
-	const ingestKey =
-		(await read(ingestKeyAccount(workspaceId))) || stop(MESSAGES.runInit);
-	const rawEndpoint = destinations.ingestEndpoint ?? stop(MESSAGES.runInit);
-	const endpoint = parseAllowedUrl(rawEndpoint) ?? stop(MESSAGES.invalidUrl);
-	// hookが拒否する送信先へ、hookと同じ利用者用のkeyを送らない。
-	const pinnedOrigin = await read(ingestOriginAccount(workspaceId));
-	if (pinnedOrigin !== endpoint.origin) stop(MESSAGES.runInit);
-	// 形の違う値（以前のversionのhf initが保存した値を含む）は、ApiTokenが無いものとして扱う。
-	const apiToken =
-		parseStoredApiToken(
-			await read(apiTokenAccount(workspaceId)),
-			workspaceId,
-		) ?? stop(MESSAGES.runInit);
-	const readBase =
-		parseAllowedUrl(destinations.readApiUrl) ?? stop(MESSAGES.invalidUrl);
-	// Claude Codeの中から起動するとrepositoryのsettingsがHARNESSFORCE_URLを書き換えうるため、
-	// hf initが使った接続先のoriginへだけApiTokenを送る。
-	const pinnedUrlOrigin = await read(urlOriginAccount(workspaceId));
-	if (pinnedUrlOrigin !== readBase.origin) stop(MESSAGES.runInit);
-	return {
-		destination: { workspaceId, endpoint: withoutExtras(endpoint) },
-		endpoint,
-		ingestKey,
-		accessToken: apiToken.accessToken,
-		readBase,
-	};
-}
-
 function unwrap<T>(outcome: ReadOutcome<T>): T {
 	if (outcome.kind === "ok") return outcome.value;
 	// 401はrefreshしても使えるaccess tokenを得られなかった場合だけ届く。
-	return stop(
+	return stopWith(
 		outcome.kind === "unauthorized"
 			? MESSAGES.loginExpired
 			: MESSAGES.readFailed,
@@ -184,11 +127,16 @@ function report(result: SendResult, deps: ImportDeps): number {
 }
 
 async function runImport(deps: ImportDeps): Promise<number> {
-	const resolved = await resolve(deps);
+	const access = await verifyCliAccess(deps, ACCESS_MESSAGES);
+	// 状態fileの記録は、Workspaceとingestの送信先の組ごとに分ける。
+	const destination: Destination = {
+		workspaceId: access.workspaceId,
+		endpoint: withoutExtras(access.ingest),
+	};
 	const readFetch = createApiTokenSession({
 		keychain: deps.keychain,
-		workspaceId: resolved.destination.workspaceId,
-		readBase: resolved.readBase,
+		workspaceId: access.workspaceId,
+		readBase: access.readApiBase,
 		fetch: deps.fetch,
 		now: deps.now,
 		sleep: deps.sleep,
@@ -197,15 +145,15 @@ async function runImport(deps: ImportDeps): Promise<number> {
 	// sessionは、access tokenの期限切れと401でrefreshしたtokenへAuthorizationを置き換える。
 	const connected = unwrap(
 		await listConnectedRepositories(
-			resolved.readBase,
-			resolved.accessToken,
+			access.readApiBase,
+			access.accessToken,
 			readFetch,
 		),
 	);
 	const days = unwrap(
 		await fetchSessionImportDays(
-			resolved.readBase,
-			resolved.accessToken,
+			access.readApiBase,
+			access.accessToken,
 			readFetch,
 		),
 	);
@@ -220,28 +168,22 @@ async function runImport(deps: ImportDeps): Promise<number> {
 			`読めなかった${scan.skippedLines}行と${scan.skippedFiles}個のfileを読み飛ばしました\n`,
 		);
 	const statePath = importStatePath(deps.homeDir);
-	const sent = await readSentSessions(statePath, resolved.destination);
+	const sent = await readSentSessions(statePath, destination);
 	const result = await sendSessions({
-		endpoint: resolved.endpoint,
-		ingestKey: resolved.ingestKey,
+		endpoint: access.ingest,
+		ingestKey: access.ingestKey,
 		sessions: scan.sessions.filter((s) => !sent.has(s.session_id)),
 		fetch: deps.fetch,
 		sleep: deps.sleep,
 		record: (ids) =>
-			recordSentSessions(statePath, resolved.destination, ids).catch(() =>
-				stop(MESSAGES.stateFailed),
+			recordSentSessions(statePath, destination, ids).catch(() =>
+				stopWith(MESSAGES.stateFailed),
 			),
 	});
 	return report(result, deps);
 }
 
 // correlation.md「session import」の`hf import`。
-export async function importCommand(deps: ImportDeps): Promise<number> {
-	try {
-		return await runImport(deps);
-	} catch (error) {
-		if (!(error instanceof ImportStop)) throw error;
-		deps.stderr(`${error.message}\n`);
-		return 1;
-	}
+export function importCommand(deps: ImportDeps): Promise<number> {
+	return runUntilStop(() => runImport(deps), deps.stderr);
 }
