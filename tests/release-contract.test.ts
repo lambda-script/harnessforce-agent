@@ -52,6 +52,15 @@ describe("release contract", () => {
 		).toBe(true);
 	});
 
+	// npmはpackageのdirectoryにあるLICENSEだけを同梱し、rootのLICENSEは同梱しない。
+	it.each(packages)("$dir ships the repository license", ({ dir }) =>
+		expect(
+			readFileSync(
+				new URL(`../packages/${dir}/LICENSE`, import.meta.url),
+				"utf8",
+			),
+		).toBe(readFileSync(new URL("../LICENSE", import.meta.url), "utf8")));
+
 	// correlation.md「実行環境」: hookが使う端末のNode.js 18以上でhfを起動し、hfはsemconvを実行時に読む。
 	it.each(packages)("$dir runs on Node.js 18 and later", ({ pkg }) =>
 		expect(pkg.engines).toEqual({ node: ">=18" }));
