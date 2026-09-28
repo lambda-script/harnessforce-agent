@@ -218,6 +218,11 @@ describe("hf run", () => {
 				KEYCHAIN,
 			],
 			[
+				"1: keychain availability check failure",
+				{ keychain: () => fakeKeychain({ failAvailability: true }).keychain },
+				KEYCHAIN,
+			],
+			[
 				"1: keychain read failure",
 				{ keychain: () => fakeKeychain({ failRead: true }).keychain },
 				KEYCHAIN,
@@ -368,6 +373,22 @@ describe("hf run", () => {
 			expect(r.out).toBe("");
 			expect(r.launches).toEqual([]);
 		});
+	});
+
+	// correlation.md「CLI」: 識別子は空白を含まない1〜300文字。
+	it("resolves a 300-character identifier", async () => {
+		const identifier = "x".repeat(300);
+		const r = await runHf(["--issue", identifier, "--", "claude"]);
+		expect(r.code).toBe(0);
+		expect(r.launches[0]?.env).toMatchObject({
+			HARNESSFORCE_ISSUE: identifier,
+		});
+	});
+
+	it("does not call the Read API with a 301-character identifier", async () => {
+		const r = await runHf(["--issue", "x".repeat(301), "--", "claude"]);
+		expect(r.err).toBe("Issueの識別子が不正です\n");
+		expect(r.api.requests).toEqual([]);
 	});
 
 	it("does not call the Read API with an invalid identifier", async () => {

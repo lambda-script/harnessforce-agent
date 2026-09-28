@@ -50,7 +50,7 @@ const REVOKED_KEY_MESSAGES: Record<KeyKind, string> = {
 };
 
 // session registrationのissue_identifierの制約（semantic-conventions.md）。
-const ISSUE_IDENTIFIER = /^\S{1,256}$/;
+const ISSUE_IDENTIFIER = /^\S{1,300}$/;
 
 // resumeとcompactは同じsessionの継続なので送らない。未知のsourceも送らない。
 const REGISTERING_SOURCES = new Set(["startup", "clear", "fork"]);

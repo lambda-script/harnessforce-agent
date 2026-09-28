@@ -45,7 +45,7 @@ export const IngestIssueSchema = Type.Object(
 		external_id: Token(),
 		// 存在しないkeyの要素は拒否する（Harnessforce側でのDB検証。schemaはToken形式だけを保証する）。
 		project_key: Token(),
-		identifier: Type.Optional(Token(64)),
+		identifier: Type.Optional(Token(300)),
 		title: Type.String({ minLength: 1, maxLength: 1000 }),
 		description: Type.Optional(Type.String({ maxLength: 100_000 })),
 		status_category: literals(STATUS_CATEGORIES),
@@ -55,7 +55,14 @@ export const IngestIssueSchema = Type.Object(
 		priority: Type.Optional(Type.String({ maxLength: 100 })),
 		due_on: Type.Optional(CalendarDate),
 		parent_external_id: Type.Optional(Token()),
-		url: Type.Optional(Type.String({ format: "uri", maxLength: 2048 })),
+		// 画面にlinkとして出すため、schemeはhttpとhttpsに限る（semantic-conventions.md「Issue」）。WHATWG URLはschemeを小文字へ揃えるため大文字も許す。
+		url: Type.Optional(
+			Type.String({
+				format: "uri",
+				pattern: "^[Hh][Tt][Tt][Pp][Ss]?:",
+				maxLength: 2048,
+			}),
+		),
 		source_updated_at: Instant,
 	},
 	{ $id: schemaId("ingest-issue"), ...closed },

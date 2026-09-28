@@ -50,7 +50,7 @@ export type RunArgs = {
 };
 
 // session registrationの`issue_identifier`の制約（semantic-conventions.md）。
-const ISSUE_IDENTIFIER = /^\S{1,256}$/;
+const ISSUE_IDENTIFIER = /^\S{1,300}$/;
 
 // 途中の終端はこの値で抜け、表示と終了コードを1か所で決める。
 class RunStop {

@@ -18,7 +18,7 @@ export const registrationProperties = {
 	repository: Type.Optional(RepositorySlug),
 	branch: Type.Optional(Token()),
 	commit: Type.Optional(CommitSha),
-	issue_identifier: Type.Optional(Token(256)),
+	issue_identifier: Type.Optional(Token(300)),
 	source: Type.Union(REGISTRATION_SOURCES.map((s) => Type.Literal(s))),
 	started_at: Instant,
 };

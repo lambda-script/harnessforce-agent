@@ -229,6 +229,22 @@ describe("hook key selection", () => {
 			});
 		});
 
+		// correlation.md「hook」: issue_identifierの制約は空白を含まない1〜300文字。
+		it("claims source=cli with a 300-character issue", async () => {
+			const identifier = "x".repeat(300);
+			const h = harness({
+				...noManaged,
+				env: { ...userEnv, HARNESSFORCE_ISSUE: identifier },
+				userKey,
+			});
+			await start(h);
+			expect(h.bodies()[0]?.[0]).toMatchObject({
+				source: "cli",
+				issue_identifier: identifier,
+			});
+			expect(isRegistration(h.bodies()[0]?.[0])).toBe(true);
+		});
+
 		it("does not claim source=cli with the Workspace key", async () => {
 			const h = harness({ env: { ...userEnv, HARNESSFORCE_ISSUE: "ENG-42" } });
 			await start(h);
@@ -239,7 +255,7 @@ describe("hook key selection", () => {
 		it.each([
 			"",
 			"ENG 42",
-			"x".repeat(257),
+			"x".repeat(301),
 		])("ignores the invalid identifier %j", async (issue) => {
 			const h = harness({
 				...noManaged,

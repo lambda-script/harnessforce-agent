@@ -186,6 +186,27 @@ describe("hf import", () => {
 		expect(shell.sessionBodies()).toEqual([["s000"]]);
 	});
 
+	it("uses the build default when the user settings hold an empty connection URL", async () => {
+		const hf = await startHarnessforce();
+		const home = initializedHome(
+			{
+				HARNESSFORCE_URL: "",
+				HARNESSFORCE_ENDPOINT: hf.ingestUrl,
+				HARNESSFORCE_WORKSPACE_ID: "ws1",
+			},
+			{ s000: transcript("s000", gitRepository()) },
+		);
+		expect(
+			await runImport({
+				homeDir: home.home,
+				keychain: initializedKeychain(hf.origin).keychain,
+				defaultUrl: hf.appUrl,
+				importGit: createImportGit(process.env, process.cwd()),
+			}),
+		).toMatchObject({ code: 0 });
+		expect(hf.sessionBodies()).toEqual([["s000"]]);
+	});
+
 	it("reads every page of connected repositories", async () => {
 		const { hf, run } = await setup({
 			repositories: (cursor) => ({
@@ -237,6 +258,22 @@ describe("hf import", () => {
 			expect(home.readState()).toBeUndefined();
 		});
 
+		// hf runと同じく、使えるかを確かめられないkeychainも使えないものとして扱う。
+		it("when the keychain cannot tell whether it is available", async () => {
+			const { hf, home, run } = await setup();
+			expect(
+				await run({
+					keychain: fakeKeychain({ failAvailability: true }).keychain,
+				}),
+			).toEqual({
+				code: 1,
+				out: "",
+				err: "OSのキーチェーンを利用できないため、送信キーを保存できません\n",
+			});
+			expect(hf.requests).toEqual([]);
+			expect(home.readState()).toBeUndefined();
+		});
+
 		it.each([
 			["the api token is missing", "ws1:api-token"],
 			["the user ingest key is missing", "ws1:ingest-key"],
@@ -245,6 +282,15 @@ describe("hf import", () => {
 		])("when %s", async (_, account) => {
 			const { hf, home, run, keychain } = await setup();
 			keychain.items.delete(account);
+			expect(await run()).toEqual({ code: 1, out: "", err: RUN_INIT });
+			expect(hf.requests).toEqual([]);
+			expect(home.readState()).toBeUndefined();
+		});
+
+		// hf runと同じく、空のkeyはkeyが無いものとする。
+		it("when the user ingest key is empty", async () => {
+			const { hf, home, run, keychain } = await setup();
+			keychain.items.set("ws1:ingest-key", "");
 			expect(await run()).toEqual({ code: 1, out: "", err: RUN_INIT });
 			expect(hf.requests).toEqual([]);
 			expect(home.readState()).toBeUndefined();
@@ -263,6 +309,21 @@ describe("hf import", () => {
 					await runImport({ homeDir: home.home, keychain: keychain.keychain }),
 				).toEqual({ code: 1, out: "", err: RUN_INIT });
 			}
+			expect(hf.requests).toEqual([]);
+		});
+
+		// correlation.md「CLIの宛先の決め方」をhf runと同じ関数で決める。空のuser settingsの値は無いものとする。
+		it("when the user settings hold an empty ingest endpoint", async () => {
+			const hf = await startHarnessforce();
+			const keychain = initializedKeychain(hf.origin);
+			const home = initializedHome({
+				HARNESSFORCE_URL: hf.appUrl,
+				HARNESSFORCE_ENDPOINT: "",
+				HARNESSFORCE_WORKSPACE_ID: "ws1",
+			});
+			expect(
+				await runImport({ homeDir: home.home, keychain: keychain.keychain }),
+			).toEqual({ code: 1, out: "", err: RUN_INIT });
 			expect(hf.requests).toEqual([]);
 		});
 

@@ -13,7 +13,8 @@ concurrency:
 
 jobs:
   release:
-    # npm scopeが作られるまで無効にしておく。有効にする手順はREADMEの「Releasing」を参照。
+    # productionのドメインがHarnessforceのenvironments.md「接続先」に記録され、npm scopeが作られるまで無効にしておく。
+    # それまでは一般への配布（npmへのpublish）が対象外である。有効にする手順はREADMEの「Releasing」を参照。
     if: vars.NPM_PUBLISH_ENABLED == 'true'
     # npm provenanceはGitHub-hosted runnerでしか生成できない。
     runs-on: ubuntu-24.04
