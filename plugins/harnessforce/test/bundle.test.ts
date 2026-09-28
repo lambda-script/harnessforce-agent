@@ -212,6 +212,25 @@ describe("built marketplace", () => {
 		expect(existsSync(hookScript)).toBe(true);
 	});
 
+	// correlation.md「接続先」: MCP serverのURLはCLIの既定の接続先と同じbuildの入力から作る。
+	it("declares the MCP server at <connection>/mcp over HTTP, from the CLI's build input", () => {
+		const { url } = readJson(
+			fileURLToPath(
+				new URL(
+					"../../../packages/cli/dist/build-config.json",
+					import.meta.url,
+				),
+			),
+		);
+		expect(
+			readJson(join(marketplace, "plugins/harnessforce/.mcp.json")),
+		).toEqual({
+			mcpServers: {
+				harnessforce: { type: "http", url: `${url.replace(/\/+$/, "")}/mcp` },
+			},
+		});
+	});
+
 	// hookは`${CLAUDE_PLUGIN_ROOT}`だけを頼りに起動するため、entryが読む本体は分割せず1つのfileにする。
 	it("ships the hook as the entry and a single main bundle", () =>
 		expect(

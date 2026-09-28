@@ -35,6 +35,12 @@ describe("plugin skeleton", () => {
 			hooks: {},
 		}));
 
+	// MCP serverのURLはbuildの入力から作るため、buildの出力にだけ宣言する（correlation.md「接続先」）。
+	it("declares no MCP server in the repository copy of the plugin", () =>
+		expect(
+			existsSync(new URL("../plugins/harnessforce/.mcp.json", import.meta.url)),
+		).toBe(false));
+
 	it("declares the public license and repository", () => {
 		expect(plugin.license).toBe("Apache-2.0");
 		expect(plugin.repository).toBe(

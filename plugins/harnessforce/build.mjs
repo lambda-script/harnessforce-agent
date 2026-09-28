@@ -1,10 +1,22 @@
-import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+	copyFileSync,
+	mkdirSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseAllowedUrl, underBase } from "@harnessforce/agent-core/url";
+import { buildConfigFrom } from "@harnessforce/cli/scripts/build-config.mjs";
 import { build } from "tsdown";
 
 const pluginDir = fileURLToPath(new URL(".", import.meta.url));
 const repoRoot = join(pluginDir, "../..");
+const cliDir = dirname(
+	createRequire(import.meta.url).resolve("@harnessforce/cli/package.json"),
+);
 const HOOK_ENTRY = "scripts/harnessforce-hook.cjs";
 // Claude Codeがexec形式のargsで展開するplaceholder。
 // biome-ignore lint/suspicious/noTemplateCurlyInString: JSのtemplateではなくClaude Codeのplaceholderである。
@@ -37,6 +49,28 @@ const hooksJson = () => ({
 	),
 });
 
+/**
+ * correlation.md「接続先」: MCP serverのURLとCLIの既定の接続先は、同じbuildの入力から作る。
+ * 同梱するCLIが別の値でbuildされていれば、2つが食い違うため失敗させる。
+ */
+function connectionUrl() {
+	const { url } = buildConfigFrom(process.env);
+	const cliConfig = JSON.parse(
+		readFileSync(join(cliDir, "dist/build-config.json"), "utf8"),
+	);
+	if (cliConfig.url !== url)
+		throw new Error(
+			"packages/cli was built with a different HARNESSFORCE_BUILD_URL; build it again with the same value",
+		);
+	return parseAllowedUrl(url);
+}
+
+const mcpJson = (connection) => ({
+	mcpServers: {
+		harnessforce: { type: "http", url: underBase(connection, "mcp").href },
+	},
+});
+
 function copy(from, to) {
 	mkdirSync(dirname(to), { recursive: true });
 	copyFileSync(from, to);
@@ -48,6 +82,7 @@ function copy(from, to) {
  * repositoryのhooks/hooks.jsonは空のままにし、scriptを持つこの出力にだけhookを配線する。
  */
 async function buildMarketplace() {
+	const connection = connectionUrl();
 	const outDir = join(pluginDir, "dist/marketplace");
 	const plugin = join(outDir, "plugins/harnessforce");
 	rmSync(outDir, { recursive: true, force: true });
@@ -60,6 +95,10 @@ async function buildMarketplace() {
 		join(plugin, ".claude-plugin/plugin.json"),
 	);
 	copy(join(repoRoot, "LICENSE"), join(plugin, "LICENSE"));
+	writeFileSync(
+		join(plugin, ".mcp.json"),
+		`${JSON.stringify(mcpJson(connection), null, 2)}\n`,
+	);
 	mkdirSync(join(plugin, "hooks"), { recursive: true });
 	writeFileSync(
 		join(plugin, "hooks/hooks.json"),
