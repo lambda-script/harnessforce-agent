@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import {
 	copyFileSync,
 	cpSync,
@@ -6,7 +7,6 @@ import {
 	rmSync,
 	writeFileSync,
 } from "node:fs";
-import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseAllowedUrl, underBase } from "@harnessforce/agent-core/url";
@@ -15,9 +15,7 @@ import { build } from "tsdown";
 
 const pluginDir = fileURLToPath(new URL(".", import.meta.url));
 const repoRoot = join(pluginDir, "../..");
-const cliDir = dirname(
-	createRequire(import.meta.url).resolve("@harnessforce/cli/package.json"),
-);
+const cliDir = join(repoRoot, "packages/cli");
 const HOOK_ENTRY = "scripts/harnessforce-hook.cjs";
 // Claude Codeがexec形式のargsで展開するplaceholder。
 // biome-ignore lint/suspicious/noTemplateCurlyInString: JSのtemplateではなくClaude Codeのplaceholderである。
@@ -72,6 +70,28 @@ const mcpJson = (connection) => ({
 	},
 });
 
+/**
+ * environments.md「接続先」: stagingの検証者は、CLIも同じbuildの出力から導入する。
+ * CLIが依存するsemconvはnpmに無い場合があるため、同じversionのtarballを一緒に置く。
+ * `pnpm pack`はworkspaceの依存をそのversionへ書き換える。
+ */
+function packCli(destination) {
+	const pnpm = process.env.npm_execpath;
+	if (!pnpm) throw new Error("Run the plugin build through pnpm (pnpm build)");
+	const [command, prefix] = /\.[cm]?js$/.test(pnpm)
+		? [process.execPath, [pnpm]]
+		: [pnpm, []];
+	for (const dir of ["packages/semconv", "packages/cli"])
+		execFileSync(
+			command,
+			[...prefix, "pack", "--pack-destination", destination],
+			{
+				cwd: join(repoRoot, dir),
+				stdio: ["ignore", "ignore", "inherit"],
+			},
+		);
+}
+
 function copy(from, to) {
 	mkdirSync(dirname(to), { recursive: true });
 	copyFileSync(from, to);
@@ -108,6 +128,7 @@ async function buildMarketplace() {
 		join(plugin, "hooks/hooks.json"),
 		`${JSON.stringify(hooksJson(), null, 2)}\n`,
 	);
+	packCli(join(plugin, "cli"));
 	copy(join(pluginDir, "src/entry.cjs"), join(plugin, HOOK_ENTRY));
 	await build({
 		config: false,

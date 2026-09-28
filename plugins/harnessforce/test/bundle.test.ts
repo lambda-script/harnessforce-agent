@@ -244,6 +244,55 @@ describe("built marketplace", () => {
 			),
 		));
 
+	// environments.md「接続先」: stagingのbuildでは、CLIも同じbuildの出力から導入する。
+	describe("CLI packages", () => {
+		const packageJsonOf = (name: string) =>
+			readJson(
+				fileURLToPath(
+					new URL(`../../../packages/${name}/package.json`, import.meta.url),
+				),
+			);
+		const cli = packageJsonOf("cli");
+		const semconv = packageJsonOf("semconv");
+		const cliTarball = `harnessforce-cli-${cli.version}.tgz`;
+		const semconvTarball = `harnessforce-semconv-${semconv.version}.tgz`;
+		const unpack = (tarball: string) => {
+			const dir = tempDir("hf-unpacked-");
+			// GNU tarは"C:"で始まるarchiveのpathを別のhostと解釈するため、相対pathで渡す。
+			execFileSync("tar", ["-xzf", tarball, "-C", dir], {
+				cwd: join(marketplace, "plugins/harnessforce/cli"),
+			});
+			return join(dir, "package");
+		};
+
+		it("ships the CLI and the semconv package it depends on", () =>
+			expect(
+				readdirSync(join(marketplace, "plugins/harnessforce/cli")).sort(),
+			).toEqual([cliTarball, semconvTarball]));
+
+		// semconvはnpmに無い場合があるため、CLIの依存は同梱したsemconvのversionで満たせる必要がある。
+		it("pins the CLI dependency to the shipped semconv, without workspace specifiers", () => {
+			const packed = readJson(join(unpack(cliTarball), "package.json"));
+			expect(packed.dependencies["@harnessforce/semconv"]).toBe(
+				semconv.version,
+			);
+			expect(JSON.stringify(packed.dependencies)).not.toContain("workspace:");
+			expect(
+				readJson(join(unpack(semconvTarball), "package.json")),
+			).toMatchObject({ name: "@harnessforce/semconv" });
+		});
+
+		it("carries the same connection URL as the MCP server", () => {
+			const { url } = readJson(
+				join(unpack(cliTarball), "dist/build-config.json"),
+			);
+			expect(
+				readJson(join(marketplace, "plugins/harnessforce/.mcp.json")).mcpServers
+					.harnessforce.url,
+			).toBe(`${url.replace(/\/+$/, "")}/mcp`);
+		});
+	});
+
 	// hookは`${CLAUDE_PLUGIN_ROOT}`だけを頼りに起動するため、entryが読む本体は分割せず1つのfileにする。
 	it("ships the hook as the entry and a single main bundle", () =>
 		expect(
