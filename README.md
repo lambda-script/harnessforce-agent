@@ -44,12 +44,32 @@ sent, only their hashes. Nothing is sent when there are no components, and the s
 when collection takes over 1 second or finds more than 1,000 components. The collector lives in
 `packages/agent-core/src/config`, shared with `hf run` so it can compute the same snapshot ID.
 
-The hook scripts exist only in the build output. `HARNESSFORCE_BUILD_URL=<apps/web base URL> pnpm build`
-writes a marketplace directory to
-`plugins/harnessforce/dist/marketplace`; register it with
-`/plugin marketplace add <absolute path to plugins/harnessforce/dist/marketplace>` and then
-`/plugin install harnessforce@harnessforce-agent`. The copy of the plugin in this repository has no
-hooks. Public distribution starts once the production domain is decided.
+## Plugin build output
+
+`HARNESSFORCE_BUILD_URL=<apps/web base URL> pnpm build` writes a marketplace directory to
+`plugins/harnessforce/dist/marketplace`. The build fails without the URL. The same value becomes the
+default connection of `hf` and the plugin's MCP server URL, so the two never disagree. The plugin in
+the output contains:
+
+- `hooks/hooks.json` and `scripts/`: the session registration hooks above.
+- `.mcp.json`: the Harnessforce MCP server `harnessforce` at `<HARNESSFORCE_BUILD_URL>/mcp` over HTTP.
+  Claude Code asks you to log in with the browser and pick a Workspace the first time a tool is used.
+- `skills/record-run/SKILL.md`: an [Agent Skills](https://agentskills.io) skill that tells the agent to
+  register the session with `start_run`, read the issue with `get_issue`, record a plan with
+  `record_plan` when there is none, record decisions with `record_decision`, and report the Definition
+  of Done with `complete_run`.
+- `commands/setup.md` (`/harnessforce:setup`): checks for Node.js 18 or later, installs the CLI, runs
+  `hf init` and `hf import`, asks you to restart Claude Code, and after the restart helps you confirm
+  that the first event arrived.
+- `cli/`: the `@harnessforce/cli` and `@harnessforce/semconv` tarballs from the same build.
+  `/harnessforce:setup` in the build output installs these
+  (`npm install -g <semconv tarball> <cli tarball>`) instead of the CLI on npm.
+
+Register the output with
+`/plugin marketplace add <absolute path to plugins/harnessforce/dist/marketplace>`, then run
+`/plugin install harnessforce@harnessforce-agent` and `/harnessforce:setup`. The copy of the plugin in
+this repository has no hooks and no MCP server, and its `/harnessforce:setup` installs
+`@harnessforce/cli` from npm. Public distribution starts once the production domain is decided.
 
 ## CLI credentials (`hf init`, `hf otel-headers`)
 
@@ -100,7 +120,8 @@ the refreshed token is also answered with 401, they stop with
 「ログインの有効期限が切れました。`hf init`を実行してください」.
 
 The default base URL is a build input: `HARNESSFORCE_BUILD_URL=<apps/web base URL> pnpm build`.
-The build fails without it. The value must be `https:`, or `http:` for localhost.
+The build fails without it. The value must be `https:`, or `http:` for localhost. The plugin build
+uses the same value for its MCP server URL.
 
 ## Launching an agent for an Issue (`hf run`)
 
