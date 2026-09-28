@@ -15,7 +15,18 @@ describe("ingest issue", () => {
 	it("accepts a 300-character identifier", () =>
 		expect(issue({ ...ingestIssue, identifier: "x".repeat(300) })).toBe(true));
 	it.each([
+		"https://sheets.example.test/d/42",
+		"http://tracker.example.test/OPS-7",
+		"HTTPS://tracker.example.test/OPS-7",
+	])("accepts the url %s", (url) =>
+		expect(issue({ ...ingestIssue, url })).toBe(true));
+	it.each([
 		["a 301-character identifier", { identifier: "x".repeat(301) }],
+		// 画面にlinkとして出すため、http/https以外のschemeを受け付けない。
+		["a javascript: url", { url: "javascript:alert(1)" }],
+		["a data: url", { url: "data:text/html;base64,PHNjcmlwdD4=" }],
+		["an ftp: url", { url: "ftp://files.example.test/OPS-7" }],
+		["a relative url", { url: "/issues/OPS-7" }],
 		["unknown status_category", { status_category: "in_review" }],
 		["due_on as an instant", { due_on: "2026-10-01T00:00:00Z" }],
 		[

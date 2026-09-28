@@ -55,7 +55,14 @@ export const IngestIssueSchema = Type.Object(
 		priority: Type.Optional(Type.String({ maxLength: 100 })),
 		due_on: Type.Optional(CalendarDate),
 		parent_external_id: Type.Optional(Token()),
-		url: Type.Optional(Type.String({ format: "uri", maxLength: 2048 })),
+		// 画面にlinkとして出すため、schemeはhttpとhttpsに限る（semantic-conventions.md「Issue」）。WHATWG URLはschemeを小文字へ揃えるため大文字も許す。
+		url: Type.Optional(
+			Type.String({
+				format: "uri",
+				pattern: "^[Hh][Tt][Tt][Pp][Ss]?:",
+				maxLength: 2048,
+			}),
+		),
 		source_updated_at: Instant,
 	},
 	{ $id: schemaId("ingest-issue"), ...closed },
