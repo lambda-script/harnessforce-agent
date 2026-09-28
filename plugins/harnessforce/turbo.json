@@ -11,7 +11,8 @@
 				"$TURBO_ROOT$/.claude-plugin/marketplace.json",
 				"$TURBO_ROOT$/LICENSE"
 			],
-			"outputs": ["dist/**"]
+			"outputs": ["dist/**"],
+			"env": ["HARNESSFORCE_BUILD_URL"]
 		}
 	}
 }

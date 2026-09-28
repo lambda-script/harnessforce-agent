@@ -1,10 +1,21 @@
-import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { execFileSync } from "node:child_process";
+import {
+	copyFileSync,
+	cpSync,
+	mkdirSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseAllowedUrl, underBase } from "@harnessforce/agent-core/url";
+import { buildConfigFrom } from "@harnessforce/cli/scripts/build-config.mjs";
 import { build } from "tsdown";
 
 const pluginDir = fileURLToPath(new URL(".", import.meta.url));
 const repoRoot = join(pluginDir, "../..");
+const cliDir = join(repoRoot, "packages/cli");
 const HOOK_ENTRY = "scripts/harnessforce-hook.cjs";
 // Claude Codeがexec形式のargsで展開するplaceholder。
 // biome-ignore lint/suspicious/noTemplateCurlyInString: JSのtemplateではなくClaude Codeのplaceholderである。
@@ -37,6 +48,63 @@ const hooksJson = () => ({
 	),
 });
 
+/**
+ * correlation.md「接続先」: MCP serverのURLとCLIの既定の接続先は、同じbuildの入力から作る。
+ * 同梱するCLIが別の値でbuildされていれば、2つが食い違うため失敗させる。
+ */
+function connectionUrl() {
+	const { url } = buildConfigFrom(process.env);
+	const cliConfig = JSON.parse(
+		readFileSync(join(cliDir, "dist/build-config.json"), "utf8"),
+	);
+	if (cliConfig.url !== url)
+		throw new Error(
+			"packages/cli was built with a different HARNESSFORCE_BUILD_URL; build it again with the same value",
+		);
+	return parseAllowedUrl(url);
+}
+
+const mcpJson = (connection) => ({
+	mcpServers: {
+		harnessforce: { type: "http", url: underBase(connection, "mcp").href },
+	},
+});
+
+/**
+ * environments.md「接続先」: stagingの検証者は、CLIも同じbuildの出力から導入する。
+ * CLIが依存するsemconvはnpmに無い場合があるため、同じversionのtarballを一緒に置く。
+ * `pnpm pack`はworkspaceの依存をそのversionへ書き換える。
+ */
+function packCli(destination) {
+	const pnpm = process.env.npm_execpath;
+	if (!pnpm) throw new Error("Run the plugin build through pnpm (pnpm build)");
+	const [command, prefix] = /\.[cm]?js$/.test(pnpm)
+		? [process.execPath, [pnpm]]
+		: [pnpm, []];
+	return ["packages/semconv", "packages/cli"].map((dir) => {
+		const packed = execFileSync(
+			command,
+			[...prefix, "pack", "--json", "--pack-destination", destination],
+			{ cwd: join(repoRoot, dir), encoding: "utf8" },
+		);
+		return basename(JSON.parse(packed).filename);
+	});
+}
+
+// public（repositoryのcopy）はnpmのCLIを導入する。buildの出力のsetupは、同梱したtarballを導入する。
+const NPM_INSTALL = "npm install -g @harnessforce/cli";
+
+function writeSetupCommand(to, tarballs) {
+	const source = readFileSync(join(pluginDir, "commands/setup.md"), "utf8");
+	if (!source.includes(NPM_INSTALL))
+		throw new Error(`commands/setup.md must contain "${NPM_INSTALL}"`);
+	const shipped = tarballs
+		.map((tarball) => `"${PLUGIN_ROOT}/cli/${tarball}"`)
+		.join(" ");
+	mkdirSync(dirname(to), { recursive: true });
+	writeFileSync(to, source.replace(NPM_INSTALL, `npm install -g ${shipped}`));
+}
+
 function copy(from, to) {
 	mkdirSync(dirname(to), { recursive: true });
 	copyFileSync(from, to);
@@ -48,6 +116,7 @@ function copy(from, to) {
  * repositoryのhooks/hooks.jsonは空のままにし、scriptを持つこの出力にだけhookを配線する。
  */
 async function buildMarketplace() {
+	const connection = connectionUrl();
 	const outDir = join(pluginDir, "dist/marketplace");
 	const plugin = join(outDir, "plugins/harnessforce");
 	rmSync(outDir, { recursive: true, force: true });
@@ -60,10 +129,21 @@ async function buildMarketplace() {
 		join(plugin, ".claude-plugin/plugin.json"),
 	);
 	copy(join(repoRoot, "LICENSE"), join(plugin, "LICENSE"));
+	cpSync(join(pluginDir, "skills"), join(plugin, "skills"), {
+		recursive: true,
+	});
+	writeFileSync(
+		join(plugin, ".mcp.json"),
+		`${JSON.stringify(mcpJson(connection), null, 2)}\n`,
+	);
 	mkdirSync(join(plugin, "hooks"), { recursive: true });
 	writeFileSync(
 		join(plugin, "hooks/hooks.json"),
 		`${JSON.stringify(hooksJson(), null, 2)}\n`,
+	);
+	writeSetupCommand(
+		join(plugin, "commands/setup.md"),
+		packCli(join(plugin, "cli")),
 	);
 	copy(join(pluginDir, "src/entry.cjs"), join(plugin, HOOK_ENTRY));
 	await build({

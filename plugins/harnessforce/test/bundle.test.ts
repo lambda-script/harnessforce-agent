@@ -212,6 +212,107 @@ describe("built marketplace", () => {
 		expect(existsSync(hookScript)).toBe(true);
 	});
 
+	// correlation.md「接続先」: MCP serverのURLはCLIの既定の接続先と同じbuildの入力から作る。
+	it("declares the MCP server at <connection>/mcp over HTTP, from the CLI's build input", () => {
+		const { url } = readJson(
+			fileURLToPath(
+				new URL(
+					"../../../packages/cli/dist/build-config.json",
+					import.meta.url,
+				),
+			),
+		);
+		expect(
+			readJson(join(marketplace, "plugins/harnessforce/.mcp.json")),
+		).toEqual({
+			mcpServers: {
+				harnessforce: { type: "http", url: `${url.replace(/\/+$/, "")}/mcp` },
+			},
+		});
+	});
+
+	it("bundles the run recording skill unchanged", () =>
+		expect(
+			readFileSync(
+				join(marketplace, "plugins/harnessforce/skills/record-run/SKILL.md"),
+				"utf8",
+			),
+		).toBe(
+			readFileSync(
+				new URL("../skills/record-run/SKILL.md", import.meta.url),
+				"utf8",
+			),
+		));
+
+	// environments.md「接続先」: stagingのbuildでは、CLIも同じbuildの出力から導入する。
+	describe("CLI packages", () => {
+		const packageJsonOf = (name: string) =>
+			readJson(
+				fileURLToPath(
+					new URL(`../../../packages/${name}/package.json`, import.meta.url),
+				),
+			);
+		const cli = packageJsonOf("cli");
+		const semconv = packageJsonOf("semconv");
+		const cliTarball = `harnessforce-cli-${cli.version}.tgz`;
+		const semconvTarball = `harnessforce-semconv-${semconv.version}.tgz`;
+		const unpack = (tarball: string) => {
+			const dir = tempDir("hf-unpacked-");
+			// GNU tarは"C:"で始まるarchiveのpathを別のhostと解釈するため、相対pathで渡す。
+			execFileSync("tar", ["-xzf", tarball, "-C", dir], {
+				cwd: join(marketplace, "plugins/harnessforce/cli"),
+			});
+			return join(dir, "package");
+		};
+
+		it("ships the CLI and the semconv package it depends on", () =>
+			expect(
+				readdirSync(join(marketplace, "plugins/harnessforce/cli")).sort(),
+			).toEqual([cliTarball, semconvTarball]));
+
+		// semconvはnpmに無い場合があるため、CLIの依存は同梱したsemconvのversionで満たせる必要がある。
+		it("pins the CLI dependency to the shipped semconv, without workspace specifiers", () => {
+			const packed = readJson(join(unpack(cliTarball), "package.json"));
+			expect(packed.dependencies["@harnessforce/semconv"]).toBe(
+				semconv.version,
+			);
+			expect(JSON.stringify(packed.dependencies)).not.toContain("workspace:");
+			expect(
+				readJson(join(unpack(semconvTarball), "package.json")),
+			).toMatchObject({ name: "@harnessforce/semconv" });
+		});
+
+		// onboarding.md: `staging_build`で案内するbuildの`/harnessforce:setup`は、CLIを同じbuildの出力から導入する。
+		it("makes /harnessforce:setup install the shipped CLI instead of the npm one", () => {
+			const pluginRoot = ["$", "{CLAUDE_PLUGIN_ROOT}"].join("");
+			const source = readFileSync(
+				new URL("../commands/setup.md", import.meta.url),
+				"utf8",
+			);
+			expect(
+				readFileSync(
+					join(marketplace, "plugins/harnessforce/commands/setup.md"),
+					"utf8",
+				),
+			).toBe(
+				source.replace(
+					"npm install -g @harnessforce/cli",
+					`npm install -g "${pluginRoot}/cli/${semconvTarball}" "${pluginRoot}/cli/${cliTarball}"`,
+				),
+			);
+		});
+
+		it("carries the same connection URL as the MCP server", () => {
+			const { url } = readJson(
+				join(unpack(cliTarball), "dist/build-config.json"),
+			);
+			expect(
+				readJson(join(marketplace, "plugins/harnessforce/.mcp.json")).mcpServers
+					.harnessforce.url,
+			).toBe(`${url.replace(/\/+$/, "")}/mcp`);
+		});
+	});
+
 	// hookは`${CLAUDE_PLUGIN_ROOT}`だけを頼りに起動するため、entryが読む本体は分割せず1つのfileにする。
 	it("ships the hook as the entry and a single main bundle", () =>
 		expect(

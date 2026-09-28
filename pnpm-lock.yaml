@@ -138,6 +138,9 @@ importers:
       '@harnessforce/agent-core':
         specifier: workspace:*
         version: link:../../packages/agent-core
+      '@harnessforce/cli':
+        specifier: workspace:*
+        version: link:../../packages/cli
       '@harnessforce/semconv':
         specifier: workspace:*
         version: link:../../packages/semconv
