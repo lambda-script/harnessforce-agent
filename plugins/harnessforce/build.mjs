@@ -1,7 +1,7 @@
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { build } from "esbuild";
+import { build } from "tsdown";
 
 const pluginDir = fileURLToPath(new URL(".", import.meta.url));
 const repoRoot = join(pluginDir, "../..");
@@ -67,14 +67,18 @@ async function buildMarketplace() {
 	);
 	copy(join(pluginDir, "src/entry.cjs"), join(plugin, HOOK_ENTRY));
 	await build({
-		entryPoints: [join(pluginDir, "src/main.ts")],
-		outfile: join(plugin, "scripts/harnessforce-hook-main.cjs"),
-		bundle: true,
+		config: false,
+		cwd: pluginDir,
+		entry: { "harnessforce-hook-main": join(pluginDir, "src/main.ts") },
+		outDir: join(plugin, "scripts"),
+		// outDirには先に写したentryがある。出力全体の掃除は冒頭のrmSyncが担う。
+		clean: false,
 		platform: "node",
 		format: "cjs",
+		fixedExtension: true,
 		target: "node18",
-		legalComments: "none",
-		logLevel: "warning",
+		dts: false,
+		logLevel: "warn",
 	});
 }
 

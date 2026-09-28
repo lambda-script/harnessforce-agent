@@ -5,6 +5,7 @@ import {
 	existsSync,
 	mkdirSync,
 	mkdtempSync,
+	readdirSync,
 	readFileSync,
 	realpathSync,
 	rmSync,
@@ -210,6 +211,12 @@ describe("built marketplace", () => {
 		]);
 		expect(existsSync(hookScript)).toBe(true);
 	});
+
+	// hookは`${CLAUDE_PLUGIN_ROOT}`だけを頼りに起動するため、entryが読む本体は分割せず1つのfileにする。
+	it("ships the hook as the entry and a single main bundle", () =>
+		expect(
+			readdirSync(join(marketplace, "plugins/harnessforce/scripts")).sort(),
+		).toEqual(["harnessforce-hook-main.cjs", "harnessforce-hook.cjs"]));
 });
 
 // bundleは端末の実際のmanaged settingsを読む。Workspace用のkeyを配られた端末では、testの送信がそのkeyで本番の送信先へ届くため実行しない。
