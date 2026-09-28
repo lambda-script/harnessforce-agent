@@ -11,7 +11,11 @@ const event = compile(IngestEventSchema);
 
 describe("ingest issue", () => {
 	it("accepts the example", () => expect(issue(ingestIssue)).toBe(true));
+	// semantic-conventions.md「Issue」: identifierはtoken（300文字まで）。
+	it("accepts a 300-character identifier", () =>
+		expect(issue({ ...ingestIssue, identifier: "x".repeat(300) })).toBe(true));
 	it.each([
+		["a 301-character identifier", { identifier: "x".repeat(301) }],
 		["unknown status_category", { status_category: "in_review" }],
 		["due_on as an instant", { due_on: "2026-10-01T00:00:00Z" }],
 		[

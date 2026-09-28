@@ -45,7 +45,7 @@ export const IngestIssueSchema = Type.Object(
 		external_id: Token(),
 		// 存在しないkeyの要素は拒否する（Harnessforce側でのDB検証。schemaはToken形式だけを保証する）。
 		project_key: Token(),
-		identifier: Type.Optional(Token(64)),
+		identifier: Type.Optional(Token(300)),
 		title: Type.String({ minLength: 1, maxLength: 1000 }),
 		description: Type.Optional(Type.String({ maxLength: 100_000 })),
 		status_category: literals(STATUS_CATEGORIES),
