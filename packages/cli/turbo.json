@@ -4,6 +4,9 @@
 	"tasks": {
 		"build": {
 			"env": ["HARNESSFORCE_BUILD_URL"]
+		},
+		"test": {
+			"dependsOn": ["^build", "build"]
 		}
 	}
 }
