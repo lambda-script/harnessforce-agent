@@ -53,6 +53,20 @@ describe("release workflow", () => {
 		expect(yml).toContain(
 			"HARNESSFORCE_BUILD_URL: ${{ vars.HARNESSFORCE_BUILD_URL }}",
 		));
+	// environments.md「接続先」: 一般への配布はproductionのドメインが記録されるまで対象外とする。
+	it("documents that publishing waits for the production domain", () => {
+		expect(yml).toMatch(
+			/# .*productionのドメイン.*\n(?:\s+#.*\n)*\s+if: vars\.NPM_PUBLISH_ENABLED/,
+		);
+		const readme = readFileSync(
+			new URL("../README.md", import.meta.url),
+			"utf8",
+		);
+		const releasing = readme.slice(readme.indexOf("## Releasing"));
+		expect(releasing).toMatch(
+			/^Publishing to npmjs is disabled until the production domain is recorded/m,
+		);
+	});
 	it("verifies the registry after publishing", () =>
 		expect(yml).toContain("node scripts/verify-published.mjs"));
 });
