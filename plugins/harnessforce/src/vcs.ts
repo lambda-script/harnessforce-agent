@@ -1,6 +1,5 @@
 import { isAbsolute } from "node:path";
-// package名ではなくsourceをbundleする。package entryはtypeboxのschemaごとbundleに入り、
-// npm scopeを変える（scripts/set-npm-scope.mjs）とpackage名のimportが壊れるためである。
+// package名ではなくsourceをbundleする。package entryはtypeboxのschemaごとbundleに入るためである。
 import { normalizeRepository } from "../../../packages/semconv/src/repository.js";
 
 // gitが失敗、または出力が空ならundefinedを返す。

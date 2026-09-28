@@ -6,9 +6,6 @@
 	"engines": {
 		"node": ">=22.21.1"
 	},
-	"config": {
-		"npmScope": "@harnessforce"
-	},
 	"scripts": {
 		"lint": "turbo run lint lint:root",
 		"lint:root": "biome check .changeset .claude-plugin scripts tests biome.json package.json tsconfig.json turbo.json vitest.config.ts",
@@ -19,7 +16,6 @@
 		"test:root": "vitest run",
 		"build": "turbo run build",
 		"check": "turbo run lint lint:root typecheck typecheck:root test test:root build",
-		"scope:apply": "node scripts/set-npm-scope.mjs",
 		"version-packages": "changeset version",
 		"release": "turbo run build && changeset publish"
 	},
