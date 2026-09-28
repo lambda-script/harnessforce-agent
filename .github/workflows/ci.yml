@@ -30,3 +30,59 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
+
+  test:
+    name: test (${{ matrix.os }}, node ${{ matrix.node || 'from .node-version' }})
+    strategy:
+      # 1つのOSの失敗で他のOSの結果を捨てない。
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+          - os: windows-latest
+          - os: ubuntu-24.04
+            node: 24
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    env:
+      HARNESSFORCE_BUILD_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          # node-versionが空ならnode-version-fileを使う。
+          node-version: ${{ matrix.node }}
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo run test --filter=@harnessforce/cli --filter=harnessforce-plugin
+
+  # correlation.md「実行環境」: hookは端末のNode.js 18以上で動き、hfも同じNode.jsで起動される。
+  # 開発とbuildは.node-versionのNode.jsで行い、build済みの成果物だけを18で実行する。
+  node18-runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      HARNESSFORCE_BUILD_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo run build --filter=@harnessforce/cli --filter=harnessforce-plugin
+      - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version: 18
+      - run: node --version | grep '^v18\.'
+      - run: test "$(node packages/cli/dist/bin.js --version)" = "$(node -p 'require("./packages/cli/package.json").version')"
+      # hookは入力が無くても壊れていても、exit 0で終える。
+      - run: node plugins/harnessforce/dist/marketplace/plugins/harnessforce/scripts/harnessforce-hook.cjs session-start < /dev/null
+      - run: echo 'not json' | node plugins/harnessforce/dist/marketplace/plugins/harnessforce/scripts/harnessforce-hook.cjs user-prompt-submit
