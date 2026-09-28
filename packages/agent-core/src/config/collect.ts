@@ -75,91 +75,142 @@ const objectAt = (value: Settings, key: string) => {
 	return isObject(found) ? found : {};
 };
 
-async function collectAll(
-	options: CollectOptions,
-	scope: ScopeFactory,
-	guard: Guard,
-): Promise<void> {
+// 収集元のdirectory。CLAUDE_CONFIG_DIRがあればuserのsettings、plugin、workflowの基点になる。
+type Locations = {
+	projectRoot: string;
+	managedDir: string;
+	homeDir: string;
+	user: string;
+	configDir: string | undefined;
+	config: string;
+	project: string;
+};
+
+type Scopes = Record<"managed" | "user" | "repository" | "local", Scope>;
+
+type AllSettings = Record<keyof Scopes, Settings>;
+
+function locationsOf(options: CollectOptions): Locations {
 	const { projectRoot, managedDir, homeDir } = options;
 	const user = join(homeDir, ".claude");
 	const configDir = absoluteEnv(options.env.CLAUDE_CONFIG_DIR);
-	const config = configDir ?? user;
-	const project = join(projectRoot, ".claude");
-	const managed = scope("managed");
-	const userScope = scope("user");
-	const repository = scope("repository");
-	const local = scope("local");
+	return {
+		projectRoot,
+		managedDir,
+		homeDir,
+		user,
+		configDir,
+		config: configDir ?? user,
+		project: join(projectRoot, ".claude"),
+	};
+}
 
-	await collectRules(managed, managedDir, ["CLAUDE.md"]);
-	await collectLayout(managed, { skills: join(managedDir, ".claude/skills") });
+// CLAUDE.md、rule、skill、agent、command、workflowのfile。
+async function collectFiles(at: Locations, s: Scopes): Promise<void> {
+	const { projectRoot, managedDir, user, project } = at;
+	await collectRules(s.managed, managedDir, ["CLAUDE.md"]);
+	await collectLayout(s.managed, {
+		skills: join(managedDir, ".claude/skills"),
+	});
 	// CLAUDE_CONFIG_DIRが移すと文書化されているのはsettings、plugin、workflowだけ。それ以外のuserのfileは場所が分からないため集めない。
-	if (!configDir) {
-		await collectRules(userScope, user, ["CLAUDE.md"], join(user, "rules"));
-		await collectLayout(userScope, {
+	if (!at.configDir) {
+		await collectRules(s.user, user, ["CLAUDE.md"], join(user, "rules"));
+		await collectLayout(s.user, {
 			skills: join(user, "skills"),
 			agents: join(user, "agents"),
 			commands: join(user, "commands"),
 		});
 	}
-	await collectLayout(userScope, { workflows: join(config, "workflows") });
+	await collectLayout(s.user, { workflows: join(at.config, "workflows") });
 	await collectRules(
-		repository,
+		s.repository,
 		projectRoot,
 		["CLAUDE.md", ".claude/CLAUDE.md"],
 		join(project, "rules"),
 	);
-	await collectLayout(repository, {
+	await collectLayout(s.repository, {
 		skills: join(project, "skills"),
 		agents: join(project, "agents"),
 		commands: join(project, "commands"),
 		workflows: join(project, "workflows"),
 	});
-	await collectRules(local, projectRoot, ["CLAUDE.local.md"]);
+	await collectRules(s.local, projectRoot, ["CLAUDE.local.md"]);
+}
 
-	const settings = {
-		managed: await readManagedSettings(managedDir, guard),
-		user: await readJsonObjectFile(join(config, "settings.json"), guard),
-		repository: await readJsonObjectFile(join(project, "settings.json"), guard),
+async function readAllSettings(
+	at: Locations,
+	guard: Guard,
+): Promise<AllSettings> {
+	return {
+		managed: await readManagedSettings(at.managedDir, guard),
+		user: await readJsonObjectFile(join(at.config, "settings.json"), guard),
+		repository: await readJsonObjectFile(
+			join(at.project, "settings.json"),
+			guard,
+		),
 		local: await readJsonObjectFile(
-			join(project, "settings.local.json"),
+			join(at.project, "settings.local.json"),
 			guard,
 		),
 	};
-	collectSettings(managed, settings.managed);
-	collectSettings(userScope, settings.user);
-	collectSettings(repository, settings.repository);
-	collectSettings(local, settings.local);
+}
 
+async function collectAllMcpServers(
+	at: Locations,
+	s: Scopes,
+	settings: AllSettings,
+	guard: Guard,
+): Promise<void> {
 	const managedMcp = await readJsonObjectFile(
-		join(managedDir, "managed-mcp.json"),
+		join(at.managedDir, "managed-mcp.json"),
 		guard,
 	);
 	// 同じ名前はmanaged-mcp.jsonの値を採る。
-	collectMcpServers(managed, {
+	collectMcpServers(s.managed, {
 		...objectAt(settings.managed, "managedMcpServers"),
 		...objectAt(managedMcp, "mcpServers"),
 	});
 	const projectMcp = await readJsonObjectFile(
-		join(projectRoot, ".mcp.json"),
+		join(at.projectRoot, ".mcp.json"),
 		guard,
 	);
-	collectMcpServers(repository, projectMcp?.mcpServers);
+	collectMcpServers(s.repository, projectMcp?.mcpServers);
 	// CLAUDE_CONFIG_DIRがある場合の.claude.jsonの場所は文書化されていないため読まない。
-	if (!configDir) {
+	if (!at.configDir) {
 		const global = await readJsonObjectFile(
-			join(homeDir, ".claude.json"),
+			join(at.homeDir, ".claude.json"),
 			guard,
 		);
-		collectMcpServers(userScope, global?.mcpServers);
+		collectMcpServers(s.user, global?.mcpServers);
 		collectMcpServers(
-			local,
-			objectAt(objectAt(global, "projects"), projectRoot).mcpServers,
+			s.local,
+			objectAt(objectAt(global, "projects"), at.projectRoot).mcpServers,
 		);
 	}
+}
 
+async function collectAll(
+	options: CollectOptions,
+	scope: ScopeFactory,
+	guard: Guard,
+): Promise<void> {
+	const at = locationsOf(options);
+	const scopes: Scopes = {
+		managed: scope("managed"),
+		user: scope("user"),
+		repository: scope("repository"),
+		local: scope("local"),
+	};
+	await collectFiles(at, scopes);
+	const settings = await readAllSettings(at, guard);
+	collectSettings(scopes.managed, settings.managed);
+	collectSettings(scopes.user, settings.user);
+	collectSettings(scopes.repository, settings.repository);
+	collectSettings(scopes.local, settings.local);
+	await collectAllMcpServers(at, scopes, settings, guard);
 	await collectPlugins(
 		absoluteEnv(options.env.CLAUDE_CODE_PLUGIN_CACHE_DIR) ??
-			join(config, "plugins"),
+			join(at.config, "plugins"),
 		// enabledPluginsを重ねる順（後ほど優先度が高い）。
 		[settings.user, settings.repository, settings.local, settings.managed],
 		scope,
