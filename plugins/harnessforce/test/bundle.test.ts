@@ -282,6 +282,26 @@ describe("built marketplace", () => {
 			).toMatchObject({ name: "@harnessforce/semconv" });
 		});
 
+		// onboarding.md: `staging_build`で案内するbuildの`/harnessforce:setup`は、CLIを同じbuildの出力から導入する。
+		it("makes /harnessforce:setup install the shipped CLI instead of the npm one", () => {
+			const pluginRoot = ["$", "{CLAUDE_PLUGIN_ROOT}"].join("");
+			const source = readFileSync(
+				new URL("../commands/setup.md", import.meta.url),
+				"utf8",
+			);
+			expect(
+				readFileSync(
+					join(marketplace, "plugins/harnessforce/commands/setup.md"),
+					"utf8",
+				),
+			).toBe(
+				source.replace(
+					"npm install -g @harnessforce/cli",
+					`npm install -g "${pluginRoot}/cli/${semconvTarball}" "${pluginRoot}/cli/${cliTarball}"`,
+				),
+			);
+		});
+
 		it("carries the same connection URL as the MCP server", () => {
 			const { url } = readJson(
 				join(unpack(cliTarball), "dist/build-config.json"),

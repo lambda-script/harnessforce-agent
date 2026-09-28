@@ -7,7 +7,7 @@ import {
 	rmSync,
 	writeFileSync,
 } from "node:fs";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseAllowedUrl, underBase } from "@harnessforce/agent-core/url";
 import { buildConfigFrom } from "@harnessforce/cli/scripts/build-config.mjs";
@@ -81,15 +81,28 @@ function packCli(destination) {
 	const [command, prefix] = /\.[cm]?js$/.test(pnpm)
 		? [process.execPath, [pnpm]]
 		: [pnpm, []];
-	for (const dir of ["packages/semconv", "packages/cli"])
-		execFileSync(
+	return ["packages/semconv", "packages/cli"].map((dir) => {
+		const packed = execFileSync(
 			command,
-			[...prefix, "pack", "--pack-destination", destination],
-			{
-				cwd: join(repoRoot, dir),
-				stdio: ["ignore", "ignore", "inherit"],
-			},
+			[...prefix, "pack", "--json", "--pack-destination", destination],
+			{ cwd: join(repoRoot, dir), encoding: "utf8" },
 		);
+		return basename(JSON.parse(packed).filename);
+	});
+}
+
+// public（repositoryのcopy）はnpmのCLIを導入する。buildの出力のsetupは、同梱したtarballを導入する。
+const NPM_INSTALL = "npm install -g @harnessforce/cli";
+
+function writeSetupCommand(to, tarballs) {
+	const source = readFileSync(join(pluginDir, "commands/setup.md"), "utf8");
+	if (!source.includes(NPM_INSTALL))
+		throw new Error(`commands/setup.md must contain "${NPM_INSTALL}"`);
+	const shipped = tarballs
+		.map((tarball) => `"${PLUGIN_ROOT}/cli/${tarball}"`)
+		.join(" ");
+	mkdirSync(dirname(to), { recursive: true });
+	writeFileSync(to, source.replace(NPM_INSTALL, `npm install -g ${shipped}`));
 }
 
 function copy(from, to) {
@@ -128,7 +141,10 @@ async function buildMarketplace() {
 		join(plugin, "hooks/hooks.json"),
 		`${JSON.stringify(hooksJson(), null, 2)}\n`,
 	);
-	packCli(join(plugin, "cli"));
+	writeSetupCommand(
+		join(plugin, "commands/setup.md"),
+		packCli(join(plugin, "cli")),
+	);
 	copy(join(pluginDir, "src/entry.cjs"), join(plugin, HOOK_ENTRY));
 	await build({
 		config: false,

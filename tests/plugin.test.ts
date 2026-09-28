@@ -102,3 +102,41 @@ describe("run recording skill", () => {
 	it("tells the agent that its records stay proposed until a person approves them", () =>
 		expect(body).toMatch(/`proposed`[^\n]*承認/));
 });
+
+// onboarding.md「チェックリスト」の手順4「自分の端末で設定する」。
+describe("setup command", () => {
+	const { frontmatter, body } = splitFrontmatter(
+		readText("plugins/harnessforce/commands/setup.md"),
+	);
+	const NODE_REQUIRED =
+		"pluginのhookにはNode.js 18以上が必要です。Node.jsを導入してからClaude Codeを再起動し、もう一度`/harnessforce:setup`を実行してください";
+
+	it("describes itself for the command list", () =>
+		expect(frontmatter.description).toEqual(expect.any(String)));
+
+	it("checks Node.js 18 first and stops with the onboarding message", () => {
+		expect(body).toContain("`node --version`");
+		expect(body).toContain("18未満");
+		expect(body).toContain(NODE_REQUIRED);
+		expect(body.indexOf("`node --version`")).toBeLessThan(
+			body.indexOf("npm install -g"),
+		);
+	});
+
+	// publicの経路: 公開したCLIをnpmから導入する（environments.md「接続先」）。
+	it("installs the published CLI from npm in the repository copy", () =>
+		expect(body).toContain("npm install -g @harnessforce/cli"));
+
+	it("runs hf init and hf import, then asks for a restart before confirming the first event", () => {
+		// 導入より前には、Node.jsの文言と再起動後の判定がこれらの語を含む。
+		const afterInstall = body.slice(body.indexOf("npm install -g"));
+		const positions = indexesOf(afterInstall, [
+			"`hf init`",
+			"`hf import`",
+			"再起動",
+			"最初のイベント",
+		]);
+		expect(positions.every((position) => position >= 0)).toBe(true);
+		expect(positions).toEqual([...positions].sort((a, b) => a - b));
+	});
+});
