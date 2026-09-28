@@ -1,6 +1,6 @@
 import { access, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { SessionRegistration } from "../../../packages/semconv/src/schemas/session-registration.js";
+import type { SessionRegistration } from "@harnessforce/semconv";
 
 // scratchpad_dirがsessionごとに分かれるとは記載されていないため、fileの名前にsession_idを含める（correlation.md「hook」）。
 export type Scratchpad = { dir: string; sessionId: string };

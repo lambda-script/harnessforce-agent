@@ -1,19 +1,12 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
 import { tempDir } from "@harnessforce/test-support/temp-dir";
+import { writeTree } from "@harnessforce/test-support/write-tree";
 import { hashFileContent, hashValue } from "../../src/config/canonical.js";
 import {
 	type CollectOptions,
 	collectConfig,
 } from "../../src/config/collect.js";
-
-export function writeTree(root: string, files: Record<string, string>): void {
-	for (const [path, content] of Object.entries(files)) {
-		const file = join(root, path);
-		mkdirSync(dirname(file), { recursive: true });
-		writeFileSync(file, content);
-	}
-}
 
 export const fileHash = (content: string) =>
 	hashFileContent(Buffer.from(content, "utf8"));

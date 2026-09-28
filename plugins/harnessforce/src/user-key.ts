@@ -3,7 +3,7 @@ import {
 	commandLineFor,
 	findCommand,
 	type LookupFileSystem,
-} from "../../../packages/cli/src/process/lookup.js";
+} from "@harnessforce/agent-core/process/lookup";
 import type { Env } from "./destination.js";
 
 // `hf otel-headers`でkeychainの利用者用IngestKeyを読んだ結果（correlation.md「実行環境」）。

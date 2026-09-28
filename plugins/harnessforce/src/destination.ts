@@ -1,6 +1,8 @@
-import { parseAllowedUrl } from "../../../packages/cli/src/url.js";
-import type { ConfigSnapshot } from "../../../packages/semconv/src/schemas/config-snapshot.js";
-import type { SessionRegistration } from "../../../packages/semconv/src/schemas/session-registration.js";
+import { parseAllowedUrl } from "@harnessforce/agent-core/url";
+import type {
+	ConfigSnapshot,
+	SessionRegistration,
+} from "@harnessforce/semconv";
 
 export type IngestItem = SessionRegistration | ConfigSnapshot;
 export type Env = Readonly<Record<string, string | undefined>>;

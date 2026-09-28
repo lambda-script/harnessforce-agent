@@ -2,14 +2,17 @@
 import { createRequire } from "node:module";
 import { homedir, tmpdir } from "node:os";
 import { setTimeout as delay } from "node:timers/promises";
+import { managedDirFor } from "@harnessforce/agent-core/managed";
+import { createGitRunner } from "@harnessforce/agent-core/process/git";
+import {
+	spawnSelf,
+	takeStashedRuntimeEnv,
+} from "@harnessforce/agent-core/process/runtime-env";
 import { createOsKeychain } from "./credentials/os-keychain.js";
 import { createImportGit } from "./import/repository.js";
 import { openBrowser } from "./init/browser.js";
 import { startLoopback } from "./init/loopback.js";
 import { run } from "./main.js";
-import { managedDirFor } from "./managed.js";
-import { createGitRunner } from "./process/git.js";
-import { spawnSelf, takeStashedRuntimeEnv } from "./process/runtime-env.js";
 import { relaunchHf } from "./relaunch.js";
 import { launchAgent } from "./run/process.js";
 

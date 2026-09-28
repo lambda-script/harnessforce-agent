@@ -1,6 +1,8 @@
 import { join } from "node:path";
-import { isObject } from "../config/files.js";
-import { absoluteEnv } from "../config/scope.js";
+import { isObject } from "@harnessforce/agent-core/config/files";
+import { absoluteEnv } from "@harnessforce/agent-core/config/scope";
+import { readManagedEnv } from "@harnessforce/agent-core/managed";
+import { parseAllowedUrl } from "@harnessforce/agent-core/url";
 import { parseStoredApiToken } from "../credentials/api-token.js";
 import { createApiTokenSession } from "../credentials/api-token-session.js";
 import {
@@ -14,9 +16,7 @@ import { resolveCliDestinations } from "../destinations.js";
 import type { Fetch } from "../init/http.js";
 import { INIT_MESSAGES } from "../init/messages.js";
 import { readUserSettings, userSettingsPath } from "../init/settings.js";
-import { readManagedEnv } from "../managed.js";
 import type { Env } from "../otel-headers.js";
-import { parseAllowedUrl } from "../url.js";
 import {
 	fetchSessionImportDays,
 	listConnectedRepositories,

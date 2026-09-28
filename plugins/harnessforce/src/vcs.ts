@@ -1,6 +1,5 @@
 import { isAbsolute } from "node:path";
-// package名ではなくsourceをbundleする。package entryはtypeboxのschemaごとbundleに入るためである。
-import { normalizeRepository } from "../../../packages/semconv/src/repository.js";
+import { normalizeRepository } from "@harnessforce/semconv";
 
 // gitが失敗、または出力が空ならundefinedを返す。
 export type RunGit = (

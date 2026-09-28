@@ -4,6 +4,7 @@
 	"description": "Harnessforce semantic conventions: hf.* attributes and ingest JSON Schemas",
 	"license": "Apache-2.0",
 	"type": "module",
+	"sideEffects": false,
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",

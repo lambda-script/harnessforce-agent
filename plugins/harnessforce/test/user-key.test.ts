@@ -1,8 +1,8 @@
 import { chmodSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import type { LookupFileSystem } from "@harnessforce/agent-core/process/lookup";
 import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { describe, expect, it } from "vitest";
-import type { LookupFileSystem } from "../../../packages/cli/src/process/lookup.js";
 import { createUserKeyReader, type ExecHf, execHf } from "../src/user-key.js";
 
 type Call = { file: string; args: readonly string[]; verbatim: boolean };

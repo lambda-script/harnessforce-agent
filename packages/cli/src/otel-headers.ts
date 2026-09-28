@@ -1,10 +1,10 @@
+import { readManagedEnv } from "@harnessforce/agent-core/managed";
+import { parseAllowedUrl } from "@harnessforce/agent-core/url";
 import {
 	ingestKeyAccount,
 	ingestOriginAccount,
 	type Keychain,
 } from "./credentials/keychain.js";
-import { readManagedEnv } from "./managed.js";
-import { parseAllowedUrl } from "./url.js";
 
 export type Env = Readonly<Record<string, string | undefined>>;
 

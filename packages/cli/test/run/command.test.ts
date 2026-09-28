@@ -1,5 +1,5 @@
+import type { LookupFileSystem } from "@harnessforce/agent-core/process/lookup";
 import { describe, expect, it } from "vitest";
-import type { LookupFileSystem } from "../../src/process/lookup.js";
 import { commandLine, resolveAgentFile } from "../../src/run/command.js";
 
 // memory上のfile。Windowsのfile systemと同じく大文字と小文字を区別しない。

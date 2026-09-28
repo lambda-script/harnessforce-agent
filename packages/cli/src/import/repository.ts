@@ -1,7 +1,10 @@
 import { isAbsolute } from "node:path";
+import {
+	createGitRunner,
+	type RunGit,
+} from "@harnessforce/agent-core/process/git";
+import type { Env } from "@harnessforce/agent-core/process/lookup";
 import { normalizeRepository } from "@harnessforce/semconv";
-import { createGitRunner, type RunGit } from "../process/git.js";
-import type { Env } from "../process/lookup.js";
 
 export type { RunGit };
 

@@ -1,4 +1,4 @@
-import { isObject } from "./config/files.js";
+import { isObject } from "@harnessforce/agent-core/config/files";
 import { readUserSettings } from "./init/settings.js";
 import type { Env } from "./otel-headers.js";
 

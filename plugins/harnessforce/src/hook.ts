@@ -1,10 +1,12 @@
 import {
 	COLLECT_BUDGET_MS,
 	collectConfig,
-} from "../../../packages/cli/src/config/collect.js";
-import { readManagedEnv } from "../../../packages/cli/src/managed.js";
-import type { ConfigSnapshot } from "../../../packages/semconv/src/schemas/config-snapshot.js";
-import type { SessionRegistration } from "../../../packages/semconv/src/schemas/session-registration.js";
+} from "@harnessforce/agent-core/config/collect";
+import { readManagedEnv } from "@harnessforce/agent-core/managed";
+import type {
+	ConfigSnapshot,
+	SessionRegistration,
+} from "@harnessforce/semconv";
 import {
 	type Destination,
 	type Env,

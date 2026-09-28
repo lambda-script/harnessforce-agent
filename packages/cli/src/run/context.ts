@@ -1,7 +1,10 @@
 import { isAbsolute } from "node:path";
+import { snapshotId } from "@harnessforce/agent-core/config/canonical";
+import {
+	COLLECT_BUDGET_MS,
+	collectConfig,
+} from "@harnessforce/agent-core/config/collect";
 import { normalizeRepository } from "@harnessforce/semconv";
-import { snapshotId } from "../config/canonical.js";
-import { COLLECT_BUDGET_MS, collectConfig } from "../config/collect.js";
 import type { Env } from "../otel-headers.js";
 
 // gitが失敗、または出力が空ならundefinedを返す。

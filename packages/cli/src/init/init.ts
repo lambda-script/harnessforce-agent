@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { parseAllowedUrl } from "@harnessforce/agent-core/url";
 import {
 	parseStoredApiToken,
 	serializeApiToken,
@@ -13,7 +14,6 @@ import {
 	urlOriginAccount,
 } from "../credentials/keychain.js";
 import type { Env } from "../otel-headers.js";
-import { parseAllowedUrl } from "../url.js";
 import {
 	type CredentialOutcome,
 	type Issued,

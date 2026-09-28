@@ -1,4 +1,4 @@
-import { parseAllowedUrl } from "../url.js";
+import { parseAllowedUrl } from "@harnessforce/agent-core/url";
 import { type Fetch, REQUEST_TIMEOUT_MS, readJsonObject } from "./http.js";
 
 const WELL_KNOWN = "/.well-known/oauth-authorization-server";

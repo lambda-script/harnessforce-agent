@@ -1,12 +1,7 @@
 import { tempDir } from "@harnessforce/test-support/temp-dir";
+import { writeTree } from "@harnessforce/test-support/write-tree";
 import { describe, expect, it } from "vitest";
-import {
-	components,
-	fileHash,
-	fixture,
-	hashValue,
-	writeTree,
-} from "./support.js";
+import { components, fileHash, fixture, hashValue } from "./support.js";
 
 const json = (value: unknown) => JSON.stringify(value);
 const SESSION_START = [{ hooks: [{ type: "command", command: "node" }] }];

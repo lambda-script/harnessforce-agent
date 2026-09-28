@@ -1,8 +1,8 @@
+import { parseAllowedUrl } from "@harnessforce/agent-core/url";
 import {
 	parseTokenPair,
 	type StoredApiToken,
 } from "../credentials/api-token.js";
-import { parseAllowedUrl } from "../url.js";
 import {
 	type Fetch,
 	REQUEST_TIMEOUT_MS,

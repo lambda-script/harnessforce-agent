@@ -1,3 +1,4 @@
+import { parseAllowedUrl } from "@harnessforce/agent-core/url";
 import { parseStoredApiToken } from "../credentials/api-token.js";
 import { createApiTokenSession } from "../credentials/api-token-session.js";
 import {
@@ -11,7 +12,6 @@ import { resolveCliDestinations } from "../destinations.js";
 import type { Fetch } from "../init/http.js";
 import { userSettingsPath } from "../init/settings.js";
 import type { Env } from "../otel-headers.js";
-import { parseAllowedUrl } from "../url.js";
 import { type RunGit, resolveLaunchContext } from "./context.js";
 import { type IssueCandidate, resolveIssue } from "./issues.js";
 import { buildLaunch, type Launch, resourceAttributes } from "./launch.js";

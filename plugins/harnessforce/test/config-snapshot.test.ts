@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { hashFileContent } from "@harnessforce/agent-core/config/canonical";
 import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { describe, expect, it } from "vitest";
-import { hashFileContent } from "../../../packages/cli/src/config/canonical.js";
 import { runHook } from "../src/hook.js";
 import {
 	fakeGit,

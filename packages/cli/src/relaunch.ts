@@ -1,7 +1,7 @@
 import {
 	relaunchWithoutRuntimeVariables,
 	type SpawnSelf,
-} from "./process/runtime-env.js";
+} from "@harnessforce/agent-core/process/runtime-env";
 
 // keyやtokenを送るsubcommand。`hf otel-headers`は通信を行わないため起動し直さない（correlation.md「Node.jsの実行時の変数」）。
 const SENDING_COMMANDS = new Set(["init", "run", "import"]);

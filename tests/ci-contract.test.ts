@@ -36,7 +36,7 @@ describe("ci workflow", () => {
 		expect(runs(check)).toContain("pnpm check");
 	});
 
-	it("tests the cli and the plugin on macOS, Windows and Node.js 24", () => {
+	it("tests the cli, the plugin and their shared core on macOS, Windows and Node.js 24", () => {
 		const test = ci.jobs.test as Job;
 		expect(test.strategy?.["fail-fast"]).toBe(false);
 		expect(test.strategy?.matrix.include).toEqual(
@@ -51,7 +51,7 @@ describe("ci workflow", () => {
 		);
 		expect(runs(test)).toContainEqual(
 			expect.stringMatching(
-				/^pnpm turbo run test --filter=@harnessforce\/cli --filter=harnessforce-plugin$/,
+				/^pnpm turbo run test --filter=@harnessforce\/agent-core --filter=@harnessforce\/cli --filter=harnessforce-plugin$/,
 			),
 		);
 	});

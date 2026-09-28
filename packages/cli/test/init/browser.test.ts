@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
+import type { LookupFileSystem } from "@harnessforce/agent-core/process/lookup";
 import { describe, expect, it } from "vitest";
 import { openBrowser, type SpawnBrowser } from "../../src/init/browser.js";
-import type { LookupFileSystem } from "../../src/process/lookup.js";
 
 const URL_WITH_QUERY = "https://app.example.test/oauth/authorize?a=1&b=2";
 

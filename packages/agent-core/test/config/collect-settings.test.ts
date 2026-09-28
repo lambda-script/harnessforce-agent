@@ -1,6 +1,7 @@
 import { tempDir } from "@harnessforce/test-support/temp-dir";
+import { writeTree } from "@harnessforce/test-support/write-tree";
 import { describe, expect, it } from "vitest";
-import { components, fixture, hashValue, writeTree } from "./support.js";
+import { components, fixture, hashValue } from "./support.js";
 
 const json = (value: unknown) => JSON.stringify(value, null, 2);
 

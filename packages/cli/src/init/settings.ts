@@ -9,8 +9,8 @@ import {
 	writeFile,
 } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { isObject } from "../config/files.js";
-import { absoluteEnv } from "../config/scope.js";
+import { isObject } from "@harnessforce/agent-core/config/files";
+import { absoluteEnv } from "@harnessforce/agent-core/config/scope";
 import type { Env } from "../otel-headers.js";
 
 type Settings = Record<string, unknown>;

@@ -1,9 +1,10 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
+import { writeTree } from "@harnessforce/test-support/write-tree";
 import { describe, expect, it } from "vitest";
 import { collectConfig } from "../../src/config/collect.js";
-import { components, fileHash, fixture, writeTree } from "./support.js";
+import { components, fileHash, fixture } from "./support.js";
 
 const MIB = 1024 * 1024;
 

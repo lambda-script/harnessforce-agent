@@ -5,6 +5,9 @@
 			"entry": ["scripts/*.mjs", "tests/**/*.test.ts"],
 			"project": ["scripts/**", "tests/**", "*.ts"]
 		},
+		"packages/agent-core": {
+			"project": ["src/**", "test/**", "*.ts"]
+		},
 		"packages/cli": {
 			"project": ["src/**", "scripts/**", "test/**", "*.ts"]
 		},

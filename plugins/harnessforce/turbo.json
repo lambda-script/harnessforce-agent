@@ -2,29 +2,14 @@
 	"$schema": "https://turborepo.com/schema.json",
 	"extends": ["//"],
 	"tasks": {
-		"typecheck": {
-			"inputs": [
-				"$TURBO_DEFAULT$",
-				"$TURBO_ROOT$/tsconfig.json",
-				"$TURBO_ROOT$/packages/semconv/src/**",
-				"$TURBO_ROOT$/packages/cli/src/**"
-			]
-		},
 		"test": {
-			"inputs": [
-				"$TURBO_DEFAULT$",
-				"$TURBO_ROOT$/packages/semconv/src/**",
-				"$TURBO_ROOT$/packages/cli/src/**"
-			],
-			"dependsOn": ["build"]
+			"dependsOn": ["^build", "build"]
 		},
 		"build": {
 			"inputs": [
 				"$TURBO_DEFAULT$",
 				"$TURBO_ROOT$/.claude-plugin/marketplace.json",
-				"$TURBO_ROOT$/LICENSE",
-				"$TURBO_ROOT$/packages/semconv/src/**",
-				"$TURBO_ROOT$/packages/cli/src/**"
+				"$TURBO_ROOT$/LICENSE"
 			],
 			"outputs": ["dist/**"]
 		}

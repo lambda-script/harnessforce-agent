@@ -8,7 +8,7 @@ import {
 	writeFile,
 } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { isObject } from "../config/files.js";
+import { isObject } from "@harnessforce/agent-core/config/files";
 
 // correlation.md「session import」: 送り終えたsessionを、Workspaceとingestの送信先の組ごとに記録する。
 // あるWorkspaceや環境へ送り終えたsessionも、別の組へは未送信として扱う。

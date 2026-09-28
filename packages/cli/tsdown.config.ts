@@ -12,5 +12,7 @@ export default defineConfig({
 	deps: {
 		// native moduleはbundleできない。semconvは利用者が同じpackageを直接読むため共有する。
 		neverBundle: ["@napi-rs/keyring", "@harnessforce/semconv"],
+		// agent-coreはnpmへ公開しないsourceのpackageであり、利用者の環境では解決できない。
+		alwaysBundle: [/^@harnessforce\/agent-core\//],
 	},
 });

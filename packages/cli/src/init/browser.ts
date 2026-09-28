@@ -4,7 +4,7 @@ import {
 	type Env,
 	findProgram,
 	type LookupFileSystem,
-} from "../process/lookup.js";
+} from "@harnessforce/agent-core/process/lookup";
 
 export type SpawnBrowser = (
 	command: string,

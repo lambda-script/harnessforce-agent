@@ -6,7 +6,7 @@ import {
 	findCommand,
 	isRunnable,
 	type LookupFileSystem,
-} from "../process/lookup.js";
+} from "@harnessforce/agent-core/process/lookup";
 
 // correlation.md「CLI」の`hf run`の手順7と「commandの解決」。agentのfileを解決し、起動するcommand lineを作る。
 export type ResolveOptions = {

@@ -1,7 +1,7 @@
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 // 実行時と同じ規則を使う。buildのNode.js（.node-version）は型を除いてtsのsourceを読める。
-import { parseAllowedUrl } from "../src/url.ts";
+import { parseAllowedUrl } from "@harnessforce/agent-core/url";
 
 /**
  * correlation.md「接続先」: 接続先はbuildの入力として与え、与えないbuildは失敗させる。既定値で補わない。

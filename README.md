@@ -42,7 +42,7 @@ an identifier, plus a SHA-256 hash:
 File contents, settings values and MCP server configuration (URLs, headers, environment) are never
 sent, only their hashes. Nothing is sent when there are no components, and the snapshot is skipped
 when collection takes over 1 second or finds more than 1,000 components. The collector lives in
-`packages/cli/src/config`, so `hf run` can compute the same snapshot ID.
+`packages/agent-core/src/config`, shared with `hf run` so it can compute the same snapshot ID.
 
 The hook scripts exist only in the build output. `HARNESSFORCE_BUILD_URL=<apps/web base URL> pnpm build`
 writes a marketplace directory to
