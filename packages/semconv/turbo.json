@@ -2,9 +2,6 @@
 	"$schema": "https://turborepo.com/schema.json",
 	"extends": ["//"],
 	"tasks": {
-		"build": {
-			"env": ["HARNESSFORCE_BUILD_URL"]
-		},
 		"test": {
 			"dependsOn": ["^build", "build"]
 		}

@@ -1,0 +1,26 @@
+{
+	"$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+	"workspaces": {
+		".": {
+			"entry": ["scripts/*.mjs", "tests/**/*.test.ts"],
+			"project": ["scripts/**", "tests/**", "*.ts"]
+		},
+		"packages/cli": {
+			"project": ["src/**", "scripts/**", "test/**", "*.ts"]
+		},
+		"packages/semconv": {
+			"entry": ["src/index.ts"],
+			"project": ["src/**", "test/**", "*.ts"]
+		},
+		"plugins/harnessforce": {
+			"entry": ["src/main.ts", "src/entry.cjs"],
+			"project": ["src/**", "test/**", "*.ts", "*.mjs"],
+			// entryと同じdirectoryへbuildが出力するbundleであり、sourceの隣には無い。
+			"ignoreUnresolved": ["./harnessforce-hook-main.cjs"]
+		}
+	},
+	// .mjsのscriptに型を与えるdeclarationであり、tscがimportから読む。
+	"ignore": ["**/*.d.mts"],
+	// testが作るnamed pipeのためのOSのcommandである。
+	"ignoreBinaries": ["mkfifo"]
+}

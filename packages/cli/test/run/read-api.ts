@@ -4,7 +4,7 @@ import { onTestFinished } from "vitest";
 
 export type Reply = { status: number; body?: unknown; delayMs?: number };
 
-export type ReadApiRequest = { url: string; headers: IncomingHttpHeaders };
+type ReadApiRequest = { url: string; headers: IncomingHttpHeaders };
 
 // apps/webのRead APIの代わり。`/issues/{identifier}`と`/issues?query=`だけを持つ。
 export async function startReadApi(

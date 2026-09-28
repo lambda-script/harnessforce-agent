@@ -14,7 +14,7 @@ const MAX_RETRY_AFTER_SECONDS = 60;
 // 上限や課金状態でdropされたsessionは、制限が解除されれば受け付けられるため、送り終えたものとしない。
 const LIMIT_REASONS = new Set(["monthly_event_limit", "workspace_read_only"]);
 
-export type LimitReason = "monthly_event_limit" | "workspace_read_only";
+type LimitReason = "monthly_event_limit" | "workspace_read_only";
 
 export type SendResult =
 	// invalid: schemaに違反したため取り込まれなかったsession（再送しても受け付けられない）。

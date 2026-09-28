@@ -17,6 +17,9 @@
 			"dependsOn": ["^build"]
 		},
 		"//#lint:root": {},
+		"//#knip": {
+			"cache": false
+		},
 		"//#typecheck:root": {},
 		"//#test:root": {
 			"cache": false

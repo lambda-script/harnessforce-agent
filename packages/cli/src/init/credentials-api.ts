@@ -35,7 +35,7 @@ export type CredentialOutcome =
 	| { kind: "gate_unavailable" }
 	| { kind: "ingest_unavailable" }
 	| { kind: "unexpected" };
-export type LimitRole = "owner" | "admin" | "member";
+type LimitRole = "owner" | "admin" | "member";
 
 // control-plane.md「IngestKey と ApiToken」のWorkspaceのidの形式。
 const WORKSPACE_ID = /^[A-Za-z0-9-]{1,128}$/;

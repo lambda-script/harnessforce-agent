@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 
 const read = (p: string) =>
 	JSON.parse(readFileSync(new URL(`../${p}`, import.meta.url), "utf8"));
-const scope = read("package.json").config.npmScope as string;
 const packages = readdirSync(new URL("../packages", import.meta.url)).map(
 	(dir) => ({
 		dir,
@@ -12,8 +11,8 @@ const packages = readdirSync(new URL("../packages", import.meta.url)).map(
 );
 
 describe("release contract", () => {
-	it.each(packages)("$dir uses the single npm scope", ({ dir, pkg }) =>
-		expect(pkg.name).toBe(`${scope}/${dir}`));
+	it.each(packages)("$dir uses the @harnessforce npm scope", ({ dir, pkg }) =>
+		expect(pkg.name).toBe(`@harnessforce/${dir}`));
 
 	it.each(
 		packages,
