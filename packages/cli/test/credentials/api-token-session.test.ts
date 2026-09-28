@@ -149,7 +149,9 @@ describe("an ApiToken session", () => {
 		expect(stored()).toEqual(token("refreshed", NOW + 2 * HOUR));
 		// lockは終えたら消す。directoryは所有者だけが読める。
 		expect(existsSync(tokenLockPath(home))).toBe(false);
-		expect(statSync(dirname(tokenLockPath(home))).mode & 0o777).toBe(0o700);
+		// WindowsはPOSIXのpermission bitを持たず、modeが常に0o666系になる。
+		if (process.platform !== "win32")
+			expect(statSync(dirname(tokenLockPath(home))).mode & 0o777).toBe(0o700);
 	});
 
 	it("refreshes once on unauthorized and retries the same request", async () => {

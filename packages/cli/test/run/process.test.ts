@@ -44,17 +44,21 @@ describe("launchAgent", () => {
 		});
 	});
 
-	it("reports a signal as 128 plus its number", async () =>
-		expect(
-			await launchAgent(
-				{
-					command: process.execPath,
-					args: ["-e", "process.kill(process.pid, 'SIGTERM')"],
-					env: {},
-				},
-				options(),
-			),
-		).toEqual({ kind: "exited", code: 143 }));
+	// Windowsはsignalで終了したprocessをexit code 1として報告し、signalを渡さない。
+	it.skipIf(process.platform === "win32")(
+		"reports a signal as 128 plus its number",
+		async () =>
+			expect(
+				await launchAgent(
+					{
+						command: process.execPath,
+						args: ["-e", "process.kill(process.pid, 'SIGTERM')"],
+						env: {},
+					},
+					options(),
+				),
+			).toEqual({ kind: "exited", code: 143 }),
+	);
 
 	it("fails when the arguments cannot be passed to a process", async () =>
 		expect(

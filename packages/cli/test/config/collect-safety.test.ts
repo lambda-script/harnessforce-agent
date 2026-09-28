@@ -81,18 +81,22 @@ describe("collection safety", () => {
 		expect((await components(f.options)).map((c) => c.id)).toEqual(["p@m:new"]);
 	});
 
-	it("skips the snapshot when two files map to the same identifier", async () => {
-		const f = fixture();
-		f.project({
-			".claude/agents/a/b.md": "nested",
-			".claude/agents/a:b.md": "flat",
-			".claude/agents/c.md": "c",
-		});
-		expect(await collectConfig(f.options)).toEqual({
-			kind: "skipped",
-			reason: "duplicate identifier",
-		});
-	});
+	// Windowsのfile名は`:`を含めず、`a:b.md`と`a/b.md`の衝突を作れない。
+	it.skipIf(process.platform === "win32")(
+		"skips the snapshot when two files map to the same identifier",
+		async () => {
+			const f = fixture();
+			f.project({
+				".claude/agents/a/b.md": "nested",
+				".claude/agents/a:b.md": "flat",
+				".claude/agents/c.md": "c",
+			});
+			expect(await collectConfig(f.options)).toEqual({
+				kind: "skipped",
+				reason: "duplicate identifier",
+			});
+		},
+	);
 
 	it("walks a directory reached again through a symlink cycle only once", async () => {
 		const f = fixture();

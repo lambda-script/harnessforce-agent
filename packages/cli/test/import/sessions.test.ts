@@ -151,14 +151,13 @@ describe("scanSessions", () => {
 		expect(calls.some((call) => call.startsWith("work "))).toBe(false);
 	});
 
-	it("counts skipped lines and unreadable files, and ignores other files", async () => {
+	it("counts skipped lines and ignores other files", async () => {
 		const dir = projects({
 			"-work-web/s1.jsonl": {
 				content: `{broken\n${transcript("s1", "/work/web", "2026-09-20T00:00:00Z")}[]\n`,
 			},
 			// 行を読めてもmodelの応答が無いfileは、読み飛ばしたfileに数えない。
 			"-work-web/empty.jsonl": { content: "{broken\n" },
-			"-work-web/locked.jsonl": { content: "{}\n" },
 			"-work-web/notes.txt": { content: "x" },
 			"-work-web/s1/subagents/agent-1.jsonl": {
 				content: transcript("sub", "/work/web", "2026-09-20T00:00:00Z"),
@@ -167,12 +166,29 @@ describe("scanSessions", () => {
 				content: transcript("top", "/work/web", "2026-09-20T00:00:00Z"),
 			},
 		});
-		chmodSync(join(dir, "-work-web/locked.jsonl"), 0o000);
 		const { git } = fakeGit({ "/work/web": "https://github.com/acme/web" });
 		const result = await scan(dir, git);
 		expect(result.sessions.map((s) => s.session_id)).toEqual(["s1"]);
-		expect(result).toMatchObject({ skippedLines: 3, skippedFiles: 1 });
+		expect(result).toMatchObject({ skippedLines: 3, skippedFiles: 0 });
 	});
+
+	// Windowsではchmod 0o000がreadを拒否せず、開けないfileを作れない。
+	it.skipIf(process.platform === "win32")(
+		"counts unreadable files as skipped",
+		async () => {
+			const dir = projects({
+				"-work-web/s1.jsonl": {
+					content: transcript("s1", "/work/web", "2026-09-20T00:00:00Z"),
+				},
+				"-work-web/locked.jsonl": { content: "{}\n" },
+			});
+			chmodSync(join(dir, "-work-web/locked.jsonl"), 0o000);
+			const { git } = fakeGit({ "/work/web": "https://github.com/acme/web" });
+			const result = await scan(dir, git);
+			expect(result.sessions.map((s) => s.session_id)).toEqual(["s1"]);
+			expect(result).toMatchObject({ skippedLines: 0, skippedFiles: 1 });
+		},
+	);
 
 	it("resolves each cwd once and orders sessions by start", async () => {
 		const later = transcript("b", "/work/web", "2026-09-21T00:00:00Z").replace(

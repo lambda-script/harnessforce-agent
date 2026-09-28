@@ -18,13 +18,13 @@ import { tempDir } from "../config/support.js";
 describe("user settings", () => {
 	it("lives in ~/.claude unless CLAUDE_CONFIG_DIR is an absolute path", () => {
 		expect(userSettingsPath({}, "/home/u")).toBe(
-			"/home/u/.claude/settings.json",
+			join("/home/u", ".claude", "settings.json"),
 		);
 		expect(userSettingsPath({ CLAUDE_CONFIG_DIR: "/cfg" }, "/home/u")).toBe(
-			"/cfg/settings.json",
+			join("/cfg", "settings.json"),
 		);
 		expect(userSettingsPath({ CLAUDE_CONFIG_DIR: "cfg" }, "/home/u")).toBe(
-			"/home/u/.claude/settings.json",
+			join("/home/u", ".claude", "settings.json"),
 		);
 	});
 

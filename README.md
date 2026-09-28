@@ -169,19 +169,26 @@ recorded, that spec keeps distributing the plugin and the CLI to the public out 
 
 1. Confirm the production domain is recorded in `environments.md`. Do not continue before it is.
 2. Create the `@harnessforce` npm organization on npmjs.com.
-3. Create a granular access token with read/write on that scope (publish must bypass 2FA), then:
-   `gh secret set NPM_TOKEN -R lambda-script/harnessforce-agent`
-4. In repository Settings → Actions → General, allow GitHub Actions to create pull requests.
-5. Set the CLI's default connection URL as a repository variable. The `Release` workflow passes
+3. The `Release` workflow authenticates to npm only through trusted publishing (OIDC); the repository
+   holds no npm token. npm attaches a trusted publisher only to a package that already exists, so a
+   maintainer with 2FA publishes each of `@harnessforce/semconv` and `@harnessforce/cli` once as a
+   placeholder: from an empty directory holding only a `package.json` with that `name`, the version
+   `0.0.0-bootstrap.0` and the same `repository` as `packages/<name>/package.json`, run
+   `npm publish --access public`.
+4. Attach the trusted publisher to each package (npm 11.15.0 or later, 2FA required):
+   `npm trust github @harnessforce/<name> --repository lambda-script/harnessforce-agent --file release.yml --allow-publish`
+5. In repository Settings → Actions → General, allow GitHub Actions to create pull requests.
+6. Set the CLI's default connection URL as a repository variable. The `Release` workflow passes
    `vars.HARNESSFORCE_BUILD_URL` to the build, which bakes it into `@harnessforce/cli`
    (`packages/cli/scripts/build-config.mjs`) and fails when it is missing, so a release never falls back
    to a default. Use the production `apps/web` base URL once it is recorded in the Harnessforce
    `docs/specs/infrastructure/environments.md` ("接続先"); staging builds must not be published:
    `gh variable set HARNESSFORCE_BUILD_URL --body https://<apps/web host> -R lambda-script/harnessforce-agent`
-6. `gh variable set NPM_PUBLISH_ENABLED --body true -R lambda-script/harnessforce-agent`
-7. Re-run the latest `Release` workflow on `main`. It publishes 0.1.0 with provenance and fails
+7. `gh variable set NPM_PUBLISH_ENABLED --body true -R lambda-script/harnessforce-agent`
+8. Re-run the latest `Release` workflow on `main`. It publishes 0.1.0 with provenance and fails
    unless `npm view @harnessforce/semconv@0.1.0 version` and `npm view @harnessforce/cli@0.1.0 version` resolve.
-8. Confirm the provenance badge on each package page on npmjs.com.
+9. Confirm the provenance badge on each package page on npmjs.com, then deprecate the placeholders:
+   `npm deprecate @harnessforce/<name>@0.0.0-bootstrap.0 "placeholder for trusted publishing setup"`
 
 Later releases: add a changeset (`pnpm changeset`) in the Delivery PR. Merging to `main` opens the
 "chore: version packages" PR, and merging that PR publishes the packages.
