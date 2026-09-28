@@ -16,7 +16,7 @@ jobs:
     # productionのドメインがHarnessforceのenvironments.md「接続先」に記録され、npm scopeが作られるまで無効にしておく。
     # それまでは一般への配布（npmへのpublish）が対象外である。有効にする手順はREADMEの「Releasing」を参照。
     if: vars.NPM_PUBLISH_ENABLED == 'true'
-    # npm provenanceはGitHub-hosted runnerでしか生成できない。
+    # npmのtrusted publishingとprovenanceはGitHub-hosted runnerでしか使えない。
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -36,8 +36,10 @@ jobs:
         with:
           node-version-file: .node-version
           cache: pnpm
-          registry-url: https://registry.npmjs.org
+          # registry-urlは付けない。setup-nodeが環境変数のtokenを読む.npmrcを書き、trusted publishingのOIDCと競合する。
       - run: pnpm install --frozen-lockfile
+      # changeset publishはpnpm publishを通じてnpm publishを実行する。trusted publishingはnpm 11.5.1以上を要する。
+      - run: npm install -g npm@11.20.0
       - id: changesets
         uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1.9.0
         with:
@@ -47,7 +49,7 @@ jobs:
           title: "chore: version packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # npmへの認証はtrusted publishing（id-token: writeで得るOIDC token）だけで行い、長期のtokenを渡さない。
           NPM_CONFIG_PROVENANCE: "true"
       - name: Verify registry versions
         if: steps.changesets.outputs.published == 'true'
