@@ -2,7 +2,18 @@
 	"name": "@harnessforce/semconv",
 	"version": "0.1.0",
 	"description": "Harnessforce semantic conventions: hf.* attributes and ingest JSON Schemas",
+	"keywords": [
+		"harnessforce",
+		"opentelemetry",
+		"semantic-conventions",
+		"json-schema",
+		"typebox"
+	],
 	"license": "Apache-2.0",
+	"homepage": "https://github.com/lambda-script/harnessforce-agent/tree/main/packages/semconv#readme",
+	"bugs": {
+		"url": "https://github.com/lambda-script/harnessforce-agent/issues"
+	},
 	"type": "module",
 	"sideEffects": false,
 	"exports": {
@@ -14,6 +25,9 @@
 	"files": [
 		"dist"
 	],
+	"engines": {
+		"node": ">=18"
+	},
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/lambda-script/harnessforce-agent.git",

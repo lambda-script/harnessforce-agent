@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 
@@ -34,7 +34,42 @@ describe("release contract", () => {
 		expect(pkg.license).toBe("Apache-2.0");
 		expect(pkg.files).toEqual(["dist"]);
 	});
+
+	// npmはfilesに関係なくpackageのREADMEを同梱し、package pageに表示する。
+	it.each(packages)("$dir links its npm page to the repository", ({
+		dir,
+		pkg,
+	}) => {
+		expect(pkg.homepage).toBe(
+			`https://github.com/lambda-script/harnessforce-agent/tree/main/packages/${dir}#readme`,
+		);
+		expect(pkg.bugs).toEqual({
+			url: "https://github.com/lambda-script/harnessforce-agent/issues",
+		});
+		expect(pkg.keywords).toEqual(expect.arrayContaining(["harnessforce"]));
+		expect(
+			existsSync(new URL(`../packages/${dir}/README.md`, import.meta.url)),
+		).toBe(true);
+	});
+
+	// npmはpackageのdirectoryにあるLICENSEだけを同梱し、rootのLICENSEは同梱しない。
+	it.each(packages)("$dir ships the repository license", ({ dir }) =>
+		expect(
+			readFileSync(
+				new URL(`../packages/${dir}/LICENSE`, import.meta.url),
+				"utf8",
+			),
+		).toBe(readFileSync(new URL("../LICENSE", import.meta.url), "utf8")));
+
+	// correlation.md「実行環境」: hookが使う端末のNode.js 18以上でhfを起動し、hfはsemconvを実行時に読む。
+	it.each(packages)("$dir runs on Node.js 18 and later", ({ pkg }) =>
+		expect(pkg.engines).toEqual({ node: ">=18" }));
 });
+
+// 公開の手順はrunbookにだけ書き、release.ymlのcommentはそこを指す（document-classes）。
+const RUNBOOK = "docs/runbooks/releasing.md";
+const readRunbook = () =>
+	readFileSync(new URL(`../${RUNBOOK}`, import.meta.url), "utf8");
 
 describe("release workflow", () => {
 	const yml = readFileSync(
@@ -89,23 +124,19 @@ describe("release workflow", () => {
 		expect(yml).toMatch(
 			/# .*productionのドメイン.*\n(?:\s+#.*\n)*\s+if: vars\.NPM_PUBLISH_ENABLED/,
 		);
-		const readme = readFileSync(
-			new URL("../README.md", import.meta.url),
-			"utf8",
-		);
-		const releasing = readme.slice(readme.indexOf("## Releasing"));
+		const releasing = readRunbook();
 		expect(releasing).toMatch(
 			/^Publishing to npmjs is disabled until the production domain is recorded/m,
 		);
 	});
 	it("documents trusted publishing as the npm credential", () => {
-		const readme = readFileSync(
-			new URL("../README.md", import.meta.url),
-			"utf8",
-		);
-		const releasing = readme.slice(readme.indexOf("## Releasing"));
+		const releasing = readRunbook();
 		expect(releasing).toContain("trusted publisher");
 		expect(releasing).not.toContain("NPM_TOKEN");
+	});
+	it("points its comments at the release runbook", () => {
+		expect(yml).toContain(RUNBOOK);
+		expect(yml).not.toContain("README");
 	});
 	it("verifies the registry after publishing", () =>
 		expect(yml).toContain("node scripts/verify-published.mjs"));

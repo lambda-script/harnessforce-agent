@@ -8,7 +8,7 @@
 	},
 	"scripts": {
 		"lint": "turbo run lint lint:root",
-		"lint:root": "biome check .changeset .claude-plugin scripts tests biome.json knip.jsonc package.json tsconfig.json turbo.json vitest.config.ts",
+		"lint:root": "biome check .changeset .claude-plugin scripts tests biome.json knip.jsonc package.json renovate.json tsconfig.json turbo.json vitest.config.ts",
 		"knip": "knip",
 		"format": "biome format --write .",
 		"typecheck": "turbo run typecheck typecheck:root",

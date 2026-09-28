@@ -1,0 +1,55 @@
+name: Bug report
+description: Something in the plugin, the hf CLI or the semantic conventions does not work as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not report vulnerabilities here; see SECURITY.md. Remove keys, tokens, prompts and other private data from logs before posting.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - harnessforce plugin (hooks, MCP, setup)
+        - "@harnessforce/cli (hf)"
+        - "@harnessforce/semconv"
+        - Build or development tooling
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Run `hf ...`
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Output
+      description: Relevant output, such as `hf` stderr or lines starting with `harnessforce:` in the Claude Code debug log.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "`hf --version`, the plugin version, or the commit you built."
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, `node --version` and `claude --version`.
+    validations:
+      required: true
