@@ -27,7 +27,7 @@ export function ingestBaseFrom(endpoint: string | undefined): URL | undefined {
 }
 
 // 文字列の連結で組み立てると、"//host"で始まるpathが別のhostとして解釈されるため、hostを変えずにpathだけを書き換える。
-export function ingestUrl(base: URL, path: IngestPath): URL {
+function ingestUrl(base: URL, path: IngestPath): URL {
 	const url = new URL(base.origin);
 	// originだけのbaseのpathnameは"/"になるため、ここでも末尾の/を除く。
 	url.pathname = `${base.pathname.replace(/\/+$/, "")}/${path}`;

@@ -43,7 +43,7 @@ const pathFor = (platform: NodeJS.Platform) =>
 const isBatch = (file: string) => /\.(cmd|bat)$/i.test(file);
 
 // Windowsの環境変数の名前は大文字と小文字を区別しない。testや複製したenvでも同じに読む。
-export function envValue(
+function envValue(
 	env: Env,
 	name: string,
 	platform: NodeJS.Platform,

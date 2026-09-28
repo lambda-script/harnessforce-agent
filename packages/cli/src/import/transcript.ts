@@ -5,7 +5,7 @@ import { createInterface } from "node:readline";
 // （claude-code.md）。解釈を変えたらこのversionを上げ、送るsessionにparser_versionとして付ける。
 export const PARSER_VERSION = "1.0.0";
 
-export type ToolCallSummary = { tool: string; calls: number; failures: number };
+type ToolCallSummary = { tool: string; calls: number; failures: number };
 
 // 取り出すのはsemantic-conventions.md「Session import」の項目の元になる値だけで、本文を持たない。
 export type TranscriptSession = {
