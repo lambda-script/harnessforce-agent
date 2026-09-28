@@ -36,6 +36,11 @@ describe("release contract", () => {
 	});
 });
 
+// 公開の手順はrunbookにだけ書き、release.ymlのcommentはそこを指す（document-classes）。
+const RUNBOOK = "docs/runbooks/releasing.md";
+const readRunbook = () =>
+	readFileSync(new URL(`../${RUNBOOK}`, import.meta.url), "utf8");
+
 describe("release workflow", () => {
 	const yml = readFileSync(
 		new URL("../.github/workflows/release.yml", import.meta.url),
@@ -89,23 +94,19 @@ describe("release workflow", () => {
 		expect(yml).toMatch(
 			/# .*productionのドメイン.*\n(?:\s+#.*\n)*\s+if: vars\.NPM_PUBLISH_ENABLED/,
 		);
-		const readme = readFileSync(
-			new URL("../README.md", import.meta.url),
-			"utf8",
-		);
-		const releasing = readme.slice(readme.indexOf("## Releasing"));
+		const releasing = readRunbook();
 		expect(releasing).toMatch(
 			/^Publishing to npmjs is disabled until the production domain is recorded/m,
 		);
 	});
 	it("documents trusted publishing as the npm credential", () => {
-		const readme = readFileSync(
-			new URL("../README.md", import.meta.url),
-			"utf8",
-		);
-		const releasing = readme.slice(readme.indexOf("## Releasing"));
+		const releasing = readRunbook();
 		expect(releasing).toContain("trusted publisher");
 		expect(releasing).not.toContain("NPM_TOKEN");
+	});
+	it("points its comments at the release runbook", () => {
+		expect(yml).toContain(RUNBOOK);
+		expect(yml).not.toContain("README");
 	});
 	it("verifies the registry after publishing", () =>
 		expect(yml).toContain("node scripts/verify-published.mjs"));

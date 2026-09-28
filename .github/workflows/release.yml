@@ -14,7 +14,7 @@ concurrency:
 jobs:
   release:
     # productionのドメインがHarnessforceのenvironments.md「接続先」に記録され、npm scopeが作られるまで無効にしておく。
-    # それまでは一般への配布（npmへのpublish）が対象外である。有効にする手順はREADMEの「Releasing」を参照。
+    # それまでは一般への配布（npmへのpublish）が対象外である。有効にする手順はdocs/runbooks/releasing.mdを参照。
     if: vars.NPM_PUBLISH_ENABLED == 'true'
     # npmのtrusted publishingとprovenanceはGitHub-hosted runnerでしか使えない。
     runs-on: ubuntu-24.04
@@ -24,7 +24,7 @@ jobs:
       pull-requests: write
       id-token: write
     env:
-      # CLIの既定の接続先（buildの入力）。未設定ならbuildが失敗し、既定値で補わない。設定する値はREADMEの「Releasing」を参照。
+      # CLIの既定の接続先（buildの入力）。未設定ならbuildが失敗し、既定値で補わない。設定する値はdocs/runbooks/releasing.mdを参照。
       HARNESSFORCE_BUILD_URL: ${{ vars.HARNESSFORCE_BUILD_URL }}
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1

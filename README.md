@@ -46,30 +46,7 @@ when collection takes over 1 second or finds more than 1,000 components. The col
 
 ## Plugin build output
 
-`HARNESSFORCE_BUILD_URL=<apps/web base URL> pnpm build` writes a marketplace directory to
-`plugins/harnessforce/dist/marketplace`. The build fails without the URL. The same value becomes the
-default connection of `hf` and the plugin's MCP server URL, so the two never disagree. The plugin in
-the output contains:
-
-- `hooks/hooks.json` and `scripts/`: the session registration hooks above.
-- `.mcp.json`: the Harnessforce MCP server `harnessforce` at `<HARNESSFORCE_BUILD_URL>/mcp` over HTTP.
-  Claude Code asks you to log in with the browser and pick a Workspace the first time a tool is used.
-- `skills/record-run/SKILL.md`: an [Agent Skills](https://agentskills.io) skill that tells the agent to
-  register the session with `start_run`, read the issue with `get_issue`, record a plan with
-  `record_plan` when there is none, record decisions with `record_decision`, and report the Definition
-  of Done with `complete_run`.
-- `commands/setup.md` (`/harnessforce:setup`): checks for Node.js 18 or later, installs the CLI, runs
-  `hf init` and `hf import`, asks you to restart Claude Code, and after the restart helps you confirm
-  that the first event arrived.
-- `cli/`: the `@harnessforce/cli` and `@harnessforce/semconv` tarballs from the same build.
-  `/harnessforce:setup` in the build output installs these
-  (`npm install -g <semconv tarball> <cli tarball>`) instead of the CLI on npm.
-
-Register the output with
-`/plugin marketplace add <absolute path to plugins/harnessforce/dist/marketplace>`, then run
-`/plugin install harnessforce@harnessforce-agent` and `/harnessforce:setup`. The copy of the plugin in
-this repository has no hooks and no MCP server, and its `/harnessforce:setup` installs
-`@harnessforce/cli` from npm. Public distribution starts once the production domain is decided.
+See [Building the local marketplace](docs/runbooks/local-marketplace.md).
 
 ## CLI credentials (`hf init`, `hf otel-headers`)
 
@@ -184,32 +161,4 @@ The Workspace, the connection URL and the ingest endpoint come from `HARNESSFORC
 
 ## Releasing
 
-Publishing to npmjs is disabled until the production domain is recorded in the Harnessforce
-`docs/specs/infrastructure/environments.md` ("接続先") and the npm scope exists. Until the domain is
-recorded, that spec keeps distributing the plugin and the CLI to the public out of scope. To enable it:
-
-1. Confirm the production domain is recorded in `environments.md`. Do not continue before it is.
-2. Create the `@harnessforce` npm organization on npmjs.com.
-3. The `Release` workflow authenticates to npm only through trusted publishing (OIDC); the repository
-   holds no npm token. npm attaches a trusted publisher only to a package that already exists, so a
-   maintainer with 2FA publishes each of `@harnessforce/semconv` and `@harnessforce/cli` once as a
-   placeholder: from an empty directory holding only a `package.json` with that `name`, the version
-   `0.0.0-bootstrap.0` and the same `repository` as `packages/<name>/package.json`, run
-   `npm publish --access public`.
-4. Attach the trusted publisher to each package (npm 11.15.0 or later, 2FA required):
-   `npm trust github @harnessforce/<name> --repository lambda-script/harnessforce-agent --file release.yml --allow-publish`
-5. In repository Settings → Actions → General, allow GitHub Actions to create pull requests.
-6. Set the CLI's default connection URL as a repository variable. The `Release` workflow passes
-   `vars.HARNESSFORCE_BUILD_URL` to the build, which bakes it into `@harnessforce/cli`
-   (`packages/cli/scripts/build-config.mjs`) and fails when it is missing, so a release never falls back
-   to a default. Use the production `apps/web` base URL once it is recorded in the Harnessforce
-   `docs/specs/infrastructure/environments.md` ("接続先"); staging builds must not be published:
-   `gh variable set HARNESSFORCE_BUILD_URL --body https://<apps/web host> -R lambda-script/harnessforce-agent`
-7. `gh variable set NPM_PUBLISH_ENABLED --body true -R lambda-script/harnessforce-agent`
-8. Re-run the latest `Release` workflow on `main`. It publishes 0.1.0 with provenance and fails
-   unless `npm view @harnessforce/semconv@0.1.0 version` and `npm view @harnessforce/cli@0.1.0 version` resolve.
-9. Confirm the provenance badge on each package page on npmjs.com, then deprecate the placeholders:
-   `npm deprecate @harnessforce/<name>@0.0.0-bootstrap.0 "placeholder for trusted publishing setup"`
-
-Later releases: add a changeset (`pnpm changeset`) in the Delivery PR. Merging to `main` opens the
-"chore: version packages" PR, and merging that PR publishes the packages.
+See [Releasing](docs/runbooks/releasing.md).
