@@ -5,7 +5,9 @@
 		"rootDir": "src",
 		"outDir": "dist",
 		"declaration": true,
-		"sourceMap": true
+		"sourceMap": true,
+		"target": "ES2022",
+		"lib": ["ES2022"]
 	},
 	"include": ["src"]
 }
