@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { Env, Fetch } from "@harnessforce/agent-core/types";
 import { parseAllowedUrl } from "@harnessforce/agent-core/url";
 import {
 	parseStoredApiToken,
@@ -13,13 +14,11 @@ import {
 	type Keychain,
 	urlOriginAccount,
 } from "../credentials/keychain.js";
-import type { Env } from "../otel-headers.js";
 import {
 	type CredentialOutcome,
 	type Issued,
 	requestCredentials,
 } from "./credentials-api.js";
-import type { Fetch } from "./http.js";
 import type { Callback, startLoopback } from "./loopback.js";
 import { INIT_MESSAGES, type InitMessage } from "./messages.js";
 import { discoverAuthorizationEndpoint } from "./metadata.js";

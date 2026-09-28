@@ -49,7 +49,7 @@ async function setup(
 		runImport({
 			homeDir: home.home,
 			keychain: keychain.keychain,
-			importGit: createImportGit(process.env, process.cwd()),
+			importGit: createImportGit(process.platform, process.env, process.cwd()),
 			...deps,
 		});
 	return { hf, home, keychain, cwd, run };
@@ -203,7 +203,11 @@ describe("hf import", () => {
 				homeDir: home.home,
 				keychain: initializedKeychain(hf.origin).keychain,
 				defaultUrl: hf.appUrl,
-				importGit: createImportGit(process.env, process.cwd()),
+				importGit: createImportGit(
+					process.platform,
+					process.env,
+					process.cwd(),
+				),
 			}),
 		).toMatchObject({ code: 0 });
 		expect(hf.sessionBodies()).toEqual([["s000"]]);

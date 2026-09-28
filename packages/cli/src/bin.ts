@@ -74,6 +74,6 @@ process.exitCode =
 				cwd: process.cwd(),
 				tmpDir: tmpdir(),
 			}),
-		importGit: createImportGit(process.env, process.cwd()),
+		importGit: createImportGit(process.platform, process.env, process.cwd()),
 		sleep: (ms) => delay(ms),
 	}));

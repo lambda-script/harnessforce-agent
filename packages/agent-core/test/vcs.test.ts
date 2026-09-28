@@ -1,15 +1,18 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
-import {
-	createImportGit,
-	resolveRepository,
-} from "../../src/import/repository.js";
-
-const runGit = createImportGit(process.env, process.cwd());
-
 import { tempDir } from "@harnessforce/test-support/temp-dir";
+import { describe, expect, it } from "vitest";
+import { createGitRunner } from "../src/process/git.js";
+import { resolveRepository } from "../src/vcs.js";
+
+const runGit = createGitRunner({
+	platform: process.platform,
+	env: process.env,
+	processCwd: process.cwd(),
+	excludeTarget: false,
+	timeoutMs: 5000,
+});
 
 function repository(remotes: Record<string, string>): string {
 	const dir = tempDir("hf-repo-");

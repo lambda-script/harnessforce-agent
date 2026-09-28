@@ -11,7 +11,7 @@ import {
 import { dirname, join } from "node:path";
 import { isObject } from "@harnessforce/agent-core/config/files";
 import { absoluteEnv } from "@harnessforce/agent-core/config/scope";
-import type { Env } from "../otel-headers.js";
+import type { Env } from "@harnessforce/agent-core/types";
 
 type Settings = Record<string, unknown>;
 export type UserSettingsRead =

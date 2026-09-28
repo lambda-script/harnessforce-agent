@@ -34,6 +34,10 @@ importers:
         version: 2.9.1
 
   packages/agent-core:
+    dependencies:
+      '@harnessforce/semconv':
+        specifier: workspace:*
+        version: link:../semconv
     devDependencies:
       '@biomejs/biome':
         specifier: 2.3.14

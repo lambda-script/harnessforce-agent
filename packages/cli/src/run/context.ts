@@ -1,17 +1,11 @@
-import { isAbsolute } from "node:path";
 import { snapshotId } from "@harnessforce/agent-core/config/canonical";
 import {
 	COLLECT_BUDGET_MS,
 	collectConfig,
 } from "@harnessforce/agent-core/config/collect";
-import { normalizeRepository } from "@harnessforce/semconv";
-import type { Env } from "../otel-headers.js";
-
-// gitが失敗、または出力が空ならundefinedを返す。
-export type RunGit = (
-	cwd: string,
-	args: readonly string[],
-) => Promise<string | undefined>;
+import type { RunGit } from "@harnessforce/agent-core/process/git";
+import type { Env } from "@harnessforce/agent-core/types";
+import { resolveProjectRoot, resolveVcs } from "@harnessforce/agent-core/vcs";
 
 // 起動する前に分かる`hf.*`の値（correlation.md「CLI」の`hf run`）。
 export type LaunchContext = {
@@ -30,41 +24,14 @@ export type LaunchContextOptions = {
 	now: () => Date;
 };
 
-// pluginのhookと同じ求め方（correlation.md「repositoryとbranchの求め方」）。repositoryの外とremoteの無いrepositoryでは付けない。
-async function resolveVcs(
-	cwd: string,
-	git: RunGit,
-): Promise<Omit<LaunchContext, "configVersion">> {
-	if ((await git(cwd, ["rev-parse", "--is-inside-work-tree"])) !== "true")
-		return {};
-	const remotes = (await git(cwd, ["remote"]))?.split("\n") ?? [];
-	const remote = remotes.includes("origin") ? "origin" : remotes[0];
-	if (!remote) return {};
-	const [url, branch, commit] = await Promise.all([
-		git(cwd, ["remote", "get-url", remote]),
-		git(cwd, ["symbolic-ref", "--quiet", "--short", "HEAD"]),
-		git(cwd, ["rev-parse", "--verify", "--quiet", "HEAD"]),
-	]);
-	const repository = url === undefined ? undefined : normalizeRepository(url);
-	return {
-		...(repository === undefined ? {} : { repository }),
-		...(branch === undefined ? {} : { branch }),
-		...(commit === undefined ? {} : { commit }),
-	};
-}
-
 // correlation.md「CLI」の`hf run`の手順2。hookがsnapshotを送らない場合（0件、1秒超過、1,000件超過、識別子の重複）は注入しない。
 async function resolveConfigVersion(
 	options: LaunchContextOptions,
 ): Promise<string | undefined> {
 	// 収集の開始はproject rootを求める前とする（correlation.md「構成の収集」）。
 	const startedMs = options.now().getTime();
-	const topLevel = await options.git(options.cwd, [
-		"rev-parse",
-		"--show-toplevel",
-	]);
 	const result = await collectConfig({
-		projectRoot: topLevel && isAbsolute(topLevel) ? topLevel : options.cwd,
+		projectRoot: await resolveProjectRoot(options.cwd, options.git),
 		homeDir: options.homeDir,
 		managedDir: options.managedDir,
 		env: options.env,

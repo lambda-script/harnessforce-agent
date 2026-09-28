@@ -2,11 +2,11 @@ import { posix, win32 } from "node:path";
 import {
 	type CommandLine,
 	commandLineFor,
-	type Env,
 	findCommand,
 	isRunnable,
 	type LookupFileSystem,
 } from "@harnessforce/agent-core/process/lookup";
+import type { Env } from "@harnessforce/agent-core/types";
 
 // correlation.md「CLI」の`hf run`の手順7と「commandの解決」。agentのfileを解決し、起動するcommand lineを作る。
 export type ResolveOptions = {

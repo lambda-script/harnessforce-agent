@@ -1,11 +1,10 @@
 import { constants } from "node:fs";
 import { access, open, stat } from "node:fs/promises";
 import { posix, win32 } from "node:path";
+import type { Env } from "../types.js";
 
 // correlation.md「commandの解決」。子プロセスのcommandを絶対pathへ解決し、名前のままNode.jsやOSに探させない。
 // WindowsのNode.jsとcmd.exeは現在のdirectoryを先に探すため、repositoryに置かれたfileが起動されうる。
-
-export type Env = Readonly<Record<string, string | undefined>>;
 
 export type LookupFileSystem = {
 	isFile(path: string): Promise<boolean>;

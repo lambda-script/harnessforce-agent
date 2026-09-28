@@ -1,9 +1,5 @@
-import {
-	type Fetch,
-	REQUEST_TIMEOUT_MS,
-	readJsonObject,
-	underBase,
-} from "../init/http.js";
+import type { Fetch } from "@harnessforce/agent-core/types";
+import { REQUEST_TIMEOUT_MS, readJsonObject, underBase } from "../init/http.js";
 
 export type IssueCandidate = { identifier: string; title: string };
 

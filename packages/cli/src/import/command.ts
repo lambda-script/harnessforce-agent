@@ -2,6 +2,8 @@ import { join } from "node:path";
 import { isObject } from "@harnessforce/agent-core/config/files";
 import { absoluteEnv } from "@harnessforce/agent-core/config/scope";
 import { readManagedEnv } from "@harnessforce/agent-core/managed";
+import type { RunGit } from "@harnessforce/agent-core/process/git";
+import type { Env, Fetch } from "@harnessforce/agent-core/types";
 import { parseAllowedUrl } from "@harnessforce/agent-core/url";
 import { parseStoredApiToken } from "../credentials/api-token.js";
 import { createApiTokenSession } from "../credentials/api-token-session.js";
@@ -13,16 +15,13 @@ import {
 	urlOriginAccount,
 } from "../credentials/keychain.js";
 import { resolveCliDestinations } from "../destinations.js";
-import type { Fetch } from "../init/http.js";
 import { INIT_MESSAGES } from "../init/messages.js";
 import { readUserSettings, userSettingsPath } from "../init/settings.js";
-import type { Env } from "../otel-headers.js";
 import {
 	fetchSessionImportDays,
 	listConnectedRepositories,
 	type ReadOutcome,
 } from "./read-api.js";
-import type { RunGit } from "./repository.js";
 import { type SendResult, sendSessions } from "./send.js";
 import { scanSessions } from "./sessions.js";
 import {

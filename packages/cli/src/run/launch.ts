@@ -1,5 +1,5 @@
+import type { Env } from "@harnessforce/agent-core/types";
 import { ATTR } from "@harnessforce/semconv";
-import type { Env } from "../otel-headers.js";
 
 export type LaunchAttributes = {
 	issueIdentifier: string;

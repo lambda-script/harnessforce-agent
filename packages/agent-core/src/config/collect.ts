@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import type { Env } from "../types.js";
 import { byCodeUnit, sortComponents } from "./canonical.js";
 import type { ConfigComponent } from "./component.js";
 import {
@@ -26,7 +27,7 @@ export type CollectOptions = {
 	projectRoot: string;
 	homeDir: string;
 	managedDir: string;
-	env: Readonly<Record<string, string | undefined>>;
+	env: Env;
 	// 上限時間（COLLECT_BUDGET_MS）を過ぎたらtrue。
 	isExpired: () => boolean;
 };

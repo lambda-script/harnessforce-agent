@@ -1,10 +1,10 @@
 import { spawn } from "node:child_process";
 import type { EventEmitter } from "node:events";
 import {
-	type Env,
 	findProgram,
 	type LookupFileSystem,
 } from "@harnessforce/agent-core/process/lookup";
+import type { Env } from "@harnessforce/agent-core/types";
 
 export type SpawnBrowser = (
 	command: string,

@@ -1,5 +1,6 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { constants } from "node:os";
+import type { Env } from "../types.js";
 
 // correlation.md「Node.jsの実行時の変数」。NODE_EXTRA_CA_CERTSとNODE_OPTIONSは起動時にだけ読まれ、
 // 起動後に消しても効果が残るため、これらを除いた環境で自身をもう1度起動する。
@@ -24,8 +25,6 @@ const STASH = "HARNESSFORCE_RUNTIME_ENV";
 const IGNORED_WHILE_WAITING = ["SIGINT", "SIGQUIT"] as const;
 // 元のprocessだけに届いた終了の要求は、起動し直したprocessへ渡す。
 const FORWARDED = ["SIGTERM", "SIGHUP"] as const;
-
-type Env = Readonly<Record<string, string | undefined>>;
 
 const isRuntimeVariable = (name: string, platform: NodeJS.Platform) =>
 	platform === "win32"

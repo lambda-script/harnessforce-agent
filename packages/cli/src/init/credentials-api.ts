@@ -1,14 +1,10 @@
+import type { Fetch } from "@harnessforce/agent-core/types";
 import { parseAllowedUrl } from "@harnessforce/agent-core/url";
 import {
 	parseTokenPair,
 	type StoredApiToken,
 } from "../credentials/api-token.js";
-import {
-	type Fetch,
-	REQUEST_TIMEOUT_MS,
-	readJsonObject,
-	underBase,
-} from "./http.js";
+import { REQUEST_TIMEOUT_MS, readJsonObject, underBase } from "./http.js";
 
 export type CredentialRequest = {
 	code: string;

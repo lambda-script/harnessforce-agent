@@ -1,3 +1,4 @@
+import type { Fetch } from "@harnessforce/agent-core/types";
 import { parseAllowedUrl } from "@harnessforce/agent-core/url";
 import type {
 	ConfigSnapshot,
@@ -5,8 +6,6 @@ import type {
 } from "@harnessforce/semconv";
 
 export type IngestItem = SessionRegistration | ConfigSnapshot;
-export type Env = Readonly<Record<string, string | undefined>>;
-export type Fetch = (url: URL, init: RequestInit) => Promise<Response>;
 export type KeyKind = "user" | "workspace";
 export type Destination = { ingestBase: URL; key: string; keyKind: KeyKind };
 export type IngestPath = "v1/sessions" | "v1/config-snapshots";

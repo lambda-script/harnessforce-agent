@@ -1,4 +1,4 @@
-import type { Fetch } from "../init/http.js";
+import type { Fetch } from "@harnessforce/agent-core/types";
 import { REQUEST_TIMEOUT_MS, readJsonObject } from "../init/http.js";
 import { discoverTokenEndpoint } from "../init/metadata.js";
 import {

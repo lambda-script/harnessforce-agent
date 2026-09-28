@@ -3,14 +3,15 @@ import {
 	collectConfig,
 } from "@harnessforce/agent-core/config/collect";
 import { readManagedEnv } from "@harnessforce/agent-core/managed";
+import type { RunGit } from "@harnessforce/agent-core/process/git";
+import type { Env, Fetch } from "@harnessforce/agent-core/types";
+import { resolveProjectRoot, resolveVcs } from "@harnessforce/agent-core/vcs";
 import type {
 	ConfigSnapshot,
 	SessionRegistration,
 } from "@harnessforce/semconv";
 import {
 	type Destination,
-	type Env,
-	type Fetch,
 	type IngestItem,
 	type IngestPath,
 	ingestBaseFrom,
@@ -29,7 +30,6 @@ import {
 	saveRegistration,
 } from "./scratchpad.js";
 import type { UserKeyRead } from "./user-key.js";
-import { type RunGit, resolveProjectRoot, resolveVcs } from "./vcs.js";
 
 export type HookDeps = {
 	env: Env;

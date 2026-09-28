@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
-import { type Env, findProgram, type LookupFileSystem } from "./lookup.js";
+import type { Env } from "../types.js";
+import { findProgram, type LookupFileSystem } from "./lookup.js";
 
 // gitが失敗、または出力が空ならundefinedを返す。
 export type RunGit = (

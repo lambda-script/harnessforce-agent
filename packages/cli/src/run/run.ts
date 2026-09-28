@@ -1,3 +1,5 @@
+import type { RunGit } from "@harnessforce/agent-core/process/git";
+import type { Env, Fetch } from "@harnessforce/agent-core/types";
 import { parseAllowedUrl } from "@harnessforce/agent-core/url";
 import { parseStoredApiToken } from "../credentials/api-token.js";
 import { createApiTokenSession } from "../credentials/api-token-session.js";
@@ -9,10 +11,8 @@ import {
 	urlOriginAccount,
 } from "../credentials/keychain.js";
 import { resolveCliDestinations } from "../destinations.js";
-import type { Fetch } from "../init/http.js";
 import { userSettingsPath } from "../init/settings.js";
-import type { Env } from "../otel-headers.js";
-import { type RunGit, resolveLaunchContext } from "./context.js";
+import { resolveLaunchContext } from "./context.js";
 import { type IssueCandidate, resolveIssue } from "./issues.js";
 import { buildLaunch, type Launch, resourceAttributes } from "./launch.js";
 import {

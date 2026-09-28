@@ -1,3 +1,5 @@
+import type { RunGit } from "@harnessforce/agent-core/process/git";
+import type { Env } from "@harnessforce/agent-core/types";
 import {
 	ConfigSnapshotSchema,
 	SessionRegistrationSchema,
@@ -5,10 +7,8 @@ import {
 import { managedDir } from "@harnessforce/test-support/managed-dir";
 import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { compileSchema } from "@harnessforce/test-support/validator";
-import type { Env } from "../src/destination.js";
 import type { HookDeps } from "../src/hook.js";
 import type { UserKeyRead } from "../src/user-key.js";
-import type { RunGit } from "../src/vcs.js";
 
 // 送信内容を、本体が検証に使う公開schemaで確かめる。
 export const isRegistration = compileSchema(SessionRegistrationSchema);

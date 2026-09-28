@@ -4,7 +4,7 @@ import {
 	findCommand,
 	type LookupFileSystem,
 } from "@harnessforce/agent-core/process/lookup";
-import type { Env } from "./destination.js";
+import type { Env } from "@harnessforce/agent-core/types";
 
 // `hf otel-headers`でkeychainの利用者用IngestKeyを読んだ結果（correlation.md「実行環境」）。
 // missingは`hf`がPATHに無い場合、failedは`hf`があって読み出しに失敗した（keyが無い場合を含む）場合。

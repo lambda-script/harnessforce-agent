@@ -1,6 +1,6 @@
 import { isObject } from "@harnessforce/agent-core/config/files";
+import type { Env } from "@harnessforce/agent-core/types";
 import { readUserSettings } from "./init/settings.js";
-import type { Env } from "./otel-headers.js";
 
 // correlation.md「CLIの宛先の決め方」とWorkspaceの決め方。hf runとhf importはClaude Codeの外のshellから起動され、
 // user settingsのenvは環境に無いため、hf initが書いた値を読む。値の検査は呼び出し側が確かめる順に行う。
