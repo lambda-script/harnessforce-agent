@@ -130,7 +130,7 @@ async function resolve(deps: ImportDeps): Promise<Resolved> {
 
 	const workspaceId = destinations.workspaceId ?? stop(MESSAGES.runInit);
 	const ingestKey =
-		(await read(ingestKeyAccount(workspaceId))) ?? stop(MESSAGES.runInit);
+		(await read(ingestKeyAccount(workspaceId))) || stop(MESSAGES.runInit);
 	const rawEndpoint = destinations.ingestEndpoint ?? stop(MESSAGES.runInit);
 	const endpoint = parseAllowedUrl(rawEndpoint) ?? stop(MESSAGES.invalidUrl);
 	// hookが拒否する送信先へ、hookと同じ利用者用のkeyを送らない。

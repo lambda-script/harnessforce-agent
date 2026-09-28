@@ -287,6 +287,15 @@ describe("hf import", () => {
 			expect(home.readState()).toBeUndefined();
 		});
 
+		// hf runと同じく、空のkeyはkeyが無いものとする。
+		it("when the user ingest key is empty", async () => {
+			const { hf, home, run, keychain } = await setup();
+			keychain.items.set("ws1:ingest-key", "");
+			expect(await run()).toEqual({ code: 1, out: "", err: RUN_INIT });
+			expect(hf.requests).toEqual([]);
+			expect(home.readState()).toBeUndefined();
+		});
+
 		it("when there is no workspace or ingest endpoint", async () => {
 			const hf = await startHarnessforce();
 			const keychain = initializedKeychain(hf.origin);
