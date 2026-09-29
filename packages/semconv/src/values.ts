@@ -20,6 +20,9 @@ export const isToken = (value: string, maxLength = 256): boolean => {
 const INSTANT_YEAR =
 	"(?:1(?:6(?:7[7-9]|[89]\\d)|[7-9]\\d\\d)|2(?:[01]\\d\\d|2(?:[0-5]\\d|6[0-2])))";
 export const INSTANT_PATTERN = `^${INSTANT_YEAR}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$`;
+// INSTANT_PATTERNを通った値から、各部分を取り出す。
+const INSTANT_PARTS =
+	/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(?:Z|([+-])(\d{2}):(\d{2}))$/;
 const INSTANT = new RegExp(INSTANT_PATTERN);
 // DateTime64(9)で表せる範囲（ClickHouse reference）。両端を含む。
 const MIN_INSTANT_MS = Date.UTC(1677, 8, 21, 0, 12, 44);
@@ -27,18 +30,14 @@ const MAX_INSTANT_MS = Date.UTC(2262, 3, 11, 23, 47, 16);
 
 // 暦に存在する日時で、offsetを引いた瞬間が範囲内かを確かめる。小数秒は9桁より下を切り捨てて比べる。
 export function isInstant(value: string): boolean {
-	if (!INSTANT.test(value)) return false;
-	const [date = "", rest = ""] = value.split("T");
-	const [year, month, day] = date.split("-").map(Number) as [
-		number,
-		number,
-		number,
-	];
-	const [hour, minute, second] = rest.slice(0, 8).split(":").map(Number) as [
-		number,
-		number,
-		number,
-	];
+	const parts = INSTANT.test(value) ? INSTANT_PARTS.exec(value) : null;
+	if (!parts) return false;
+	const [, ...fields] = parts;
+	const [year, month, day, hour, minute, second] = fields
+		.slice(0, 6)
+		.map(Number) as [number, number, number, number, number, number];
+	const [fraction = "", sign, offsetHours = "0", offsetMinutes = "0"] =
+		fields.slice(6);
 	const localMs = Date.UTC(year, month - 1, day, hour, minute, second);
 	const local = new Date(localMs);
 	const existsInCalendar =
@@ -49,14 +48,12 @@ export function isInstant(value: string): boolean {
 		local.getUTCMinutes() === minute &&
 		local.getUTCSeconds() === second;
 	if (!existsInCalendar) return false;
-	const offset = /([+-])(\d{2}):(\d{2})$/.exec(value);
-	const offsetMs = offset
-		? (offset[1] === "-" ? -1 : 1) *
-			(Number(offset[2]) * 60 + Number(offset[3])) *
-			60_000
-		: 0;
+	const offsetMs =
+		(sign === "-" ? -1 : 1) *
+		(Number(offsetHours) * 60 + Number(offsetMinutes)) *
+		60_000;
 	const secondMs = localMs - offsetMs;
-	const nanos = Number((/\.(\d+)/.exec(rest)?.[1] ?? "").slice(0, 9) || "0");
+	const nanos = Number(fraction.slice(0, 9) || "0");
 	const isAfterMax =
 		secondMs > MAX_INSTANT_MS || (secondMs === MAX_INSTANT_MS && nanos > 0);
 	return secondMs >= MIN_INSTANT_MS && !isAfterMax;

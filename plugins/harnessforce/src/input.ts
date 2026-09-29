@@ -14,7 +14,6 @@ export type HookInput = {
 // fileの名前をscratchpad_dirの外へ向けないため、これ以外のsession_idではscratchpadを使わない。
 const FILE_SAFE_SESSION_ID = /^[A-Za-z0-9_-]+$/;
 
-// semconvのTokenと同じ制約（Unicodeの`White_Space`を含まない、code pointで1〜256文字）。
 const token = (value: unknown) =>
 	typeof value === "string" && isToken(value) ? value : undefined;
 // 空のcwdで`git -C ""`を呼ぶと現在のdirectoryが対象になるため、絶対pathだけを受け付ける。
