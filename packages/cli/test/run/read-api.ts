@@ -55,7 +55,7 @@ export async function startReadApi(
 			return reply(
 				options.list?.(url.searchParams.get("query")) ?? {
 					status: 200,
-					body: { data: [], next_cursor: null },
+					body: { items: [], next_cursor: null },
 				},
 			);
 		if (url.pathname.startsWith(`${prefix}/`))

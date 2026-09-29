@@ -220,11 +220,11 @@ describe("hf import", () => {
 				body:
 					cursor === "p2"
 						? {
-								data: [{ repository: "github.com/acme/web" }],
+								items: [{ repository: "github.com/acme/web" }],
 								next_cursor: null,
 							}
 						: {
-								data: Array.from({ length: 100 }, (_, i) => ({
+								items: Array.from({ length: 100 }, (_, i) => ({
 									repository: `github.com/acme/r${i}`,
 								})),
 								next_cursor: "p2",
@@ -239,7 +239,7 @@ describe("hf import", () => {
 		const { hf, run } = await setup({
 			repositories: () => ({
 				status: 200,
-				body: { data: [], next_cursor: null },
+				body: { items: [], next_cursor: null },
 			}),
 		});
 		expect(await run()).toMatchObject({ code: 0 });
@@ -400,7 +400,7 @@ describe("hf import", () => {
 					repositories: (cursor: string | null) =>
 						cursor
 							? { status: 503 }
-							: { status: 200, body: { data: [], next_cursor: "p2" } },
+							: { status: 200, body: { items: [], next_cursor: "p2" } },
 				},
 				READ_FAILED,
 			],

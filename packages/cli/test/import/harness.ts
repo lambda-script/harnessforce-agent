@@ -99,7 +99,7 @@ export async function startImportServer(options: HarnessforceOptions = {}) {
 				options.repositories?.(url.searchParams.get("cursor")) ?? {
 					status: 200,
 					body: {
-						data: [{ repository: "github.com/acme/web" }],
+						items: [{ repository: "github.com/acme/web" }],
 						next_cursor: null,
 					},
 				},

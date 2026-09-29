@@ -48,12 +48,12 @@ async function get(
 function parseCandidates(
 	body: Record<string, unknown> | undefined,
 ): IssueCandidate[] | undefined {
-	const data = body?.data;
+	const items = body?.items;
 	const nextCursor = body?.next_cursor;
-	if (!Array.isArray(data)) return undefined;
+	if (!Array.isArray(items)) return undefined;
 	if (nextCursor !== null && typeof nextCursor !== "string") return undefined;
 	const candidates: IssueCandidate[] = [];
-	for (const item of data.slice(0, MAX_CANDIDATES)) {
+	for (const item of items.slice(0, MAX_CANDIDATES)) {
 		const identifier = (item as Record<string, unknown> | null)?.identifier;
 		const title = (item as Record<string, unknown> | null)?.title;
 		if (typeof identifier !== "string" || typeof title !== "string")

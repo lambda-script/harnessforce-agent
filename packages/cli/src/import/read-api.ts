@@ -41,9 +41,9 @@ async function getJson(
 function parsePage(
 	body: Json,
 ): { repositories: string[]; nextCursor: string | undefined } | undefined {
-	const { data, next_cursor: nextCursor } = body;
-	if (!Array.isArray(data)) return undefined;
-	const repositories = data.map((item: unknown) =>
+	const { items, next_cursor: nextCursor } = body;
+	if (!Array.isArray(items)) return undefined;
+	const repositories = items.map((item: unknown) =>
 		typeof item === "object" &&
 		item !== null &&
 		typeof (item as Json).repository === "string"
