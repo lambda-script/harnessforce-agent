@@ -27,7 +27,7 @@ describe("resolveIssue", () => {
 		const api = await startReadApi({
 			list: (query) =>
 				query === "ENG 4"
-					? { status: 200, body: { data, next_cursor: "c2" } }
+					? { status: 200, body: { items: data, next_cursor: "c2" } }
 					: { status: 500 },
 		});
 		const r = await resolveIssue(new URL(api.base), "ENG 4", TOKEN, realFetch);
@@ -91,24 +91,24 @@ describe("resolveIssue", () => {
 
 	it.each([
 		["a non-200 status", { status: 503 }],
-		["a body without data", { status: 200, body: { items: [] } }],
+		["a body without items", { status: 200, body: { next_cursor: null } }],
 		[
 			"an item without an identifier",
-			{ status: 200, body: { data: [{ title: "t" }], next_cursor: null } },
+			{ status: 200, body: { items: [{ title: "t" }], next_cursor: null } },
 		],
 		// read-api.md: 一覧の要素は少なくとも`identifier`と`title`を持つ。
 		[
 			"an item without a title",
 			{
 				status: 200,
-				body: { data: [{ identifier: "ENG-1" }], next_cursor: null },
+				body: { items: [{ identifier: "ENG-1" }], next_cursor: null },
 			},
 		],
-		// read-api.md「共通の約束」: 一覧の応答は`{"data": [...], "next_cursor": <文字列またはnull>}`。
-		["a body without next_cursor", { status: 200, body: { data: [] } }],
+		// read-api.md「共通の約束」: 一覧の応答は`{"items": [...], "next_cursor": <文字列またはnull>}`。
+		["a body without next_cursor", { status: 200, body: { items: [] } }],
 		[
 			"a next_cursor that is not a string or null",
-			{ status: 200, body: { data: [], next_cursor: 1 } },
+			{ status: 200, body: { items: [], next_cursor: 1 } },
 		],
 		["a body that is not JSON", { status: 200 }],
 	])("fails when the candidate list has %s", async (_, reply) => {

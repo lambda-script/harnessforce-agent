@@ -24,7 +24,7 @@ function fakeFetch(reply: (url: URL) => Response | Promise<Response>) {
 
 const page = (repositories: string[], next: string | null) =>
 	json(200, {
-		data: repositories.map((repository) => ({ repository })),
+		items: repositories.map((repository) => ({ repository })),
 		next_cursor: next,
 	});
 
@@ -78,11 +78,11 @@ describe("listConnectedRepositories", () => {
 		["a body that is not a page", () => json(200, { repositories: [] })],
 		[
 			"a repository that is not a string",
-			() => json(200, { data: [{ repository: 1 }], next_cursor: null }),
+			() => json(200, { items: [{ repository: 1 }], next_cursor: null }),
 		],
 		["a cursor that repeats", () => page([], "same")],
 		// read-api.md「共通の約束」: next_cursorは文字列またはnull。
-		["a page without next_cursor", () => json(200, { data: [] })],
+		["a page without next_cursor", () => json(200, { items: [] })],
 		[
 			"a connection failure",
 			() => Promise.reject(new TypeError("fetch failed")),

@@ -91,6 +91,7 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}) {
 		},
 		importGit: async () => undefined,
 		sleep: async () => {},
+		readStdin: async () => Buffer.alloc(0),
 		...deps,
 		stdout: (text) => out.push(text),
 		stderr: (text) => err.push(text),

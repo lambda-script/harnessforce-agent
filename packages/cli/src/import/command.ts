@@ -1,7 +1,4 @@
 import { join } from "node:path";
-import { absoluteEnv } from "@harnessforce/agent-core/config/scope";
-import { readManagedEnv } from "@harnessforce/agent-core/managed";
-import { isObject } from "@harnessforce/agent-core/object";
 import type { RunGit } from "@harnessforce/agent-core/process/git";
 import type { Env, Fetch } from "@harnessforce/agent-core/types";
 import { withoutExtras } from "@harnessforce/agent-core/url";
@@ -9,13 +6,13 @@ import { type AccessMessages, verifyCliAccess } from "../credentials/access.js";
 import { createApiTokenSession } from "../credentials/api-token-session.js";
 import type { Keychain } from "../credentials/keychain.js";
 import { INIT_MESSAGES } from "../shared/messages.js";
-import { readUserSettings } from "../shared/settings.js";
 import { runUntilStop, stopWith } from "../shared/stop.js";
 import {
 	fetchSessionImportDays,
 	listConnectedRepositories,
 	type ReadOutcome,
 } from "./read-api.js";
+import { recordBase } from "./record-base.js";
 import { type SendResult, sendSessions } from "./send.js";
 import { scanSessions } from "./sessions.js";
 import {
@@ -68,32 +65,6 @@ const ACCESS_MESSAGES: AccessMessages = {
 	invalidUrl: MESSAGES.invalidUrl,
 	apiTokenMissing: MESSAGES.runInit,
 };
-
-// user settingsの`env`の文字列の値。読めないfileは値が無いものとする。
-async function readSettingsEnv(
-	path: string,
-): Promise<Record<string, string | undefined>> {
-	const read = await readUserSettings(path);
-	const env = read.kind === "ok" ? read.settings.env : undefined;
-	if (!isObject(env)) return {};
-	return Object.fromEntries(
-		Object.entries(env).filter(([, value]) => typeof value === "string"),
-	) as Record<string, string>;
-}
-
-// correlation.md「session import」の記録の基点。processの環境変数のCLAUDE_CONFIG_DIRはrepositoryの
-// settingsが書き換えられるため読まず、managed settingsのfile、~/.claude/settings.jsonのenvの順に読む。
-// ~/.claude/settings.jsonを固定するのは、環境変数が指すsettingsのfileもrepositoryが用意できるためである。
-async function recordBase(deps: ImportDeps): Promise<string> {
-	const defaultBase = join(deps.homeDir, ".claude");
-	const managed = await readManagedEnv(deps.managedDir, ["CLAUDE_CONFIG_DIR"]);
-	const user = await readSettingsEnv(join(defaultBase, "settings.json"));
-	return (
-		absoluteEnv(managed.CLAUDE_CONFIG_DIR) ??
-		absoluteEnv(user.CLAUDE_CONFIG_DIR) ??
-		defaultBase
-	);
-}
 
 function unwrap<T>(outcome: ReadOutcome<T>): T {
 	if (outcome.kind === "ok") return outcome.value;

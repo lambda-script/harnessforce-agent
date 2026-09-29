@@ -407,7 +407,7 @@ describe("hf run", () => {
 			list: () => ({
 				status: 200,
 				body: {
-					data: [issueBody("ENG-420", "Login"), issueBody("ENG-421", "")],
+					items: [issueBody("ENG-420", "Login"), issueBody("ENG-421", "")],
 					next_cursor: null,
 				},
 			}),
@@ -425,7 +425,7 @@ describe("hf run", () => {
 			list: () => ({
 				status: 200,
 				body: {
-					data: [
+					items: [
 						issueBody("ENG-\u001b[2J1", "Log\u001b]0;x\u0007in\n\t\u009bbad"),
 					],
 					next_cursor: null,
