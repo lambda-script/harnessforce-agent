@@ -155,3 +155,170 @@ describe("setup command", () => {
 		expect(positions).toEqual([...positions].sort((a, b) => a - b));
 	});
 });
+
+// improvement-loop.md「提案の記録」「Fidelity」「適用」: `/harnessforce:tune`の手順。
+describe("tune command", () => {
+	const { frontmatter, body } = splitFrontmatter(
+		readText("plugins/harnessforce/commands/tune.md"),
+	);
+	const SUMMARIZE = "skills/propose-improvements/scripts/summarize.mjs";
+	const DISCLOSURE =
+		"この実行では、提案を作るために、この端末のsessionの記録の一部をagentが読みます。読んだ内容は、ふだんこのagentに使っているmodelのproviderへ、通常のsessionと同じ経路で渡ります。Harnessforceへは渡りません。";
+
+	it("is run only by the user and describes itself", () => {
+		expect(frontmatter["disable-model-invocation"]).toBe(true);
+		expect(frontmatter.description).toEqual(expect.any(String));
+	});
+
+	// 「読むもの」: 実行の最初に、記録の内容がmodelのproviderへ渡ることを表示する。
+	it("tells that the transcripts go to the model provider before running anything", () => {
+		expect(body).toContain(DISCLOSURE);
+		expect(body.indexOf(DISCLOSURE)).toBeLessThan(body.indexOf("```sh"));
+	});
+
+	it("runs hf tune --json through the shipped summary script with the user's arguments", () => {
+		const pluginRoot = ["$", "{CLAUDE_PLUGIN_ROOT}"].join("");
+		expect(body).toContain(`node "${pluginRoot}/${SUMMARIZE}" $ARGUMENTS`);
+		expect(
+			existsSync(
+				new URL(`../plugins/harnessforce/${SUMMARIZE}`, import.meta.url),
+			),
+		).toBe(true);
+		expect(frontmatter["argument-hint"]).toBe("[--all] [--no-send]");
+	});
+
+	it("shows hf tune's messages as they are and keeps not measured apart from zero", () => {
+		expect(body).toMatch(/stderr[^\n]*すべてそのまま表示/);
+		expect(body).toMatch(/「未計測」を0と言い換えない/);
+	});
+
+	it("makes no proposal on exit codes other than 0 and 3 or when data is insufficient", () => {
+		expect(body).toMatch(/終了コードが0と3以外なら、提案を作らず/);
+		expect(body).toMatch(
+			/データ不足のため提案を作りません[^\n]*提案を作らずに終わる/,
+		);
+	});
+
+	it("shows what each insufficient target still needs", () =>
+		expect(body).toMatch(
+			/「データ不足」[^\n]*あと何が必要か[^\n]*提案を作らない/,
+		));
+
+	it("hands the eligible targets to the skill, which records before showing", () => {
+		expect(body).toContain("`propose-improvements`のskill");
+		expect(body).toMatch(/`hf tune record`で記録してから表示/);
+		expect(body).toMatch(/終了コード0で終わらなかった提案は表示しない/);
+	});
+
+	// 「適用」: `/harnessforce:tune`はファイルを書き換えない（`~/.harnessforce/tune/`を除く）。
+	it("writes nothing but hf tune's own files and leaves applying to the user", () => {
+		expect(body).toMatch(/managed settingsを書き換えない/);
+		expect(body).toContain("`~/.harnessforce/tune/`へ書くものだけ");
+		expect(body).toMatch(/適用は利用者が行う/);
+	});
+});
+
+// improvement-loop.md「作る条件」「形式」: 提案を作る公開のskill。
+describe("propose improvements skill", () => {
+	const { frontmatter, body } = splitFrontmatter(
+		readText("plugins/harnessforce/skills/propose-improvements/SKILL.md"),
+	);
+
+	it("follows the Agent Skills frontmatter rules", () => {
+		expect(frontmatter.name).toBe("propose-improvements");
+		expect(frontmatter.description.length).toBeGreaterThan(0);
+		expect(frontmatter.description.length).toBeLessThanOrEqual(1024);
+	});
+
+	it("keeps the minimum condition of each target", () => {
+		for (const row of [
+			"| すべて | 分析した範囲に10 session以上ある |",
+			"| 人の介入 | その`intervention.kind`が、3 session以上で合計10回以上ある |",
+			"| ループにできる繰り返し | その`loop.kind`が、合計3回以上ある |",
+			"| MCP server | `configured`のsessionが10以上ある |",
+		])
+			expect(body).toContain(row);
+		expect(body).toMatch(/未計測（`not_measured`）の値を根拠にしない/);
+	});
+
+	it("gives each proposal the evidence, an applicable change, the expected effect and how to measure it", () => {
+		const positions = indexesOf(body, [
+			"| 対象のカテゴリ |",
+			"| 根拠 |",
+			"| 変更の種類 |",
+			"| 適用先 |",
+			"| 変更 | そのまま適用できるunified diff。repositoryのscopeなら、branch名、title、本文、diffからなるPull Requestの下書き。",
+			"| 期待する効果 |",
+			"| 測り方 |",
+		]);
+		expect(positions.every((position) => position >= 0)).toBe(true);
+		expect(positions).toEqual([...positions].sort((a, b) => a - b));
+	});
+
+	it("maps every change type of the fixed vocabulary", () => {
+		for (const changeType of [
+			"permissions",
+			"hook",
+			"skill",
+			"rule",
+			"agent",
+			"command",
+			"loop_prompt",
+			"mcp_config",
+			"claude_md",
+		])
+			expect(body).toMatch(new RegExp(`^\\| \`${changeType}\` \\|`, "m"));
+	});
+
+	// 「形式」: 許可は最小の範囲に限り、すべてのコマンドの許可を提案しない。
+	it("limits permissions to the smallest scope and never allows every command", () => {
+		expect(body).toMatch(/最小の範囲だけ/);
+		expect(body).toContain("すべてのコマンドを許可する規則を提案しない");
+		for (const broad of [
+			"`Bash`",
+			"`Bash(*)`",
+			"`Bash(:*)`",
+			"`*`",
+			'`"defaultMode": "bypassPermissions"`',
+			"`--dangerously-skip-permissions`",
+		])
+			expect(body).toContain(broad);
+	});
+
+	it("always gives a loop proposal its stop conditions", () =>
+		expect(body).toMatch(
+			/止める条件を必ず含める。止める条件は、最大の繰り返し回数と、人が確認する時点/,
+		));
+
+	// 「提案の記録」: 表示の前に`hf tune record`で記録し、成功した提案だけを表示する。
+	it("records each proposal with hf tune record before showing it", () => {
+		expect(body).toMatch(/表示する前に、提案ごとに`hf tune record`を実行/);
+		expect(body).toMatch(
+			/`hf tune record`が終了コード0で終わった提案だけを表示/,
+		);
+		for (const field of [
+			"category",
+			"change_type",
+			"scope",
+			"path",
+			"project_root",
+			"component",
+			"content",
+			"value",
+			"evidence_session_ids",
+			"body",
+		])
+			expect(body).toMatch(new RegExp(`^\\| \`${field}\` \\|`, "m"));
+	});
+
+	it("records the same proposal with the same input so it counts once", () =>
+		expect(body).toMatch(/同じ提案は同じ入力で記録する/));
+
+	// 「適用」: ファイルを書き換えない。
+	it("never writes the user's files", () => {
+		expect(body).toMatch(/managed settingsを書き換えない/);
+		for (const writer of ["Edit、Writeのtool", "`git apply`", "`gh pr create`"])
+			expect(body).toContain(writer);
+		expect(body).toMatch(/fileに書かない/);
+	});
+});

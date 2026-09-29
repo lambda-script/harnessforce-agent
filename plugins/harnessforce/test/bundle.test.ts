@@ -251,6 +251,16 @@ describe("built marketplace", () => {
 			),
 		));
 
+	// improvement-loop.md「構成」: `/harnessforce:tune`はpluginのcommandであり、提案を作る公開のskillとともに配る。
+	it.each([
+		"commands/tune.md",
+		"skills/propose-improvements/SKILL.md",
+		"skills/propose-improvements/scripts/summarize.mjs",
+	])("bundles %s unchanged", (path) =>
+		expect(
+			readFileSync(join(marketplace, "plugins/harnessforce", path), "utf8"),
+		).toBe(readFileSync(new URL(`../${path}`, import.meta.url), "utf8")));
+
 	// environments.md「接続先」: stagingのbuildでは、CLIも同じbuildの出力から導入する。
 	describe("CLI packages", () => {
 		const packageJsonOf = (name: string) =>

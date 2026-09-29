@@ -25,7 +25,9 @@ contains:
 - `.mcp.json`: the Harnessforce MCP server `harnessforce` at `<HARNESSFORCE_BUILD_URL>/mcp` over HTTP.
   Claude Code asks you to log in with the browser and pick a Workspace the first time a tool is used.
 - `skills/record-run/SKILL.md`: the skill that records a run through the MCP tools.
-- `commands/setup.md` (`/harnessforce:setup`).
+- `skills/propose-improvements/`: the skill and script that `/harnessforce:tune` uses to judge and
+  write proposals.
+- `commands/setup.md` (`/harnessforce:setup`) and `commands/tune.md` (`/harnessforce:tune`).
 - `cli/`: the `@harnessforce/cli` and `@harnessforce/semconv` tarballs from the same build.
   `/harnessforce:setup` in the build output installs these
   (`npm install -g <semconv tarball> <cli tarball>`) instead of the CLI on npm.

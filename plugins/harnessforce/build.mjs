@@ -132,6 +132,10 @@ async function buildMarketplace() {
 	cpSync(join(pluginDir, "skills"), join(plugin, "skills"), {
 		recursive: true,
 	});
+	// setup以外のcommandはそのまま写す。setupは下で同梱のCLIを導入する内容に置き換える。
+	cpSync(join(pluginDir, "commands"), join(plugin, "commands"), {
+		recursive: true,
+	});
 	writeFileSync(
 		join(plugin, ".mcp.json"),
 		`${JSON.stringify(mcpJson(connection), null, 2)}\n`,
