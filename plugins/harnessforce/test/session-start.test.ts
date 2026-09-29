@@ -120,6 +120,14 @@ describe("SessionStart hook", () => {
 		expect(h.err()).toBe("");
 	});
 
+	it("escapes the session id by JSON serialization", async () => {
+		const h = harness();
+		await start(h, { session_id: 'a"b\\c' });
+		expect(JSON.parse(h.out()).hookSpecificOutput.additionalContext).toBe(
+			'harnessforce session_id: a"b\\c',
+		);
+	});
+
 	it("passes the session id it received to the agent context", async () => {
 		const h = harness();
 		await start(h, { session_id: "0b1c2d3e-4f50-6172-8394-a5b6c7d8e9f0" });

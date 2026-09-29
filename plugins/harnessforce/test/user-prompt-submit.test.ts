@@ -41,6 +41,15 @@ describe("UserPromptSubmit hook", () => {
 		expect(h.out()).toBe(sessionContextLine());
 	});
 
+	it("prints nothing on a successful first prompt", async () => {
+		const dir = scratchpad();
+		await start(harness(), { scratchpad_dir: dir });
+		const h = harness();
+		await submit(h, { scratchpad_dir: dir, prompt_id: "p-1" });
+		expect(h.requests).toHaveLength(1);
+		expect(h.out()).toBe("");
+	});
+
 	it("claims the first prompt only once when prompts race", async () => {
 		const h = harness();
 		const dir = scratchpad();

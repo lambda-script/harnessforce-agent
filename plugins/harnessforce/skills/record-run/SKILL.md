@@ -19,7 +19,7 @@ HarnessforceのMCP serverのtoolで、作業をIssueに結び付けて記録す�
 
 ## session IDが変わったとき
 
-- contextの最後の`harnessforce session_id:`の値が、直前の`start_run`に渡した値と異なる（会話をforkしたときなど）場合は、作業を続ける前に新しい値で`start_run`をもう1度呼び、返された`run_id`を以後の`complete_run`に使う。
+- contextの最後の`harnessforce session_id:`の値が、直前の`start_run`に渡した値と異なる（会話をforkしたとき、`/clear`したときなど）場合は、作業を続ける前に新しい値で`start_run`をもう1度呼び、返された`run_id`を以後の`complete_run`に使う。
 
 ## 作業の終了時
 

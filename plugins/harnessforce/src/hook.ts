@@ -133,7 +133,7 @@ async function send(
 
 // 同じsessionで表示は1回まで。SessionStartで登録とsnapshotの両方が401でも1回だけ呼ぶ。
 // exit 0のhookのstderrは利用者に届かないため、呼び出し側が返した文言をsystemMessageでも示す。
-async function revokeKeyNotice(
+async function reportRevokedKey(
 	destination: Destination,
 	pad: Scratchpad | undefined,
 	deps: HookDeps,
@@ -219,11 +219,13 @@ async function sendConfigSnapshot(
 	);
 }
 
-// 失効したkeyの文言を返す。401を受けなければundefined。
+type RevokedKeyMessage = string;
+
+// 401を受けたら、失効したkeyの文言を返す。
 async function sendSessionStart(
 	input: HookInput,
 	deps: HookDeps,
-): Promise<string | undefined> {
+): Promise<RevokedKeyMessage | undefined> {
 	if (input.source !== undefined && !REGISTERING_SOURCES.has(input.source))
 		return undefined;
 	if (input.scratchpad && (await isMarkedUnauthorized(input.scratchpad)))
@@ -236,7 +238,7 @@ async function sendSessionStart(
 	]);
 	if (!outcomes.some((outcome) => outcome?.kind === "unauthorized"))
 		return undefined;
-	return revokeKeyNotice(destination, input.scratchpad, deps);
+	return reportRevokedKey(destination, input.scratchpad, deps);
 }
 
 // sourceや送信の結果によらず、session contextを必ず1回出す。resumeとcompactの後のcontextにもsession IDを残すためである。
@@ -271,7 +273,7 @@ async function onUserPromptSubmit(
 	);
 	if (outcome.kind === "unauthorized")
 		writeJson(deps, {
-			systemMessage: await revokeKeyNotice(destination, pad, deps),
+			systemMessage: await reportRevokedKey(destination, pad, deps),
 		});
 }
 
