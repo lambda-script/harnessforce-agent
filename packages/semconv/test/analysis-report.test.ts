@@ -98,6 +98,108 @@ describe("analysis report", () => {
 			"failures reported while not measured",
 			{ ...r, mcp_servers: [{ ...r.mcp_servers[0], failures: 0 }] },
 		],
+		[
+			"a median for zero interventions",
+			{
+				...r,
+				interventions: {
+					...r.interventions,
+					other: {
+						measurement: "measured",
+						count: 0,
+						wait_seconds_median: 0,
+					},
+				},
+			},
+		],
+		[
+			"no median for measured interventions",
+			{
+				...r,
+				interventions: {
+					...r.interventions,
+					other: {
+						measurement: "measured",
+						count: 2,
+						wait_seconds_median: null,
+					},
+				},
+			},
+		],
+		[
+			"a median for zero loop occurrences",
+			{
+				...r,
+				loops: {
+					...r.loops,
+					ci_fix: {
+						measurement: "measured",
+						occurrences: 0,
+						interventions: 0,
+						duration_seconds_median: 12,
+					},
+				},
+			},
+		],
+		[
+			"no median for measured loop occurrences",
+			{
+				...r,
+				loops: {
+					...r.loops,
+					ci_fix: {
+						measurement: "measured",
+						occurrences: 1,
+						interventions: 0,
+						duration_seconds_median: null,
+					},
+				},
+			},
+		],
 	])("rejects %s", (_, value) =>
 		expect(check(JSON.parse(JSON.stringify(value)))).toBe(false));
+
+	// semantic-conventions.md「Analysis report」: measuredでは、件数が0なら中央値はnull、1以上なら数値。
+	it.each([
+		[
+			"zero interventions without a median",
+			{
+				interventions: {
+					...r.interventions,
+					other: {
+						measurement: "measured",
+						count: 0,
+						wait_seconds_median: null,
+					},
+				},
+			},
+		],
+		[
+			"zero loop occurrences without a median",
+			{
+				loops: {
+					...r.loops,
+					ci_fix: {
+						measurement: "measured",
+						occurrences: 0,
+						interventions: 0,
+						duration_seconds_median: null,
+					},
+				},
+			},
+		],
+		[
+			"a fractional median",
+			{
+				interventions: {
+					...r.interventions,
+					other: {
+						measurement: "measured",
+						count: 3,
+						wait_seconds_median: 1.5,
+					},
+				},
+			},
+		],
+	])("accepts %s", (_, patch) => expect(check({ ...r, ...patch })).toBe(true));
 });
