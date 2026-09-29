@@ -91,6 +91,21 @@ describe("run recording skill", () => {
 	it("passes the session_id from the context to start_run", () =>
 		expect(body).toMatch(/`session_id`[^\n]*`start_run`/));
 
+	// correlation.md「session context」: SessionStartのhookがadditionalContextへ書く文言と同じ形を読む。
+	it("reads the session id from the line the SessionStart hook adds", () =>
+		expect(body).toContain("`harnessforce session_id: <session_id>`"));
+
+	it("uses the last session id in the context", () =>
+		expect(body).toMatch(/複数あれば[^\n]*最後/));
+
+	it("calls start_run again when the latest session id changes", () =>
+		expect(body).toMatch(
+			/異なる[^\n]*`start_run`をもう1度呼び[^\n]*`complete_run`/,
+		));
+
+	it("does not guess a session id missing from the context", () =>
+		expect(body).toMatch(/推測[^\n]*`start_run`と`complete_run`を呼ばない/));
+
 	it("records a plan only when neither a current nor a proposed plan exists", () =>
 		expect(body).toMatch(/現行のPlanも`proposed`のPlanも無/));
 

@@ -9,6 +9,7 @@ import {
 	isRegistration,
 	REPO,
 	scratchpad,
+	sessionContextLine,
 } from "./support.js";
 
 const event =
@@ -36,7 +37,8 @@ describe("UserPromptSubmit hook", () => {
 		]);
 		expect(isRegistration(second?.[0])).toBe(true);
 		expect(h.requests[1]?.url).toBe("https://ingest.example.test/v1/sessions");
-		expect(h.out()).toBe("");
+		// UserPromptSubmitはcontextを出さない。stdoutはSessionStartのsession contextだけである。
+		expect(h.out()).toBe(sessionContextLine());
 	});
 
 	it("claims the first prompt only once when prompts race", async () => {
@@ -156,7 +158,10 @@ describe("UserPromptSubmit hook", () => {
 		await start(harness({ status: 503 }), { scratchpad_dir: dir });
 		const h = harness({ status: 401 });
 		await submit(h, { scratchpad_dir: dir, prompt_id: "p-1" });
-		expect(JSON.parse(h.out())).toHaveProperty("systemMessage");
+		expect(JSON.parse(h.out())).toEqual({
+			systemMessage:
+				"組織の送信キーが失効しています。Workspaceの管理者に連絡してください",
+		});
 		const later = harness();
 		await start(later, { scratchpad_dir: dir, source: "clear" });
 		expect(later.requests).toEqual([]);

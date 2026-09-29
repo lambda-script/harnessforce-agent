@@ -110,3 +110,19 @@ export function harness(options: HarnessOptions = {}) {
 export type Harness = ReturnType<typeof harness>;
 
 export const scratchpad = () => tempDir("hf-scratch-");
+
+// correlation.md「session context」: SessionStartのstdoutへ出す唯一のJSONのobject。401ではsystemMessageを加える。
+export const sessionContext = (
+	extra: { systemMessage?: string } = {},
+	sessionId = "s-1",
+) => ({
+	hookSpecificOutput: {
+		hookEventName: "SessionStart",
+		additionalContext: `harnessforce session_id: ${sessionId}`,
+	},
+	...extra,
+});
+export const sessionContextLine = (
+	extra: { systemMessage?: string } = {},
+	sessionId = "s-1",
+) => `${JSON.stringify(sessionContext(extra, sessionId))}\n`;

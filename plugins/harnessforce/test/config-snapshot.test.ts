@@ -11,6 +11,8 @@ import {
 	isConfigSnapshot,
 	REPO,
 	scratchpad,
+	sessionContext,
+	sessionContextLine,
 } from "./support.js";
 
 const WORKSPACE_KEY_REVOKED =
@@ -76,7 +78,7 @@ describe("config snapshot from SessionStart", () => {
 			headers: { authorization: "Bearer hf_ik_ws1_secret" },
 			redirect: "error",
 		});
-		expect(h.out()).toBe("");
+		expect(h.out()).toBe(sessionContextLine());
 		expect(h.err()).toBe("");
 	});
 
@@ -152,7 +154,7 @@ describe("config snapshot from SessionStart", () => {
 		await start(h, { scratchpad_dir: dir });
 		expect(h.requests).toHaveLength(2);
 		expect(h.out()).toBe(
-			`${JSON.stringify({ systemMessage: WORKSPACE_KEY_REVOKED })}\n`,
+			sessionContextLine({ systemMessage: WORKSPACE_KEY_REVOKED }),
 		);
 		expect(h.err()).toBe(`${WORKSPACE_KEY_REVOKED}\n`);
 		expect(existsSync(join(dir, "unauthorized-s-1"))).toBe(true);
@@ -165,9 +167,9 @@ describe("config snapshot from SessionStart", () => {
 			statusFor: (url) => (url.endsWith("config-snapshots") ? 401 : undefined),
 		});
 		await start(h, { scratchpad_dir: dir });
-		expect(JSON.parse(h.out())).toEqual({
-			systemMessage: WORKSPACE_KEY_REVOKED,
-		});
+		expect(JSON.parse(h.out())).toEqual(
+			sessionContext({ systemMessage: WORKSPACE_KEY_REVOKED }),
+		);
 		expect(existsSync(join(dir, "unauthorized-s-1"))).toBe(true);
 	});
 
@@ -177,7 +179,7 @@ describe("config snapshot from SessionStart", () => {
 			statusFor: (url) => (url.endsWith("config-snapshots") ? 503 : undefined),
 		});
 		await start(h);
-		expect(h.out()).toBe("");
+		expect(h.out()).toBe(sessionContextLine());
 		expect(h.err()).toBe("harnessforce: config snapshot failed (HTTP 503)\n");
 	});
 

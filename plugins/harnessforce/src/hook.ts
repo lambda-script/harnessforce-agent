@@ -132,17 +132,29 @@ async function send(
 }
 
 // 同じsessionで表示は1回まで。SessionStartで登録とsnapshotの両方が401でも1回だけ呼ぶ。
-async function notifyRevokedKey(
+// exit 0のhookのstderrは利用者に届かないため、呼び出し側が返した文言をsystemMessageでも示す。
+async function revokeKeyNotice(
 	destination: Destination,
 	pad: Scratchpad | undefined,
 	deps: HookDeps,
-): Promise<void> {
+): Promise<string> {
 	const message = REVOKED_KEY_MESSAGES[destination.keyKind];
 	deps.stderr(`${message}\n`);
-	// exit 0のhookのstderrは利用者に届かないため、systemMessageでも示す。
-	deps.stdout(`${JSON.stringify({ systemMessage: message })}\n`);
 	if (pad) await markUnauthorized(pad).catch(logError(deps));
+	return message;
 }
+
+// stdoutはJSONのobject1つだけとする（correlation.md「hook」）。JSONの出力はstdoutがそのobjectだけのときに解釈される。
+const writeJson = (deps: HookDeps, output: object) =>
+	deps.stdout(`${JSON.stringify(output)}\n`);
+
+// correlation.md「session context」: skillがstart_runへ渡すsession IDを、session registrationと同じ値でcontextへ加える。
+const sessionContext = (sessionId: string) => ({
+	hookSpecificOutput: {
+		hookEventName: "SessionStart",
+		additionalContext: `harnessforce session_id: ${sessionId}`,
+	},
+});
 
 async function registerSession(
 	input: HookInput,
@@ -207,19 +219,36 @@ async function sendConfigSnapshot(
 	);
 }
 
-async function onSessionStart(input: HookInput, deps: HookDeps): Promise<void> {
+// 失効したkeyの文言を返す。401を受けなければundefined。
+async function sendSessionStart(
+	input: HookInput,
+	deps: HookDeps,
+): Promise<string | undefined> {
 	if (input.source !== undefined && !REGISTERING_SOURCES.has(input.source))
-		return;
+		return undefined;
 	if (input.scratchpad && (await isMarkedUnauthorized(input.scratchpad)))
-		return;
+		return undefined;
 	const destination = await resolveDestination(deps, input.cwd);
-	if (!destination) return;
+	if (!destination) return undefined;
 	const outcomes = await Promise.all([
 		registerSession(input, destination, deps).catch(logError(deps)),
 		sendConfigSnapshot(input, destination, deps).catch(logError(deps)),
 	]);
-	if (outcomes.some((outcome) => outcome?.kind === "unauthorized"))
-		await notifyRevokedKey(destination, input.scratchpad, deps);
+	if (!outcomes.some((outcome) => outcome?.kind === "unauthorized"))
+		return undefined;
+	return revokeKeyNotice(destination, input.scratchpad, deps);
+}
+
+// sourceや送信の結果によらず、session contextを必ず1回出す。resumeとcompactの後のcontextにもsession IDを残すためである。
+async function onSessionStart(input: HookInput, deps: HookDeps): Promise<void> {
+	const revoked = await sendSessionStart(input, deps).catch((error) => {
+		logError(deps)(error);
+		return undefined;
+	});
+	writeJson(deps, {
+		...sessionContext(input.sessionId),
+		...(revoked === undefined ? {} : { systemMessage: revoked }),
+	});
 }
 
 // sessionの最初のpromptだけ、SessionStartが保存した登録にprompt_idを加えて送る。SessionStartの送信の再送を兼ねる。
@@ -241,7 +270,9 @@ async function onUserPromptSubmit(
 		deps,
 	);
 	if (outcome.kind === "unauthorized")
-		await notifyRevokedKey(destination, pad, deps);
+		writeJson(deps, {
+			systemMessage: await revokeKeyNotice(destination, pad, deps),
+		});
 }
 
 type Handler = (input: HookInput, deps: HookDeps) => Promise<void>;

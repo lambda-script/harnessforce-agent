@@ -8,6 +8,8 @@ import {
 	MANAGED_ENV,
 	REPO,
 	scratchpad,
+	sessionContext,
+	sessionContextLine,
 } from "./support.js";
 
 // correlation.md「hook」の共通の規則が、選んだkeyの種類ごとに定める文言。
@@ -100,7 +102,7 @@ describe("hook key selection", () => {
 		});
 		await start(h);
 		expect(h.requests).toEqual([]);
-		expect(h.out()).toBe("");
+		expect(h.out()).toBe(sessionContextLine());
 		expect(h.err()).toBe(
 			"harnessforce: session registration skipped (no ingest key)\n",
 		);
@@ -114,7 +116,7 @@ describe("hook key selection", () => {
 		});
 		await start(h, { scratchpad_dir: scratchpad() });
 		expect(h.requests).toEqual([]);
-		expect(h.out()).toBe("");
+		expect(h.out()).toBe(sessionContextLine());
 		expect(h.err()).toBe(
 			"harnessforce: no user key in keychain or read failed\n" +
 				"harnessforce: session registration skipped (no ingest key)\n",
@@ -139,7 +141,7 @@ describe("hook key selection", () => {
 		const dir = scratchpad();
 		await start(h, { scratchpad_dir: dir });
 		await submit(h, { scratchpad_dir: dir, prompt_id: "p-1" });
-		expect(h.out()).toBe(`${JSON.stringify({ systemMessage: message })}\n`);
+		expect(h.out()).toBe(sessionContextLine({ systemMessage: message }));
 		expect(h.err()).toBe(`${message}\n`);
 	});
 
