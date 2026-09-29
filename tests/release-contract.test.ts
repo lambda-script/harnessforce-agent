@@ -140,4 +140,18 @@ describe("release workflow", () => {
 	});
 	it("verifies the registry after publishing", () =>
 		expect(yml).toContain("node scripts/verify-published.mjs"));
+	// semantic-conventions.md「目的」: 最初の公開を0.1.0にするため、version PRを作る前に確かめる。
+	it("checks the first release before changesets bumps a version", () => {
+		const check = steps.findIndex(
+			(step) => step.run === "node scripts/check-first-release.mjs",
+		);
+		expect(check).toBeGreaterThan(-1);
+		expect(check).toBeLessThan(
+			steps.findIndex((step) => step.id === "changesets"),
+		);
+	});
+	it("documents that the first release publishes 0.1.0 without changesets", () =>
+		expect(readRunbook()).toMatch(
+			/Until `@harnessforce\/<name>@0\.1\.0` is on npm, do not add a changeset/,
+		));
 });
