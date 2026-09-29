@@ -39,22 +39,41 @@ export const PROPOSAL_KINDS = [
 export const MEASUREMENTS = ["measured", "not_measured"] as const;
 
 const Seconds = Type.Number({ minimum: 0 });
-const Median = Type.Union([Seconds, Type.Null()]);
 
-// measuredなら数値（件数0の中央値はnull）、not_measuredなら全項目null。
-const measuredOrNot = (measured: Record<string, TSchema>) =>
-	Type.Union([
-		Type.Object({ measurement: Type.Literal("measured"), ...measured }, closed),
+// semantic-conventions.md「Analysis report」: measuredでは、中央値の元になる件数が0なら中央値はnull、1以上なら数値。
+// not_measuredでは全項目をnullにし、0と区別する。
+const measuredOrNot = (
+	counted: string,
+	median: string,
+	others: Record<string, TSchema> = {},
+) => {
+	const measured = (count: TSchema, value: TSchema) =>
+		Type.Object(
+			{
+				measurement: Type.Literal("measured"),
+				[counted]: count,
+				...others,
+				[median]: value,
+			},
+			closed,
+		);
+	return Type.Union([
+		measured(Type.Literal(0), Type.Null()),
+		measured(Type.Integer({ minimum: 1 }), Seconds),
 		Type.Object(
 			{
 				measurement: Type.Literal("not_measured"),
 				...Object.fromEntries(
-					Object.keys(measured).map((k) => [k, Type.Null()]),
+					[counted, ...Object.keys(others), median].map((k) => [
+						k,
+						Type.Null(),
+					]),
 				),
 			},
 			closed,
 		),
 	]);
+};
 
 const byKind = <K extends readonly string[]>(kinds: K, value: TSchema) =>
 	Type.Object(
@@ -65,14 +84,9 @@ const byKind = <K extends readonly string[]>(kinds: K, value: TSchema) =>
 		closed,
 	);
 
-const Intervention = measuredOrNot({
-	count: Count,
-	wait_seconds_median: Median,
-});
-const Loop = measuredOrNot({
-	occurrences: Count,
+const Intervention = measuredOrNot("count", "wait_seconds_median");
+const Loop = measuredOrNot("occurrences", "duration_seconds_median", {
 	interventions: Count,
-	duration_seconds_median: Median,
 });
 
 const mcpVariant = (callsMeasured: boolean, failuresMeasured: boolean) =>
