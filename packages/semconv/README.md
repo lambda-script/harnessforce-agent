@@ -69,6 +69,23 @@ lowercase `<host>/<owner>/<name>` form used by `hf.vcs.repository` (for example
 `git@github.com:Acme/Web.git` becomes `github.com/acme/web`), and returns `undefined` for remotes that do
 not have that shape, such as local paths, `file://` URLs and GitLab subgroups.
 
+### Secret patterns
+
+```ts
+import { REDACTION_RULES, redactText } from "@harnessforce/semconv";
+
+redactText("DATABASE_URL=postgres://app:pa55word@db.internal/main");
+// { text: "DATABASE_URL=[REDACTED:connection_string]", count: 1 }
+```
+
+`REDACTION_RULES` lists, in the order they are applied, the regular expressions that the Harnessforce
+service uses to redact telemetry: `private_key`, `connection_string`, `jwt`, `api_key` (Anthropic,
+OpenAI and Google API keys, GitHub tokens, AWS access key IDs, and Harnessforce ingest keys, access
+tokens and refresh tokens), `bearer_token`, `email` and `phone` (E.164 and Japanese domestic numbers).
+`redactText` replaces each match with `[REDACTED:<kind>]` and counts the replacements. Pass
+`{ skipPhone: true }` for names, where digits are not phone numbers. The patterns are global
+regular expressions; copy one before calling `test` or `exec` on it.
+
 ## Versioning
 
 This package follows semantic versioning from 0.1.0: adding attributes or vocabulary is a minor

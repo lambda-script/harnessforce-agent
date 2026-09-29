@@ -8,6 +8,15 @@ import { SessionImportSchema } from "./schemas/session-import.js";
 import { SessionRegistrationSchema } from "./schemas/session-registration.js";
 
 export * from "./attributes.js";
+export {
+	REDACTION_KINDS,
+	REDACTION_RULES,
+	type RedactedText,
+	type RedactionKind,
+	type RedactionRule,
+	type RedactOptions,
+	redactText,
+} from "./redaction.js";
 export { normalizeRepository } from "./repository.js";
 export * from "./schemas/analysis-report.js";
 export { SEMCONV_MAJOR, schemaId } from "./schemas/common.js";
