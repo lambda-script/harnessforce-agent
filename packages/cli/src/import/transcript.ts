@@ -4,7 +4,7 @@ import { isObject } from "@harnessforce/agent-core/object";
 
 // Claude Codeのtranscript（~/.claude/projects/<project>/<session>.jsonl）の形式は公式に文書化されていない
 // （claude-code.md）。解釈を変えたらこのversionを上げ、送るsessionにparser_versionとして付ける。
-export const PARSER_VERSION = "1.0.0";
+export const PARSER_VERSION = "1.1.0";
 
 type ToolCallSummary = { tool: string; calls: number; failures: number };
 
@@ -22,6 +22,31 @@ export type TranscriptSession = {
 	toolCalls: ToolCallSummary[];
 };
 
+// hf tuneの分析に使うevent（improvement-loop.md「読むもの」）。本文を含むため、端末の外へ出さず、表示もしない。
+export type TranscriptEvent =
+	| { type: "prompt"; ms: number; text: string }
+	| { type: "response"; ms: number }
+	| { type: "tool_use"; ms: number; id: string; name: string; command?: string }
+	| {
+			type: "tool_result";
+			ms: number;
+			toolUseId: string;
+			isError: boolean;
+			// 権限の確認で拒否された呼び出し。実行されていないため、toolの失敗ではない。
+			isDenied: boolean;
+			output: string;
+	  };
+
+export type TranscriptEvents =
+	| {
+			kind: "session";
+			session: TranscriptSession;
+			events: TranscriptEvent[];
+			lines: number;
+			skippedLines: number;
+	  }
+	| { kind: "empty" | "unreadable"; lines: number; skippedLines: number };
+
 export type TranscriptResult =
 	| { kind: "session"; session: TranscriptSession; skippedLines: number }
 	// 読めたが、送れるsession（session ID、時刻、modelの応答）が無い。応答の前に終わったsessionなど。
@@ -38,6 +63,21 @@ const MAX_TOOL_NAME = 128;
 const MAX_MODEL = 128;
 // API errorなどでClaude Codeが自分で作る応答。modelの呼び出しではない。
 const SYNTHETIC_MODEL = "<synthetic>";
+// tool_resultの本文は、CIの失敗の判定に使う先頭だけを持つ。
+const MAX_OUTPUT_LENGTH = 8192;
+// Claude Codeがpromptの形で記録する、人が入力していない行の先頭。
+const NON_HUMAN_PREFIXES = [
+	"<local-command-stdout>",
+	"<local-command-stderr>",
+	"<local-command-caveat>",
+	"<task-notification>",
+	"<system-reminder>",
+	"<bash-stdout>",
+	"<bash-stderr>",
+	"[Request interrupted by user",
+];
+// promptSourceが示す、人が入力していないprompt。
+const NON_HUMAN_SOURCES = new Set(["system", "sdk"]);
 // offsetの無い時刻は瞬間として解釈できないため使わない。
 const INSTANT =
 	/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
@@ -56,6 +96,49 @@ function toInstantMs(value: unknown): number | undefined {
 	return Number.isNaN(ms) ? undefined : ms;
 }
 
+const textOf = (content: unknown): string | undefined => {
+	if (typeof content === "string") return content;
+	if (!Array.isArray(content)) return undefined;
+	const texts: string[] = [];
+	for (const block of content) {
+		if (
+			!isObject(block) ||
+			block.type !== "text" ||
+			typeof block.text !== "string"
+		)
+			return undefined;
+		texts.push(block.text);
+	}
+	return texts.join("\n");
+};
+
+// 人が入力したprompt。meta、subagent、要約、通知、commandの出力、tool_resultは含めない。
+function humanPromptText(row: Row, message: Row): string | undefined {
+	if (row.isMeta === true || row.isCompactSummary === true) return undefined;
+	if (isObject(row.origin) && row.origin.kind !== "human") return undefined;
+	if (
+		typeof row.promptSource === "string" &&
+		NON_HUMAN_SOURCES.has(row.promptSource)
+	)
+		return undefined;
+	const text = textOf(message.content)?.trim();
+	if (!text || NON_HUMAN_PREFIXES.some((prefix) => text.startsWith(prefix)))
+		return undefined;
+	return text;
+}
+
+const outputOf = (content: unknown): string =>
+	(typeof content === "string"
+		? content
+		: Array.isArray(content)
+			? content
+					.map((block) =>
+						isObject(block) && typeof block.text === "string" ? block.text : "",
+					)
+					.join("\n")
+			: ""
+	).slice(0, MAX_OUTPUT_LENGTH);
+
 class Accumulator {
 	sessionId: string | undefined;
 	firstPromptId: string | undefined;
@@ -69,6 +152,9 @@ class Accumulator {
 	readonly responses = new Map<string, string>();
 	readonly toolNames = new Map<string, string>();
 	readonly failedToolUses = new Set<string>();
+
+	// 分析に使うeventを集める場合だけ配列を持つ。hf importは集めない。
+	constructor(readonly events?: TranscriptEvent[]) {}
 
 	add(row: Row): void {
 		if (this.sessionId === undefined && isToken(row.sessionId))
@@ -87,6 +173,57 @@ class Accumulator {
 		const message = isObject(row.message) ? row.message : {};
 		if (row.type === "user") this.addUser(row, message);
 		else this.addResponse(message);
+		if (ms !== undefined && row.isSidechain !== true)
+			this.addEvents(row, message, ms);
+	}
+
+	private addEvents(row: Row, message: Row, ms: number): void {
+		const events = this.events;
+		if (!events) return;
+		if (row.type === "assistant") {
+			events.push({ type: "response", ms });
+			if (!Array.isArray(message.content)) return;
+			for (const block of message.content) {
+				if (
+					!isObject(block) ||
+					block.type !== "tool_use" ||
+					typeof block.id !== "string" ||
+					typeof block.name !== "string"
+				)
+					continue;
+				const input = isObject(block.input) ? block.input : {};
+				events.push({
+					type: "tool_use",
+					ms,
+					id: block.id,
+					name: block.name,
+					...(typeof input.command === "string"
+						? { command: input.command }
+						: {}),
+				});
+			}
+			return;
+		}
+		if (Array.isArray(message.content)) {
+			const results = message.content.filter(
+				(block) =>
+					isObject(block) &&
+					block.type === "tool_result" &&
+					typeof block.tool_use_id === "string",
+			) as Row[];
+			for (const block of results)
+				events.push({
+					type: "tool_result",
+					ms,
+					toolUseId: block.tool_use_id as string,
+					isError: block.is_error === true,
+					isDenied: typeof row.toolDenialKind === "string",
+					output: outputOf(block.content),
+				});
+			if (results.length > 0) return;
+		}
+		const text = humanPromptText(row, message);
+		if (text !== undefined) events.push({ type: "prompt", ms, text });
 	}
 
 	private addUser(row: Row, message: Row): void {
@@ -174,16 +311,27 @@ class Accumulator {
 	}
 }
 
+type Read = {
+	session: TranscriptSession | undefined;
+	isReadable: boolean;
+	lines: number;
+	skippedLines: number;
+};
+
 // 読めない行（JSONのobjectでない行）は読み飛ばして数える。fileを開けない、または途中で読めなくなった場合は、file全体を読めないものとする。
-export async function parseTranscript(path: string): Promise<TranscriptResult> {
-	const accumulator = new Accumulator();
+async function readTranscript(
+	path: string,
+	accumulator: Accumulator,
+): Promise<Read> {
+	let lines = 0;
 	let skippedLines = 0;
 	try {
-		const lines = createInterface({
+		const reader = createInterface({
 			input: createReadStream(path, { encoding: "utf8" }),
 			crlfDelay: Number.POSITIVE_INFINITY,
 		});
-		for await (const text of lines) {
+		for await (const text of reader) {
+			lines += 1;
 			let row: unknown;
 			try {
 				row = JSON.parse(text);
@@ -195,10 +343,38 @@ export async function parseTranscript(path: string): Promise<TranscriptResult> {
 			else skippedLines += 1;
 		}
 	} catch {
-		return { kind: "unreadable", skippedLines };
+		return { session: undefined, isReadable: false, lines, skippedLines };
 	}
-	const session = accumulator.result();
+	return {
+		session: accumulator.result(),
+		isReadable: true,
+		lines,
+		skippedLines,
+	};
+}
+
+export async function parseTranscript(path: string): Promise<TranscriptResult> {
+	const { session, isReadable, skippedLines } = await readTranscript(
+		path,
+		new Accumulator(),
+	);
+	if (!isReadable) return { kind: "unreadable", skippedLines };
 	return session
 		? { kind: "session", session, skippedLines }
 		: { kind: "empty", skippedLines };
+}
+
+// hf tuneの読み込み。hf importと同じ処理で読み、分析に使うeventの列を加える。
+export async function parseTranscriptEvents(
+	path: string,
+): Promise<TranscriptEvents> {
+	const events: TranscriptEvent[] = [];
+	const { session, isReadable, lines, skippedLines } = await readTranscript(
+		path,
+		new Accumulator(events),
+	);
+	if (!isReadable) return { kind: "unreadable", lines, skippedLines };
+	return session
+		? { kind: "session", session, events, lines, skippedLines }
+		: { kind: "empty", lines, skippedLines };
 }
