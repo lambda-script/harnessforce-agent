@@ -9,6 +9,8 @@ import {
 	isRegistration,
 	REPO,
 	scratchpad,
+	sessionContext,
+	sessionContextLine,
 } from "./support.js";
 
 // correlation.md「hook」の共通の規則が定める文言。
@@ -54,7 +56,7 @@ describe("SessionStart hook", () => {
 		});
 		expect(h.bodies()).toEqual([[registered]]);
 		expect(isRegistration(h.bodies()[0]?.[0])).toBe(true);
-		expect(h.out()).toBe("");
+		expect(h.out()).toBe(sessionContextLine());
 		expect(h.err()).toBe("");
 	});
 
@@ -103,7 +105,7 @@ describe("SessionStart hook", () => {
 		const h = harness({ git: fakeGit(overrides) });
 		await start(h);
 		expect(h.requests).toEqual([]);
-		expect(h.out()).toBe("");
+		expect(h.out()).toBe(sessionContextLine());
 	});
 
 	it.each([
@@ -114,7 +116,24 @@ describe("SessionStart hook", () => {
 		const h = harness();
 		await start(h, { source });
 		expect(h.requests).toEqual([]);
+		expect(h.out()).toBe(sessionContextLine());
 		expect(h.err()).toBe("");
+	});
+
+	it("escapes the session id by JSON serialization", async () => {
+		const h = harness();
+		await start(h, { session_id: 'a"b\\c' });
+		expect(JSON.parse(h.out()).hookSpecificOutput.additionalContext).toBe(
+			'harnessforce session_id: a"b\\c',
+		);
+	});
+
+	it("passes the session id it received to the agent context", async () => {
+		const h = harness();
+		await start(h, { session_id: "0b1c2d3e-4f50-6172-8394-a5b6c7d8e9f0" });
+		expect(JSON.parse(h.out())).toEqual(
+			sessionContext({}, "0b1c2d3e-4f50-6172-8394-a5b6c7d8e9f0"),
+		);
 	});
 
 	it.each([
@@ -141,7 +160,7 @@ describe("SessionStart hook", () => {
 		const h = harness({ managed });
 		await start(h);
 		expect(h.requests).toEqual([]);
-		expect(h.out()).toBe("");
+		expect(h.out()).toBe(sessionContextLine());
 		expect(h.err()).toBe(
 			"harnessforce: session registration skipped (invalid endpoint)\n",
 		);
@@ -174,7 +193,7 @@ describe("SessionStart hook", () => {
 		const dir = scratchpad();
 		await start(h, { scratchpad_dir: dir });
 		expect(h.requests).toEqual([]);
-		expect(h.out()).toBe("");
+		expect(h.out()).toBe(sessionContextLine());
 		expect(h.err()).toBe(
 			"harnessforce: session registration skipped (no ingest key)\n",
 		);
@@ -261,16 +280,16 @@ describe("SessionStart hook", () => {
 			start(h, { scratchpad_dir: "/nonexistent/hf-scratch" }),
 		).resolves.toBeUndefined();
 		expect(h.requests).toHaveLength(1);
-		expect(h.out()).toBe("");
+		expect(h.out()).toBe(sessionContextLine());
 	});
 
 	it("shows the workspace-key notice once on 401 and marks the session unauthorized", async () => {
 		const dir = scratchpad();
 		const h = harness({ status: 401 });
 		await expect(start(h, { scratchpad_dir: dir })).resolves.toBeUndefined();
-		expect(JSON.parse(h.out())).toEqual({
-			systemMessage: WORKSPACE_KEY_REVOKED,
-		});
+		expect(h.out()).toBe(
+			sessionContextLine({ systemMessage: WORKSPACE_KEY_REVOKED }),
+		);
 		expect(h.err()).toContain(WORKSPACE_KEY_REVOKED);
 		expect(existsSync(join(dir, "unauthorized-s-1"))).toBe(true);
 	});
@@ -286,7 +305,7 @@ describe("SessionStart hook", () => {
 		const h = harness();
 		await start(h, { scratchpad_dir: dir, source });
 		expect(h.requests).toEqual([]);
-		expect(h.out()).toBe("");
+		expect(h.out()).toBe(sessionContextLine());
 	});
 
 	it.each([
@@ -295,7 +314,7 @@ describe("SessionStart hook", () => {
 		const dir = scratchpad();
 		const h = harness({ status });
 		await start(h, { scratchpad_dir: dir });
-		expect(h.out()).toBe("");
+		expect(h.out()).toBe(sessionContextLine());
 		expect(h.err()).toBe(
 			`harnessforce: session registration failed (HTTP ${status})\n`,
 		);
@@ -305,7 +324,7 @@ describe("SessionStart hook", () => {
 	it("keeps the user out of it when the request fails", async () => {
 		const h = harness({ fetchError: new TypeError("fetch failed") });
 		await expect(start(h)).resolves.toBeUndefined();
-		expect(h.out()).toBe("");
+		expect(h.out()).toBe(sessionContextLine());
 		expect(h.err()).toBe(
 			"harnessforce: session registration failed (TypeError)\n",
 		);
@@ -351,7 +370,7 @@ describe("SessionStart hook", () => {
 			},
 		});
 		await expect(start(h)).resolves.toBeUndefined();
-		expect(h.out()).toBe("");
+		expect(h.out()).toBe(sessionContextLine());
 		// session registrationとconfig snapshotは別々にgitを使い、それぞれの失敗を書く。
 		expect(h.err()).toBe("harnessforce: boom\nharnessforce: boom\n");
 	});

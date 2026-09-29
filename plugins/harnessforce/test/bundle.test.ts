@@ -25,6 +25,13 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 // turboはtestの前にこのpackageのbuildを実行する。直接vitestを実行する場合は先に`pnpm build`する。
 const built = fileURLToPath(new URL("../dist/marketplace", import.meta.url));
+// correlation.md「session context」: SessionStartはsession IDをcontextへ渡すJSONのobject1つだけを出す。
+const SESSION_CONTEXT = `${JSON.stringify({
+	hookSpecificOutput: {
+		hookEventName: "SessionStart",
+		additionalContext: "harnessforce session_id: s-1",
+	},
+})}\n`;
 // buildの出力をnode_modulesの無い場所へ写し、bundleが依存packageを実行時に解決しないことも確かめる。
 let marketplace: string;
 let hookScript: string;
@@ -357,8 +364,12 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 				{ ...input, prompt_id: "p-1" },
 				env(ingest.endpoint),
 			);
-			for (const result of [started, prompted])
-				expect(result).toMatchObject({ code: 0, stdout: "", stderr: "" });
+			expect(started).toMatchObject({
+				code: 0,
+				stdout: SESSION_CONTEXT,
+				stderr: "",
+			});
+			expect(prompted).toMatchObject({ code: 0, stdout: "", stderr: "" });
 			expect(ingest.received.map((r) => r.url)).toEqual([
 				"/base/v1/sessions",
 				"/base/v1/sessions",
@@ -391,6 +402,7 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 			);
 			expect(result.code).toBe(0);
 			expect(JSON.parse(result.stdout)).toEqual({
+				...JSON.parse(SESSION_CONTEXT),
 				systemMessage: "送信キーが失効しています。`hf init`を実行してください",
 			});
 		});
@@ -403,7 +415,7 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 				{ session_id: "s-1", cwd: repo.dir },
 				env(ingest.endpoint),
 			);
-			expect(result).toMatchObject({ code: 0, stdout: "" });
+			expect(result).toMatchObject({ code: 0, stdout: SESSION_CONTEXT });
 			expect(result.stderr).toBe(
 				"harnessforce: session registration failed (TimeoutError)\n",
 			);
@@ -438,7 +450,11 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 						PATH: `${fakeHfOnPath()}:${process.env.PATH ?? ""}`,
 					},
 				);
-				expect(result).toMatchObject({ code: 0, stdout: "", stderr: "" });
+				expect(result).toMatchObject({
+					code: 0,
+					stdout: SESSION_CONTEXT,
+					stderr: "",
+				});
 				expect(ingest.received[0]?.headers.authorization).toBe(
 					"Bearer hf_ik_ws1_user",
 				);
@@ -477,7 +493,7 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 					{ session_id: "s-1", cwd: repo.dir, source: "startup" },
 					{ ...env, HARNESSFORCE_ENDPOINT: ingest.endpoint },
 				);
-				expect(withheld).toMatchObject({ code: 0, stdout: "" });
+				expect(withheld).toMatchObject({ code: 0, stdout: SESSION_CONTEXT });
 				expect(withheld.stderr).toBe(
 					"harnessforce: no user key in keychain or read failed\n" +
 						"harnessforce: session registration skipped (no ingest key)\n",
@@ -516,7 +532,11 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 					tempDir("hf-home-"),
 					hookCwd,
 				);
-				expect(result).toMatchObject({ code: 0, stdout: "", stderr: "" });
+				expect(result).toMatchObject({
+					code: 0,
+					stdout: SESSION_CONTEXT,
+					stderr: "",
+				});
 				expect(existsSync(planted)).toBe(false);
 				expect(ingest.received.map((r) => r.headers.authorization)).toEqual([
 					"Bearer hf_ik_ws1_user",
@@ -575,7 +595,7 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 						PATH: `${hfDir}:${process.env.PATH ?? ""}`,
 					},
 				);
-				expect(result).toMatchObject({ code: 0, stdout: "" });
+				expect(result).toMatchObject({ code: 0, stdout: SESSION_CONTEXT });
 				expect(result.stderr).not.toContain("harnessforce:");
 				expect(proxied).toEqual([]);
 				expect(ingest.received.map((r) => r.headers.authorization)).toEqual([
@@ -598,7 +618,11 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 				{ session_id: "s-1", cwd: tempDir("hf-plain-") },
 				env(ingest.endpoint),
 			);
-			expect(result).toMatchObject({ code: 0, stdout: "", stderr: "" });
+			expect(result).toMatchObject({
+				code: 0,
+				stdout: SESSION_CONTEXT,
+				stderr: "",
+			});
 			expect(ingest.received).toEqual([]);
 		});
 
@@ -615,7 +639,7 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 				env(ingest.endpoint),
 				home,
 			);
-			expect(result).toMatchObject({ code: 0, stdout: "" });
+			expect(result).toMatchObject({ code: 0, stdout: SESSION_CONTEXT });
 			const snapshot = ingest.received.find((r) =>
 				r.url?.endsWith("/v1/config-snapshots"),
 			);
@@ -659,7 +683,7 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 				{ session_id: "s-1", cwd, source: "startup" },
 				env(ingest.endpoint),
 			);
-			expect(result).toMatchObject({ code: 0, stdout: "" });
+			expect(result).toMatchObject({ code: 0, stdout: SESSION_CONTEXT });
 			expect(ingest.received.map((r) => r.url)).toEqual([
 				"/base/v1/config-snapshots",
 			]);
