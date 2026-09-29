@@ -28,6 +28,7 @@ export {
 	type SessionRegistration,
 	SessionRegistrationSchema,
 } from "./schemas/session-registration.js";
+export { isInstant, isToken } from "./values.js";
 
 // 利用側はこの一覧から、自分のvalidatorでschemaをcompileする。Workers上ではコード生成を伴わないvalidatorを選ぶ。
 export const SCHEMAS = {

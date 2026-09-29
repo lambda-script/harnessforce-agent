@@ -1,8 +1,5 @@
 import { Type } from "@sinclair/typebox";
-
-// APIはoffsetの無い日時を受け付けない。format(date-time)だけでは実装によりoffsetが任意になるため、patternでも固定する。
-const INSTANT_PATTERN =
-	"^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$";
+import { INSTANT_PATTERN, TOKEN_PATTERN } from "../values.js";
 
 // 互換性の単位はmajor（semantic-conventions.md「互換性」）。$idにはmajorだけを含める。
 export const SEMCONV_MAJOR = 0;
@@ -28,8 +25,9 @@ export const RepositorySlug = Type.String({
 export const SemVer = Type.String({
 	pattern: "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$",
 });
+// minLengthとmaxLengthは、JSON Schemaの定義どおりcode pointで数える。
 export const Token = (maxLength = 256) =>
-	Type.String({ minLength: 1, maxLength, pattern: "^\\S+$" });
+	Type.String({ minLength: 1, maxLength, pattern: TOKEN_PATTERN });
 export const Count = Type.Integer({ minimum: 0 });
 export const Agent = Type.Union([
 	Type.Literal("claude_code"),

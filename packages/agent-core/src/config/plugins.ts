@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { isToken } from "@harnessforce/semconv";
 import { isObject } from "../object.js";
 import {
 	exists,
@@ -20,7 +21,6 @@ const NON_MARKETPLACE_ORIGINS = new Set(["inline", "skills-dir", "synced"]);
 // repositoryのsettingsがplugins rootの外を指せないよう、pathの区切りを含まない名前だけを受け付ける。
 const PLUGIN_ID = /^([A-Za-z0-9._-]+)@([A-Za-z0-9._-]+)$/;
 const isPathSegment = (name: string) => name !== "." && name !== "..";
-const VERSION = /^\S{1,64}$/;
 // 更新または削除で前のversionのdirectoryに書かれる印。
 const ORPHANED_MARK = ".orphaned_at";
 
@@ -70,7 +70,7 @@ export async function collectPlugins(
 		const s = scope(
 			"plugin",
 			`${id}:`,
-			VERSION.test(version) ? version : undefined,
+			isToken(version, 64) ? version : undefined,
 		);
 		await collectLayout(s, {
 			skills: join(root, "skills"),
