@@ -87,8 +87,9 @@ pnpm changeset
 Pick the packages and the bump (`patch` for fixes, `minor` for additions; see the
 [semconv versioning rules](packages/semconv/README.md#versioning)), and write one sentence from the
 user's point of view. Private packages (`@harnessforce/agent-core`, `@harnessforce/test-support` and
-the plugin source) need no changeset. See [Releasing](docs/runbooks/releasing.md) for what happens
-after merge.
+the plugin source) need no changeset. Until a package's 0.1.0 is on npm, add no changeset for it:
+everything before the first release ships as 0.1.0. See [Releasing](docs/runbooks/releasing.md) for
+what happens after merge.
 
 ## Pull requests
 

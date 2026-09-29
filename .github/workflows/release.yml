@@ -40,6 +40,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # changeset publishはpnpm publishを通じてnpm publishを実行する。trusted publishingはnpm 11.5.1以上を要する。
       - run: npm install -g npm@11.20.0
+      # 最初の公開を0.1.0にする。0.1.0がnpmに無いpackageへのchangesetがあると、version PRが0.1.0を飛ばすため止める。手順はdocs/runbooks/releasing.mdを参照。
+      - run: node scripts/check-first-release.mjs
       - id: changesets
         uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1.9.0
         with:

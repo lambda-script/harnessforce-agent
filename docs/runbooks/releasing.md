@@ -26,13 +26,20 @@ recorded, that spec keeps distributing the plugin and the CLI to the public out 
 7. `gh variable set NPM_PUBLISH_ENABLED --body true -R lambda-script/harnessforce-agent`
 8. Re-run the latest `Release` workflow on `main`. It publishes 0.1.0 with provenance and fails
    unless `npm view @harnessforce/semconv@0.1.0 version` and `npm view @harnessforce/cli@0.1.0 version` resolve.
+   The Harnessforce spec (`semantic-conventions.md`) makes 0.1.0 the first published version, and the
+   Harnessforce service switches to `@harnessforce/semconv` once 0.1.0 is on npm.
+   Until `@harnessforce/<name>@0.1.0` is on npm, do not add a changeset for that package: the changes
+   up to the first release are all part of 0.1.0. With no changeset pending, `changesets/action` publishes the
+   version in `package.json` instead of opening a version pull request.
+   `scripts/check-first-release.mjs` runs before `changesets/action` and fails the workflow when a
+   package without 0.1.0 on npm is not at 0.1.0 or has a pending changeset.
 9. Confirm the provenance badge on each package page on npmjs.com, then deprecate the placeholders:
    `npm deprecate @harnessforce/<name>@0.0.0-bootstrap.0 "placeholder for trusted publishing setup"`
 
 ## Every release
 
-1. Each pull request that changes what users of `@harnessforce/cli` or `@harnessforce/semconv` see
-   carries a changeset (`pnpm changeset`). Private packages (`@harnessforce/agent-core`,
+1. After the first release, each pull request that changes what users of `@harnessforce/cli` or
+   `@harnessforce/semconv` see carries a changeset (`pnpm changeset`). Before it, see step 8 above. Private packages (`@harnessforce/agent-core`,
    `@harnessforce/test-support`, `harnessforce-plugin`) are never published and need none.
 2. Merging to `main` makes the `Release` workflow open or update the "chore: version packages" pull
    request, which bumps the versions and writes the changelogs.
