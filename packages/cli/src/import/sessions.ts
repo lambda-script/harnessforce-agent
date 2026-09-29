@@ -30,7 +30,7 @@ const readDir = (dir: string): Promise<Dirent[]> =>
 	readdir(dir, { withFileTypes: true }).catch(() => []);
 
 // claude-code.mdに記載された`<project>/<session>.jsonl`だけを読む。subagentなどの他の階層は読まない。
-async function listTranscripts(projectsDir: string): Promise<string[]> {
+export async function listTranscripts(projectsDir: string): Promise<string[]> {
 	const projects = (await readDir(projectsDir)).filter((entry) =>
 		entry.isDirectory(),
 	);
@@ -45,7 +45,7 @@ async function listTranscripts(projectsDir: string): Promise<string[]> {
 	return files.flat();
 }
 
-function toSessionImport(
+export function toSessionImport(
 	session: TranscriptSession,
 	repository: string,
 ): SessionImport {

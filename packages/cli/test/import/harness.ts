@@ -33,6 +33,8 @@ type HarnessforceOptions = {
 	workspace?: Reply;
 	// ingestの要求ごとの応答。尽きたらすべて受け付ける。
 	ingest?: Reply[];
+	// `/v1/analysis-reports`の要求ごとの応答。尽きたらすべて受け付ける。
+	analysis?: Reply[];
 	// Read APIが401を返すaccess token。
 	unauthorizedTokens?: readonly string[];
 	// token endpointの応答。無ければ`refreshed`の組を返す。
@@ -48,6 +50,7 @@ export const TOKEN_EXPIRY: TokenExpiry = {
 export async function startImportServer(options: HarnessforceOptions = {}) {
 	const requests: Request[] = [];
 	const ingestReplies = [...(options.ingest ?? [])];
+	const analysisReplies = [...(options.analysis ?? [])];
 	const server = createServer(async (req, res) => {
 		const chunks: Buffer[] = [];
 		for await (const chunk of req) chunks.push(chunk as Buffer);
@@ -118,6 +121,16 @@ export async function startImportServer(options: HarnessforceOptions = {}) {
 					},
 				},
 			);
+		if (req.method === "POST" && url.pathname === "/ingest/v1/analysis-reports")
+			return reply(
+				analysisReplies.shift() ?? {
+					status: 200,
+					body: {
+						accepted: (JSON.parse(text) as unknown[]).length,
+						rejected: [],
+					},
+				},
+			);
 		reply({ status: 404 });
 	});
 	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -128,7 +141,7 @@ export async function startImportServer(options: HarnessforceOptions = {}) {
 	const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 	const sessionBodies = () =>
 		requests
-			.filter((r) => r.path.startsWith("POST /ingest/"))
+			.filter((r) => r.path === "POST /ingest/v1/imports/sessions")
 			.map((r) =>
 				(r.body as { session_id: string }[]).map((s) => s.session_id),
 			);

@@ -76,4 +76,15 @@ process.exitCode =
 			}),
 		importGit: createImportGit(process.platform, process.env, process.cwd()),
 		sleep: (ms) => delay(ms),
+		readStdin: async (maxBytes) => {
+			const chunks: Buffer[] = [];
+			let size = 0;
+			for await (const chunk of process.stdin) {
+				chunks.push(chunk as Buffer);
+				size += (chunk as Buffer).length;
+				// 上限を超えたと分かれば、残りは読まない。
+				if (size > maxBytes) break;
+			}
+			return Buffer.concat(chunks);
+		},
 	}));

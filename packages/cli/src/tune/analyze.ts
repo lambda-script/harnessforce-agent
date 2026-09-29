@@ -9,7 +9,7 @@ import {
 	type TranscriptEvent,
 	type TranscriptSession,
 } from "../import/transcript.js";
-import { type McpConfig, toolSegment, UNLISTED } from "./mcp-config.js";
+import { isMcpTool, type McpConfig, UNLISTED } from "./mcp-config.js";
 import {
 	CI_FAILURE_OUTPUT,
 	CI_RELAY_PATTERNS,
@@ -282,9 +282,8 @@ function summarizeMcp(
 	};
 	for (const event of events) {
 		if (event.type === "tool_use") {
-			const segment = toolSegment(event.name);
-			if (segment === undefined) continue;
-			const server = mcp.byToolSegment.get(segment) ?? UNLISTED;
+			if (!isMcpTool(event.name)) continue;
+			const server = mcp.serverOf(event.name);
 			serverOf.set(event.id, server);
 			bump(server, "calls");
 		}

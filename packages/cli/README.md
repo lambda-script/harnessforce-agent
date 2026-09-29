@@ -29,6 +29,8 @@ hf init
 | `hf otel-headers` | Prints the `Authorization` header for Claude Code's `otelHeadersHelper` |
 | `hf run --issue <identifier> -- <agent> [args]` | Launches an agent with its session linked to an Issue |
 | `hf import` | Sends the metadata of past Claude Code sessions in connected repositories |
+| `hf tune [--all] [--no-send] [--show-report] [--json]` | Analyzes past sessions on this machine by public rules and sends the counts (analysis reports) |
+| `hf tune record` / `hf tune --purge` | Records a proposal from stdin / deletes everything under `~/.harnessforce/tune/` |
 | `hf --version` | Prints the version |
 
 ## What is never sent
@@ -150,6 +152,28 @@ work done before the plugin was installed can be linked to issues too. Run `hf i
 The Workspace, the connection URL and the ingest endpoint come from `HARNESSFORCE_WORKSPACE_ID`,
 `HARNESSFORCE_URL` and `HARNESSFORCE_ENDPOINT` in the environment, and otherwise from the `env` that
 `hf init` wrote to the Claude Code user settings.
+
+## Analyzing past sessions (`hf tune`)
+
+`hf tune` reads the same transcripts as `hf import` and turns each session into an analysis report:
+interventions, loops that could be automated, and MCP server calls. Run `hf init` first. The Viewer
+role cannot use it.
+
+- The categories come from public rules and a public vocabulary (`src/tune/analyze.ts`,
+  `src/tune/vocabulary.ts`, `analyzer_version`), never from a model. Categories the transcript cannot
+  tell apart (`approval`, `answer`) are reported as not measured, never as 0.
+- Only the counts and medians of the analysis report are sent, to
+  `POST <HARNESSFORCE_ENDPOINT>/v1/analysis-reports` with the user ingest key. Prompts, responses,
+  commands, paths and error text never leave the machine.
+- By default it analyzes sessions started in the last 30 days in connected repositories. `--all`
+  analyzes every session, but still sends only sessions in connected repositories that started within
+  `session_import_days`. Sessions without a Run are imported first, like `hf import`.
+- Sending is fail-open: when Harnessforce cannot be reached, the reports stay in
+  `~/.harnessforce/tune/unsent.json` and are sent by the next run. `401` and `403` delete the unsent
+  reports and ask you to run `hf init`.
+- `--no-send`, or `{"tune": {"send_report": false}}` in `~/.harnessforce/config.json`, sends nothing.
+  A config file it cannot read also sends nothing.
+- Everything it keeps is under `~/.harnessforce/tune/`; `hf tune --purge` deletes it.
 
 ## License
 
