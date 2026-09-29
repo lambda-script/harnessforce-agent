@@ -120,6 +120,14 @@ describe("SessionStart hook", () => {
 		expect(h.err()).toBe("");
 	});
 
+	// semantic-conventions.md「値の形」: 文字数はcode pointで数える。
+	it("accepts a session id of 256 code points beyond 256 UTF-16 units", async () => {
+		const sessionId = "\u{1F600}".repeat(256);
+		const h = harness();
+		await start(h, { session_id: sessionId });
+		expect(JSON.parse(h.out())).toEqual(sessionContext({}, sessionId));
+	});
+
 	it("escapes the session id by JSON serialization", async () => {
 		const h = harness();
 		await start(h, { session_id: 'a"b\\c' });
@@ -340,6 +348,10 @@ describe("SessionStart hook", () => {
 			JSON.stringify({ session_id: "s 1", cwd: REPO.cwd }),
 		],
 		["no session id", JSON.stringify({ cwd: REPO.cwd })],
+		[
+			"a session id with NEL (U+0085)",
+			JSON.stringify({ session_id: "s\u00851", cwd: REPO.cwd }),
+		],
 	])("ignores %s", async (_, raw) => {
 		const h = harness();
 		await expect(

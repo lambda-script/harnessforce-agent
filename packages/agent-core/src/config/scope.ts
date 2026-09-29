@@ -1,4 +1,5 @@
 import { isAbsolute, join } from "node:path";
+import { isToken } from "@harnessforce/semconv";
 import { isObject } from "../object.js";
 import { hashFileContent, hashValue } from "./canonical.js";
 import type {
@@ -15,8 +16,6 @@ import {
 
 // correlation.md「構成の収集」。一部だけを集めたsnapshotは構成を誤って表すため、超えたら送らない。
 const MAX_COMPONENTS = 1000;
-// semconvのTokenと同じ制約。
-const IDENTIFIER = /^\S{1,256}$/;
 
 export class TooManyComponents extends Error {}
 
@@ -40,7 +39,7 @@ export class Sink {
 	constructor(private readonly guard: Guard) {}
 
 	private add(component: ConfigComponent): void {
-		if (!IDENTIFIER.test(component.id)) return;
+		if (!isToken(component.id)) return;
 		if (this.components.length >= MAX_COMPONENTS) throw new TooManyComponents();
 		this.components.push(component);
 	}

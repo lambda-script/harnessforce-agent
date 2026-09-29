@@ -326,7 +326,7 @@ describe("built marketplace", () => {
 			readdirSync(join(marketplace, "plugins/harnessforce/scripts")).sort(),
 		).toEqual(["harnessforce-hook-main.cjs", "harnessforce-hook.cjs"]));
 
-	// hookはsemconvからrepositoryの正規化だけを使う。schemaの実装を起動のたびに読み込まない。
+	// hookはsemconvからrepositoryの正規化と値の形の検査だけを使う。schemaの実装を起動のたびに読み込まない。
 	it("leaves the semconv schemas out of the hook bundle", () =>
 		expect(
 			readFileSync(
