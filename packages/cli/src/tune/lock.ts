@@ -1,4 +1,5 @@
-import { open, rm, stat, utimes } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { open, readFile, rm, stat, utimes } from "node:fs/promises";
 
 // improvement-loop.md「端末のfile」: `~/.harnessforce/tune/.lock`の排他lock。
 const LOCK_WAIT_MS = 30_000;
@@ -32,6 +33,9 @@ export async function acquireTuneLock(
 	while (deps.now() < deadline) {
 		try {
 			const handle = await open(path, "wx", FILE_MODE);
+			// 外すときに自分のlockであることを確かめ、奪われた後の他人のlockを消さない。
+			const token = randomUUID();
+			await handle.writeFile(token);
 			await handle.close();
 			const heartbeat = setInterval(() => {
 				const time = new Date();
@@ -40,7 +44,8 @@ export async function acquireTuneLock(
 			heartbeat.unref();
 			return async () => {
 				clearInterval(heartbeat);
-				await rm(path, { force: true });
+				const current = await readFile(path, "utf8").catch(() => undefined);
+				if (current === token) await rm(path, { force: true });
 			};
 		} catch (error) {
 			if (!isAlreadyExists(error)) throw error;

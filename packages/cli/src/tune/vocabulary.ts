@@ -54,7 +54,7 @@ export const REVIEW_RELAY_PATTERNS: readonly RegExp[] = [
 export const COMMANDS = {
 	test: /\b(vitest|jest|pytest|mocha|rspec|phpunit)\b|\b(go|cargo|bun|deno) test\b|\bplaywright test\b|\b(npm|pnpm|yarn)\b[^|;&\n]*\btest\b/,
 	lint: /\b(eslint|biome|tsc|ruff|mypy|golangci-lint|clippy|stylelint)\b|\bprettier\b[^|;&\n]*--check\b|\b(npm|pnpm|yarn)\b[^|;&\n]*\b(lint|typecheck|check-types|type-check)\b/,
-	ciCheck: /\bgh (run (view|watch|list)|pr checks)\b/,
+	ciCheck: /\bgh (run (view|watch)|pr checks)\b/,
 	reviewFetch:
 		/\bgh pr view\b[^|;&\n]*--comments\b|\bgh api\b[^|;&\n]*\/(comments|reviews)\b/,
 	issueFetch: /\bgh issue view\b/,

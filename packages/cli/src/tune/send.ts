@@ -145,7 +145,8 @@ export async function sendReports(
 				continue;
 			}
 			result.invalid.count += 1;
-			reasons.add(reason);
+			// 表示する値だけを通す。制御文字などを含む値でterminalを操作させない。
+			reasons.add(/^[a-z0-9_]{1,64}$/.test(reason) ? reason : "unknown");
 		}
 	}
 	result.invalid.reasons = [...reasons];

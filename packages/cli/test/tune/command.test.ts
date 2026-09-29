@@ -98,6 +98,46 @@ describe("hf tune", () => {
 		expect(t.readTune("unsent.json").destinations).toEqual({});
 	});
 
+	it("does not resend unsent reports of a repository that is no longer connected", async () => {
+		let isConnected = true;
+		const t = await setupTune({
+			analysis: [{ status: 503 }],
+			repositories: () => ({
+				status: 200,
+				body: {
+					items: isConnected ? [{ repository: "github.com/acme/web" }] : [],
+					next_cursor: null,
+				},
+			}),
+		});
+		await t.run();
+		isConnected = false;
+		const result = await t.run();
+		expect(result.code).toBe(0);
+		expect(t.reportBodies()).toHaveLength(1);
+		expect(t.readTune("unsent.json").destinations).not.toEqual({});
+	});
+
+	it("deletes unsent reports once each when the pre-send import gets 401", async () => {
+		const t = await setupTune({
+			analysis: [{ status: 503 }],
+			ingest: [
+				{ status: 200, body: { accepted: 10, rejected: [] } },
+				{ status: 401 },
+			],
+		});
+		await t.run();
+		// 新しいsessionを取り込ませるため、取り込みの状態を消す。
+		rmSync(join(t.home.home, ".harnessforce", "import-state.json"));
+		const result = await t.run();
+		expect(result.code).toBe(3);
+		expect(result.err).toContain(
+			"送信キーを使えません。未送信の分析結果10件を削除しました。`hf init`を実行してください\n",
+		);
+		expect(t.reportBodies()).toHaveLength(1);
+		expect(t.readTune("unsent.json").destinations).toEqual({});
+	});
+
 	it("drops rejected elements except read-only ones, and drops other 4xx requests", async () => {
 		const t = await setupTune({
 			sessions: 3,

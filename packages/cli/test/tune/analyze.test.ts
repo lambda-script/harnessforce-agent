@@ -250,6 +250,19 @@ describe("analyzeSession", () => {
 		});
 	});
 
+	it("starts ci_fix from a CI failure in the first prompt, which is not an intervention", () => {
+		const report = analyze([
+			prompt(0, "CI failed on main"),
+			...tool(1, "Edit"),
+			...bash(3, "git push"),
+		]);
+		expect(loopsOf(report).ci_fix).toMatchObject({
+			occurrences: 1,
+			interventions: 0,
+		});
+		expect(interventionsOf(report).ci_relay?.count).toBe(0);
+	});
+
 	it("counts calls and failures per configured MCP server and gathers the rest as unlisted", () => {
 		const mcp = mcpConfigOf([
 			"github",

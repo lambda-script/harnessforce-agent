@@ -43,6 +43,7 @@ import {
 	readUnsent,
 	type SavedList,
 	type SessionConfig,
+	type UnsentReport,
 	writeSavedList,
 	writeSessionConfigs,
 	writeUnsent,
@@ -270,6 +271,9 @@ async function importBeforeSending(
 	return false;
 }
 
+const reportKey = (report: AnalysisReport) =>
+	`${report.session_id} ${report.analyzer_version}`;
+
 // improvement-loop.md「送信」の失敗の扱い。未送信の分はunsent.jsonに残し、次の実行で送る。
 async function sendAnalysis(
 	analyzed: readonly Analyzed[],
@@ -280,36 +284,58 @@ async function sendAnalysis(
 	deps: TuneDeps,
 	notices: Notices,
 ): Promise<void> {
-	const fresh = analyzed
+	const fresh: UnsentReport[] = analyzed
 		.filter((a) => a.sendable === true)
-		.map((a) => a.report);
-	const freshKeys = new Set(
-		fresh.map((r) => `${r.session_id} ${r.analyzer_version}`),
-	);
+		.map((a) => ({
+			report: a.report,
+			repository: a.tune.repository as string,
+		}));
+	const freshKeys = new Set(fresh.map((f) => reportKey(f.report)));
 	const sinceMs = deps.now() - list.sessionImportDays * DAY_MS;
 	const unsent = (await readUnsent(paths.unsent, destination)).filter(
-		(r) => !freshKeys.has(`${r.session_id} ${r.analyzer_version}`),
+		(u) => !freshKeys.has(reportKey(u.report)),
 	);
-	const inRange = unsent.filter((r) => Date.parse(r.started_at) >= sinceMs);
+	const inRange = unsent.filter(
+		(u) => Date.parse(u.report.started_at) >= sinceMs,
+	);
 	if (inRange.length < unsent.length)
 		notices.add(
 			"expiredUnsent",
 			TUNE_MESSAGES.expiredUnsent(unsent.length - inRange.length),
 		);
+	// 接続を外したrepositoryの分は送らずに残し、範囲を出たときに削除する。
+	const held = inRange.filter((u) => !list.repositories.has(u.repository));
+	const pending = [
+		...inRange.filter((u) => list.repositories.has(u.repository)),
+		...fresh,
+	];
+	const repositoryOf = new Map(
+		pending.map((p) => [reportKey(p.report), p.repository]),
+	);
 	const result = await sendReports({
 		endpoint: access.ingest,
 		ingestKey: access.ingestKey,
-		reports: [...inRange, ...fresh],
+		reports: pending.map((p) => p.report),
 		fetch: deps.fetch,
 	});
-	await writeUnsent(paths.unsent, destination, result.keep).catch(() =>
-		notices.add("unwritable", TUNE_MESSAGES.unwritable, 1),
+	const keep = [
+		...(result.unusableKey === undefined ? held : []),
+		...result.keep.map((report) => ({
+			report,
+			repository: repositoryOf.get(reportKey(report)) as string,
+		})),
+	];
+	const isSaved = await writeUnsent(paths.unsent, destination, keep).then(
+		() => true,
+		() => false,
 	);
+	if (!isSaved) notices.add("unwritable", TUNE_MESSAGES.unwritable, 1);
 	if (result.accepted > 0)
 		notices.add("sent", TUNE_MESSAGES.sent(result.accepted));
-	if (result.unreachable > 0)
+	// 残せなかった分を「次の実行で送ります」と表示しない。
+	if (isSaved && result.unreachable > 0)
 		notices.add("unreachable", TUNE_MESSAGES.unreachable(result.unreachable));
-	if (result.readOnly > 0)
+	if (isSaved && result.readOnly > 0)
 		notices.add("readOnly", TUNE_MESSAGES.readOnly(result.readOnly));
 	if (result.invalid.count > 0)
 		notices.add(
@@ -331,7 +357,7 @@ async function sendAnalysis(
 	if (result.unusableKey !== undefined)
 		notices.add(
 			"keyUnusable",
-			TUNE_MESSAGES.keyUnusable(result.unusableKey),
+			TUNE_MESSAGES.keyUnusable(result.unusableKey + held.length),
 			3,
 		);
 }
@@ -512,7 +538,7 @@ async function analyzeUnderLock(
 				"notConnected",
 				TUNE_MESSAGES.notConnected(notConnectedCount),
 			);
-		if (isWritten) {
+		if (isWritten && !notices.has("unwritable")) {
 			const isUnauthorized =
 				list.source === "fetched" &&
 				(await importBeforeSending(
@@ -524,9 +550,15 @@ async function analyzeUnderLock(
 					notices,
 				));
 			if (isUnauthorized) {
-				const pending = await readUnsent(paths.unsent, destination);
-				const count =
-					pending.length + analyzed.filter((a) => a.sendable === true).length;
+				const keys = new Set([
+					...(await readUnsent(paths.unsent, destination)).map((u) =>
+						reportKey(u.report),
+					),
+					...analyzed
+						.filter((a) => a.sendable === true)
+						.map((a) => reportKey(a.report)),
+				]);
+				const count = keys.size;
 				await writeUnsent(paths.unsent, destination, []).catch(() => {});
 				notices.add("keyUnusable", TUNE_MESSAGES.keyUnusable(count), 3);
 			} else
@@ -553,8 +585,8 @@ export function analyzeCommand(
 		const access = await verifyCliAccess(deps, ACCESS_MESSAGES);
 		const paths = tunePaths(deps.homeDir);
 		await ensureDir(paths.dir).catch(() => stopWith(TUNE_MESSAGES.unwritable));
-		const release = await acquireTuneLock(paths.lock, deps).catch(
-			() => undefined,
+		const release = await acquireTuneLock(paths.lock, deps).catch(() =>
+			stopWith(TUNE_MESSAGES.unwritable),
 		);
 		if (!release) return stopWith(TUNE_MESSAGES.locked);
 		try {

@@ -220,15 +220,11 @@ function findCycles(
 	return cycles;
 }
 
-function toSteps(
-	events: readonly TranscriptEvent[],
-	interventions: readonly Intervention[],
-): Step[] {
+function toSteps(events: readonly TranscriptEvent[]): Step[] {
 	const toolUses = new Map<
 		string,
 		{ name: string; command: string | undefined }
 	>();
-	const promptKinds = new Map(interventions.map((i) => [i.ms, i.kind]));
 	return events.map((event) => {
 		if (event.type === "tool_use")
 			toolUses.set(event.id, { name: event.name, command: event.command });
@@ -239,8 +235,9 @@ function toSteps(
 				event.type === "tool_result"
 					? toolUses.get(event.toolUseId)
 					: undefined,
+			// 介入に数えないsessionの最初のpromptも、CIの失敗やreviewの指摘からloopを始める。
 			promptKind:
-				event.type === "prompt" ? promptKinds.get(event.ms) : undefined,
+				event.type === "prompt" ? classifyPrompt(event.text) : undefined,
 		};
 	});
 }
@@ -249,7 +246,7 @@ function summarizeLoops(
 	events: readonly TranscriptEvent[],
 	interventions: readonly Intervention[],
 ): AnalysisReport["loops"] {
-	const steps = toSteps(events, interventions);
+	const steps = toSteps(events);
 	return Object.fromEntries(
 		LOOP_KINDS.map((kind) => {
 			const cycles = findCycles(LOOP_RULES[kind], steps, interventions);

@@ -58,8 +58,8 @@ async function underLock(
 	return runUntilStop(async () => {
 		const paths = tunePaths(deps.homeDir);
 		await ensureDir(paths.dir).catch(() => stopWith(failure));
-		const release = await acquireTuneLock(paths.lock, deps).catch(
-			() => undefined,
+		const release = await acquireTuneLock(paths.lock, deps).catch(() =>
+			stopWith(failure),
 		);
 		if (!release) return stopWith(TUNE_MESSAGES.locked);
 		try {

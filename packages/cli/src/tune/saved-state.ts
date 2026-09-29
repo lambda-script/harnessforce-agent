@@ -83,21 +83,31 @@ export const writeSavedList = (
 export const deleteSavedList = (path: string, destination: Destination) =>
 	writeDestination(path, destination, undefined);
 
-// `unsent.json`: 送信先ごとの未送信のanalysis report。
+// `unsent.json`: 送信先ごとの未送信のanalysis reportと、そのsessionのrepository。
+// 送る前に接続済みの一覧で絞るため、repositoryも持つ。
+export type UnsentReport = { report: AnalysisReport; repository: string };
+
 export async function readUnsent(
 	path: string,
 	destination: Destination,
-): Promise<AnalysisReport[]> {
+): Promise<UnsentReport[]> {
 	const entry = (await readDestinations(path))[destinationKey(destination)];
-	return isObject(entry) && Array.isArray(entry.reports)
-		? (entry.reports.filter(isObject) as AnalysisReport[])
-		: [];
+	if (!isObject(entry) || !Array.isArray(entry.reports)) return [];
+	return entry.reports.filter(
+		(item): item is UnsentReport =>
+			isObject(item) &&
+			isObject(item.report) &&
+			typeof item.report.session_id === "string" &&
+			typeof item.report.analyzer_version === "string" &&
+			typeof item.report.started_at === "string" &&
+			typeof item.repository === "string",
+	);
 }
 
 export const writeUnsent = (
 	path: string,
 	destination: Destination,
-	reports: readonly AnalysisReport[],
+	reports: readonly UnsentReport[],
 ) =>
 	writeDestination(
 		path,

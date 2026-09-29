@@ -325,6 +325,21 @@ describe("parseTranscriptEvents", () => {
 		).toEqual([]);
 	});
 
+	it("keeps the text of a prompt that also has an image", async () => {
+		const result = await parseTranscriptEvents(
+			transcript(
+				human("2026-09-20T01:00:00Z", [
+					{ type: "image", source: {} },
+					{ type: "text", text: "look at this" },
+				]) + assistant("2026-09-20T01:00:01Z", "m1", []),
+			),
+		);
+		expect(result.kind === "session" && result.events[0]).toMatchObject({
+			type: "prompt",
+			text: "look at this",
+		});
+	});
+
 	it("treats a typed prompt from a human origin as a human prompt", async () => {
 		const result = await parseTranscriptEvents(
 			transcript(

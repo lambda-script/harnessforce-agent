@@ -99,17 +99,12 @@ function toInstantMs(value: unknown): number | undefined {
 const textOf = (content: unknown): string | undefined => {
 	if (typeof content === "string") return content;
 	if (!Array.isArray(content)) return undefined;
-	const texts: string[] = [];
-	for (const block of content) {
-		if (
-			!isObject(block) ||
-			block.type !== "text" ||
-			typeof block.text !== "string"
-		)
-			return undefined;
-		texts.push(block.text);
-	}
-	return texts.join("\n");
+	// 画像などtext以外のblockは読み飛ばし、textのblockだけを結ぶ。
+	const texts = content
+		.filter((block) => isObject(block) && block.type === "text")
+		.map((block) => (block as Row).text)
+		.filter((text): text is string => typeof text === "string");
+	return texts.length > 0 ? texts.join("\n") : undefined;
 };
 
 // 人が入力したprompt。meta、subagent、要約、通知、commandの出力、tool_resultは含めない。
