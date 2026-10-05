@@ -17,6 +17,12 @@ build fails without it and never falls back to a default. The same value becomes
 of `hf` and the plugin's MCP server URL, so the two never disagree; the plugin build fails if
 `packages/cli` was built with a different value.
 
+Give the exact origin `apps/web` serves, not merely an equivalent one: `http://127.0.0.1:3000` and
+`http://localhost:3000` are different origins. `apps/web` derives the protected resource metadata of
+`/mcp` from its own host, and Claude Code refuses to log in to an MCP server whose advertised resource
+does not match the URL in `.mcp.json` (`Failed to connect — Protected resource … does not match
+expected …`). Read the host from the running `apps/web` instead of assuming it.
+
 The build writes a marketplace directory to `plugins/harnessforce/dist/marketplace`. The plugin in it
 contains:
 
