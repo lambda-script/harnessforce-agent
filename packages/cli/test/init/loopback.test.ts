@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { startLoopback } from "../../src/init/loopback.js";
 
 const STATE = "expected-state";
@@ -15,7 +17,11 @@ async function get(url: string) {
 
 describe("loopback", () => {
 	it("listens on 127.0.0.1 and answers /callback with a fixed page", async () => {
-		const loopback = await startLoopback({ state: STATE, timeoutMs: 5000 });
+		const loopback = await startLoopback({
+			state: STATE,
+			timeoutMs: 5000,
+			port: 0,
+		});
 		expect(loopback.redirectUri).toMatch(
 			/^http:\/\/127\.0\.0\.1:\d+\/callback$/,
 		);
@@ -50,7 +56,11 @@ describe("loopback", () => {
 		["no code", `?state=${STATE}`],
 		["an empty code", `?code=&state=${STATE}`],
 	])("shows the failure page for %s", async (_, query) => {
-		const loopback = await startLoopback({ state: STATE, timeoutMs: 5000 });
+		const loopback = await startLoopback({
+			state: STATE,
+			timeoutMs: 5000,
+			port: 0,
+		});
 		const page = await get(`${loopback.redirectUri}${query}`);
 		expect(page.status).toBe(200);
 		expect(page.body).toContain(
@@ -62,8 +72,28 @@ describe("loopback", () => {
 	});
 
 	it("resolves undefined when no callback arrives in time and stops listening", async () => {
-		const loopback = await startLoopback({ state: STATE, timeoutMs: 50 });
+		const loopback = await startLoopback({
+			state: STATE,
+			timeoutMs: 50,
+			port: 0,
+		});
 		expect(await loopback.callback).toBeUndefined();
 		await expect(fetch(loopback.redirectUri)).rejects.toThrow();
+	});
+
+	it("rejects when the requested port is already in use", async () => {
+		const occupied = createServer();
+		await new Promise<void>((resolve) =>
+			occupied.listen(0, "127.0.0.1", resolve),
+		);
+		const { port } = occupied.address() as AddressInfo;
+		onTestFinished(() => {
+			occupied.closeAllConnections();
+			occupied.close();
+		});
+		// 他のportへ黙って移らない（correlation.md「CLI」）。
+		await expect(
+			startLoopback({ state: STATE, timeoutMs: 5000, port }),
+		).rejects.toThrow();
 	});
 });

@@ -25,6 +25,7 @@ const FAILURE_PAGE = page(
 export async function startLoopback(options: {
 	state: string;
 	timeoutMs: number;
+	port: number;
 }): Promise<Loopback> {
 	let settle: (callback: Callback | undefined) => void = () => {};
 	const callback = new Promise<Callback | undefined>((resolve) => {
@@ -66,7 +67,8 @@ export async function startLoopback(options: {
 	}
 	await new Promise<void>((resolve, reject) => {
 		server.once("error", reject);
-		server.listen(0, HOST, resolve);
+		// portを確保できないときはここでrejectし、他のportへ黙って移らない（correlation.md「CLI」）。
+		server.listen(options.port, HOST, resolve);
 	}).catch((error: unknown) => {
 		clearTimeout(timer);
 		throw error;

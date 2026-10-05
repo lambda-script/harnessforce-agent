@@ -34,3 +34,8 @@ export const INIT_MESSAGES = {
 } as const;
 
 export type InitMessage = keyof typeof INIT_MESSAGES;
+
+// portを確保できなかったときの文言。既定の8080は一般的なHTTPのportで衝突しやすいため、
+// 使えなかったportと`hf init --port`の逃げ道を示す（correlation.md「CLI」）。
+export const listenFailedMessage = (port: number) =>
+	`${INIT_MESSAGES.listenFailed}。port ${port}を使っているprocessを終えるか、\`hf init --port\`で別のportを指定してください`;
