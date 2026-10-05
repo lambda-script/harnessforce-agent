@@ -48,6 +48,10 @@ describe("plugin skeleton", () => {
 			"https://github.com/lambda-script/harnessforce-agent",
 		);
 	});
+
+	// Claude Codeはmarketplaceの説明を一覧と`/plugin`の画面に出す。`claude plugin validate --strict`も要求する。
+	it("describes the marketplace, not only the plugin in it", () =>
+		expect(marketplace.description).toEqual(expect.any(String)));
 });
 
 const readText = (p: string) =>

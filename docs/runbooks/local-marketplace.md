@@ -49,6 +49,12 @@ In Claude Code:
 `hf init` and `hf import`, and asks you to restart Claude Code. Run it again after the restart to
 confirm that the first event arrived.
 
+Claude Code reads a directory marketplace in place: the installed plugin keeps pointing at the build
+output instead of being copied into the plugin cache, and the bundled CLI tarballs are installed from
+that same directory. Keep the output at the registered path while the plugin stays installed. Removing
+it, or building inside a worktree and then deleting that worktree, leaves the plugin failing to load
+(`failed to load`, `cache-miss`) until the output is back at the same path.
+
 ## Distribute to an organization
 
 In the managed settings, set the marketplace source to
