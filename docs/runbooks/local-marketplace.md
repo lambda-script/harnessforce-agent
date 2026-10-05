@@ -17,6 +17,12 @@ build fails without it and never falls back to a default. The same value becomes
 of `hf` and the plugin's MCP server URL, so the two never disagree; the plugin build fails if
 `packages/cli` was built with a different value.
 
+Give the exact origin `apps/web` serves, not merely an equivalent one: `http://127.0.0.1:3000` and
+`http://localhost:3000` are different origins. `apps/web` derives the protected resource metadata of
+`/mcp` from its own host, and Claude Code refuses to log in to an MCP server whose advertised resource
+does not match the URL in `.mcp.json` (`Failed to connect — Protected resource … does not match
+expected …`). Read the host from the running `apps/web` instead of assuming it.
+
 The build writes a marketplace directory to `plugins/harnessforce/dist/marketplace`. The plugin in it
 contains:
 
@@ -48,6 +54,12 @@ In Claude Code:
 `/harnessforce:setup` checks for Node.js 18 or later, installs the CLI from the build output, runs
 `hf init` and `hf import`, and asks you to restart Claude Code. Run it again after the restart to
 confirm that the first event arrived.
+
+Claude Code reads a directory marketplace in place: the installed plugin keeps pointing at the build
+output instead of being copied into the plugin cache, and the bundled CLI tarballs are installed from
+that same directory. Keep the output at the registered path while the plugin stays installed. Removing
+it, or building inside a worktree and then deleting that worktree, leaves the plugin failing to load
+(`failed to load`, `cache-miss`) until the output is back at the same path.
 
 ## Distribute to an organization
 

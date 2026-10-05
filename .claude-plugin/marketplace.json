@@ -1,6 +1,7 @@
 {
 	"name": "harnessforce-agent",
 	"owner": { "name": "Lambda Script" },
+	"description": "The Harnessforce Claude Code plugin and the local marketplace it is installed from",
 	"plugins": [
 		{
 			"name": "harnessforce",
