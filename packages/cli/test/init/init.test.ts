@@ -48,6 +48,10 @@ const M = {
 
 const failed = (message: string) => ({ code: 1, out: "", err: `${message}\n` });
 
+// portを確保できなかったときの文言。使えなかったportと`--port`の逃げ道を示す（correlation.md「CLI」）。
+const listenFailed = (port: number) =>
+	`${M.listen}。port ${port}を使っているprocessを終えるか、\`hf init --port\`で別のportを指定してください`;
+
 const EXISTING = {
 	"ws1:ingest-key": "hf_ik_ws1_old",
 	"ws1:api-token": storedToken("ws1", "old", TOKEN_EXPIRY),
@@ -290,6 +294,11 @@ describe("hf init", () => {
 			[["--url"]],
 			[["--bogus"]],
 			[["--url", "https://a", "x"]],
+			[["--port"]],
+			[["--port", "0"]],
+			[["--port", "65536"]],
+			[["--port", "abc"]],
+			[["--port", "1.5"]],
 		])("rejects the arguments %j with usage", async (argv) => {
 			const result = await runInit(argv, { homeDir: makeHome().home });
 			expect(result.code).toBe(1);
@@ -501,20 +510,60 @@ describe("hf init", () => {
 			).toEqual(failed(M.timeout));
 		});
 
-		it("ends when the loopback cannot listen", async () => {
+		it("ends when the loopback cannot listen, naming port 8080", async () => {
 			const server = await startCredentialsServer();
 			const browser = fakeBrowser();
+			let askedPort: number | undefined;
 			expect(
 				await runInit([], {
 					homeDir: makeHome().home,
 					defaultUrl: server.base,
 					openBrowser: browser.open,
-					startLoopback: async () => {
+					startLoopback: async (options) => {
+						askedPort = options.port;
 						throw new Error("EADDRINUSE");
 					},
 				}),
-			).toEqual(failed(M.listen));
+			).toEqual(failed(listenFailed(8080)));
+			// 既定は8080で、portを確保できないときは他のportへ落ちない。
+			expect(askedPort).toBe(8080);
 			expect(browser.opened).toEqual([]);
+		});
+
+		it("starts the loopback on the --port value and names it on failure", async () => {
+			const server = await startCredentialsServer();
+			let askedPort: number | undefined;
+			expect(
+				await runInit(["--port", "1234"], {
+					homeDir: makeHome().home,
+					defaultUrl: server.base,
+					openBrowser: fakeBrowser().open,
+					startLoopback: async (options) => {
+						askedPort = options.port;
+						throw new Error("EADDRINUSE");
+					},
+				}),
+			).toEqual(failed(listenFailed(1234)));
+			expect(askedPort).toBe(1234);
+		});
+
+		it("reads --port after --url", async () => {
+			const server = await startCredentialsServer();
+			let askedPort: number | undefined;
+			expect(
+				await runInit(["--url", server.base, "--port", "1234"], {
+					homeDir: makeHome().home,
+					defaultUrl: "https://default.example.test",
+					openBrowser: fakeBrowser().open,
+					startLoopback: async (options) => {
+						askedPort = options.port;
+						throw new Error("EADDRINUSE");
+					},
+				}),
+			).toEqual(failed(listenFailed(1234)));
+			expect(askedPort).toBe(1234);
+			// --portの後ろでも--urlが読まれている（metadata要求がdefaultUrlではなくserverへ届く）。
+			expect(server.metadataRequests()).toHaveLength(1);
 		});
 	});
 

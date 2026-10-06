@@ -25,7 +25,7 @@ hf init
 
 | Command | What it does |
 | --- | --- |
-| `hf init [--url <base URL>]` | Logs in with the browser, stores a user ingest key and an API token in the keychain, and configures Claude Code |
+| `hf init [--url <base URL>] [--port <port>]` | Logs in with the browser, stores a user ingest key and an API token in the keychain, and configures Claude Code |
 | `hf otel-headers` | Prints the `Authorization` header for Claude Code's `otelHeadersHelper` |
 | `hf run --issue <identifier> -- <agent> [args]` | Launches an agent with its session linked to an Issue |
 | `hf import` | Sends the metadata of past Claude Code sessions in connected repositories |
@@ -41,14 +41,15 @@ arguments or settings. Keys and tokens are sent only to the origins pinned by `h
 
 ## CLI credentials (`hf init`, `hf otel-headers`)
 
-`hf init [--url <base URL>]` connects this machine to a Harnessforce Workspace:
+`hf init [--url <base URL>] [--port <port>]` connects this machine to a Harnessforce Workspace:
 
 1. It checks the OS keychain first: macOS Keychain, the Secret Service on Linux, or the Windows
    Credential Manager (through [`@napi-rs/keyring`](https://github.com/Brooooooklyn/keyring-node)).
    Without one it stops. Keys are never written to a plain file.
-2. It logs in with the browser: OAuth 2.0 authorization code with PKCE, a `127.0.0.1` loopback
-   redirect, the endpoint discovered from `/.well-known/oauth-authorization-server`, and a 5 minute
-   wait. If the browser cannot be opened, it prints the URL.
+2. It logs in with the browser: OAuth 2.0 authorization code with PKCE, a `127.0.0.1:8080` loopback
+   redirect (`--port <port>` changes the port), the endpoint discovered from
+   `/.well-known/oauth-authorization-server`, and a 5 minute wait. When the port is already in use it
+   stops instead of moving to another port. If the browser cannot be opened, it prints the URL.
 3. It asks `POST <base URL>/api/v1/cli/credentials` for a user ingest key and an API token (a 1 hour
    access token and a 90 day refresh token). It also sends the SHA-256 hashes of the ingest keys and of
    the API tokens' refresh tokens already in the keychain (at most 100 of each), so the old key and

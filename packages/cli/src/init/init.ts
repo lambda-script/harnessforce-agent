@@ -14,7 +14,11 @@ import {
 	type Keychain,
 	urlOriginAccount,
 } from "../credentials/keychain.js";
-import { INIT_MESSAGES, type InitMessage } from "../shared/messages.js";
+import {
+	INIT_MESSAGES,
+	type InitMessage,
+	listenFailedMessage,
+} from "../shared/messages.js";
 import { discoverAuthorizationEndpoint } from "../shared/metadata.js";
 import {
 	mergeUserSettings,
@@ -45,8 +49,13 @@ export type InitDeps = {
 	callbackTimeoutMs: number;
 };
 
+// `hf init`の引数。portが無ければloopbackのcallback portの既定を使う。
+export type InitArgs = { url: string | undefined; port: number | undefined };
+
 // apps/webがあらかじめ登録した固定のpublic client。
 const CLIENT_ID = "harnessforce-cli";
+// loopbackのcallback portの既定。一般的なHTTPのport（correlation.md「CLI」）。
+const DEFAULT_PORT = 8080;
 // POST /api/v1/cli/credentialsが受け付けるrevoke_key_hashesとrevoke_api_token_hashesの上限。
 const MAX_REVOKE_HASHES = 100;
 
@@ -55,16 +64,18 @@ const stop = (message: InitMessage): never => stopWith(INIT_MESSAGES[message]);
 const sha256Hex = (value: string) =>
 	createHash("sha256").update(value, "utf8").digest("hex");
 
-export function init(url: string | undefined, deps: InitDeps): Promise<number> {
+export function init(args: InitArgs, deps: InitDeps): Promise<number> {
 	return runUntilStop(async () => {
-		await runInit(url, deps);
+		await runInit(args, deps);
 		deps.stdout(`${INIT_MESSAGES.success}\n`);
 		return 0;
 	}, deps.stderr);
 }
 
-async function runInit(url: string | undefined, deps: InitDeps) {
-	const base = parseAllowedUrl(url ?? deps.defaultUrl) ?? stop("invalidUrl");
+async function runInit(args: InitArgs, deps: InitDeps) {
+	const port = args.port ?? DEFAULT_PORT;
+	const base =
+		parseAllowedUrl(args.url ?? deps.defaultUrl) ?? stop("invalidUrl");
 	// settingsへは送信先と同じくscheme、host、port、pathだけを書き、userinfoを残さない。
 	const recordedUrl = withoutExtras(base);
 	const revoke = await readRevokeHashes(deps.keychain);
@@ -78,6 +89,7 @@ async function runInit(url: string | undefined, deps: InitDeps) {
 	const { code, redirectUri } = await logIn(
 		authorizationEndpoint,
 		secrets,
+		port,
 		deps,
 	);
 	const outcome = await requestCredentials(
@@ -128,11 +140,16 @@ async function readRevokeHashes(
 async function logIn(
 	authorizationEndpoint: URL,
 	secrets: LoginSecrets,
+	port: number,
 	deps: InitDeps,
 ): Promise<{ code: string; redirectUri: string }> {
 	const loopback = await deps
-		.startLoopback({ state: secrets.state, timeoutMs: deps.callbackTimeoutMs })
-		.catch(() => stop("listenFailed"));
+		.startLoopback({
+			state: secrets.state,
+			timeoutMs: deps.callbackTimeoutMs,
+			port,
+		})
+		.catch(() => stopWith(listenFailedMessage(port)));
 	const authorization = new URL(authorizationEndpoint);
 	for (const [name, value] of Object.entries({
 		response_type: "code",

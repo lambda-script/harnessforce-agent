@@ -21,15 +21,34 @@ const { version } = createRequire(import.meta.url)("../package.json") as {
 };
 
 const USAGE =
-	"Usage: hf --version | hf init [--url <base URL>] | hf import | hf otel-headers | hf run --issue <identifier> -- <agent> [args] | hf tune [--all] [--no-send] [--show-report] [--json] | hf tune record | hf tune --purge\n";
+	"Usage: hf --version | hf init [--url <base URL>] [--port <port>] | hf import | hf otel-headers | hf run --issue <identifier> -- <agent> [args] | hf tune [--all] [--no-send] [--show-report] [--json] | hf tune record | hf tune --purge\n";
 
-// `hf init`の引数。受け付けない形ならundefined。
+// `hf init`の引数。受け付けない形ならundefined。--portの値は1〜65535の整数（correlation.md「CLI」）。
 function parseInitArgs(
 	args: readonly string[],
-): { url: string | undefined } | undefined {
-	if (args.length === 0) return { url: undefined };
-	if (args.length === 2 && args[0] === "--url") return { url: args[1] };
-	return undefined;
+): { url: string | undefined; port: number | undefined } | undefined {
+	let url: string | undefined;
+	let port: number | undefined;
+	for (let i = 0; i < args.length; ) {
+		if (args[i] === "--url") {
+			if (url !== undefined || args[i + 1] === undefined) return undefined;
+			url = args[i + 1];
+			i += 2;
+			continue;
+		}
+		if (args[i] === "--port") {
+			const value = args[i + 1];
+			if (port !== undefined || value === undefined || !/^\d+$/.test(value))
+				return undefined;
+			const parsed = Number(value);
+			if (parsed < 1 || parsed > 65535) return undefined;
+			port = parsed;
+			i += 2;
+			continue;
+		}
+		return undefined;
+	}
+	return { url, port };
 }
 
 // `hf run`の引数。`--`より後ろはagentとその引数としてそのまま渡す。
@@ -70,7 +89,7 @@ export async function run(
 			now: () => deps.now().getTime(),
 		});
 	const initArgs = command === "init" ? parseInitArgs(rest) : undefined;
-	if (initArgs) return init(initArgs.url, deps);
+	if (initArgs) return init(initArgs, deps);
 	const runArgs = command === "run" ? parseRunArgs(rest) : undefined;
 	if (runArgs) return runIssue(runArgs, deps);
 	deps.stderr(USAGE);
