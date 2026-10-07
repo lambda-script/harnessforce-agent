@@ -50,7 +50,11 @@ export type InitDeps = {
 };
 
 // `hf init`の引数。portが無ければloopbackのcallback portの既定を使う。
-export type InitArgs = { url: string | undefined; port: number | undefined };
+export type InitArgs = {
+	url: string | undefined;
+	port: number | undefined;
+	sendContent: boolean;
+};
 
 // apps/webがあらかじめ登録した固定のpublic client。
 const CLIENT_ID = "harnessforce-cli";
@@ -105,12 +109,15 @@ async function runInit(args: InitArgs, deps: InitDeps) {
 		deps.fetch,
 	);
 	const issued = issuedOrStop(outcome);
-	await save(issued, recordedUrl, settingsPath, deps).catch(
+	await save(issued, recordedUrl, settingsPath, args.sendContent, deps).catch(
 		(error: unknown) => {
 			if (isStop(error)) throw error;
 			return stop("saveFailed");
 		},
 	);
+	// 発行と保存は済んでいるため、本文のopt-inが無いことを失敗とせず、opt-inの場所を示す。
+	if (args.sendContent && !issued.contentOptIn)
+		deps.stdout(`${INIT_MESSAGES.contentNotOptedIn}\n`);
 }
 
 // correlation.md「CLI」の手順1。keychainの利用者用IngestKeyすべてのhashと、ApiTokenすべてのrefresh tokenのhash。
@@ -205,6 +212,7 @@ async function save(
 	issued: Issued,
 	connection: string,
 	settingsPath: string,
+	sendContent: boolean,
 	deps: InitDeps,
 ): Promise<void> {
 	await deps.keychain.delete(ingestOriginAccount(issued.workspaceId));
@@ -227,19 +235,21 @@ async function save(
 	);
 	const current = await readUserSettings(settingsPath);
 	if (current.kind === "invalid") return stop("saveFailed");
+	const env: Record<string, string> = {
+		HARNESSFORCE_URL: connection,
+		HARNESSFORCE_ENDPOINT: issued.ingestEndpoint,
+		OTEL_EXPORTER_OTLP_ENDPOINT: issued.ingestEndpoint,
+		HARNESSFORCE_WORKSPACE_ID: issued.workspaceId,
+		CLAUDE_CODE_ENABLE_TELEMETRY: "1",
+		CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: "1",
+		OTEL_METRICS_EXPORTER: "otlp",
+		OTEL_LOGS_EXPORTER: "otlp",
+		OTEL_TRACES_EXPORTER: "otlp",
+		OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf",
+	};
+	if (sendContent && issued.contentOptIn) env.OTEL_LOG_USER_PROMPTS = "1";
 	await writeUserSettings(
 		settingsPath,
-		mergeUserSettings(current.settings, {
-			HARNESSFORCE_URL: connection,
-			HARNESSFORCE_ENDPOINT: issued.ingestEndpoint,
-			OTEL_EXPORTER_OTLP_ENDPOINT: issued.ingestEndpoint,
-			HARNESSFORCE_WORKSPACE_ID: issued.workspaceId,
-			CLAUDE_CODE_ENABLE_TELEMETRY: "1",
-			CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: "1",
-			OTEL_METRICS_EXPORTER: "otlp",
-			OTEL_LOGS_EXPORTER: "otlp",
-			OTEL_TRACES_EXPORTER: "otlp",
-			OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf",
-		}),
+		mergeUserSettings(current.settings, env),
 	);
 }

@@ -11,7 +11,7 @@ the `harnessforce-agent` marketplace in this repository, not through npm.
 | `SessionStart` and `UserPromptSubmit` hooks | Register each session and its config snapshot with Harnessforce |
 | MCP server `harnessforce` (`<connection URL>/mcp`, HTTP) | Tools to start a run, read an Issue, and record plans, decisions and the Definition of Done |
 | Skill `record-run` | Tells the agent when to call those tools |
-| Command `/harnessforce:setup` | Checks Node.js, installs the `hf` CLI, runs `hf init` and `hf import`, and confirms the first event after a restart |
+| Command `/harnessforce:setup` | Checks Node.js, installs the `hf` CLI, asks whether to send content, runs `hf init` (`--send-content` when chosen) and `hf import`, and confirms the first event after a restart |
 | Command `/harnessforce:tune` | Tells you that the agent reads parts of your transcripts through your model provider, runs `hf tune --json`, shows the analysis, and makes proposals for the targets with enough data |
 | Skill `propose-improvements` | How the agent writes a proposal (evidence, diff or pull request draft, expected effect, how to measure), keeps permissions minimal and loops bounded, and records it with `hf tune record` before showing it |
 

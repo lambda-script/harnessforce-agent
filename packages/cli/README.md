@@ -25,7 +25,7 @@ hf init
 
 | Command | What it does |
 | --- | --- |
-| `hf init [--url <base URL>] [--port <port>]` | Logs in with the browser, stores a user ingest key and an API token in the keychain, and configures Claude Code |
+| `hf init [--url <base URL>] [--port <port>] [--send-content]` | Logs in with the browser, stores a user ingest key and an API token in the keychain, and configures Claude Code |
 | `hf otel-headers` | Prints the `Authorization` header for Claude Code's `otelHeadersHelper` |
 | `hf run --issue <identifier> -- <agent> [args]` | Launches an agent with its session linked to an Issue |
 | `hf import` | Sends the metadata of past Claude Code sessions in connected repositories |
@@ -35,13 +35,17 @@ hf init
 
 ## What is never sent
 
-Prompts, responses, tool inputs and outputs, and file contents are never sent. `hf run` never turns on
-prompt or body logging, and never puts the user key or the API token in the agent's environment,
-arguments or settings. Keys and tokens are sent only to the origins pinned by `hf init`.
+Harnessforce never turns on prompt or body logging by itself. `hf run` never turns it on, and `hf init`
+adds `OTEL_LOG_USER_PROMPTS=1` to the Claude Code user settings only with `--send-content`, and only
+when the credentials response says the Workspace has opted in to content. Without that, prompts,
+responses, tool inputs and outputs, and file contents are not sent. For a Workspace that has not opted
+in, `hf init --send-content` leaves the setting alone, prints the reason, and still exits 0. `hf run`
+never puts the user key or the API token in the agent's environment, arguments or settings. Keys and
+tokens are sent only to the origins pinned by `hf init`.
 
 ## CLI credentials (`hf init`, `hf otel-headers`)
 
-`hf init [--url <base URL>] [--port <port>]` connects this machine to a Harnessforce Workspace:
+`hf init [--url <base URL>] [--port <port>] [--send-content]` connects this machine to a Harnessforce Workspace:
 
 1. It checks the OS keychain first: macOS Keychain, the Secret Service on Linux, or the Windows
    Credential Manager (through [`@napi-rs/keyring`](https://github.com/Brooooooklyn/keyring-node)).
@@ -63,7 +67,8 @@ arguments or settings. Keys and tokens are sent only to the origins pinned by `h
 5. It updates the Claude Code user settings (`~/.claude/settings.json`, or `$CLAUDE_CONFIG_DIR`),
    changing only these keys:
    - `env`: the OTel exporter variables, `HARNESSFORCE_URL`, `HARNESSFORCE_ENDPOINT` and
-     `HARNESSFORCE_WORKSPACE_ID`, but no key
+     `HARNESSFORCE_WORKSPACE_ID`, but no key. With `--send-content` and a Workspace that has opted in
+     to content it also adds `OTEL_LOG_USER_PROMPTS=1`
    - `otelHeadersHelper`: `hf otel-headers`
    - `enabledPlugins["harnessforce@harnessforce-agent"]`
 

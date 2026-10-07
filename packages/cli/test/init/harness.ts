@@ -22,6 +22,7 @@ export const issued = {
 	workspace_id: "ws1",
 	ingest_key: "hf_ik_ws1_new",
 	ingest_endpoint: "https://ingest.example.test/base",
+	content_opt_in: false,
 	access_token: "hf_at_ws1_new",
 	access_token_expires_at: "2026-09-28T01:00:00.000Z",
 	refresh_token: "hf_rt_ws1_new",
