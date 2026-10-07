@@ -147,16 +147,55 @@ describe("setup command", () => {
 		expect(body).toContain("npm install -g @harnessforce/cli"));
 
 	it("runs hf init and hf import, then asks for a restart before confirming the first event", () => {
-		// 導入より前には、Node.jsの文言と再起動後の判定がこれらの語を含む。
-		const afterInstall = body.slice(body.indexOf("npm install -g"));
-		const positions = indexesOf(afterInstall, [
-			"`hf init`",
+		// `hf init`は手順2にも現れるため、語の位置だけでは手順を特定できない。見出しの順序に、本文が実行する`hf import`の位置を加えて確かめる。
+		const positions = indexesOf(body, [
+			"Node.jsを確かめる",
+			"再起動後の実行かを確かめる",
+			"CLIを導入する",
+			"本文データを送るかを選ぶ",
+			"Harnessforceに接続する",
+			"過去のsessionを取り込む",
 			"`hf import`",
-			"再起動",
-			"最初のイベント",
+			"再起動を案内する",
+			"最初のイベントを確認する",
 		]);
 		expect(positions.every((position) => position >= 0)).toBe(true);
 		expect(positions).toEqual([...positions].sort((a, b) => a - b));
+	});
+
+	// onboarding.md「チェックリスト」の手順4「自分の端末で設定する」: hf initの前に、本文データを送る設定の選択肢を、既定では選ばれない状態で示す。
+	it("shows the content choice before hf init, unselected by default", () => {
+		const choice = "本文データを送って分析に使えます";
+		expect(body).toMatch(
+			/`hf init`の前に[^\n]*選択肢を[^\n]*既定では選ばれない/,
+		);
+		expect(body).toContain(choice);
+		expect(body).toContain(
+			"Content is not sent (by default). You can enable it later.",
+		);
+		expect(body.indexOf(choice)).toBeLessThan(
+			body.indexOf("ブラウザでHarnessforceにログインし"),
+		);
+	});
+
+	it("shows what opting in stores, the two conditions, and how to stop", () => {
+		expect(body).toContain("`[REDACTED:種類]`");
+		expect(body).toContain("本文データの保持期間");
+		expect(body).toMatch(/読めるのはOwnerとAdminだけ/);
+		expect(body).toMatch(/端末のこの設定とWorkspaceのopt-inの2つ/);
+		expect(body).toMatch(/opt-inを解除すると[^\n]*本文は受信時に破棄され/);
+		expect(body).toContain("`hf init --send-content`");
+		expect(body).toMatch(
+			/Claude Codeのuser settingsの`env`に書き[^\n]*project[^\n]*local[^\n]*`env`には書かない/,
+		);
+		expect(body).toMatch(/`OTEL_LOG_USER_PROMPTS`を`0`にする/);
+		expect(body).toMatch(/projectとlocalの`env`でも効く/);
+	});
+
+	it("relays what hf init prints when the workspace has not opted in", () => {
+		expect(body).toMatch(/`hf init --send-content`は本文の設定を書かず/);
+		expect(body).toContain("Workspaceの設定のデータの保持");
+		expect(body).toMatch(/終了コード0/);
 	});
 });
 
