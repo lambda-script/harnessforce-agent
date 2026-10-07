@@ -20,6 +20,7 @@ export type Issued = {
 	ingestKey: string;
 	apiToken: StoredApiToken;
 	ingestEndpoint: string;
+	contentOptIn: boolean;
 };
 
 // correlation.md「CLI」の手順3と4の応答。unexpectedは「いずれにも当たらない応答」。
@@ -43,11 +44,13 @@ function parseIssued(body: Record<string, unknown>): Issued | undefined {
 		workspace_id: workspaceId,
 		ingest_key: ingestKey,
 		ingest_endpoint: ingestEndpoint,
+		content_opt_in: contentOptIn,
 	} = body;
 	if (
 		typeof workspaceId !== "string" ||
 		typeof ingestKey !== "string" ||
 		typeof ingestEndpoint !== "string" ||
+		typeof contentOptIn !== "boolean" ||
 		!WORKSPACE_ID.test(workspaceId)
 	)
 		return undefined;
@@ -58,7 +61,7 @@ function parseIssued(body: Record<string, unknown>): Issued | undefined {
 		apiToken !== undefined &&
 		parseAllowedUrl(ingestEndpoint) !== undefined;
 	return isValid && apiToken
-		? { workspaceId, ingestKey, apiToken, ingestEndpoint }
+		? { workspaceId, ingestKey, apiToken, ingestEndpoint, contentOptIn }
 		: undefined;
 }
 

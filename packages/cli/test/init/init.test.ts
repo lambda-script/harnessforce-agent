@@ -44,6 +44,8 @@ const M = {
 	noIngest: "この環境はテレメトリを受信しないため、送信キーを発行できません",
 	saveFailed:
 		"送信キーを保存できませんでした。もう一度`hf init`を実行してください",
+	contentNotOptedIn:
+		"このWorkspaceは本文データをopt-inしていないため、本文を送る設定は有効にしませんでした。Workspaceの設定のデータの保持でopt-inしてから、もう一度`hf init --send-content`を実行してください",
 };
 
 const failed = (message: string) => ({ code: 1, out: "", err: `${message}\n` });
@@ -299,6 +301,8 @@ describe("hf init", () => {
 			[["--port", "65536"]],
 			[["--port", "abc"]],
 			[["--port", "1.5"]],
+			[["--send-content", "true"]],
+			[["--send-content", "--send-content"]],
 		])("rejects the arguments %j with usage", async (argv) => {
 			const result = await runInit(argv, { homeDir: makeHome().home });
 			expect(result.code).toBe(1);
@@ -608,6 +612,8 @@ describe("hf init", () => {
 				{ ...issued, ingest_endpoint: "http://ingest.example.test" },
 				M.network,
 			],
+			[201, { ...issued, content_opt_in: "true" }, M.network],
+			[201, { ...issued, content_opt_in: undefined }, M.network],
 			[201, "not an object", M.network],
 		])("maps %i %j to its terminal and changes nothing", async (status, body, message) => {
 			const server = await startCredentialsServer({
@@ -639,6 +645,80 @@ describe("hf init", () => {
 				},
 			});
 			expect(result).toEqual(failed(M.network));
+		});
+	});
+
+	describe("--send-content", () => {
+		it("adds OTEL_LOG_USER_PROMPTS when the workspace has opted in to content", async () => {
+			const server = await startCredentialsServer({
+				credentials: {
+					status: 201,
+					body: { ...issued, content_opt_in: true },
+				},
+			});
+			const home = makeHome();
+			const result = await runInit(["--send-content"], {
+				homeDir: home.home,
+				defaultUrl: server.base,
+				openBrowser: fakeBrowser().open,
+			});
+			expect(result).toEqual({ code: 0, out: `${M.success}\n`, err: "" });
+			expect(JSON.parse(home.read() ?? "").env.OTEL_LOG_USER_PROMPTS).toBe("1");
+		});
+
+		// opt-inしていないWorkspaceでは書き込まず、理由とopt-inの場所を示す。発行と保存は済んでいるため失敗としない。
+		it("keeps the setting as it was and explains why when the workspace has not opted in", async () => {
+			const server = await startCredentialsServer();
+			// 既存の値が`1`でも書き換えないことを確かめる（`0`を種にすると、書き込んだ`0`と見分けられない）。
+			const home = makeHome('{"env":{"OTEL_LOG_USER_PROMPTS":"1"}}');
+			const result = await runInit(["--send-content"], {
+				homeDir: home.home,
+				defaultUrl: server.base,
+				openBrowser: fakeBrowser().open,
+			});
+			expect(result).toEqual({
+				code: 0,
+				out: `${M.contentNotOptedIn}\n${M.success}\n`,
+				err: "",
+			});
+			const env = JSON.parse(home.read() ?? "").env;
+			expect(env.HARNESSFORCE_WORKSPACE_ID).toBe("ws1");
+			expect(env.OTEL_LOG_USER_PROMPTS).toBe("1");
+		});
+
+		// キーを持つhomeを種にすると書き込んだ`1`と元の`1`を見分けられないため、キーの無いhomeでも確かめる。
+		it("adds no setting when the workspace has not opted in and the setting is absent", async () => {
+			const server = await startCredentialsServer();
+			const home = makeHome();
+			const result = await runInit(["--send-content"], {
+				homeDir: home.home,
+				defaultUrl: server.base,
+				openBrowser: fakeBrowser().open,
+			});
+			expect(result).toEqual({
+				code: 0,
+				out: `${M.contentNotOptedIn}\n${M.success}\n`,
+				err: "",
+			});
+			const env = JSON.parse(home.read() ?? "").env;
+			expect(env).not.toHaveProperty("OTEL_LOG_USER_PROMPTS");
+		});
+
+		it("leaves OTEL_LOG_USER_PROMPTS alone without the flag", async () => {
+			const server = await startCredentialsServer({
+				credentials: {
+					status: 201,
+					body: { ...issued, content_opt_in: true },
+				},
+			});
+			const home = makeHome('{"env":{"OTEL_LOG_USER_PROMPTS":"0"}}');
+			const result = await runInit([], {
+				homeDir: home.home,
+				defaultUrl: server.base,
+				openBrowser: fakeBrowser().open,
+			});
+			expect(result).toEqual({ code: 0, out: `${M.success}\n`, err: "" });
+			expect(JSON.parse(home.read() ?? "").env.OTEL_LOG_USER_PROMPTS).toBe("0");
 		});
 	});
 

@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import { type ImportDeps, importCommand } from "./import/command.js";
-import { type InitDeps, init } from "./init/init.js";
+import { type InitArgs, type InitDeps, init } from "./init/init.js";
 import { otelHeaders } from "./otel-headers.js";
 import { type RunArgs, type RunDeps, runIssue } from "./run/run.js";
 import { type TuneCommandDeps, tuneCommand } from "./tune/tune.js";
@@ -21,14 +21,13 @@ const { version } = createRequire(import.meta.url)("../package.json") as {
 };
 
 const USAGE =
-	"Usage: hf --version | hf init [--url <base URL>] [--port <port>] | hf import | hf otel-headers | hf run --issue <identifier> -- <agent> [args] | hf tune [--all] [--no-send] [--show-report] [--json] | hf tune record | hf tune --purge\n";
+	"Usage: hf --version | hf init [--url <base URL>] [--port <port>] [--send-content] | hf import | hf otel-headers | hf run --issue <identifier> -- <agent> [args] | hf tune [--all] [--no-send] [--show-report] [--json] | hf tune record | hf tune --purge\n";
 
 // `hf init`の引数。受け付けない形ならundefined。--portの値は1〜65535の整数（correlation.md「CLI」）。
-function parseInitArgs(
-	args: readonly string[],
-): { url: string | undefined; port: number | undefined } | undefined {
+function parseInitArgs(args: readonly string[]): InitArgs | undefined {
 	let url: string | undefined;
 	let port: number | undefined;
+	let sendContent = false;
 	for (let i = 0; i < args.length; ) {
 		if (args[i] === "--url") {
 			if (url !== undefined || args[i + 1] === undefined) return undefined;
@@ -46,9 +45,15 @@ function parseInitArgs(
 			i += 2;
 			continue;
 		}
+		if (args[i] === "--send-content") {
+			if (sendContent) return undefined;
+			sendContent = true;
+			i += 1;
+			continue;
+		}
 		return undefined;
 	}
-	return { url, port };
+	return { url, port, sendContent };
 }
 
 // `hf run`の引数。`--`より後ろはagentとその引数としてそのまま渡す。

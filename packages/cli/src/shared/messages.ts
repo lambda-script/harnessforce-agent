@@ -31,6 +31,8 @@ export const INIT_MESSAGES = {
 		"この環境はテレメトリを受信しないため、送信キーを発行できません",
 	saveFailed:
 		"送信キーを保存できませんでした。もう一度`hf init`を実行してください",
+	contentNotOptedIn:
+		"このWorkspaceは本文データをopt-inしていないため、本文を送る設定は有効にしませんでした。Workspaceの設定のデータの保持でopt-inしてから、もう一度`hf init --send-content`を実行してください",
 } as const;
 
 export type InitMessage = keyof typeof INIT_MESSAGES;
