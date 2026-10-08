@@ -1,6 +1,6 @@
 ---
 name: propose-improvements
-description: /harnessforce:tuneの分析結果から、人の介入、ループにできる繰り返し、MCP serverの改善の提案を作り、hf tune recordで記録してから表示する。/harnessforce:tuneが「提案を作れます」と判定した対象にだけ使う。ファイルは書き換えない。
+description: /harnessforce:tuneの分析結果から、人の介入、ループにできる繰り返し、MCP server、使い方（contextの圧縮、cacheの再利用、modelの使い分け）の改善の提案を作り、hf tune recordで記録してから表示する。/harnessforce:tuneが「提案を作れます」と判定した対象にだけ使う。ファイルは書き換えない。
 ---
 
 # 分析結果から改善の提案を作る
@@ -22,14 +22,19 @@ description: /harnessforce:tuneの分析結果から、人の介入、ループ�
 | 人の介入 | その`intervention.kind`が、3 session以上で合計10回以上ある |
 | ループにできる繰り返し | その`loop.kind`が、合計3回以上ある |
 | MCP server | `configured`のsessionが10以上ある |
+| 使い方の`frequent_compaction`、`low_cache_reuse` | その`usage.kind`に当たるsessionが3以上ある |
+| 使い方の`model_choice` | `models`を持つsessionが10以上あり、分析した範囲の`models`の合計で、1つの`message.model`の値が`output_tokens`の合計の90%以上を占める |
 
 - 未計測（`not_measured`）の値を根拠にしない。未計測を0として扱わない。
+- 使い方の提案の変更の種類は、`claude_md`、`rule`、`skill`、`agent`、`command`に限る（例: 肥大したCLAUDE.mdを分ける、探索をsubagentへ移してそのagentの`model`を指定する）。settingsの`model`など、他の変更の種類にしない。`hf tune record`は他の変更の種類を拒否する。`claude_md`の変更は適用を検出しないため、前回の提案の前後にも現れない。
+- 使い方の値（`usage`）は端末だけの値であり、Harnessforceへ送られない。提案の根拠には使ってよい。
 - ハーネスの構成（skill、rule、agent、command、hook、MCP server、modelのversionごとの成果の差）を対象にした提案は作らない。
 - 調べても、利用者がそのまま適用できる変更が見つからなければ、その対象の提案を作らず、理由を1行で伝える。
 
 ## 根拠を集める
 
-- 対象の「根拠のsession」の`transcript_path`の記録を、提案に必要な部分だけ読む。人の介入なら、その種類のpromptと、直前のagentの応答を読む。ループなら、一巡の手順（Issueの取得、修正、test、push、Pull Requestの作成など）と、人が介入した時点を読む。MCP serverなら、呼び出しと失敗を読む。
+- 対象の「根拠のsession」の`transcript_path`の記録を、提案に必要な部分だけ読む。人の介入なら、その種類のpromptと、直前のagentの応答を読む。ループなら、一巡の手順（Issueの取得、修正、test、push、Pull Requestの作成など）と、人が介入した時点を読む。MCP serverなら、呼び出しと失敗を読む。使い方なら、`frequent_compaction`は圧縮の前の指示と経緯、`low_cache_reuse`はcacheが再利用されなかった応答の前後、`model_choice`は本体が行っていた探索や定型の作業を読む。
+- 「前回の提案の前後」で「良くなった向きへ動いていません」と示された提案と同じ対象の提案を作るときは、その前後を根拠に示し、前回と同じ差分を繰り返さない。
 - 適用先の現在の定義（settings、skill、rule、agent、command、hook、`.mcp.json`、`~/.claude.json`の`mcpServers`、CLAUDE.md）を読み、差分を現在の内容に対して作る。
 
 ## 形式
@@ -38,7 +43,7 @@ description: /harnessforce:tuneの分析結果から、人の介入、ループ�
 
 | 項目 | 内容 |
 | --- | --- |
-| 対象のカテゴリ | `intervention.kind=<kind>`、`loop.kind=<kind>`、`mcp_server=<識別子>`のいずれか |
+| 対象のカテゴリ | `intervention.kind=<kind>`、`loop.kind=<kind>`、`mcp_server=<識別子>`、`usage.kind=<kind>`のいずれか。`usage.kind`の`<kind>`は`frequent_compaction`、`low_cache_reuse`、`model_choice`のいずれか |
 | 根拠 | 期間、回数、該当したsessionの時刻と、記録の抜粋。抜粋は端末にだけ表示する |
 | 変更の種類 | `permissions`、`hook`、`skill`、`rule`、`agent`、`command`、`loop_prompt`、`mcp_config`、`claude_md`のいずれか |
 | 適用先 | 利用者のscope、repositoryのscope、managed settingsのいずれかと、ファイルのpath |
