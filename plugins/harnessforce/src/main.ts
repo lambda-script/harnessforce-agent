@@ -1,4 +1,5 @@
 import { homedir } from "node:os";
+import { performance } from "node:perf_hooks";
 import { managedDirFor } from "@harnessforce/agent-core/managed";
 import { createGitRunner } from "@harnessforce/agent-core/process/git";
 import {
@@ -38,6 +39,7 @@ async function main(): Promise<void> {
 	await runHook(process.argv[2] ?? "", raw, {
 		env: process.env,
 		now: () => new Date(),
+		processStartMs: performance.timeOrigin,
 		git: createGitRunner({
 			platform: process.platform,
 			env: process.env,
