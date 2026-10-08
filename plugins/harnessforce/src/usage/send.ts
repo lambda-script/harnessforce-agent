@@ -77,7 +77,7 @@ async function pendingSessions(
 // correlation.md「送る契機」のSessionStart: 他のsessionの送れていない要約を、最後の変更の古い順に20件まで1つのrequestで送る。
 // 2xxを受けたら、rejectedに含まれた要素も含めて送った長さを書く。schemaに違反した要素は送り直しても受け付けられず、
 // 閲覧のみのWorkspaceでdropした要素も送り直さないためである。
-export async function sendPendingUsage(
+export async function sendUnsentUsage(
 	store: UsageStore,
 	destination: Destination,
 	deps: SendDeps,
@@ -92,8 +92,10 @@ export async function sendPendingUsage(
 	)) {
 		if (batch.length === PENDING_PER_REQUEST) break;
 		const record = await readRecord(store, pending.sessionId);
-		const summary = record && buildSummary(pending.sessionId, record.lines);
-		if (record && summary) batch.push({ ...pending, record, summary });
+		// 送った長さは最後の改行までであり、追記の途中の行だけが増えた記録は送り直さない。
+		if (!record || record.length <= pending.state.sentLength) continue;
+		const summary = buildSummary(pending.sessionId, record.lines);
+		if (summary) batch.push({ ...pending, record, summary });
 	}
 	if (batch.length === 0) return undefined;
 	const outcome = await postItems(

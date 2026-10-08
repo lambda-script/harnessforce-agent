@@ -1,4 +1,10 @@
-import { existsSync, readdirSync, utimesSync, writeFileSync } from "node:fs";
+import {
+	appendFileSync,
+	existsSync,
+	readdirSync,
+	utimesSync,
+	writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { runHook } from "../src/hook.js";
@@ -188,6 +194,18 @@ describe("unsent session usage summaries at SessionStart", () => {
 		expect(grown.bodiesTo("/v1/session-usage")).toEqual([
 			[expect.objectContaining({ session_id: "s-a", permission_requests: 1 })],
 		]);
+	});
+
+	// 送った長さは最後の改行までであり、追記の途中の行だけが残った記録を送り直さない。
+	it("does not send a record again when only an unfinished line was added", async () => {
+		const data = pluginData();
+		await unsentSession(data, "s-a", T0);
+		appendFileSync(join(data, "usage/s-a.jsonl"), '{"at":"2026');
+		touch(data, "s-a", T0);
+		const first = await startAt(data, T0 + 11 * MINUTE);
+		expect(sentSessions(first)).toEqual([["s-a"]]);
+		const again = await startAt(data, T0 + 12 * MINUTE);
+		expect(sentSessions(again)).toEqual([]);
 	});
 
 	it("sends the session again at the next start after a failed send", async () => {

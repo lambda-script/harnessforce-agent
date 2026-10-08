@@ -22,7 +22,7 @@ const HOOK_ENTRY = "scripts/harnessforce-hook.cjs";
 const PLUGIN_ROOT = "${CLAUDE_PLUGIN_ROOT}";
 // scriptが止まった場合の保険（秒）。本体はgit 1秒、送信2秒で打ち切る。async hookにはtimeoutが強制されない。
 const HOOK_TIMEOUT_SECONDS = 10;
-// correlation.md「数えるhook」: Skill、Agent（旧名Task）とMCPのtoolだけを数える。
+// correlation.md「数えるhook」: Skill、Agent（旧名Task）とMCPのtoolだけを数える。src/usage/count.tsが数えるtoolと揃える。
 const COUNTED_TOOLS = "^(Skill|Agent|Task)$|^mcp__";
 const EVENTS = {
 	SessionStart: { arg: "session-start" },

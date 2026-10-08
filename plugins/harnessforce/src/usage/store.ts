@@ -117,6 +117,7 @@ export async function readState(
 }
 
 // SessionEndはClaude Codeの予算で止められうるため、書きかけの状態のfileを残さないよう置き換える。
+// Windowsで別のhookが読んでいる間は置き換えに失敗しうるが、送った長さを書けなければ次の開始で送り直すだけである。
 export async function writeSentLength(
 	store: UsageStore,
 	sessionId: string,

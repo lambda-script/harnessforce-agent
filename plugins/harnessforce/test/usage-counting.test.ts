@@ -341,6 +341,44 @@ describe("counting the session usage", () => {
 		expect(other).toEqual({ calls: 2, failures: 0 });
 	}, 30_000);
 
+	// correlation.md「状態のfileの作成」: 識別子は同じSessionStartが集めた構成のものとし、状態のfileが既にあれば変えない。
+	it.each([
+		["a resume that has no record yet", false],
+		[
+			"a resume after the first start, with the configuration of that start",
+			true,
+		],
+	])("counts by the identifiers on %s", async (_, startedBefore) => {
+		const data = pluginData();
+		const home = homeWithComponents();
+		const run = async (
+			event: string,
+			input: Record<string, unknown>,
+			homeDir = home,
+		) => {
+			const h = harness({ env: { CLAUDE_PLUGIN_DATA: data }, homeDir });
+			await runHook(
+				event,
+				JSON.stringify({ session_id: "s-1", cwd: REPO.cwd, ...input }),
+				h.deps,
+			);
+			return h;
+		};
+		if (startedBefore) await run("session-start", { source: "startup" });
+		// 先に始めたsessionは、構成が無くなった後に再開する。
+		const resumed = await run(
+			"session-start",
+			{ source: "resume" },
+			startedBefore ? tempDir("hf-home-") : home,
+		);
+		expect(resumed.requests).toEqual([]);
+		await run("post-tool-use", skill("fix-ci"));
+		const end = await run("session-end", {});
+		expect(end.bodiesTo("/v1/session-usage")[0]?.[0]).toMatchObject({
+			skills: { items: [{ name: "fix-ci", calls: 1, failures: 0 }] },
+		});
+	});
+
 	it("skips lines of the record it cannot read", async () => {
 		const data = pluginData();
 		const h = harness({

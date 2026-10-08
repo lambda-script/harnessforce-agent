@@ -1,4 +1,5 @@
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, utimesSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { runHook } from "../src/hook.js";
 import {
@@ -42,6 +43,18 @@ async function startedSession(input: Record<string, unknown> = {}) {
 		{ source: "startup", ...input },
 	);
 	return data;
+}
+
+// 記録の最後の変更から11分後に始まる、同じ端末の別のsession。
+async function nextSessionStart(data: string) {
+	const idle = Date.parse("2026-09-26T00:05:00Z") / 1000;
+	utimesSync(join(data, "usage/s-1.jsonl"), idle, idle);
+	const next = at(
+		harness({ env: { CLAUDE_PLUGIN_DATA: data } }),
+		"2026-09-26T00:16:00Z",
+	);
+	await run(next, "session-start", { session_id: "s-2", source: "startup" });
+	return next;
 }
 
 describe("session usage summary at SessionEnd", () => {
@@ -108,17 +121,55 @@ describe("session usage summary at SessionEnd", () => {
 		]);
 	});
 
-	it("records the session from a resume that has no record yet", async () => {
-		const data = pluginData();
-		const resumed = at(
-			harness({ env: { CLAUDE_PLUGIN_DATA: data } }),
-			"2026-09-26T00:00:00Z",
-		);
-		await run(resumed, "session-start", { source: "resume" });
-		expect(resumed.requests).toEqual([]);
+	// correlation.md「要約の作り方」: started_atは最も早い行、first_prompt_idはprompt IDを持つ最も早い行で決める。
+	it("takes the times and the first prompt from the earliest lines, not the file order", async () => {
+		const data = await startedSession();
+		const prompt = (instant: string, promptId: string) =>
+			run(
+				at(harness({ env: { CLAUDE_PLUGIN_DATA: data } }), instant),
+				"user-prompt-submit",
+				{ prompt_id: promptId },
+			);
+		await prompt("2026-09-26T00:03:00Z", "p-late");
+		await prompt("2026-09-25T23:58:00Z", "p-early");
 		const end = harness({ env: { CLAUDE_PLUGIN_DATA: data } });
 		await run(end, "session-end");
-		expect(end.bodiesTo("/v1/session-usage")).toHaveLength(1);
+		expect(end.bodiesTo("/v1/session-usage")[0]?.[0]).toMatchObject({
+			first_prompt_id: "p-early",
+			started_at: "2026-09-25T23:58:00.000Z",
+			last_event_at: "2026-09-26T00:03:00.000Z",
+		});
+	});
+
+	// 2xxを受けたら送った長さを書き、次のsessionの開始で送り直さない。
+	it("is not sent again from the next session start after a 2xx", async () => {
+		const data = await startedSession();
+		await run(
+			at(
+				harness({ env: { CLAUDE_PLUGIN_DATA: data } }),
+				"2026-09-26T00:05:00Z",
+			),
+			"session-end",
+		);
+		const next = await nextSessionStart(data);
+		expect(next.bodiesTo("/v1/session-usage")).toEqual([]);
+	});
+
+	it.each([
+		["a failed send", { status: 503 }, 0],
+		["a send cut off by the budget", {}, 1000],
+	])("is sent from the next session start after %s", async (_, options, usedMs) => {
+		const data = await startedSession();
+		const end = at(
+			harness({ ...options, env: { CLAUDE_PLUGIN_DATA: data } }),
+			"2026-09-26T00:05:00Z",
+		);
+		end.deps.processStartMs -= usedMs;
+		await run(end, "session-end");
+		const next = await nextSessionStart(data);
+		expect(next.bodiesTo("/v1/session-usage")).toEqual([
+			[expect.objectContaining({ session_id: "s-1" })],
+		]);
 	});
 
 	// SessionEndの1.5秒の予算にkeychainの読み出しを収められないため、利用者用のkeyでは次のsessionの開始で送る。
@@ -179,15 +230,22 @@ describe("session usage summary at SessionEnd", () => {
 	});
 
 	it.each([
-		["CLAUDE_PLUGIN_DATA is relative", { CLAUDE_PLUGIN_DATA: "data" }, "s-1"],
-		["CLAUDE_PLUGIN_DATA is missing", {}, "s-1"],
-		["the session id has characters outside [A-Za-z0-9_-]", undefined, "s.1"],
-	])("records and sends nothing when %s", async (_, env, sessionId) => {
+		["CLAUDE_PLUGIN_DATA is relative", { CLAUDE_PLUGIN_DATA: "data" }],
+		["CLAUDE_PLUGIN_DATA is missing", {}],
+	])("sends nothing when %s", async (_, env) => {
+		await run(harness({ env }), "session-start");
+		const end = harness({ env });
+		await run(end, "session-end");
+		expect(end.requests).toEqual([]);
+	});
+
+	// fileの名前をCLAUDE_PLUGIN_DATAの外へ向けないため。
+	it("records and sends nothing for a session id with characters outside [A-Za-z0-9_-]", async () => {
 		const data = pluginData();
-		const options = { env: env ?? { CLAUDE_PLUGIN_DATA: data } };
-		await run(harness(options), "session-start", { session_id: sessionId });
+		const options = { env: { CLAUDE_PLUGIN_DATA: data } };
+		await run(harness(options), "session-start", { session_id: "s.1" });
 		const end = harness(options);
-		await run(end, "session-end", { session_id: sessionId });
+		await run(end, "session-end", { session_id: "s.1" });
 		expect(end.requests).toEqual([]);
 		expect(readdirSync(data)).toEqual([]);
 	});

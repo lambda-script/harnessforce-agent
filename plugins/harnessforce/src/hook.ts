@@ -33,7 +33,7 @@ import {
 	saveRegistration,
 } from "./scratchpad.js";
 import { COUNTING_EVENTS, countedOf } from "./usage/count.js";
-import { sendPendingUsage, sendSessionUsage } from "./usage/send.js";
+import { sendSessionUsage, sendUnsentUsage } from "./usage/send.js";
 import {
 	appendRecord,
 	createState,
@@ -265,23 +265,35 @@ async function createUsageState(
 }
 
 // 状態のfileが無いsessionでは記録しない。
-async function record(usage: UsageStore, line: RecordLine): Promise<void> {
+async function appendIfRecording(
+	usage: UsageStore,
+	line: RecordLine,
+): Promise<void> {
 	if (await readState(usage)) await appendRecord(usage, line);
 }
 
 const promptIdOf = (input: HookInput) =>
 	input.promptId === undefined ? {} : { promptId: input.promptId };
 
-// 401は登録とsnapshotの401と同じく扱う。それ以外の失敗では書かず、次のsessionの開始で送り直す。
-async function sendUnsentUsage(
+// SessionStartの利用の要約: このsessionの状態のfileを作り、他のsessionの送れていない要約を送る。
+// 401は登録とsnapshotの401と同じく扱うため、送信の結果を返す。それ以外の失敗は次のsessionの開始で送り直す。
+async function startUsage(
 	usage: UsageStore,
 	destination: Destination,
+	collected: Promise<ConfigComponent[] | undefined>,
 	deps: HookDeps,
 ): Promise<SendOutcome | undefined> {
-	const outcome = await sendPendingUsage(usage, destination, deps);
-	if (outcome?.kind === "failed")
-		report(deps, "session usage", `failed (${outcome.reason})`);
-	return outcome;
+	const [, unsent] = await Promise.all([
+		collected
+			.then((components) =>
+				createUsageState(usage, destination, components ?? []),
+			)
+			.catch(logError(deps)),
+		sendUnsentUsage(usage, destination, deps).catch(logError(deps)),
+	]);
+	if (unsent?.kind === "failed")
+		report(deps, "session usage", `failed (${unsent.reason})`);
+	return unsent ?? undefined;
 }
 
 type RevokedKeyMessage = string;
@@ -299,28 +311,25 @@ async function sendSessionStart(
 		return undefined;
 	const destination = await resolveDestination(deps, input.cwd);
 	if (!destination) return undefined;
-	// resumeとcompactは構成を集めないため、状態のfileを作るなら識別子は空になる。
-	const collected = registers
+	// resumeとcompactはsnapshotを送らないが、状態のfileを作るなら識別子のために構成を集める。
+	const collects = registers || (usage && !(await readState(usage)));
+	const collected = collects
 		? collectComponents(input, deps)
 		: Promise.resolve(undefined);
 	const outcomes = await Promise.all([
 		registers
 			? registerSession(input, destination, deps).catch(logError(deps))
 			: undefined,
-		collected
-			.then((components) =>
-				components
-					? sendConfigSnapshot(input, components, destination, deps)
-					: undefined,
-			)
-			.catch(logError(deps)),
-		usage &&
-			collected
-				.then((components) =>
-					createUsageState(usage, destination, components ?? []),
-				)
-				.catch(logError(deps)),
-		usage && sendUnsentUsage(usage, destination, deps).catch(logError(deps)),
+		registers
+			? collected
+					.then((components) =>
+						components
+							? sendConfigSnapshot(input, components, destination, deps)
+							: undefined,
+					)
+					.catch(logError(deps))
+			: undefined,
+		usage ? startUsage(usage, destination, collected, deps) : undefined,
 	]);
 	if (!outcomes.some((outcome) => outcome?.kind === "unauthorized"))
 		return undefined;
@@ -337,7 +346,7 @@ async function onSessionStart(input: HookInput, deps: HookDeps): Promise<void> {
 		return undefined;
 	});
 	if (usage)
-		await record(usage, {
+		await appendIfRecording(usage, {
 			at: startedAt.toISOString(),
 			kind: "start",
 			...promptIdOf(input),
@@ -355,7 +364,7 @@ async function onUserPromptSubmit(
 ): Promise<void> {
 	const usage = usageStoreOf(input.sessionId, deps.env);
 	if (usage)
-		await record(usage, {
+		await appendIfRecording(usage, {
 			at: deps.now().toISOString(),
 			kind: "prompt",
 			...promptIdOf(input),
