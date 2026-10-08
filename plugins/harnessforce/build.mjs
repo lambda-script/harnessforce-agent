@@ -20,26 +20,41 @@ const HOOK_ENTRY = "scripts/harnessforce-hook.cjs";
 // Claude Codeがexec形式のargsで展開するplaceholder。
 // biome-ignore lint/suspicious/noTemplateCurlyInString: JSのtemplateではなくClaude Codeのplaceholderである。
 const PLUGIN_ROOT = "${CLAUDE_PLUGIN_ROOT}";
-// scriptが止まった場合の保険（秒）。本体はgit 1秒、送信2秒で打ち切る。
+// scriptが止まった場合の保険（秒）。本体はgit 1秒、送信2秒で打ち切る。async hookにはtimeoutが強制されない。
 const HOOK_TIMEOUT_SECONDS = 10;
+// correlation.md「数えるhook」: Skill、Agent（旧名Task）とMCPのtoolだけを数える。
+const COUNTED_TOOLS = "^(Skill|Agent|Task)$|^mcp__";
 const EVENTS = {
-	SessionStart: "session-start",
-	UserPromptSubmit: "user-prompt-submit",
+	SessionStart: { arg: "session-start" },
+	UserPromptSubmit: { arg: "user-prompt-submit" },
+	SessionEnd: { arg: "session-end" },
+	// 数えるhookはagentを待たせない。
+	PostToolUse: { arg: "post-tool-use", matcher: COUNTED_TOOLS, async: true },
+	PostToolUseFailure: {
+		arg: "post-tool-use-failure",
+		matcher: COUNTED_TOOLS,
+		async: true,
+	},
+	UserPromptExpansion: { arg: "user-prompt-expansion", async: true },
+	PermissionRequest: { arg: "permission-request", async: true },
+	PostCompact: { arg: "post-compact", async: true },
 };
 
 const hooksJson = () => ({
-	description: "Register Claude Code sessions with Harnessforce",
+	description:
+		"Register Claude Code sessions with Harnessforce and send their usage summaries",
 	hooks: Object.fromEntries(
-		Object.entries(EVENTS).map(([event, arg]) => [
+		Object.entries(EVENTS).map(([event, { arg, matcher, async }]) => [
 			event,
 			[
 				{
+					...(matcher ? { matcher } : {}),
 					hooks: [
 						{
 							type: "command",
 							command: "node",
 							args: [`${PLUGIN_ROOT}/${HOOK_ENTRY}`, arg],
-							timeout: HOOK_TIMEOUT_SECONDS,
+							...(async ? { async } : { timeout: HOOK_TIMEOUT_SECONDS }),
 						},
 					],
 				},
