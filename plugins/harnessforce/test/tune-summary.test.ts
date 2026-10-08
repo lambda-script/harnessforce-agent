@@ -487,7 +487,7 @@ describe.skipIf(process.platform === "win32")("tune summary script", () => {
 			`${section.slice(section.indexOf(`- ${category}`)).split("\n- ")[0]}\n`;
 		expect(block("intervention.kind=continue")).not.toContain("良くなった向き");
 		expect(block("usage.kind=low_cache_reuse")).toContain(
-			"    良くなった向きへ動いていません。同じ対象の新しい提案の根拠に示します",
+			"    良くなった向きへ動いていません。同じ対象の提案を作るときの根拠にします",
 		);
 		expect(block("loop.kind=ci_fix")).toContain("    比較データなし\n");
 		expect(block("loop.kind=ci_fix")).toContain(

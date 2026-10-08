@@ -157,7 +157,8 @@ function modelShares(sessions) {
 	if (denominator === 0) return null;
 	const shares = (byModel) =>
 		[...byModel]
-			.sort(([a], [b]) => a.localeCompare(b))
+			// hf tune の表示（UTF-16 の code unit 順）と並びを揃える。
+			.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
 			.map(([model, tokens]) => ({ model, share: tokens / denominator }));
 	return { main: shares(main), subagent: shares(subagent) };
 }
@@ -220,7 +221,7 @@ function renderFollowups(followups) {
 				: f.after.value > f.before.value;
 		if (direction !== undefined && !f.no_comparison_data && !isImproved)
 			lines.push(
-				"    良くなった向きへ動いていません。同じ対象の新しい提案の根拠に示します",
+				"    良くなった向きへ動いていません。同じ対象の提案を作るときの根拠にします",
 			);
 	}
 	lines.push("");
@@ -229,6 +230,7 @@ function renderFollowups(followups) {
 
 function usageTargets(sessions) {
 	const lines = [];
+	// usage を出力しない古い hf の出力では、使い方を未計測として扱い提案を作らない。
 	const withUsage = sessions.filter((s) => s.usage);
 	for (const kind of SESSION_USAGE_KINDS) {
 		const category = `usage.kind=${kind}`;
@@ -251,7 +253,7 @@ function usageTargets(sessions) {
 					count:
 						kind === "frequent_compaction"
 							? session.usage.compactions_auto
-							: session.usage.cache_reuse_ratio,
+							: Number(session.usage.cache_reuse_ratio.toFixed(3)),
 				})),
 				kind === "frequent_compaction"
 					? "回の自動圧縮"
