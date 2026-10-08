@@ -6,14 +6,14 @@ export const USAGE_KINDS = [
 	"low_cache_reuse",
 	"model_choice",
 ] as const;
-export type UsageKind = (typeof USAGE_KINDS)[number];
+type UsageKind = (typeof USAGE_KINDS)[number];
 
 // 規則と閾値はanalyzer_versionに含める。効果を測った根拠ではなく、使い方を見直す目安として決めた値である。
 const FREQUENT_COMPACTION_MIN_AUTO = 2;
 export const LOW_CACHE_REUSE_MIN_RESPONSES = 20;
 const LOW_CACHE_REUSE_MAX_RATIO = 0.5;
 
-export type ModelUsage = {
+type ModelUsage = {
 	model: string;
 	responses: number;
 	output_tokens: number;
@@ -94,7 +94,7 @@ export function summarizeUsage(
 	};
 }
 
-export type ModelShare = { model: string; share: number };
+type ModelShare = { model: string; share: number };
 export type ModelShares = { main: ModelShare[]; subagent: ModelShare[] };
 
 // modelの使い分けを数えられるsession。modelsかsubagent_modelsがnullのsessionは除く。
