@@ -33,13 +33,14 @@ import {
 	saveRegistration,
 } from "./scratchpad.js";
 import { COUNTING_EVENTS, countedOf } from "./usage/count.js";
-import { sendSessionUsage } from "./usage/send.js";
+import { sendPendingUsage, sendSessionUsage } from "./usage/send.js";
 import {
 	appendRecord,
 	createState,
 	identifiersOf,
 	type RecordLine,
 	readState,
+	removeExpiredFiles,
 	type UsageStore,
 	usageStoreOf,
 } from "./usage/store.js";
@@ -271,6 +272,18 @@ async function record(usage: UsageStore, line: RecordLine): Promise<void> {
 const promptIdOf = (input: HookInput) =>
 	input.promptId === undefined ? {} : { promptId: input.promptId };
 
+// 401は登録とsnapshotの401と同じく扱う。それ以外の失敗では書かず、次のsessionの開始で送り直す。
+async function sendUnsentUsage(
+	usage: UsageStore,
+	destination: Destination,
+	deps: HookDeps,
+): Promise<SendOutcome | undefined> {
+	const outcome = await sendPendingUsage(usage, destination, deps);
+	if (outcome?.kind === "failed")
+		report(deps, "session usage", `failed (${outcome.reason})`);
+	return outcome;
+}
+
 type RevokedKeyMessage = string;
 
 // 401を受けたら、失効したkeyの文言を返す。
@@ -307,6 +320,7 @@ async function sendSessionStart(
 					createUsageState(usage, destination, components ?? []),
 				)
 				.catch(logError(deps)),
+		usage && sendUnsentUsage(usage, destination, deps).catch(logError(deps)),
 	]);
 	if (!outcomes.some((outcome) => outcome?.kind === "unauthorized"))
 		return undefined;
@@ -316,14 +330,15 @@ async function sendSessionStart(
 // sourceや送信の結果によらず、session contextを必ず1回出す。resumeとcompactの後のcontextにもsession IDを残すためである。
 async function onSessionStart(input: HookInput, deps: HookDeps): Promise<void> {
 	const usage = usageStoreOf(input.sessionId, deps.env);
-	const startedAt = usage && deps.now().toISOString();
+	const startedAt = deps.now();
+	if (usage) await removeExpiredFiles(usage, startedAt).catch(logError(deps));
 	const revoked = await sendSessionStart(input, usage, deps).catch((error) => {
 		logError(deps)(error);
 		return undefined;
 	});
-	if (usage && startedAt)
+	if (usage)
 		await record(usage, {
-			at: startedAt,
+			at: startedAt.toISOString(),
 			kind: "start",
 			...promptIdOf(input),
 		}).catch(logError(deps));

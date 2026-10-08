@@ -1,8 +1,12 @@
 import {
 	appendFile,
+	lstat,
 	mkdir,
+	readdir,
 	readFile,
 	rename,
+	stat,
+	unlink,
 	writeFile,
 } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
@@ -194,4 +198,42 @@ export async function readRecord(
 		.split("\n")
 		.flatMap(parseLine);
 	return { lines, length };
+}
+
+// 状態のfileを持つsessionのid。
+export async function listSessions(store: UsageStore): Promise<string[]> {
+	const names = await readdir(store.dir).catch(() => []);
+	return names
+		.filter((name) => name.endsWith(".json"))
+		.map((name) => name.slice(0, -".json".length))
+		.filter(isFileSafeSessionId);
+}
+
+export const recordChangeOf = (store: UsageStore, sessionId: string) =>
+	stat(recordFile(store, sessionId)).then(
+		({ size, mtimeMs }) => ({ size, mtimeMs }),
+		() => undefined,
+	);
+
+// correlation.md「送る契機」: Claude Codeがsessionの記録を既定で残す30日を過ぎたfileを、1回に100件まで削除する。
+const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+const REMOVALS_PER_START = 100;
+
+export async function removeExpiredFiles(
+	store: UsageStore,
+	now: Date,
+): Promise<void> {
+	let removed = 0;
+	for (const name of await readdir(store.dir).catch(() => [])) {
+		if (removed === REMOVALS_PER_START) return;
+		const file = join(store.dir, name);
+		const info = await lstat(file).catch(() => undefined);
+		if (!info?.isFile() || now.getTime() - info.mtimeMs <= RETENTION_MS)
+			continue;
+		const isRemoved = await unlink(file).then(
+			() => true,
+			() => false,
+		);
+		if (isRemoved) removed += 1;
+	}
 }
