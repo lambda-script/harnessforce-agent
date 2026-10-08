@@ -34,7 +34,7 @@ const stateFile = (store: UsageStore, sessionId: string) =>
 const IDENTIFIER_KINDS = ["skill", "command", "agent", "mcp_server"] as const;
 type IdentifierKind = (typeof IDENTIFIER_KINDS)[number];
 // pluginのcomponentは、名前から識別子への対応の規則がplugin以外と異なる。
-type Identifier = { id: string; plugin: boolean };
+export type Identifier = { id: string; plugin: boolean };
 export type Identifiers = Record<IdentifierKind, Identifier[]>;
 
 export type UsageState = {

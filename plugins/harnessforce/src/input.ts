@@ -9,6 +9,8 @@ export type HookInput = {
 	promptId: string | undefined;
 	scratchpad: Scratchpad | undefined;
 	source: string | undefined;
+	// eventごとの項目。数えるhookは名前を決めるのに要る項目だけを読む。
+	fields: Record<string, unknown>;
 };
 
 // fileの名前をscratchpad_dirとCLAUDE_PLUGIN_DATAの外へ向けないため、これ以外のsession_idではfileを作らない。
@@ -46,5 +48,6 @@ export function parseHookInput(raw: string): HookInput | undefined {
 				? { dir: scratchpadDir, sessionId }
 				: undefined,
 		source: typeof fields.source === "string" ? fields.source : undefined,
+		fields,
 	};
 }

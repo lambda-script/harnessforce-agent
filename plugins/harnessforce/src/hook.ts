@@ -32,6 +32,7 @@ import {
 	type Scratchpad,
 	saveRegistration,
 } from "./scratchpad.js";
+import { COUNTING_EVENTS, countedOf } from "./usage/count.js";
 import { sendSessionUsage } from "./usage/send.js";
 import {
 	appendRecord,
@@ -388,11 +389,29 @@ async function onSessionEnd(input: HookInput, deps: HookDeps): Promise<void> {
 		);
 }
 
+// correlation.md「数えるhook」: 状態のfileの識別子で名前を対応させ、1回を1行として記録する。stdoutへ何も書かない。
+const onCountingEvent =
+	(event: (typeof COUNTING_EVENTS)[number]) =>
+	async (input: HookInput, deps: HookDeps): Promise<void> => {
+		const usage = usageStoreOf(input.sessionId, deps.env);
+		const state = usage && (await readState(usage));
+		const counted = state && countedOf(event, input.fields, state.identifiers);
+		if (usage && counted)
+			await appendRecord(usage, {
+				at: deps.now().toISOString(),
+				...promptIdOf(input),
+				...counted,
+			});
+	};
+
 type Handler = (input: HookInput, deps: HookDeps) => Promise<void>;
 const HANDLERS = new Map<string, Handler>([
 	["session-start", onSessionStart],
 	["user-prompt-submit", onUserPromptSubmit],
 	["session-end", onSessionEnd],
+	...COUNTING_EVENTS.map(
+		(event) => [event, onCountingEvent(event)] as [string, Handler],
+	),
 ]);
 
 export async function runHook(
