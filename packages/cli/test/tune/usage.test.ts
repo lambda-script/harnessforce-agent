@@ -178,16 +178,23 @@ describe("usage of a session (terminal-only values)", () => {
 		});
 	});
 
-	it("gives empty subagent models without subagents and null when a subagent transcript cannot be read", async () => {
-		const main =
-			prompt(0) + response("m1", "claude-opus-5-5", 1, usage(1, 1, 0, 0));
+	const main =
+		prompt(0) + response("m1", "claude-opus-5-5", 1, usage(1, 1, 0, 0));
+
+	it("gives empty subagent models without subagents", async () =>
 		expect(
 			(await usageOf(projects(main).projectsDir))?.subagent_models,
-		).toEqual([]);
-		const { projectsDir, dir } = projects(main, {
-			"agent-a.jsonl": response("a1", "claude-haiku-4-5", 5, usage(1, 7)),
-		});
-		chmodSync(join(dir, SESSION, "subagents", "agent-a.jsonl"), 0o000);
-		expect((await usageOf(projectsDir))?.subagent_models).toBeNull();
-	});
+		).toEqual([]));
+
+	// WindowsはPOSIXのpermission bitを持たず、chmodでfileを読めなくできない。
+	it.skipIf(process.platform === "win32")(
+		"gives null subagent models when a subagent transcript cannot be read",
+		async () => {
+			const { projectsDir, dir } = projects(main, {
+				"agent-a.jsonl": response("a1", "claude-haiku-4-5", 5, usage(1, 7)),
+			});
+			chmodSync(join(dir, SESSION, "subagents", "agent-a.jsonl"), 0o000);
+			expect((await usageOf(projectsDir))?.subagent_models).toBeNull();
+		},
+	);
 });
