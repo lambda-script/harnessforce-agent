@@ -25,6 +25,7 @@ import { ANALYZER_VERSION, analyzeSession } from "./analyze.js";
 import { detectApplied } from "./applied.js";
 import { collectMcpServers, type SnapshotDeps } from "./config-snapshot.js";
 import { localIso, renderAnalysis } from "./display.js";
+import { computeFollowups } from "./followups.js";
 import { acquireTuneLock } from "./lock.js";
 import { mcpConfigOf } from "./mcp-config.js";
 import { MINIMUM_SESSIONS, Notices, TUNE_MESSAGES } from "./messages.js";
@@ -437,7 +438,7 @@ async function analyzeUnderLock(
 		env: trustedEnv,
 		now: deps.now,
 	};
-	const proposals = await detectApplied(
+	const detected = await detectApplied(
 		list
 			? resolvePendingAttributions(
 					await readProposals(paths.proposals),
@@ -460,9 +461,27 @@ async function analyzeUnderLock(
 			events: tune.events,
 			skippedLines: tune.skippedLines,
 			mcp: mcpConfigOf(servers.get(tune.session.sessionId) ?? []),
-			proposals: countProposals(proposals, tune.session.sessionId),
+			proposals: countProposals(detected, tune.session.sessionId),
 		}),
 	}));
+
+	const { followups, ended } = computeFollowups(
+		detected,
+		analyzed.map((a) => ({
+			startedAt: a.tune.session.startedAt,
+			report: a.report,
+			usage: a.tune.usage,
+		})),
+		nowMs,
+		isLimited ? rangeSinceMs : undefined,
+	);
+	// 「前回の提案の前後」: 後の期間が満了した要素を出力した`--json`の実行だけが、その時刻を記録する。
+	const outputEnded = new Set(options.json ? ended : []);
+	const proposals = detected.map((p) =>
+		outputEnded.has(p.proposal_id)
+			? { ...p, followup_output_at: new Date(nowMs).toISOString() }
+			: p,
+	);
 
 	const output = {
 		analyzer_version: ANALYZER_VERSION,
@@ -481,6 +500,7 @@ async function analyzeUnderLock(
 			report: a.report,
 			usage: a.tune.usage,
 		})),
+		followups,
 	};
 	const isWritten = await Promise.all([
 		writeJsonFile(paths.analysis, { version: 1, sessions: output.sessions }),

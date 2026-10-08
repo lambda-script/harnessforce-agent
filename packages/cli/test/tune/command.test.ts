@@ -382,6 +382,58 @@ describe("hf tune", () => {
 		);
 	});
 
+	// improvement-loop.md「前回の提案の前後」: 後の期間が満了した前後は、--jsonで1回だけ出力する。
+	it("outputs the before and after of a detected proposal and stops after --json outputs its ended period", async () => {
+		const DAY_MS = 86_400_000;
+		const t = await setupTune({
+			sessions: 11,
+			startedDaysAgo: (i) => (i < 6 ? 20 : 10),
+		});
+		const detectedAt = new Date(NOW - 15 * DAY_MS).toISOString();
+		writeFile(
+			join(t.tuneDir, "proposals.json"),
+			JSON.stringify({
+				version: 1,
+				proposals: [
+					{
+						proposal_id: "p1",
+						category: "intervention.kind=continue",
+						change_type: "skill",
+						scope: "user",
+						path: join(t.home.home, ".claude", "skills", "go", "SKILL.md"),
+						project_root: null,
+						component: { kind: "skill", source: "user", id: "go" },
+						expected_hash: "h",
+						detects_applied: true,
+						recorded_at: new Date(NOW - 16 * DAY_MS).toISOString(),
+						evidence_session_ids: ["s000"],
+						attribution: "decided",
+						attributed_session_id: null,
+						applied_detected_at: detectedAt,
+					},
+				],
+			}),
+		);
+		const outputAt = () =>
+			t.readTune("proposals.json").proposals[0].followup_output_at;
+		await t.run(["--no-send"]);
+		expect(outputAt()).toBeNull();
+		const first = JSON.parse((await t.run(["--json", "--no-send"])).out);
+		expect(first.followups).toEqual([
+			expect.objectContaining({
+				proposal_id: "p1",
+				origin: detectedAt,
+				before: expect.objectContaining({ sessions: 6, value: 1 }),
+				after: expect.objectContaining({ sessions: 5, value: 1 }),
+				no_comparison_data: false,
+				before_outside_range: false,
+			}),
+		]);
+		expect(outputAt()).toBe(new Date(NOW).toISOString());
+		const second = JSON.parse((await t.run(["--json", "--no-send"])).out);
+		expect(second.followups).toEqual([]);
+	});
+
 	it("changes no file outside ~/.harnessforce/tune/ except the import state", async () => {
 		const t = await setupTune();
 		const isOwnState = (path: string) =>
