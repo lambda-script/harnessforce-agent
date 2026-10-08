@@ -37,11 +37,28 @@ export type TranscriptEvent =
 			output: string;
 	  };
 
+// hf tuneの端末だけの値（improvement-loop.md「端末だけの値」）の元になる、応答ごとのusage。
+// 読めないtoken数はundefinedとし、0と区別する。
+export type ResponseUsage = {
+	model: string;
+	inputTokens: number | undefined;
+	outputTokens: number | undefined;
+	cacheReadTokens: number | undefined;
+	cacheCreationTokens: number | undefined;
+};
+
+export type TranscriptUsage = {
+	compactionsAuto: number;
+	compactionsManual: number;
+	responses: ResponseUsage[];
+};
+
 export type TranscriptEvents =
 	| {
 			kind: "session";
 			session: TranscriptSession;
 			events: TranscriptEvent[];
+			usage: TranscriptUsage;
 			lines: number;
 			skippedLines: number;
 	  }
@@ -85,10 +102,11 @@ const INSTANT =
 const DETACHED = "HEAD";
 
 type Row = Record<string, unknown>;
-const count = (value: unknown) =>
+const tokens = (value: unknown) =>
 	typeof value === "number" && Number.isSafeInteger(value) && value >= 0
 		? value
-		: 0;
+		: undefined;
+const count = (value: unknown) => tokens(value) ?? 0;
 
 function toInstantMs(value: unknown): number | undefined {
 	if (typeof value !== "string" || !INSTANT.test(value)) return undefined;
@@ -147,6 +165,10 @@ class Accumulator {
 	readonly responses = new Map<string, string>();
 	readonly toolNames = new Map<string, string>();
 	readonly failedToolUses = new Set<string>();
+	compactionsAuto = 0;
+	compactionsManual = 0;
+	// usageを持つ応答。同じmessage.idの行は同じusageを持つため、1つの応答として1回だけ数える。
+	readonly usages = new Map<string, ResponseUsage>();
 
 	// 分析に使うeventを集める場合だけ配列を持つ。hf importは集めない。
 	constructor(readonly events?: TranscriptEvent[]) {}
@@ -159,6 +181,8 @@ class Accumulator {
 			this.firstMs = Math.min(this.firstMs, ms);
 			this.lastMs = Math.max(this.lastMs, ms);
 		}
+		if (row.type === "system" && row.subtype === "compact_boundary")
+			this.addCompaction(row);
 		if (row.type !== "user" && row.type !== "assistant") return;
 		// branchとcwdはsessionの開始時点の値とする（correlation.md「Run→Pull Request」）。
 		if (this.cwd === undefined && typeof row.cwd === "string")
@@ -235,7 +259,43 @@ class Accumulator {
 				this.failedToolUses.add(block.tool_use_id);
 	}
 
+	private addCompaction(row: Row): void {
+		const trigger = isObject(row.compactMetadata)
+			? row.compactMetadata.trigger
+			: undefined;
+		if (trigger === "auto") this.compactionsAuto += 1;
+		if (trigger === "manual") this.compactionsManual += 1;
+	}
+
+	private addUsage(message: Row): void {
+		if (
+			typeof message.id !== "string" ||
+			this.usages.has(message.id) ||
+			!isToken(message.model, MAX_MODEL) ||
+			message.model === SYNTHETIC_MODEL ||
+			!isObject(message.usage)
+		)
+			return;
+		const { usage } = message;
+		this.usages.set(message.id, {
+			model: message.model,
+			inputTokens: tokens(usage.input_tokens),
+			outputTokens: tokens(usage.output_tokens),
+			cacheReadTokens: tokens(usage.cache_read_input_tokens),
+			cacheCreationTokens: tokens(usage.cache_creation_input_tokens),
+		});
+	}
+
+	usage(): TranscriptUsage {
+		return {
+			compactionsAuto: this.compactionsAuto,
+			compactionsManual: this.compactionsManual,
+			responses: [...this.usages.values()],
+		};
+	}
+
 	private addResponse(message: Row): void {
+		this.addUsage(message);
 		if (Array.isArray(message.content))
 			for (const block of message.content)
 				if (
@@ -308,6 +368,7 @@ class Accumulator {
 
 type Read = {
 	session: TranscriptSession | undefined;
+	usage: TranscriptUsage;
 	isReadable: boolean;
 	lines: number;
 	skippedLines: number;
@@ -338,10 +399,17 @@ async function readTranscript(
 			else skippedLines += 1;
 		}
 	} catch {
-		return { session: undefined, isReadable: false, lines, skippedLines };
+		return {
+			session: undefined,
+			usage: accumulator.usage(),
+			isReadable: false,
+			lines,
+			skippedLines,
+		};
 	}
 	return {
 		session: accumulator.result(),
+		usage: accumulator.usage(),
 		isReadable: true,
 		lines,
 		skippedLines,
@@ -364,12 +432,18 @@ export async function parseTranscriptEvents(
 	path: string,
 ): Promise<TranscriptEvents> {
 	const events: TranscriptEvent[] = [];
-	const { session, isReadable, lines, skippedLines } = await readTranscript(
-		path,
-		new Accumulator(events),
-	);
+	const { session, usage, isReadable, lines, skippedLines } =
+		await readTranscript(path, new Accumulator(events));
 	if (!isReadable) return { kind: "unreadable", lines, skippedLines };
 	return session
-		? { kind: "session", session, events, lines, skippedLines }
+		? { kind: "session", session, events, usage, lines, skippedLines }
 		: { kind: "empty", lines, skippedLines };
+}
+
+// subagentの記録（`<session>/subagents/*.jsonl`）のusage。fileを読めなければundefined。
+export async function parseTranscriptUsage(
+	path: string,
+): Promise<TranscriptUsage | undefined> {
+	const { usage, isReadable } = await readTranscript(path, new Accumulator());
+	return isReadable ? usage : undefined;
 }
