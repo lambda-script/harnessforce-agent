@@ -93,3 +93,37 @@ export function summarizeUsage(
 		kinds,
 	};
 }
+
+export type ModelShare = { model: string; share: number };
+export type ModelShares = { main: ModelShare[]; subagent: ModelShare[] };
+
+// modelの使い分けを数えられるsession。modelsかsubagent_modelsがnullのsessionは除く。
+export const countsModels = (usage: SessionUsage) =>
+	usage.models !== null && usage.subagent_models !== null;
+
+// improvement-loop.md「前回の提案の前後」の`model_choice`の値: modelsとsubagent_modelsのoutput_tokensの合計を分母とした、
+// 本体とsubagentそれぞれのmodelごとの割合。分母が0ならnull。
+export function modelShares(
+	usages: readonly SessionUsage[],
+): ModelShares | null {
+	const counted = usages.filter(countsModels);
+	const totals = (pick: (u: SessionUsage) => ModelUsage[] | null) => {
+		const byModel = new Map<string, number>();
+		for (const usage of counted)
+			for (const m of pick(usage) ?? [])
+				byModel.set(m.model, (byModel.get(m.model) ?? 0) + m.output_tokens);
+		return byModel;
+	};
+	const main = totals((u) => u.models);
+	const subagent = totals((u) => u.subagent_models);
+	const denominator = [...main.values(), ...subagent.values()].reduce(
+		(total, v) => total + v,
+		0,
+	);
+	if (denominator === 0) return null;
+	const shares = (byModel: Map<string, number>) =>
+		[...byModel]
+			.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+			.map(([model, tokens]) => ({ model, share: tokens / denominator }));
+	return { main: shares(main), subagent: shares(subagent) };
+}

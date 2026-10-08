@@ -479,6 +479,7 @@ async function analyzeUnderLock(
 			repository: a.tune.repository,
 			sendable: a.sendable,
 			report: a.report,
+			usage: a.tune.usage,
 		})),
 	};
 	const isWritten = await Promise.all([
@@ -496,6 +497,7 @@ async function analyzeUnderLock(
 		deps.stdout(
 			renderAnalysis(
 				analyzed.map((a) => a.report),
+				analyzed.map((a) => a.tune.usage),
 				{
 					sessionCount: analyzed.length,
 					analyzerVersion: ANALYZER_VERSION,
