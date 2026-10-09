@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { runCli } from "../support/cli.js";
 import {
+	codexRollout,
 	fakeTty,
 	gitWithRemote,
 	NOW,
@@ -52,6 +53,7 @@ describe("harnessforce top --json and --once", () => {
 		const result = await run(["--json"]);
 		const [session] = JSON.parse(result.out).sessions;
 		expect(session).toEqual({
+			agent: "claude_code",
 			session_id: "sess-aaa",
 			state: "active",
 			repository: "github.com/acme/web",
@@ -214,5 +216,141 @@ describe("harnessforce top settings", () => {
 		const second = JSON.parse((await run(["--json"])).out).sessions;
 		expect(first).toBe(3);
 		expect(second).toHaveLength(2);
+	});
+});
+
+// terminal-view.md「受入条件」のCodexの項。
+describe("harnessforce top with Codex rollouts", () => {
+	const rollout = (id: string) => `rollout-2026-10-09T10-00-00-${id}.jsonl`;
+
+	it("shows a Codex rollout as a codex row with the documented values", async () => {
+		const { run, p } = setup();
+		p.writeCodex(rollout("a"), codexRollout("codex-aaaa1111", -10));
+		const result = await run(["--json"]);
+		const [session] = JSON.parse(result.out).sessions;
+		expect(session).toEqual({
+			agent: "codex",
+			session_id: "codex-aa",
+			state: "active",
+			repository: "github.com/acme/web",
+			branch: "feature/ENG-42",
+			model: "gpt-5-codex",
+			started_at: new Date(NOW - 310_000).toISOString(),
+			last_event_at: new Date(NOW - 10_000).toISOString(),
+			tokens: { input: 300, output: 200, cache_read: 700, cache_write: 50 },
+			context_tokens: 950,
+			tool_calls: 3,
+			tool_failures: null,
+		});
+		expect(result.out).not.toContain("SECRET");
+	});
+
+	it("puts both agents in one table, newest first, each with its agent", async () => {
+		const { run, p } = setup({ c: transcript("claude-old", -100) });
+		p.writeCodex(rollout("a"), codexRollout("codex-new", -10));
+		const sessions = JSON.parse((await run(["--json"])).out).sessions;
+		expect(sessions.map((s: { agent: string }) => s.agent)).toEqual([
+			"codex",
+			"claude_code",
+		]);
+		const text = (await run(["--once"])).out;
+		expect(text).toMatch(/codex/);
+		expect(text).toMatch(/claude/);
+	});
+
+	it("shows the Codex tool column as the call count only, and never as 0 failures", async () => {
+		const { run, p } = setup();
+		p.writeCodex(rollout("a"), codexRollout("codex-aaaa1111", -10));
+		const out = (await run(["--once"])).out;
+		expect(out).not.toContain("0/3");
+		expect(out).not.toContain("✕");
+		expect(out).toMatch(/gpt-5-codex\s+5m\s+3$/m);
+		expect(out).not.toContain("SECRET");
+		expect(out).not.toContain("%");
+	});
+
+	it("leaves tokens and context blank when token_count has no info", async () => {
+		const { run, p } = setup();
+		p.writeCodex(
+			rollout("a"),
+			codexRollout("codex-aaaa1111", -10, { info: false }),
+		);
+		const [session] = JSON.parse((await run(["--json"])).out).sessions;
+		expect(session.tokens).toBeNull();
+		expect(session.context_tokens).toBeNull();
+	});
+
+	it("applies the same active, idle and 24 hour rules", async () => {
+		const { run, p } = setup();
+		p.writeCodex(rollout("a"), codexRollout("codex-a", -59));
+		p.writeCodex(rollout("b"), codexRollout("codex-b", -61));
+		p.writeCodex(rollout("c"), codexRollout("codex-c", -86_400));
+		p.writeCodex(rollout("d"), codexRollout("codex-d", -86_401));
+		const states = Object.fromEntries(
+			JSON.parse((await run(["--json"])).out).sessions.map(
+				(s: { session_id: string; state: string }) => [s.session_id, s.state],
+			),
+		);
+		expect(states).toEqual({
+			"codex-a": "active",
+			"codex-b": "idle",
+			"codex-c": "idle",
+		});
+	});
+
+	it("does not read compressed files, archived sessions or other files", async () => {
+		const { run, p } = setup();
+		p.writeCodex("rollout-x.jsonl.zst", codexRollout("zst", -10));
+		p.writeCodex("notes.jsonl", codexRollout("notes", -10));
+		p.writeCodex("rollout-y.json", codexRollout("json", -10));
+		mkdirSync(join(p.home, ".codex", "archived_sessions"), { recursive: true });
+		writeFileSync(
+			join(p.home, ".codex", "archived_sessions", "rollout-z.jsonl"),
+			codexRollout("archived", -10),
+		);
+		const result = await run(["--json"]);
+		expect(JSON.parse(result.out).sessions).toEqual([]);
+		expect(result.err).toBe("");
+	});
+
+	it("shows the Claude Code sessions when there is no sessions directory", async () => {
+		const { run } = setup({ a: transcript("a", -10) });
+		const result = await run(["--json"]);
+		expect(result.code).toBe(0);
+		expect(JSON.parse(result.out).sessions).toHaveLength(1);
+	});
+
+	it("counts unreadable lines but not lines of an unknown type", async () => {
+		const { run, p } = setup();
+		p.writeCodex(rollout("a"), `not json\n${codexRollout("codex-a", -10)}`);
+		const out = (await run(["--once"])).out;
+		expect(out).toContain("読めなかった1行");
+	});
+
+	it("reads CODEX_HOME when it is absolute and ignores it when it is not", async () => {
+		const { run, p } = setup();
+		p.writeCodex(rollout("a"), codexRollout("codex-home", -10));
+		const elsewhere = join(p.home, "elsewhere");
+		mkdirSync(join(elsewhere, "sessions", "2026", "10", "09"), {
+			recursive: true,
+		});
+		writeFileSync(
+			join(elsewhere, "sessions", "2026", "10", "09", "rollout-e.jsonl"),
+			codexRollout("codex-else", -10),
+		);
+		const ids = async (env: Record<string, string>) =>
+			JSON.parse((await run(["--json"], { env })).out).sessions.map(
+				(s: { session_id: string }) => s.session_id,
+			);
+		expect(await ids({ CODEX_HOME: elsewhere })).toEqual(["codex-el"]);
+		expect(await ids({ CODEX_HOME: "relative/dir" })).toEqual(["codex-ho"]);
+	});
+
+	it("writes no file and opens no connection while reading", async () => {
+		const { run, p } = setup();
+		const path = p.writeCodex(rollout("a"), codexRollout("codex-a", -10));
+		const before = readFileSync(path, "utf8");
+		await run(["--json"]);
+		expect(readFileSync(path, "utf8")).toBe(before);
 	});
 });

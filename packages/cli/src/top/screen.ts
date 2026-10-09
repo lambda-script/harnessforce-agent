@@ -53,7 +53,7 @@ const SORTS = [
 					r.tokens.cacheWrite
 				: -1,
 	},
-	{ label: "tool failures", key: (r: TopRow) => r.toolFailures },
+	{ label: "tool failures", key: (r: TopRow) => r.toolFailures ?? -1 },
 ] as const;
 
 const HELP_LINES = [

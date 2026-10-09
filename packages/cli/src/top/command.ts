@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { absoluteEnv } from "@harnessforce/agent-core/config/scope";
 import type { RunGit } from "@harnessforce/agent-core/process/git";
 import { recordBase } from "../import/record-base.js";
 import { parseTopArgs, TOP_USAGE } from "./args.js";
@@ -26,6 +27,7 @@ const iso = (ms: number) => new Date(ms).toISOString();
 // terminal-view.md「`--json`」: 取得できない値はnullとし、0にしない。本文は持たない。
 function toJson(row: TopRow, nowMs: number) {
 	return {
+		agent: row.agent === "codex" ? "codex" : "claude_code",
 		session_id: row.sessionId.slice(0, 8),
 		state: sessionState(row.lastEventAtMs, nowMs),
 		repository: row.repository ?? null,
@@ -43,7 +45,7 @@ function toJson(row: TopRow, nowMs: number) {
 			: null,
 		context_tokens: row.contextTokens ?? null,
 		tool_calls: row.toolCalls,
-		tool_failures: row.toolFailures,
+		tool_failures: row.toolFailures ?? null,
 	};
 }
 
@@ -59,6 +61,11 @@ export async function topCommand(
 	const { settings, notice } = await readTopSettings(deps.homeDir);
 	const reader = createTopReader({
 		projectsDir: join(await recordBase(deps), "projects"),
+		// CLAUDE_CONFIG_DIRと違い、processの環境変数を読む（terminal-view.md「読むもの」）。
+		codexSessionsDir: join(
+			absoluteEnv(deps.env.CODEX_HOME) ?? join(deps.homeDir, ".codex"),
+			"sessions",
+		),
 		git: deps.git,
 	});
 	const snapshot = await reader.refresh(deps.now());
