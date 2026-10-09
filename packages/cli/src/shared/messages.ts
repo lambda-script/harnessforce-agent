@@ -32,9 +32,19 @@ export const INIT_MESSAGES = {
 		"この環境はテレメトリを受信しないため、送信キーを発行できません",
 	saveFailed:
 		"送信キーを保存できませんでした。もう一度`harnessforce init`を実行してください",
+	codexSaveFailed:
+		"Codexの設定を書き込めませんでした。もう一度`harnessforce init`を実行してください",
 	contentNotOptedIn:
 		"このWorkspaceは本文データをopt-inしていないため、本文を送る設定は有効にしませんでした。Workspaceの設定のデータの保持でopt-inしてから、もう一度`harnessforce init --send-content`を実行してください",
 } as const;
+
+// 手順8: Codexの`config.toml`を書いた後の案内。trustは利用者の操作で、`harnessforce init`は代行できない。
+export const codexNotes = (configPath: string) =>
+	[
+		`Codexの設定を書き込みました（${configPath}）。Codexを再起動すると反映されます`,
+		"Codexのhookは、Codexの/hooksで内容をtrustするまで実行されません。/hooksでharnessforceのSessionStartのhookをtrustしてください",
+		"HarnessforceのMCPを使う場合は、`codex mcp login harnessforce`でログインしてください",
+	].join("\n");
 
 export type InitMessage = keyof typeof INIT_MESSAGES;
 

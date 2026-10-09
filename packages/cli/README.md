@@ -25,7 +25,7 @@ harnessforce init
 
 | Command | What it does |
 | --- | --- |
-| `harnessforce init [--url <base URL>] [--port <port>] [--send-content]` | Logs in with the browser, stores a user ingest key and an API token in the keychain, and configures Claude Code |
+| `harnessforce init [--url <base URL>] [--port <port>] [--send-content]` | Logs in with the browser, stores a user ingest key and an API token in the keychain, and configures Claude Code and Codex |
 | `harnessforce otel-headers` | Prints the `Authorization` header for Claude Code's `otelHeadersHelper` |
 | `harnessforce run --issue <identifier> -- <agent> [args]` | Launches an agent with its session linked to an Issue |
 | `harnessforce import` | Sends the metadata of past Claude Code sessions in connected repositories |
@@ -96,6 +96,20 @@ tokens are sent only to the origins pinned by `harnessforce init`.
      to content it also adds `OTEL_LOG_USER_PROMPTS=1`
    - `otelHeadersHelper`: `harnessforce otel-headers`
    - `enabledPlugins["harnessforce@harnessforce-agent"]`
+6. It updates the Codex `config.toml` (`$CODEX_HOME` when it is an absolute path, otherwise `~/.codex`),
+   changing only these three items and keeping every other key and comment:
+   - `[otel].exporter`: OTLP/HTTP (`protocol = "binary"`) to the ingest endpoint with
+     `Authorization = "Bearer <user ingest key>"`. Codex cannot take the header from a command or expand
+     `${VAR}`, so this is the one place a key is written to a plain file. It is the user ingest key only
+     (never the API token), and you can revoke it on the Workspace's send keys page. With `--send-content`
+     and a Workspace that has opted in to content it also sets `log_user_prompt = true`
+   - `[[hooks.SessionStart]]`: a handler that runs `harnessforce hook session-start`
+   - `[mcp_servers.harnessforce]`: `url = "<base URL>/mcp"`
+
+   The file is written through a temporary file in the same directory and renamed into place, with mode
+   `0600`. Running `harnessforce init` again replaces only these three items. Restart Codex afterwards,
+   trust the hook with `/hooks` (Codex runs an untrusted hook only after you review it), and run
+   `codex mcp login harnessforce` to use the MCP server.
 
 `harnessforce otel-headers` prints `{"Authorization":"Bearer <key>"}`. The key is `HARNESSFORCE_INGEST_KEY` from
 the managed settings file when that is set, and otherwise the user key for
