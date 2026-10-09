@@ -179,6 +179,12 @@ role cannot use it.
   reports and ask you to run `hf init`.
 - `--no-send`, or `{"tune": {"send_report": false}}` in `~/.harnessforce/config.json`, sends nothing.
   A config file it cannot read also sends nothing.
+- It also counts usage per session (auto and manual context compactions, responses, cache reuse
+  ratio, output tokens per model in the main and subagent transcripts). These values are shown and
+  written to `--json` and `~/.harnessforce/tune/analysis.json` only; they are never sent.
+- `--json` also lists, for each recorded proposal whose application was detected, the value of its
+  category in the 14 days before and after the detection time (`followups`). The difference is not
+  a cause. Once a `--json` run outputs a follow-up whose after period has ended, later runs omit it.
 - Everything it keeps is under `~/.harnessforce/tune/`; `hf tune --purge` deletes it.
 
 ## License

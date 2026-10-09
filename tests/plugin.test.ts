@@ -332,6 +332,15 @@ describe("tune command", () => {
 		expect(body).toMatch(/終了コード0で終わらなかった提案は表示しない/);
 	});
 
+	// 「前回の提案の前後」: 新しい提案の前に表示し、前後の差が因果を示さないことを添える。
+	it("shows the before and after of earlier proposals before new proposals", () => {
+		expect(body).toContain("「前回の提案の前後」");
+		expect(body).toContain("「前後の差（因果を示しません）」");
+		expect(body.indexOf("「前回の提案の前後」")).toBeLessThan(
+			body.indexOf("## 3. 提案を作る"),
+		);
+	});
+
 	// 「適用」: `/harnessforce:tune`はファイルを書き換えない（`~/.harnessforce/tune/`を除く）。
 	it("writes nothing but hf tune's own files and leaves applying to the user", () => {
 		expect(body).toMatch(/managed settingsを書き換えない/);
@@ -358,6 +367,8 @@ describe("propose improvements skill", () => {
 			"| 人の介入 | その`intervention.kind`が、3 session以上で合計10回以上ある |",
 			"| ループにできる繰り返し | その`loop.kind`が、合計3回以上ある |",
 			"| MCP server | `configured`のsessionが10以上ある |",
+			"| 使い方の`frequent_compaction`、`low_cache_reuse` | その`usage.kind`に当たるsessionが3以上ある |",
+			"| 使い方の`model_choice` | `models`を持つsessionが10以上あり、分析した範囲の`models`の合計で、1つの`message.model`の値が`output_tokens`の合計の90%以上を占める |",
 		])
 			expect(body).toContain(row);
 		expect(body).toMatch(/未計測（`not_measured`）の値を根拠にしない/);
@@ -406,6 +417,22 @@ describe("propose improvements skill", () => {
 		])
 			expect(body).toContain(broad);
 	});
+
+	// 「作る条件」: 使い方の提案の変更の種類は5つに限り、claude_mdは前後に現れない。
+	it("limits usage proposals to five change types and says claude_md has no follow-up", () => {
+		expect(body).toContain(
+			"使い方の提案の変更の種類は、`claude_md`、`rule`、`skill`、`agent`、`command`に限る",
+		);
+		expect(body).toMatch(
+			/`claude_md`の変更は適用を検出しないため、前回の提案の前後にも現れない/,
+		);
+	});
+
+	// 「前回の提案の前後」: 良くなった向きへ動いていない提案は、同じ対象の新しい提案の根拠に示し、同じ差分を繰り返さない。
+	it("uses earlier proposals that did not improve as evidence and does not repeat their diff", () =>
+		expect(body).toMatch(
+			/良くなった向きへ動いていません[^\n]*根拠[^\n]*同じ差分を繰り返さない/,
+		));
 
 	it("always gives a loop proposal its stop conditions", () =>
 		expect(body).toMatch(

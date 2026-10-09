@@ -22,6 +22,7 @@ import {
 	writeProposals,
 } from "./proposals.js";
 import { ensureDir, type TunePaths, writeFileAtomic } from "./store.js";
+import { USAGE_KINDS } from "./usage.js";
 
 // improvement-loop.md「提案の記録」: 1 MiBを超える入力は拒否する。
 export const MAX_RECORD_INPUT_BYTES = 1024 * 1024;
@@ -55,9 +56,20 @@ const invalid = (field: string): never => {
 	throw new RecordInputError(field);
 };
 
+// 「作る条件」: 使い方の提案の変更の種類。端末だけの値のために、送る提案の件数の語彙を増やさない。
+const USAGE_CHANGE_TYPES: ReadonlySet<ChangeType> = new Set([
+	"claude_md",
+	"rule",
+	"skill",
+	"agent",
+	"command",
+]);
+
 const CATEGORY = new RegExp(
-	`^(intervention\\.kind=(${INTERVENTION_KINDS.join("|")})|loop\\.kind=(${LOOP_KINDS.join("|")})|mcp_server=(.+))$`,
+	`^(intervention\\.kind=(${INTERVENTION_KINDS.join("|")})|loop\\.kind=(${LOOP_KINDS.join("|")})|mcp_server=(.+)|usage\\.kind=(${USAGE_KINDS.join("|")}))$`,
 );
+const isUsageCategory = (category: string) =>
+	category.startsWith("usage.kind=");
 
 function parseCategory(value: unknown): string {
 	if (typeof value !== "string") return invalid("category");
@@ -105,6 +117,7 @@ type RecordInput = Omit<
 	| "attribution"
 	| "attributed_session_id"
 	| "applied_detected_at"
+	| "followup_output_at"
 > & { body: string };
 
 const sha256 = (text: string) =>
@@ -134,6 +147,8 @@ function parseRecordInput(text: string): RecordInput {
 	if (!isObject(input)) return invalid("input");
 	const category = parseCategory(input.category);
 	const changeType = oneOf(PROPOSAL_KINDS, input.change_type, "change_type");
+	if (isUsageCategory(category) && !USAGE_CHANGE_TYPES.has(changeType))
+		return invalid("change_type");
 	const scope = oneOf(SCOPES, input.scope, "scope");
 	const path = absolutePath(input.path, "path");
 	const needsRoot = scope === "repository" || scope === "local";
@@ -222,6 +237,7 @@ export async function recordProposal(
 				attribution: decided.attribution,
 				attributed_session_id: decided.sessionId,
 				applied_detected_at: null,
+				followup_output_at: null,
 			};
 		})();
 	try {

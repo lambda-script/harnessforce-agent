@@ -14,6 +14,19 @@ const INTERVENTION_MIN_COUNT = 10;
 const LOOP_MIN_OCCURRENCES = 3;
 const MCP_MIN_CONFIGURED_SESSIONS = 10;
 const MAX_EVIDENCE = 20;
+const USAGE_MIN_SESSIONS = 3;
+const MODEL_CHOICE_MIN_SESSIONS = 10;
+const MODEL_CHOICE_MIN_SHARE = 0.9;
+// 使い方のうち、sessionごとに判定する種類。model_choiceは分析した範囲の合計で判定する。
+const SESSION_USAGE_KINDS = ["frequent_compaction", "low_cache_reuse"];
+// improvement-loop.md「前回の提案の前後」の「良くなった向き」。model_choiceは向きを持たない。
+const IMPROVES_BY = {
+	"intervention.kind": "decrease",
+	"loop.kind": "decrease",
+	mcp_server: "decrease",
+	"usage.kind=frequent_compaction": "decrease",
+	"usage.kind=low_cache_reuse": "increase",
+};
 
 const INTERVENTION_KINDS = [
 	"approval",
@@ -119,6 +132,171 @@ const missing = (parts) =>
 		.map(([amount, unit]) => `${amount}${unit}`)
 		.join("、");
 
+const percent = (share) => `${(share * 100).toFixed(1)}%`;
+
+// `models`（本体）と`subagent_models`の合計を分母にした、modelごとのoutput_tokensの割合。
+// どちらかがnullのsessionは除く。分母が0ならnull。
+function modelShares(sessions) {
+	const counted = sessions.filter(
+		(s) =>
+			s.usage && s.usage.models !== null && s.usage.subagent_models !== null,
+	);
+	const totals = (field) => {
+		const byModel = new Map();
+		for (const s of counted)
+			for (const m of s.usage[field])
+				byModel.set(m.model, (byModel.get(m.model) ?? 0) + m.output_tokens);
+		return byModel;
+	};
+	const main = totals("models");
+	const subagent = totals("subagent_models");
+	const denominator = [...main.values(), ...subagent.values()].reduce(
+		(total, v) => total + v,
+		0,
+	);
+	if (denominator === 0) return null;
+	const shares = (byModel) =>
+		[...byModel]
+			// hf tune の表示（UTF-16 の code unit 順）と並びを揃える。
+			.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+			.map(([model, tokens]) => ({ model, share: tokens / denominator }));
+	return { main: shares(main), subagent: shares(subagent) };
+}
+
+const sharesText = (shares) =>
+	shares === null
+		? "なし"
+		: [
+				...shares.main.map((m) => `本体 ${m.model} ${percent(m.share)}`),
+				...shares.subagent.map(
+					(m) => `subagent ${m.model} ${percent(m.share)}`,
+				),
+			].join("、");
+
+// 「作る条件」の`model_choice`: 分析した範囲の`models`の合計で、output_tokensが最も多いmodelとその割合。
+function topMainModel(sessions) {
+	const byModel = new Map();
+	for (const s of sessions)
+		for (const m of s.usage.models)
+			byModel.set(m.model, (byModel.get(m.model) ?? 0) + m.output_tokens);
+	const total = [...byModel.values()].reduce((sum, v) => sum + v, 0);
+	const [model, tokens] = [...byModel].sort(
+		([a, x], [b, y]) => y - x || a.localeCompare(b),
+	)[0] ?? [undefined, 0];
+	return model === undefined || total === 0
+		? undefined
+		: { model, tokens, share: tokens / total };
+}
+
+const valueText = (value) =>
+	value === null
+		? "値なし"
+		: typeof value === "number"
+			? String(Number(value.toFixed(3)))
+			: sharesText(value);
+
+function improvesBy(category) {
+	return IMPROVES_BY[category] ?? IMPROVES_BY[category.split("=")[0]];
+}
+
+// improvement-loop.md「前回の提案の前後」
+function renderFollowups(followups) {
+	if (!Array.isArray(followups) || followups.length === 0) return [];
+	const lines = [
+		"前回の提案の前後（前後の差（因果を示しません）。起点は適用を検出した時刻です）:",
+	];
+	for (const f of followups) {
+		lines.push(
+			`- ${f.category}（${f.change_type} ${f.path}）起点 ${f.origin}`,
+			`    前 ${f.before.from}〜${f.before.to}: ${f.before.sessions} session、${valueText(f.before.value)}`,
+			`    後 ${f.after.from}〜${f.after.to}: ${f.after.sessions} session、${valueText(f.after.value)}`,
+		);
+		if (f.no_comparison_data) lines.push("    比較データなし");
+		if (f.before_outside_range)
+			lines.push("    前の期間の一部が分析の範囲の外です");
+		const direction = improvesBy(f.category);
+		const isImproved =
+			direction === "decrease"
+				? f.after.value < f.before.value
+				: f.after.value > f.before.value;
+		if (direction !== undefined && !f.no_comparison_data && !isImproved)
+			lines.push(
+				"    良くなった向きへ動いていません。同じ対象の提案を作るときの根拠にします",
+			);
+	}
+	lines.push("");
+	return lines;
+}
+
+function usageTargets(sessions) {
+	const lines = [];
+	// usage を出力しない古い hf の出力では、使い方を未計測として扱い提案を作らない。
+	const withUsage = sessions.filter((s) => s.usage);
+	for (const kind of SESSION_USAGE_KINDS) {
+		const category = `usage.kind=${kind}`;
+		if (withUsage.length === 0) {
+			lines.push(`- ${category}: 未計測のため提案しません`);
+			continue;
+		}
+		const hits = withUsage.filter((s) => s.usage.kinds.includes(kind));
+		if (hits.length < USAGE_MIN_SESSIONS) {
+			lines.push(
+				`- ${category}: データ不足: 当たるsessionが${USAGE_MIN_SESSIONS}以上必要です（あと${USAGE_MIN_SESSIONS - hits.length} session）`,
+			);
+			continue;
+		}
+		lines.push(
+			`- ${category}: 提案を作れます（${hits.length} session）`,
+			...evidenceLines(
+				hits.map((session) => ({
+					session,
+					count:
+						kind === "frequent_compaction"
+							? session.usage.compactions_auto
+							: Number(session.usage.cache_reuse_ratio.toFixed(3)),
+				})),
+				kind === "frequent_compaction"
+					? "回の自動圧縮"
+					: "（cacheの再利用の割合）",
+			),
+		);
+	}
+	const category = "usage.kind=model_choice";
+	const withModels = withUsage.filter(
+		(s) => Array.isArray(s.usage.models) && s.usage.models.length > 0,
+	);
+	if (withUsage.length === 0) {
+		lines.push(`- ${category}: 未計測のため提案しません`);
+		return lines;
+	}
+	if (withModels.length < MODEL_CHOICE_MIN_SESSIONS) {
+		lines.push(
+			`- ${category}: データ不足: modelsを持つsessionが${MODEL_CHOICE_MIN_SESSIONS}以上必要です（あと${MODEL_CHOICE_MIN_SESSIONS - withModels.length} session）`,
+		);
+		return lines;
+	}
+	const top = topMainModel(withModels);
+	if (top === undefined || top.share < MODEL_CHOICE_MIN_SHARE) {
+		lines.push(
+			`- ${category}: 提案しません: 1つのmodelが本体のoutput_tokensの${MODEL_CHOICE_MIN_SHARE * 100}%以上を占めていません${top ? `（最大 ${top.model} ${percent(top.share)}）` : ""}`,
+		);
+		return lines;
+	}
+	lines.push(
+		`- ${category}: 提案を作れます（${withModels.length} session、${top.model} ${percent(top.share)}）`,
+		...evidenceLines(
+			withModels.map((session) => ({
+				session,
+				count:
+					session.usage.models.find((m) => m.model === top.model)
+						?.output_tokens ?? 0,
+			})),
+			` output_tokens（${top.model}）`,
+		),
+	);
+	return lines;
+}
+
 function render(output) {
 	const { sessions } = output;
 	const lines = [
@@ -177,7 +355,19 @@ function render(output) {
 			`  ${s.server}: 設定されていたsession ${s.configured.length}件、${s.calls === undefined ? "呼び出し: 未計測" : `呼び出し${s.calls}回`}、${s.failures === undefined ? "失敗: 未計測" : `失敗${s.failures}回`}`,
 		);
 
-	lines.push("");
+	const withUsage = sessions.filter((s) => s.usage);
+	lines.push("", "使い方（当たるsession）:");
+	for (const kind of SESSION_USAGE_KINDS)
+		lines.push(
+			withUsage.length === 0
+				? `  ${kind}: 未計測`
+				: `  ${kind}: ${withUsage.filter((s) => s.usage.kinds.includes(kind)).length} session`,
+		);
+	lines.push(
+		`  model（output_tokensの割合）: ${sharesText(modelShares(withUsage))}`,
+	);
+
+	lines.push("", ...renderFollowups(output.followups));
 	if (!output.sufficient) {
 		lines.push(
 			`データ不足のため提案を作りません: 分析したsessionは${output.session_count}件です。提案には${MINIMUM_SESSIONS}件以上が必要です（あと${MINIMUM_SESSIONS - output.session_count}件）`,
@@ -248,6 +438,7 @@ function render(output) {
 			),
 		);
 	}
+	lines.push(...usageTargets(sessions));
 	return lines;
 }
 

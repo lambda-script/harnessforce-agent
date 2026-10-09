@@ -3,6 +3,7 @@ import {
 	INTERVENTION_KINDS,
 	LOOP_KINDS,
 } from "@harnessforce/semconv";
+import { modelShares, type SessionUsage } from "./usage.js";
 
 type Measured = {
 	measurement: "measured" | "not_measured";
@@ -46,6 +47,7 @@ function summarize(
 // improvement-loop.md「Fidelity」: 未計測のカテゴリは「未計測」と表示し、0と区別する。本文は表示しない。
 export function renderAnalysis(
 	reports: readonly AnalysisReport[],
+	usages: readonly SessionUsage[],
 	header: {
 		sessionCount: number;
 		analyzerVersion: string;
@@ -123,7 +125,28 @@ export function renderAnalysis(
 		lines.push(
 			`  ${server}: ${s.calls === null ? "未計測" : `${s.calls}回`}、${s.failures === null ? "未計測" : `${s.failures}回`}、${s.configured}件`,
 		);
+	lines.push(...renderUsage(usages));
 	return `${lines.join("\n")}\n`;
+}
+
+const percent = (share: number) => `${(share * 100).toFixed(1)}%`;
+
+// improvement-loop.md「端末だけの値」: usage.kindごとのsessionの数と、modelごとのoutput_tokensの割合。
+function renderUsage(usages: readonly SessionUsage[]): string[] {
+	const lines = ["使い方（端末だけの値。送信しません）:"];
+	for (const kind of ["frequent_compaction", "low_cache_reuse"] as const)
+		lines.push(
+			`  ${kind}: ${usages.filter((u) => u.kinds.includes(kind)).length} session`,
+		);
+	const shares = modelShares(usages);
+	const parts = shares && [
+		...shares.main.map((m) => `本体 ${m.model} ${percent(m.share)}`),
+		...shares.subagent.map((m) => `subagent ${m.model} ${percent(m.share)}`),
+	];
+	lines.push(
+		`  model（output_tokensの割合）: ${parts ? parts.join("、") : "なし"}`,
+	);
+	return lines;
 }
 
 // 端末のtimezoneのoffset付きのISO 8601（improvement-loop.md「文言と終了コード」の取得時刻）。

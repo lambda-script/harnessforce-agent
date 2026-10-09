@@ -3,7 +3,14 @@ import { join } from "node:path";
 import { SCHEMAS } from "@harnessforce/semconv";
 import { compileSchema } from "@harnessforce/test-support/validator";
 import { describe, expect, it } from "vitest";
-import { MARKER, NOW, setupTune, snapshotTree, writeFile } from "./harness.js";
+import {
+	MARKER,
+	NOW,
+	setupTune,
+	snapshotTree,
+	tuneTranscript,
+	writeFile,
+} from "./harness.js";
 
 const INIT =
 	"`hf init`を実行してください。Viewerのロールでは`hf tune`を利用できません\n";
@@ -304,7 +311,7 @@ describe("hf tune", () => {
 		const result = await t.run(["--json", "--show-report"]);
 		const output = JSON.parse(result.out);
 		expect(output).toMatchObject({
-			analyzer_version: "1.0.0",
+			analyzer_version: "1.1.0",
 			parser_version: "1.1.0",
 			session_count: 10,
 			sufficient: true,
@@ -318,6 +325,113 @@ describe("hf tune", () => {
 			t.reportBodies()[0],
 		);
 		expect(t.readTune("analysis.json").sessions).toEqual(output.sessions);
+	});
+
+	// improvement-loop.md「端末だけの値」と受入条件: 使い方は出力とanalysis.jsonに含めるが、送らない。
+	it("adds the terminal-only usage to --json and analysis.json and sends none of it", async () => {
+		const t = await setupTune();
+		const compaction = (seconds: number) => ({
+			type: "system",
+			subtype: "compact_boundary",
+			timestamp: new Date(NOW - 2 * 86_400_000 + seconds * 1000).toISOString(),
+			compactMetadata: { trigger: "auto", preTokens: 150000, postTokens: 9000 },
+		});
+		writeFileSync(
+			join(t.home.home, ".claude", "projects", "-work-web", "s000.jsonl"),
+			tuneTranscript("s000", t.cwd, NOW - 2 * 86_400_000, [
+				compaction(10),
+				compaction(20),
+			]),
+		);
+		const output = JSON.parse((await t.run(["--json"])).out);
+		expect(output.sessions[0].usage).toEqual({
+			compactions_auto: 2,
+			compactions_manual: 0,
+			responses: 2,
+			// 記録のusageにcacheの項目が無く、割合を読めない。
+			cache_reuse_ratio: null,
+			models: [{ model: "claude-opus-5-5", responses: 2, output_tokens: 2 }],
+			subagent_models: [],
+			kinds: ["frequent_compaction"],
+		});
+		expect(output.sessions[1].usage.kinds).toEqual([]);
+		expect(t.readTune("analysis.json").sessions).toEqual(output.sessions);
+		const sent = t.hf.requests.filter((r) =>
+			r.path.startsWith("POST /ingest/"),
+		);
+		expect(sent.map((r) => r.path)).toEqual([
+			"POST /ingest/v1/imports/sessions",
+			"POST /ingest/v1/analysis-reports",
+		]);
+		for (const request of sent)
+			for (const word of [
+				'"usage"',
+				'"compactions_auto"',
+				'"cache_reuse_ratio"',
+				'"models"',
+				"frequent_compaction",
+			])
+				expect(JSON.stringify(request.body)).not.toContain(word);
+	});
+
+	it("shows the sessions of each usage kind and the model shares of output tokens", async () => {
+		const t = await setupTune();
+		const result = await t.run();
+		expect(result.out).toContain(
+			"使い方（端末だけの値。送信しません）:\n  frequent_compaction: 0 session\n  low_cache_reuse: 0 session\n  model（output_tokensの割合）: 本体 claude-opus-5-5 100.0%\n",
+		);
+	});
+
+	// improvement-loop.md「前回の提案の前後」: 後の期間が満了した前後は、--jsonで1回だけ出力する。
+	it("outputs the before and after of a detected proposal and stops after --json outputs its ended period", async () => {
+		const DAY_MS = 86_400_000;
+		const t = await setupTune({
+			sessions: 11,
+			startedDaysAgo: (i) => (i < 6 ? 20 : 10),
+		});
+		const detectedAt = new Date(NOW - 15 * DAY_MS).toISOString();
+		writeFile(
+			join(t.tuneDir, "proposals.json"),
+			JSON.stringify({
+				version: 1,
+				proposals: [
+					{
+						proposal_id: "p1",
+						category: "intervention.kind=continue",
+						change_type: "skill",
+						scope: "user",
+						path: join(t.home.home, ".claude", "skills", "go", "SKILL.md"),
+						project_root: null,
+						component: { kind: "skill", source: "user", id: "go" },
+						expected_hash: "h",
+						detects_applied: true,
+						recorded_at: new Date(NOW - 16 * DAY_MS).toISOString(),
+						evidence_session_ids: ["s000"],
+						attribution: "decided",
+						attributed_session_id: null,
+						applied_detected_at: detectedAt,
+					},
+				],
+			}),
+		);
+		const outputAt = () =>
+			t.readTune("proposals.json").proposals[0].followup_output_at;
+		await t.run(["--no-send"]);
+		expect(outputAt()).toBeNull();
+		const first = JSON.parse((await t.run(["--json", "--no-send"])).out);
+		expect(first.followups).toEqual([
+			expect.objectContaining({
+				proposal_id: "p1",
+				origin: detectedAt,
+				before: expect.objectContaining({ sessions: 6, value: 1 }),
+				after: expect.objectContaining({ sessions: 5, value: 1 }),
+				no_comparison_data: false,
+				before_outside_range: false,
+			}),
+		]);
+		expect(outputAt()).toBe(new Date(NOW).toISOString());
+		const second = JSON.parse((await t.run(["--json", "--no-send"])).out);
+		expect(second.followups).toEqual([]);
 	});
 
 	it("changes no file outside ~/.harnessforce/tune/ except the import state", async () => {
