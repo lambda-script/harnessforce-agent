@@ -33,6 +33,7 @@ harnessforce init
 | `harnessforce tune record` / `harnessforce tune --purge` | Records a proposal from stdin / deletes everything under `~/.harnessforce/tune/` |
 | `harnessforce top [--once] [--json] [--ascii] [--theme <auto\|light\|dark\|ansi>]` | Shows the Claude Code and Codex sessions on this machine in the terminal: state, tokens, context and tool failures. Reads only local files and never connects to Harnessforce |
 | `harnessforce hook session-start` | The entry of Codex's `SessionStart` hook: reads `session_id`, `cwd` and `source` from stdin, registers the session, and prints the session ID for the agent's context. Always exits 0 |
+| `harnessforce usage-limits on [--yes]` / `off` / `status` | Shares your usage limits with the workspace after you agree to the consent text (`on`), or withdraws the consent, deletes the stored values and restores your previous statusLine (`off`), or shows the consent, the workspace opt-in and whether the statusLine is wrapped (`status`). Not supported on Windows |
 | `harnessforce usage-limits statusline` | A statusLine command that wraps your existing one: it passes stdin to the original command, returns its output and exit code unchanged, then sends only the usage percentage and reset time of the 5-hour and 7-day windows. It sends nothing until you have consented |
 | `harnessforce --version` | Prints the version |
 
@@ -88,6 +89,10 @@ Claude Code passes the plan limits (`rate_limits`) only to the statusLine comman
 - After that, only if `usage-limits.json` records your consent for the current text version, it takes `rate_limits.five_hour` and `rate_limits.seven_day` (`used_percentage` and `resets_at`) and sends them to `POST <ingest endpoint>/v1/usage-limits` with the user ingest key from the keychain. Nothing else in the JSON (`cwd`, `transcript_path`, `cost`, and so on) is read or sent.
 - The send runs in a detached child process with stdin, stdout and stderr closed, so the statusLine is never delayed. A failure does not change the output or the exit code.
 - It sends at most once every 5 minutes, unless the reset time of a window changed. The time and the reset times of the last send are kept in `~/.harnessforce/usage-limits-state.json` (owner-only).
+
+### Turning it on and off
+
+`harnessforce usage-limits on` shows the consent text, asks `y` (skipped with `--yes`), records the consent (`PUT /api/v1/cli/usage-limits/consent`), and then wraps the `statusLine` in your Claude Code user settings: only `command` is replaced with `harnessforce usage-limits statusline`, so `type`, `padding`, `refreshInterval` and the other keys stay. The statusLine you had (for example claude-hud) is saved as-is in `~/.harnessforce/usage-limits.json`. If the statusLine is not `type: "command"`, or the settings cannot be read, nothing is recorded or changed. If writing the mark or the settings fails, the consent is withdrawn again. `harnessforce usage-limits off` withdraws the consent first and then puts the saved statusLine back (or removes it if there was none); a statusLine that another tool has changed since is left alone.
 
 ## What is never sent
 

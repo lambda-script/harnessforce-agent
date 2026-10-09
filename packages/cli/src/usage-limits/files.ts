@@ -92,3 +92,12 @@ async function writeOwnerOnly(path: string, value: unknown): Promise<void> {
 
 export const writeSendState = (homeDir: string, state: SendState) =>
 	writeOwnerOnly(statePath(homeDir), state);
+
+export const writeMark = (homeDir: string, mark: UsageLimitsMark) =>
+	writeOwnerOnly(markPath(homeDir), mark);
+
+// 同意の印と送信の記録を消す。無くても成功とする。
+export async function removeMarkAndState(homeDir: string): Promise<void> {
+	await rm(markPath(homeDir), { force: true });
+	await rm(statePath(homeDir), { force: true });
+}

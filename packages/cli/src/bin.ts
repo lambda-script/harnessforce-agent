@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { createRequire } from "node:module";
 import { homedir, tmpdir } from "node:os";
+import { createInterface } from "node:readline/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import { managedDirFor } from "@harnessforce/agent-core/managed";
 import { createGitRunner } from "@harnessforce/agent-core/process/git";
@@ -88,6 +89,17 @@ process.exitCode =
 		top: createProcessIo(),
 		runOriginal: runOriginalCommand,
 		spawnSender: spawnUsageSender,
+		ask: async (question) => {
+			const lines = createInterface({
+				input: process.stdin,
+				output: process.stdout,
+			});
+			try {
+				return await lines.question(question);
+			} finally {
+				lines.close();
+			}
+		},
 		readStdin: async (maxBytes) => {
 			const chunks: Buffer[] = [];
 			let size = 0;

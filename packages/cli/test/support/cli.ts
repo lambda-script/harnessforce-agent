@@ -98,6 +98,9 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}) {
 		runOriginal: async () => {
 			throw new Error("the original statusLine command must not be run");
 		},
+		ask: async () => {
+			throw new Error("the user must not be asked");
+		},
 		spawnSender: () => {
 			throw new Error("the usage limits must not be sent");
 		},
