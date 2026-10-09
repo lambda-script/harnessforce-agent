@@ -19,6 +19,9 @@ const HUD = {
 };
 const OURS = "harnessforce usage-limits statusline";
 
+// directoryの権限で書き込みを止められるのは、Windowsとroot以外。そこでは置き換えの失敗を作れない。
+const canBlockWrites = process.platform !== "win32" && process.getuid?.() !== 0;
+
 type Reply = { status: number; body?: unknown };
 type Options = {
 	settings?: unknown;
@@ -307,41 +310,45 @@ describe("harnessforce usage-limits on", () => {
 		expect(t.calls.at(-1)?.method).toBe("DELETE");
 	});
 
-	it("removes the mark and withdraws the consent when the settings cannot be written", async () => {
-		const t = setup({ settings: { statusLine: HUD } });
-		// 読んだ後に置き換えだけ失敗させるため、親directoryを書けなくする。rootは権限に関係なく書けるので検証しない。
-		const { chmodSync } = await import("node:fs");
-		chmodSync(join(t.home, ".claude"), 0o500);
-		try {
-			if (process.getuid?.() === 0) return;
-			const result = await t.run(["on", "--yes"]);
-			expect(result.code).toBe(1);
-			expect(t.readMark()).toBeUndefined();
-			expect(t.calls.at(-1)?.method).toBe("DELETE");
-		} finally {
-			chmodSync(join(t.home, ".claude"), 0o700);
-		}
-	});
+	it.skipIf(!canBlockWrites)(
+		"removes the mark and withdraws the consent when the settings cannot be written",
+		async () => {
+			const t = setup({ settings: { statusLine: HUD } });
+			// 読んだ後に置き換えだけ失敗させるため、親directoryを書けなくする。rootは権限に関係なく書けるので検証しない。
+			const { chmodSync } = await import("node:fs");
+			chmodSync(join(t.home, ".claude"), 0o500);
+			try {
+				const result = await t.run(["on", "--yes"]);
+				expect(result.code).toBe(1);
+				expect(t.readMark()).toBeUndefined();
+				expect(t.calls.at(-1)?.method).toBe("DELETE");
+			} finally {
+				chmodSync(join(t.home, ".claude"), 0o700);
+			}
+		},
+	);
 
-	it("keeps the saved original when a second run fails to write the settings", async () => {
-		const t = setup({
-			settings: { statusLine: { type: "command", command: OURS } },
-			mark: { consented: true, text_version: 1, original: HUD },
-		});
-		const { chmodSync } = await import("node:fs");
-		if (process.getuid?.() === 0) return;
-		chmodSync(join(t.home, ".claude"), 0o500);
-		try {
-			expect((await t.run(["on", "--yes"])).code).toBe(1);
-			expect(t.readMark()).toEqual({
-				consented: false,
-				text_version: 1,
-				original: HUD,
+	it.skipIf(!canBlockWrites)(
+		"keeps the saved original when a second run fails to write the settings",
+		async () => {
+			const t = setup({
+				settings: { statusLine: { type: "command", command: OURS } },
+				mark: { consented: true, text_version: 1, original: HUD },
 			});
-		} finally {
-			chmodSync(join(t.home, ".claude"), 0o700);
-		}
-	});
+			const { chmodSync } = await import("node:fs");
+			chmodSync(join(t.home, ".claude"), 0o500);
+			try {
+				expect((await t.run(["on", "--yes"])).code).toBe(1);
+				expect(t.readMark()).toEqual({
+					consented: false,
+					text_version: 1,
+					original: HUD,
+				});
+			} finally {
+				chmodSync(join(t.home, ".claude"), 0o700);
+			}
+		},
+	);
 
 	it("tells the user when the consent cannot be withdrawn either", async () => {
 		const t = setup({
