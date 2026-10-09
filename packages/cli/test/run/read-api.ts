@@ -75,7 +75,7 @@ export async function startReadApi(
 	return { base, requests };
 }
 
-// hf runは実際の時計で期限を判定するため、期限の切れないtokenを既定にする。
+// harnessforce runは実際の時計で期限を判定するため、期限の切れないtokenを既定にする。
 export const TOKEN_EXPIRY: TokenExpiry = {
 	accessToken: "2099-01-01T00:00:00Z",
 	refreshToken: "2099-03-01T00:00:00Z",

@@ -5,9 +5,9 @@ import { otelHeaders } from "./otel-headers.js";
 import { type RunArgs, type RunDeps, runIssue } from "./run/run.js";
 import { type TuneCommandDeps, tuneCommand } from "./tune/tune.js";
 
-// hf tuneはhf importと同じgitの呼び出しの上限でcwdのrepositoryを求める。
-// managedDirはhf otel-headersがWorkspace用のkeyを読むfileと、hf runが構成を集めるmanagedの基点のdirectory。
-// hf importはgitの呼び出しの上限がhf runと異なるため、別のrunnerをimportGitで受け取る。
+// harnessforce tuneはharnessforce importと同じgitの呼び出しの上限でcwdのrepositoryを求める。
+// managedDirはharnessforce otel-headersがWorkspace用のkeyを読むfileと、harnessforce runが構成を集めるmanagedの基点のdirectory。
+// harnessforce importはgitの呼び出しの上限がharnessforce runと異なるため、別のrunnerをimportGitで受け取る。
 export type CliDeps = InitDeps &
 	RunDeps &
 	Omit<ImportDeps, "git" | "now"> & {
@@ -21,9 +21,9 @@ const { version } = createRequire(import.meta.url)("../package.json") as {
 };
 
 const USAGE =
-	"Usage: hf --version | hf init [--url <base URL>] [--port <port>] [--send-content] | hf import | hf otel-headers | hf run --issue <identifier> -- <agent> [args] | hf tune [--all] [--no-send] [--show-report] [--json] | hf tune record | hf tune --purge\n";
+	"Usage: harnessforce --version | harnessforce init [--url <base URL>] [--port <port>] [--send-content] | harnessforce import | harnessforce otel-headers | harnessforce run --issue <identifier> -- <agent> [args] | harnessforce tune [--all] [--no-send] [--show-report] [--json] | harnessforce tune record | harnessforce tune --purge\n";
 
-// `hf init`の引数。受け付けない形ならundefined。--portの値は1〜65535の整数（correlation.md「CLI」）。
+// `harnessforce init`の引数。受け付けない形ならundefined。--portの値は1〜65535の整数（correlation.md「CLI」）。
 function parseInitArgs(args: readonly string[]): InitArgs | undefined {
 	let url: string | undefined;
 	let port: number | undefined;
@@ -56,7 +56,7 @@ function parseInitArgs(args: readonly string[]): InitArgs | undefined {
 	return { url, port, sendContent };
 }
 
-// `hf run`の引数。`--`より後ろはagentとその引数としてそのまま渡す。
+// `harnessforce run`の引数。`--`より後ろはagentとその引数としてそのまま渡す。
 function parseRunArgs(args: readonly string[]): RunArgs | undefined {
 	const [flag, issue, separator, agent, ...agentArgs] = args;
 	if (flag !== "--issue" || issue === undefined || separator !== "--")

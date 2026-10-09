@@ -180,7 +180,7 @@ describe("parseTranscript", () => {
 		expect(PARSER_VERSION).toMatch(/^\d+\.\d+\.\d+$/));
 });
 
-// improvement-loop.md「読むもの」: hf tuneはhf importと同じ読み込み処理から、分析に使うeventの列を取り出す。
+// improvement-loop.md「読むもの」: harnessforce tuneはharnessforce importと同じ読み込み処理から、分析に使うeventの列を取り出す。
 describe("parseTranscriptEvents", () => {
 	const row = (fields: Record<string, unknown>) =>
 		line({ sessionId: SESSION, cwd: "/work/acme-web", ...fields });
@@ -356,7 +356,7 @@ describe("parseTranscriptEvents", () => {
 		});
 	});
 
-	it("reads the same metadata as hf import and counts the lines it read", async () => {
+	it("reads the same metadata as harnessforce import and counts the lines it read", async () => {
 		const events = await parseTranscriptEvents(FIXTURE);
 		const imported = await parseTranscript(FIXTURE);
 		expect(imported.kind === "session" && events.kind === "session").toBe(true);

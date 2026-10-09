@@ -26,7 +26,7 @@ type Report = {
 	proposals: Record<string, { shown: number; applied_detected: number }>;
 };
 
-describe("hf tune record", () => {
+describe("harnessforce tune record", () => {
 	it("records a proposal once, attributes it to the newest sendable evidence session and counts it in one report", async () => {
 		const t = await setupTune();
 		await t.run();
@@ -189,7 +189,7 @@ describe("hf tune record", () => {
 	});
 });
 
-describe("hf tune --purge", () => {
+describe("harnessforce tune --purge", () => {
 	it("deletes the tune files but keeps the terminal setting and the import state", async () => {
 		const t = await setupTune({ sessions: 1 });
 		await t.run();
@@ -215,7 +215,7 @@ describe("hf tune --purge", () => {
 		).toBe(true);
 	});
 
-	it("does not run while another hf tune holds the lock", async () => {
+	it("does not run while another harnessforce tune holds the lock", async () => {
 		const t = await setupTune({ sessions: 1 });
 		writeFile(join(t.tuneDir, ".lock"), "");
 		let nowMs = Date.now();
@@ -228,7 +228,7 @@ describe("hf tune --purge", () => {
 		expect(result).toEqual({
 			code: 1,
 			out: "",
-			err: "別の`hf tune`が実行中のため、実行できません\n",
+			err: "別の`harnessforce tune`が実行中のため、実行できません\n",
 		});
 	});
 });

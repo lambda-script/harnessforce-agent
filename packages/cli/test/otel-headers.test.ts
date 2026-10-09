@@ -6,7 +6,7 @@ const header = (key: string) =>
 	`${JSON.stringify({ Authorization: `Bearer ${key}` })}\n`;
 const WITHHELD = "harnessforce: user key withheld (destination not verified)\n";
 
-// hf initの後の状態。keyとともに送信先のoriginを保存している。
+// harnessforce initの後の状態。keyとともに送信先のoriginを保存している。
 const pinned = (extra: Record<string, string> = {}) =>
 	fakeKeychain({
 		items: {
@@ -24,7 +24,7 @@ const userEnv = {
 	OTEL_EXPORTER_OTLP_ENDPOINT: "https://ingest.example.test/base/",
 };
 
-describe("hf otel-headers", () => {
+describe("harnessforce otel-headers", () => {
 	it("prints the user ingest key when every destination matches the pinned origin", async () =>
 		expect(
 			await runCli(["otel-headers"], { env: userEnv, keychain: pinned() }),

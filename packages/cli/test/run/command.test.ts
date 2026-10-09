@@ -95,7 +95,7 @@ describe("resolveAgentFile", () => {
 });
 
 describe("commandLine", () => {
-	it("starts npm's claude.cmd with hf's node and passes every argument unquoted", async () => {
+	it("starts npm's claude.cmd with harnessforce's node and passes every argument unquoted", async () => {
 		expect(
 			await commandLine(
 				`${NPM}\\claude.cmd`,
@@ -162,7 +162,7 @@ describe("commandLine", () => {
 		).toBeUndefined();
 	});
 
-	it("starts npm's claude with hf's node instead of env searching PATH", async () => {
+	it("starts npm's claude with harnessforce's node instead of env searching PATH", async () => {
 		expect(
 			await commandLine("/usr/local/bin/claude", ["--settings", "/t/s.json"], {
 				platform: "linux",

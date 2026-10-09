@@ -5,8 +5,8 @@ import { fileURLToPath } from "node:url";
 import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { describe, expect, it } from "vitest";
 
-// improvement-loop.md「提案の記録」: `/harnessforce:tune`は`hf tune --json`を実行し、その出力から提案を作る。
-// このscriptは`hf tune --json`を起動し、stderrの文言をそのまま流し、「作る条件」を対象ごとに判定して表示する。
+// improvement-loop.md「提案の記録」: `/harnessforce:tune`は`harnessforce tune --json`を実行し、その出力から提案を作る。
+// このscriptは`harnessforce tune --json`を起動し、stderrの文言をそのまま流し、「作る条件」を対象ごとに判定して表示する。
 const SCRIPT = fileURLToPath(
 	new URL(
 		"../skills/propose-improvements/scripts/summarize.mjs",
@@ -147,15 +147,15 @@ function output(
 	};
 }
 
-// `hf`の代わりのscript。受け取った引数を記録し、stdoutへ出力、stderrへ文言を書いて、指定の終了コードで終わる。
+// `harnessforce`の代わりのscript。受け取った引数を記録し、stdoutへ出力、stderrへ文言を書いて、指定の終了コードで終わる。
 function fakeHf(stdout: string, stderr: string, code: number) {
 	const dir = tempDir("hf-bin-");
 	writeFileSync(join(dir, "out.json"), stdout);
 	writeFileSync(
-		join(dir, "hf"),
+		join(dir, "harnessforce"),
 		`#!/bin/sh\nprintf '%s\\n' "$@" > "${dir}/args.txt"\ncat "${dir}/out.json"\nprintf '%s\\n' '${stderr}' >&2\nexit ${code}\n`,
 	);
-	chmodSync(join(dir, "hf"), 0o755);
+	chmodSync(join(dir, "harnessforce"), 0o755);
 	return dir;
 }
 
@@ -200,7 +200,7 @@ function sufficientSessions() {
 }
 
 describe.skipIf(process.platform === "win32")("tune summary script", () => {
-	it("runs hf tune --json with the allowed flags and passes hf's exit code and notices through", () => {
+	it("runs harnessforce tune --json with the allowed flags and passes harnessforce's exit code and notices through", () => {
 		const result = summarize(["--all", "--no-send"], {
 			stdout: JSON.stringify(output(sufficientSessions())),
 			stderr: "送信しない設定のため、分析結果を送信しません",
@@ -213,7 +213,7 @@ describe.skipIf(process.platform === "win32")("tune summary script", () => {
 		);
 	});
 
-	it("refuses other arguments without running hf", () => {
+	it("refuses other arguments without running harnessforce", () => {
 		const result = summarize(["--purge"], { stdout: "" });
 		expect(result).toMatchObject({
 			code: 2,
@@ -223,22 +223,22 @@ describe.skipIf(process.platform === "win32")("tune summary script", () => {
 		});
 	});
 
-	it("tells the user to run setup when hf is not on PATH", () => {
+	it("tells the user to run setup when harnessforce is not on PATH", () => {
 		const result = spawnSync(process.execPath, [SCRIPT], {
 			encoding: "utf8",
 			env: { PATH: tempDir("hf-empty-") },
 		});
 		expect(result.status).toBe(1);
 		expect(result.stderr).toBe(
-			"`hf`が見つかりません。`/harnessforce:setup`でCLIを導入してください\n",
+			"`harnessforce`が見つかりません。`/harnessforce:setup`でCLIを導入してください\n",
 		);
 	});
 
-	it("prints nothing more when hf ends without an analysis", () => {
+	it("prints nothing more when harnessforce ends without an analysis", () => {
 		const result = summarize([], {
 			stdout: "",
 			stderr:
-				"`hf init`を実行してください。Viewerのロールでは`hf tune`を利用できません",
+				"`harnessforce init`を実行してください。Viewerのロールでは`harnessforce tune`を利用できません",
 			code: 1,
 		});
 		expect(result).toMatchObject({ code: 1, stdout: "" });

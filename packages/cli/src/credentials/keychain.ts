@@ -20,10 +20,10 @@ export const ingestKeyAccount = (workspaceId: string) =>
 	`${workspaceId}${INGEST_KEY_SUFFIX}`;
 export const apiTokenAccount = (workspaceId: string) =>
 	`${workspaceId}${API_TOKEN_SUFFIX}`;
-// hf initが保存したingestの送信先のorigin。利用者用のkeyはこのoriginへだけ出す。
+// harnessforce initが保存したingestの送信先のorigin。利用者用のkeyはこのoriginへだけ出す。
 export const ingestOriginAccount = (workspaceId: string) =>
 	`${workspaceId}:ingest-origin`;
-// hf initが使った接続先のorigin。ApiTokenはRead APIのbase URLがこのoriginの場合だけ送る。
+// harnessforce initが使った接続先のorigin。ApiTokenはRead APIのbase URLがこのoriginの場合だけ送る。
 export const urlOriginAccount = (workspaceId: string) =>
 	`${workspaceId}:url-origin`;
 export const isIngestKeyAccount = (account: string) =>

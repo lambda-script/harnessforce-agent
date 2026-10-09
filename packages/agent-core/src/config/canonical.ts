@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import type { ConfigComponent } from "./component.js";
 
 // correlation.md「構成の収集」とsemantic-conventions.md「Config snapshot」の正規化。
-// JSの既定の比較（UTF-16のcode unitの順）で並べ、hookとhf runで同じ結果にする。
+// JSの既定の比較（UTF-16のcode unitの順）で並べ、hookとharnessforce runで同じ結果にする。
 export const byCodeUnit = (a: string, b: string) =>
 	a < b ? -1 : a > b ? 1 : 0;
 

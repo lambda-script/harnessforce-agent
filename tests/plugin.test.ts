@@ -225,8 +225,8 @@ describe("setup command", () => {
 	it("installs the published CLI from npm in the repository copy", () =>
 		expect(body).toContain("npm install -g @harnessforce/cli"));
 
-	it("runs hf init and hf import, then asks for a restart before confirming the first event", () => {
-		// `hf init`は手順2にも現れるため、語の位置だけでは手順を特定できない。見出しの順序に、本文が実行する`hf import`の位置を加えて確かめる。
+	it("runs harnessforce init and harnessforce import, then asks for a restart before confirming the first event", () => {
+		// `harnessforce init`は手順2にも現れるため、語の位置だけでは手順を特定できない。見出しの順序に、本文が実行する`harnessforce import`の位置を加えて確かめる。
 		const positions = indexesOf(body, [
 			"Node.jsを確かめる",
 			"再起動後の実行かを確かめる",
@@ -234,7 +234,7 @@ describe("setup command", () => {
 			"本文データを送るかを選ぶ",
 			"Harnessforceに接続する",
 			"過去のsessionを取り込む",
-			"`hf import`",
+			"`harnessforce import`",
 			"再起動を案内する",
 			"最初のイベントを確認する",
 		]);
@@ -242,11 +242,11 @@ describe("setup command", () => {
 		expect(positions).toEqual([...positions].sort((a, b) => a - b));
 	});
 
-	// onboarding.md「チェックリスト」の手順4「自分の端末で設定する」: hf initの前に、本文データを送る設定の選択肢を、既定では選ばれない状態で示す。
-	it("shows the content choice before hf init, unselected by default", () => {
+	// onboarding.md「チェックリスト」の手順4「自分の端末で設定する」: harnessforce initの前に、本文データを送る設定の選択肢を、既定では選ばれない状態で示す。
+	it("shows the content choice before harnessforce init, unselected by default", () => {
 		const choice = "本文データを送って分析に使えます";
 		expect(body).toMatch(
-			/`hf init`の前に[^\n]*選択肢を[^\n]*既定では選ばれない/,
+			/`harnessforce init`の前に[^\n]*選択肢を[^\n]*既定では選ばれない/,
 		);
 		expect(body).toContain(choice);
 		expect(body).toContain(
@@ -263,7 +263,7 @@ describe("setup command", () => {
 		expect(body).toMatch(/読めるのはOwnerとAdminだけ/);
 		expect(body).toMatch(/端末のこの設定とWorkspaceのopt-inの2つ/);
 		expect(body).toMatch(/opt-inを解除すると[^\n]*本文は受信時に破棄され/);
-		expect(body).toContain("`hf init --send-content`");
+		expect(body).toContain("`harnessforce init --send-content`");
 		expect(body).toMatch(
 			/Claude Codeのuser settingsの`env`に書き[^\n]*project[^\n]*local[^\n]*`env`には書かない/,
 		);
@@ -271,8 +271,10 @@ describe("setup command", () => {
 		expect(body).toMatch(/projectとlocalの`env`でも効く/);
 	});
 
-	it("relays what hf init prints when the workspace has not opted in", () => {
-		expect(body).toMatch(/`hf init --send-content`は本文の設定を書かず/);
+	it("relays what harnessforce init prints when the workspace has not opted in", () => {
+		expect(body).toMatch(
+			/`harnessforce init --send-content`は本文の設定を書かず/,
+		);
 		expect(body).toContain("Workspaceの設定のデータの保持");
 		expect(body).toMatch(/終了コード0/);
 	});
@@ -298,7 +300,7 @@ describe("tune command", () => {
 		expect(body.indexOf(DISCLOSURE)).toBeLessThan(body.indexOf("```sh"));
 	});
 
-	it("runs hf tune --json through the shipped summary script with the user's arguments", () => {
+	it("runs harnessforce tune --json through the shipped summary script with the user's arguments", () => {
 		const pluginRoot = ["$", "{CLAUDE_PLUGIN_ROOT}"].join("");
 		expect(body).toContain(`node "${pluginRoot}/${SUMMARIZE}" $ARGUMENTS`);
 		expect(
@@ -309,7 +311,7 @@ describe("tune command", () => {
 		expect(frontmatter["argument-hint"]).toBe("[--all] [--no-send]");
 	});
 
-	it("shows hf tune's messages as they are and keeps not measured apart from zero", () => {
+	it("shows harnessforce tune's messages as they are and keeps not measured apart from zero", () => {
 		expect(body).toMatch(/stderr[^\n]*すべてそのまま表示/);
 		expect(body).toMatch(/「未計測」を0と言い換えない/);
 	});
@@ -328,7 +330,7 @@ describe("tune command", () => {
 
 	it("hands the eligible targets to the skill, which records before showing", () => {
 		expect(body).toContain("`propose-improvements`のskill");
-		expect(body).toMatch(/`hf tune record`で記録してから表示/);
+		expect(body).toMatch(/`harnessforce tune record`で記録してから表示/);
 		expect(body).toMatch(/終了コード0で終わらなかった提案は表示しない/);
 	});
 
@@ -342,7 +344,7 @@ describe("tune command", () => {
 	});
 
 	// 「適用」: `/harnessforce:tune`はファイルを書き換えない（`~/.harnessforce/tune/`を除く）。
-	it("writes nothing but hf tune's own files and leaves applying to the user", () => {
+	it("writes nothing but harnessforce tune's own files and leaves applying to the user", () => {
 		expect(body).toMatch(/managed settingsを書き換えない/);
 		expect(body).toContain("`~/.harnessforce/tune/`へ書くものだけ");
 		expect(body).toMatch(/適用は利用者が行う/);
@@ -439,11 +441,13 @@ describe("propose improvements skill", () => {
 			/止める条件を必ず含める。止める条件は、最大の繰り返し回数と、人が確認する時点/,
 		));
 
-	// 「提案の記録」: 表示の前に`hf tune record`で記録し、成功した提案だけを表示する。
-	it("records each proposal with hf tune record before showing it", () => {
-		expect(body).toMatch(/表示する前に、提案ごとに`hf tune record`を実行/);
+	// 「提案の記録」: 表示の前に`harnessforce tune record`で記録し、成功した提案だけを表示する。
+	it("records each proposal with harnessforce tune record before showing it", () => {
 		expect(body).toMatch(
-			/`hf tune record`が終了コード0で終わった提案だけを表示/,
+			/表示する前に、提案ごとに`harnessforce tune record`を実行/,
+		);
+		expect(body).toMatch(
+			/`harnessforce tune record`が終了コード0で終わった提案だけを表示/,
 		);
 		for (const field of [
 			"category",

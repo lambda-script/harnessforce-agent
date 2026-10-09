@@ -195,7 +195,7 @@ export function transcript(
 	);
 }
 
-// hf initを終えた端末のhome。user settingsのenvに宛先とWorkspaceを持つ。
+// harnessforce initを終えた端末のhome。user settingsのenvに宛先とWorkspaceを持つ。
 export function initializedHome(
 	env: Record<string, string>,
 	sessions: Record<string, string> = {},

@@ -40,23 +40,24 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 // correlation.md「session import」「CLIの宛先の決め方」「CLI」が定める文言。
 const MESSAGES = {
-	runInit: "`hf init`を実行してください",
+	runInit: "`harnessforce init`を実行してください",
 	invalidUrl: "接続先のURLが不正です",
 	keychainUnavailable: INIT_MESSAGES.keychainUnavailable,
 	readFailed:
-		"Harnessforceとの通信に失敗しました。もう一度`hf import`を実行してください",
+		"Harnessforceとの通信に失敗しました。もう一度`harnessforce import`を実行してください",
 	sendFailed:
-		"Harnessforceとの通信に失敗しました。もう一度`hf import`を実行すると続きから取り込みます",
-	revoked: "送信キーが失効しています。`hf init`を実行してください",
-	loginExpired: "ログインの有効期限が切れました。`hf init`を実行してください",
+		"Harnessforceとの通信に失敗しました。もう一度`harnessforce import`を実行すると続きから取り込みます",
+	revoked: "送信キーが失効しています。`harnessforce init`を実行してください",
+	loginExpired:
+		"ログインの有効期限が切れました。`harnessforce init`を実行してください",
 	stateFailed: "取り込みの状態を保存できませんでした",
 } as const;
 
 const limitMessage = {
 	monthly_event_limit: (count: number) =>
-		`月間イベント数の上限に達したため、${count}件のsessionを取り込めませんでした。上限が解除された後に\`hf import\`を再実行すると続きから取り込みます`,
+		`月間イベント数の上限に達したため、${count}件のsessionを取り込めませんでした。上限が解除された後に\`harnessforce import\`を再実行すると続きから取り込みます`,
 	workspace_read_only: (count: number) =>
-		`Workspaceが閲覧のみのため、${count}件のsessionを取り込めませんでした。閲覧のみが解除された後に\`hf import\`を再実行すると続きから取り込みます`,
+		`Workspaceが閲覧のみのため、${count}件のsessionを取り込めませんでした。閲覧のみが解除された後に\`harnessforce import\`を再実行すると続きから取り込みます`,
 };
 
 const ACCESS_MESSAGES: AccessMessages = {
@@ -154,7 +155,7 @@ async function runImport(deps: ImportDeps): Promise<number> {
 	return report(result, deps);
 }
 
-// correlation.md「session import」の`hf import`。
+// correlation.md「session import」の`harnessforce import`。
 export function importCommand(deps: ImportDeps): Promise<number> {
 	return runUntilStop(() => runImport(deps), deps.stderr);
 }

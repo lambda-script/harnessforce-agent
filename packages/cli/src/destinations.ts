@@ -2,8 +2,8 @@ import { isObject } from "@harnessforce/agent-core/object";
 import type { Env } from "@harnessforce/agent-core/types";
 import { readUserSettings } from "./shared/settings.js";
 
-// correlation.md「CLIの宛先の決め方」とWorkspaceの決め方。hf runとhf importはClaude Codeの外のshellから起動され、
-// user settingsのenvは環境に無いため、hf initが書いた値を読む。値の検査は呼び出し側が確かめる順に行う。
+// correlation.md「CLIの宛先の決め方」とWorkspaceの決め方。harnessforce runとharnessforce importはClaude Codeの外のshellから起動され、
+// user settingsのenvは環境に無いため、harnessforce initが書いた値を読む。値の検査は呼び出し側が確かめる順に行う。
 export type CliDestinations = {
 	workspaceId: string | undefined;
 	ingestEndpoint: string | undefined;
@@ -17,7 +17,7 @@ const NAMES = [
 ] as const;
 type Name = (typeof NAMES)[number];
 
-// 読めないuser settingsは値を持たないものとして扱い、hf initを案内する。
+// 読めないuser settingsは値を持たないものとして扱い、harnessforce initを案内する。
 async function readSettingsEnv(
 	settingsPath: string,
 ): Promise<Partial<Record<Name, string>>> {

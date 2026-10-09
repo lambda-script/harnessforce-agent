@@ -1,4 +1,8 @@
-type Package = { name: string; version: string };
+type Package = {
+	name: string;
+	version: string;
+	bin?: Readonly<Record<string, string>> | string;
+};
 type Changeset = { file: string; names: readonly string[] };
 
 export function parseChangeset(markdown: string): string[];

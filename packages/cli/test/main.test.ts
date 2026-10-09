@@ -6,7 +6,7 @@ const pkg = JSON.parse(
 	readFileSync(new URL("../package.json", import.meta.url), "utf8"),
 );
 
-describe("hf", () => {
+describe("harnessforce", () => {
 	it("prints the package version for --version", async () =>
 		expect(await runCli(["--version"])).toEqual({
 			code: 0,
@@ -22,6 +22,6 @@ describe("hf", () => {
 		const r = await runCli(argv);
 		expect(r.code).toBe(1);
 		expect(r.out).toBe("");
-		expect(r.err).toContain("Usage: hf");
+		expect(r.err).toContain("Usage: harnessforce");
 	});
 });

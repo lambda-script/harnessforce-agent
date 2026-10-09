@@ -47,7 +47,7 @@ type HarnessOptions = {
 	env?: Env;
 	git?: RunGit;
 	fetchError?: Error;
-	// `hf otel-headers`でkeychainを読んだ結果。無ければ`hf`がPATHに無い場合とする。
+	// `harnessforce otel-headers`でkeychainを読んだ結果。無ければ`harnessforce`がPATHに無い場合とする。
 	userKey?: UserKeyRead;
 	// managed-settings.jsonのenv。既定のWorkspace用のkeyと送信先に重ね、undefinedの値は除く。nullならfileを置かない。
 	managed?: Env | null;

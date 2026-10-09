@@ -66,7 +66,7 @@ describe("user settings", () => {
 			),
 		).toEqual({
 			model: "opus",
-			otelHeadersHelper: "hf otel-headers",
+			otelHeadersHelper: "harnessforce otel-headers",
 			env: { EDITOR: "vim", HARNESSFORCE_WORKSPACE_ID: "ws1" },
 			enabledPlugins: {
 				"other@market": false,

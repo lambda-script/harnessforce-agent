@@ -5,7 +5,7 @@
 [![npm @harnessforce/cli](https://img.shields.io/npm/v/@harnessforce/cli?label=%40harnessforce%2Fcli)](https://www.npmjs.com/package/@harnessforce/cli)
 [![npm @harnessforce/semconv](https://img.shields.io/npm/v/@harnessforce/semconv?label=%40harnessforce%2Fsemconv)](https://www.npmjs.com/package/@harnessforce/semconv)
 
-The agent-side toolkit of Harnessforce: a Claude Code plugin, the `hf` CLI and the Harnessforce
+The agent-side toolkit of Harnessforce: a Claude Code plugin, the `harnessforce` CLI and the Harnessforce
 semantic conventions.
 
 Harnessforce links the work of coding agents to the Issues it was done for. This repository holds the
@@ -18,10 +18,10 @@ your prompts, responses or code.
 
 | Package | Description | Distribution |
 | --- | --- | --- |
-| [`@harnessforce/cli`](packages/cli) | `hf`: connects a machine to a Workspace, launches an agent for an Issue, imports past sessions | npm |
+| [`@harnessforce/cli`](packages/cli) | `harnessforce`: connects a machine to a Workspace, launches an agent for an Issue, imports past sessions | npm |
 | [`@harnessforce/semconv`](packages/semconv) | `hf.*` attribute names and the JSON Schemas of the ingest API | npm |
 | [`harnessforce` plugin](plugins/harnessforce) | Claude Code hooks, MCP server declaration, `record-run` and `propose-improvements` skills, `/harnessforce:setup` and `/harnessforce:tune` | Claude Code marketplace in this repository |
-| `@harnessforce/agent-core` | Logic shared by `hf` and the plugin hook, bundled into both | private |
+| `@harnessforce/agent-core` | Logic shared by `harnessforce` and the plugin hook, bundled into both | private |
 | `@harnessforce/test-support` | Test helpers | private |
 
 ## Quickstart
@@ -38,17 +38,17 @@ In Claude Code, with Node.js 18 or later installed:
 /harnessforce:setup
 ```
 
-`/harnessforce:setup` installs the CLI (`npm install -g @harnessforce/cli`), runs `hf init` to log in
-with the browser and pick a Workspace, and runs `hf import` for your past sessions. Restart Claude Code
+`/harnessforce:setup` installs the CLI (`npm install -g @harnessforce/cli`), runs `harnessforce init` to log in
+with the browser and pick a Workspace, and runs `harnessforce import` for your past sessions. Restart Claude Code
 and run `/harnessforce:setup` again to confirm that the first event arrived.
 
 To work on an Issue, either let the agent use the `record-run` skill, or launch it through the CLI:
 
 ```sh
-hf run --issue ENG-42 -- claude
+harnessforce run --issue ENG-42 -- claude
 ```
 
-To look back at your own past sessions, run `/harnessforce:tune`. It runs `hf tune` to count
+To look back at your own past sessions, run `/harnessforce:tune`. It runs `harnessforce tune` to count
 interventions, loops and MCP server calls by public rules, and shows proposals (a diff or a pull
 request draft) once there are at least 10 sessions. It never changes your files; you apply a proposal
 yourself.
@@ -58,16 +58,16 @@ the [plugin README](plugins/harnessforce/README.md#session-registration-hooks).
 
 ## Privacy
 
-- **Never sent:** prompts, responses, tool inputs and outputs, and file contents. `hf run` never turns
-  on prompt or body logging, and `hf import` sends only session and first prompt IDs, start and end times, repository,
+- **Never sent:** prompts, responses, tool inputs and outputs, and file contents. `harnessforce run` never turns
+  on prompt or body logging, and `harnessforce import` sends only session and first prompt IDs, start and end times, repository,
   branch, model, token counts and per-tool call and failure counts.
 - **Hashes only:** the config snapshot describes CLAUDE.md files, rules, skills, agents, commands,
   settings and MCP servers by kind, scope, identifier and SHA-256 hash. Their contents, settings
   values and MCP server URLs, headers and environment are never sent.
-- **Keys stay in the keychain:** `hf init` stores keys and tokens only in the OS keychain, never in a
-  plain file, and `hf run` never puts them in the agent's environment, arguments or settings.
+- **Keys stay in the keychain:** `harnessforce init` stores keys and tokens only in the OS keychain, never in a
+  plain file, and `harnessforce run` never puts them in the agent's environment, arguments or settings.
 - **Keys go only where you connected:** the user key and the API token are sent only to the origins
-  pinned by `hf init`, and the plugin reads a Workspace key only from the managed settings file, so a
+  pinned by `harnessforce init`, and the plugin reads a Workspace key only from the managed settings file, so a
   repository's `.claude/settings.json` cannot redirect them.
 - **Fails quietly:** the hooks always exit 0 and give up after 2 seconds; a session is never blocked.
 
@@ -81,11 +81,11 @@ flowchart LR
     cc["Claude Code"]
     hook["plugin hooks<br/>SessionStart, UserPromptSubmit"]
     skill["record-run skill"]
-    hf["hf CLI"]
+    harnessforce["harnessforce CLI"]
     keychain[("OS keychain")]
   end
   subgraph code["Shared code"]
-    core["agent-core<br/>(bundled into hf and the hook)"]
+    core["agent-core<br/>(bundled into harnessforce and the hook)"]
     semconv["@harnessforce/semconv"]
   end
   subgraph service["Harnessforce"]
@@ -94,24 +94,24 @@ flowchart LR
   end
 
   cc -- "hook events" --> hook
-  cc -- "otelHeadersHelper" --> hf
+  cc -- "otelHeadersHelper" --> harnessforce
   cc -- "OTLP telemetry" --> ingest
   cc -- "MCP tools over HTTP" --> web
   skill -. "guides tool use" .-> cc
-  hook -- "hf otel-headers" --> hf
+  hook -- "harnessforce otel-headers" --> harnessforce
   hook -- "registration, snapshot" --> ingest
-  hf -- "keys and tokens" --> keychain
-  hf -- "hf init, hf run, hf import" --> web
-  hf -- "hf import" --> ingest
+  harnessforce -- "keys and tokens" --> keychain
+  harnessforce -- "harnessforce init, harnessforce run, harnessforce import" --> web
+  harnessforce -- "harnessforce import" --> ingest
   hook -.- core
-  hf -.- core
+  harnessforce -.- core
   core -.- semconv
   ingest -.-|validates with| semconv
 ```
 
 - The **plugin hooks** register each session and its config snapshot with the ingest API, using the
-  Workspace key from managed settings or the user key that `hf otel-headers` reads from the keychain.
-- The **`hf` CLI** logs in with OAuth 2.0 and PKCE, supplies the ingest key to Claude Code's
+  Workspace key from managed settings or the user key that `harnessforce otel-headers` reads from the keychain.
+- The **`harnessforce` CLI** logs in with OAuth 2.0 and PKCE, supplies the ingest key to Claude Code's
   OpenTelemetry exporter through `otelHeadersHelper`, resolves Issues through the Read API, and imports
   past sessions.
 - The **MCP server** is hosted by Harnessforce at `<connection URL>/mcp`; the plugin only declares it.

@@ -41,13 +41,13 @@ export type HookDeps = {
 	stderr: (text: string) => void;
 	homeDir: string;
 	managedDir: string;
-	// `hf otel-headers`を起動してkeychainの利用者用IngestKeyを読む。
+	// `harnessforce otel-headers`を起動してkeychainの利用者用IngestKeyを読む。
 	readUserKey: (cwd: string) => Promise<UserKeyRead>;
 };
 
 // correlation.md「hook」の共通の規則が、選んだkeyの種類ごとに定める文言。
 const REVOKED_KEY_MESSAGES: Record<KeyKind, string> = {
-	user: "送信キーが失効しています。`hf init`を実行してください",
+	user: "送信キーが失効しています。`harnessforce init`を実行してください",
 	workspace:
 		"組織の送信キーが失効しています。Workspaceの管理者に連絡してください",
 };
@@ -64,7 +64,7 @@ type Subject = "session registration" | "config snapshot";
 const report = (deps: HookDeps, subject: Subject, detail: string) =>
 	deps.stderr(`harnessforce: ${subject} ${detail}\n`);
 
-// 利用者用のkeyは、`hf otel-headers`が送信先の固定を確かめたうえで返す。
+// 利用者用のkeyは、`harnessforce otel-headers`が送信先の固定を確かめたうえで返す。
 async function selectUserKey(
 	deps: HookDeps,
 	cwd: string,

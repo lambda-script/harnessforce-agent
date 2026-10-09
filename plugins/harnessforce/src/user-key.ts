@@ -7,8 +7,8 @@ import {
 } from "@harnessforce/agent-core/process/lookup";
 import type { Env } from "@harnessforce/agent-core/types";
 
-// `hf otel-headers`でkeychainの利用者用IngestKeyを読んだ結果（correlation.md「実行環境」）。
-// missingは`hf`がPATHに無い場合、failedは`hf`があって読み出しに失敗した（keyが無い場合を含む）場合。
+// `harnessforce otel-headers`でkeychainの利用者用IngestKeyを読んだ結果（correlation.md「実行環境」）。
+// missingは`harnessforce`がPATHに無い場合、failedは`harnessforce`があって読み出しに失敗した（keyが無い場合を含む）場合。
 export type UserKeyRead =
 	| { kind: "found"; key: string }
 	| { kind: "missing" }
@@ -62,8 +62,11 @@ export function createUserKeyReader({
 			bases: [processCwd, cwd],
 			...(fs ? { fs } : {}),
 		};
-		const file = await findCommand("hf", context);
-		// 起動できない`.cmd`（pathが%や!を含む、nodeやcmd.exeが無い）は、hfがPATHに無い場合と同じに扱う。
+		// correlation.md「コマンド名」: `hf`は最初のnpm publishより前のbuildだけが持つ別名。`harnessforce`が無い場合にだけ探す。
+		const file =
+			(await findCommand("harnessforce", context)) ??
+			(await findCommand("hf", context));
+		// 起動できない`.cmd`（pathが%や!を含む、nodeやcmd.exeが無い）は、harnessforceがPATHに無い場合と同じに扱う。
 		const command =
 			file === undefined
 				? undefined

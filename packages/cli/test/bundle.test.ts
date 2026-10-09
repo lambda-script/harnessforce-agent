@@ -24,7 +24,7 @@ const importedSpecifiers = (source: string) =>
 		([, specifier]) => specifier as string,
 	);
 
-describe("built hf", () => {
+describe("built harnessforce", () => {
 	it("ships only the bin bundle and the build input, without declarations", () =>
 		expect(readdirSync(dist, { recursive: true }).sort()).toEqual([
 			"bin.js",
@@ -33,6 +33,18 @@ describe("built hf", () => {
 
 	it("runs as an executable with node", () =>
 		expect(binSource().startsWith("#!/usr/bin/env node\n")).toBe(true));
+
+	// correlation.md「コマンド名」: `bin`を指定しない`npm exec`は先頭の`bin`を選ぶため、`harnessforce`を先頭に置く。
+	// `hf`は最初のnpm publishより前のbuildだけが持つ別名であり、publishを有効にする前に外す（docs/runbooks/releasing.md）。
+	it("exposes harnessforce first and hf as the alias for the same executable", () => {
+		const manifest = JSON.parse(
+			readFileSync(join(packageDir, "package.json"), "utf8"),
+		);
+		expect(Object.entries(manifest.bin)).toEqual([
+			["harnessforce", "./dist/bin.js"],
+			["hf", "./dist/bin.js"],
+		]);
+	});
 
 	it("imports only node builtins and the declared externals", () => {
 		const packages = importedSpecifiers(binSource()).filter(

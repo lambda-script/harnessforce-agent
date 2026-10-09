@@ -1,11 +1,11 @@
-// `/harnessforce:tune`が使う。`hf tune --json`を実行し、分析結果と、提案を作る条件の判定を表示する。
-// 判定はimprovement-loop.md「作る条件」に従う。hfの文言（stderr）と終了コードはそのまま渡す。
+// `/harnessforce:tune`が使う。`harnessforce tune --json`を実行し、分析結果と、提案を作る条件の判定を表示する。
+// 判定はimprovement-loop.md「作る条件」に従う。harnessforceの文言（stderr）と終了コードはそのまま渡す。
 // Node.js 18で依存なしに動かすため、plainなESMで書く。
 import { spawnSync } from "node:child_process";
 
 const USAGE = "使い方: /harnessforce:tune [--all] [--no-send]";
 const HF_MISSING =
-	"`hf`が見つかりません。`/harnessforce:setup`でCLIを導入してください";
+	"`harnessforce`が見つかりません。`/harnessforce:setup`でCLIを導入してください";
 const ALLOWED_FLAGS = new Set(["--all", "--no-send"]);
 
 const MINIMUM_SESSIONS = 10;
@@ -157,7 +157,7 @@ function modelShares(sessions) {
 	if (denominator === 0) return null;
 	const shares = (byModel) =>
 		[...byModel]
-			// hf tune の表示（UTF-16 の code unit 順）と並びを揃える。
+			// harnessforce tune の表示（UTF-16 の code unit 順）と並びを揃える。
 			.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
 			.map(([model, tokens]) => ({ model, share: tokens / denominator }));
 	return { main: shares(main), subagent: shares(subagent) };
@@ -230,7 +230,7 @@ function renderFollowups(followups) {
 
 function usageTargets(sessions) {
 	const lines = [];
-	// usage を出力しない古い hf の出力では、使い方を未計測として扱い提案を作らない。
+	// usage を出力しない古い harnessforce の出力では、使い方を未計測として扱い提案を作らない。
 	const withUsage = sessions.filter((s) => s.usage);
 	for (const kind of SESSION_USAGE_KINDS) {
 		const category = `usage.kind=${kind}`;
@@ -447,8 +447,8 @@ function run(args) {
 		process.stderr.write(`${USAGE}\n`);
 		return 2;
 	}
-	// Windowsのnpmのhfは.cmdであり、shellを通さないと起動できない。引数は上で許した値だけである。
-	const hf = spawnSync("hf", ["tune", "--json", ...new Set(args)], {
+	// Windowsのnpmのharnessforceは.cmdであり、shellを通さないと起動できない。引数は上で許した値だけである。
+	const hf = spawnSync("harnessforce", ["tune", "--json", ...new Set(args)], {
 		stdio: ["ignore", "pipe", "inherit"],
 		encoding: "utf8",
 		maxBuffer: 256 * 1024 * 1024,

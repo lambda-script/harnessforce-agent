@@ -57,7 +57,7 @@ async function readSubagentUsages(
 	return usages;
 }
 
-// improvement-loop.md「読むもの」: hf importと同じ場所と読み込み処理でsessionを読む。
+// improvement-loop.md「読むもの」: harnessforce importと同じ場所と読み込み処理でsessionを読む。
 // 同じsession IDのfileが複数あれば、path順で最初のfileを使う。
 export async function readTuneSessions(
 	options: ReadOptions,

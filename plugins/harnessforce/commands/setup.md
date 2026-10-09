@@ -1,5 +1,5 @@
 ---
-description: Harnessforceのsetup。Node.jsの確認、本文データを送るかの選択、CLIの導入、hf init、過去のsessionの取り込み、再起動後の最初のイベントの確認までを対話で進める
+description: Harnessforceのsetup。Node.jsの確認、本文データを送るかの選択、CLIの導入、harnessforce init、過去のsessionの取り込み、再起動後の最初のイベントの確認までを対話で進める
 disable-model-invocation: true
 ---
 
@@ -15,11 +15,11 @@ disable-model-invocation: true
 
 ## 2. 再起動後の実行かを確かめる
 
-`hf --version`が成功し、かつこのsessionの環境変数`HARNESSFORCE_WORKSPACE_ID`が空でなければ、`hf init`の後に再起動したsessionである。手順3から7を行わずに手順8へ進む。
+`harnessforce --version`が成功し、かつこのsessionの環境変数`HARNESSFORCE_WORKSPACE_ID`が空でなければ、`harnessforce init`の後に再起動したsessionである。手順3から7を行わずに手順8へ進む。
 
 ## 3. CLIを導入する
 
-次を実行し、続けて`hf --version`で導入できたことを確かめる。
+次を実行し、続けて`harnessforce --version`で導入できたことを確かめる。
 
 ```sh
 npm install -g @harnessforce/cli
@@ -27,13 +27,13 @@ npm install -g @harnessforce/cli
 
 ## 4. 本文データを送るかを選ぶ
 
-`hf init`の前に、本文データを送る設定の選択肢を、既定では選ばれない状態で利用者に示す。この時点ではログインが済んでおらず、接続するWorkspaceもそのopt-inの状態も分からないため、opt-inの有無で表示を変えない。
+`harnessforce init`の前に、本文データを送る設定の選択肢を、既定では選ばれない状態で利用者に示す。この時点ではログインが済んでおらず、接続するWorkspaceもそのopt-inの状態も分からないため、opt-inの有無で表示を変えない。
 
 選択肢には次を併せて示す。
 
 - 選ぶと、promptと応答の本文がこのWorkspaceへ届き、secretのパターンとメールアドレス・電話番号を`[REDACTED:種類]`に置き換えたうえで保存され、本文データの保持期間で削除される。保存した本文を読めるのはOwnerとAdminだけ。
 - 本文が保存されるのは、端末のこの設定とWorkspaceのopt-inの2つがそろう場合だけ。Workspaceのopt-inを解除すると、それ以降の本文は受信時に破棄され、既存の本文データも読めなくなる。
-- 選んだ場合は`hf init --send-content`、選ばない場合は`hf init`を実行する（手順5）。この設定はClaude Codeのuser settingsの`env`に書き、project（`.claude/settings.json`）とlocal（`.claude/settings.local.json`）の`env`には書かない。その2つのfileの`env`では本文の変数が無視されるため。
+- 選んだ場合は`harnessforce init --send-content`、選ばない場合は`harnessforce init`を実行する（手順5）。この設定はClaude Codeのuser settingsの`env`に書き、project（`.claude/settings.json`）とlocal（`.claude/settings.local.json`）の`env`には書かない。その2つのfileの`env`では本文の変数が無視されるため。
 - 選んだ後で止めるときは、user settingsの`env`の`OTEL_LOG_USER_PROMPTS`を`0`にする。止める値はprojectとlocalの`env`でも効く。
 
 選択肢の文言は次をそのまま使う。
@@ -48,13 +48,13 @@ npm install -g @harnessforce/cli
 
 ## 5. Harnessforceに接続する
 
-手順4の選択に従い、選んだ場合は`hf init --send-content`、選ばない場合は`hf init`を実行する。ブラウザでHarnessforceにログインし、接続するWorkspaceを1つ選ぶよう利用者へ伝える。ブラウザが開かなければ、`hf init`が表示するURLを利用者へ示す。ログインの完了を最大5分待つため、Bashのtimeoutを10分にして実行する。
+手順4の選択に従い、選んだ場合は`harnessforce init --send-content`、選ばない場合は`harnessforce init`を実行する。ブラウザでHarnessforceにログインし、接続するWorkspaceを1つ選ぶよう利用者へ伝える。ブラウザが開かなければ、`harnessforce init`が表示するURLを利用者へ示す。ログインの完了を最大5分待つため、Bashのtimeoutを10分にして実行する。
 
-opt-inしていないWorkspaceでは`hf init --send-content`は本文の設定を書かず、その旨とWorkspaceの設定のデータの保持への案内を表示して終了コード0で終わる。失敗として扱わず、表示された文言をそのまま利用者へ示す。
+opt-inしていないWorkspaceでは`harnessforce init --send-content`は本文の設定を書かず、その旨とWorkspaceの設定のデータの保持への案内を表示して終了コード0で終わる。失敗として扱わず、表示された文言をそのまま利用者へ示す。
 
 ## 6. 過去のsessionを取り込む
 
-`hf import`を実行し、送信した件数と読み飛ばした件数を利用者へ伝える。
+`harnessforce import`を実行し、送信した件数と読み飛ばした件数を利用者へ伝える。
 
 ## 7. 再起動を案内する
 

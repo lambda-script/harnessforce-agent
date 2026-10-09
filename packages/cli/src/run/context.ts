@@ -7,7 +7,7 @@ import type { RunGit } from "@harnessforce/agent-core/process/git";
 import type { Env } from "@harnessforce/agent-core/types";
 import { resolveProjectRoot, resolveVcs } from "@harnessforce/agent-core/vcs";
 
-// 起動する前に分かる`hf.*`の値（correlation.md「CLI」の`hf run`）。
+// 起動する前に分かる`hf.*`の値（correlation.md「CLI」の`harnessforce run`）。
 export type LaunchContext = {
 	repository?: string;
 	branch?: string;
@@ -24,7 +24,7 @@ export type LaunchContextOptions = {
 	now: () => Date;
 };
 
-// correlation.md「CLI」の`hf run`の手順2。hookがsnapshotを送らない場合（0件、1秒超過、1,000件超過、識別子の重複）は注入しない。
+// correlation.md「CLI」の`harnessforce run`の手順2。hookがsnapshotを送らない場合（0件、1秒超過、1,000件超過、識別子の重複）は注入しない。
 async function resolveConfigVersion(
 	options: LaunchContextOptions,
 ): Promise<string | undefined> {
