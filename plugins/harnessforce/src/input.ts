@@ -9,10 +9,14 @@ export type HookInput = {
 	promptId: string | undefined;
 	scratchpad: Scratchpad | undefined;
 	source: string | undefined;
+	// eventごとの項目。数えるhookは名前を決めるのに要る項目だけを読む。
+	fields: Record<string, unknown>;
 };
 
-// fileの名前をscratchpad_dirの外へ向けないため、これ以外のsession_idではscratchpadを使わない。
+// fileの名前をscratchpad_dirとCLAUDE_PLUGIN_DATAの外へ向けないため、これ以外のsession_idではfileを作らない。
 const FILE_SAFE_SESSION_ID = /^[A-Za-z0-9_-]+$/;
+export const isFileSafeSessionId = (sessionId: string) =>
+	FILE_SAFE_SESSION_ID.test(sessionId);
 
 const token = (value: unknown) =>
 	typeof value === "string" && isToken(value) ? value : undefined;
@@ -40,9 +44,10 @@ export function parseHookInput(raw: string): HookInput | undefined {
 		cwd,
 		promptId: token(fields.prompt_id),
 		scratchpad:
-			scratchpadDir && FILE_SAFE_SESSION_ID.test(sessionId)
+			scratchpadDir && isFileSafeSessionId(sessionId)
 				? { dir: scratchpadDir, sessionId }
 				: undefined,
 		source: typeof fields.source === "string" ? fields.source : undefined,
+		fields,
 	};
 }

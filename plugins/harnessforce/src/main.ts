@@ -1,4 +1,5 @@
 import { homedir } from "node:os";
+import { performance } from "node:perf_hooks";
 import { managedDirFor } from "@harnessforce/agent-core/managed";
 import { createGitRunner } from "@harnessforce/agent-core/process/git";
 import {
@@ -38,6 +39,8 @@ async function main(): Promise<void> {
 	await runHook(process.argv[2] ?? "", raw, {
 		env: process.env,
 		now: () => new Date(),
+		// 実行時の変数を除くため起動し直した場合は、このprocessの開始から数える。差は予算の残りの0.5秒に収まる。
+		processStartMs: performance.timeOrigin,
 		git: createGitRunner({
 			platform: process.platform,
 			env: process.env,

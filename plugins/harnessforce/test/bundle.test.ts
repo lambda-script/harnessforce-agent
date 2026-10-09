@@ -9,6 +9,7 @@ import {
 	readFileSync,
 	realpathSync,
 	rmSync,
+	utimesSync,
 	writeFileSync,
 } from "node:fs";
 import { createServer, type IncomingHttpHeaders } from "node:http";
@@ -195,28 +196,49 @@ describe("built marketplace", () => {
 		).toMatchObject({ name: "harnessforce" });
 	});
 
+	// Claude Codeが展開するplaceholderであり、JSのtemplateではない。
+	const pluginRoot = ["$", "{CLAUDE_PLUGIN_ROOT}"].join("");
+	const hookCommand = (arg: string) => ({
+		type: "command",
+		command: "node",
+		args: [`${pluginRoot}/scripts/harnessforce-hook.cjs`, arg],
+	});
+
 	it.each([
 		["SessionStart", "session-start"],
 		["UserPromptSubmit", "user-prompt-submit"],
+		["SessionEnd", "session-end"],
 	])("runs the bundled hook for %s in exec form", (event, arg) => {
 		const { hooks } = readJson(
 			join(marketplace, "plugins/harnessforce/hooks/hooks.json"),
 		);
-		// Claude Codeが展開するplaceholderであり、JSのtemplateではない。
-		const pluginRoot = ["$", "{CLAUDE_PLUGIN_ROOT}"].join("");
 		expect(hooks[event]).toEqual([
-			{
-				hooks: [
-					{
-						type: "command",
-						command: "node",
-						args: [`${pluginRoot}/scripts/harnessforce-hook.cjs`, arg],
-						timeout: 10,
-					},
-				],
-			},
+			{ hooks: [{ ...hookCommand(arg), timeout: 10 }] },
 		]);
 		expect(existsSync(hookScript)).toBe(true);
+	});
+
+	// correlation.md「数えるhook」: agentを待たせないようasyncで動かす。
+	it.each([
+		["PostToolUse", "post-tool-use", "^(Skill|Agent|Task)$|^mcp__"],
+		[
+			"PostToolUseFailure",
+			"post-tool-use-failure",
+			"^(Skill|Agent|Task)$|^mcp__",
+		],
+		["UserPromptExpansion", "user-prompt-expansion", undefined],
+		["PermissionRequest", "permission-request", undefined],
+		["PostCompact", "post-compact", undefined],
+	])("counts %s with an async hook", (event, arg, matcher) => {
+		const { hooks } = readJson(
+			join(marketplace, "plugins/harnessforce/hooks/hooks.json"),
+		);
+		expect(hooks[event]).toEqual([
+			{
+				...(matcher === undefined ? {} : { matcher }),
+				hooks: [{ ...hookCommand(arg), async: true }],
+			},
+		]);
 	});
 
 	// correlation.md「接続先」: MCP serverのURLはCLIの既定の接続先と同じbuildの入力から作る。
@@ -698,6 +720,62 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 				"/base/v1/config-snapshots",
 			]);
 		});
+
+		// 利用者用のkeyではSessionEndは送らず、次のsessionの開始が他のsessionの送れていない要約を送る。
+		it("counts a session's calls and sends its summary from the next session start", async () => {
+			const repo = makeRepo();
+			const home = tempDir("hf-home-");
+			mkdirSync(join(home, ".claude/skills/ship"), { recursive: true });
+			writeFileSync(join(home, ".claude/skills/ship/SKILL.md"), "ship it\n");
+			const data = tempDir("hf-data-");
+			const ingest = await startIngest("accept");
+			const usageEnv = { ...env(ingest.endpoint), CLAUDE_PLUGIN_DATA: data };
+			const first = { session_id: "s-1", cwd: repo.dir };
+			await runBundle(
+				"session-start",
+				{ ...first, source: "startup" },
+				usageEnv,
+				home,
+			);
+			const counted = await runBundle(
+				"post-tool-use",
+				{
+					...first,
+					tool_name: "Skill",
+					tool_input: { skill: "ship", args: "to production" },
+				},
+				usageEnv,
+				home,
+			);
+			const ended = await runBundle("session-end", first, usageEnv, home);
+			for (const result of [counted, ended])
+				expect(result).toMatchObject({ code: 0, stdout: "", stderr: "" });
+			expect(
+				ingest.received.filter((r) => r.url?.endsWith("/v1/session-usage")),
+			).toEqual([]);
+			const idle = (Date.now() - 11 * 60_000) / 1000;
+			utimesSync(join(data, "usage/s-1.jsonl"), idle, idle);
+			await runBundle(
+				"session-start",
+				{ session_id: "s-2", cwd: repo.dir, source: "startup" },
+				usageEnv,
+				home,
+			);
+			const usage = ingest.received.filter((r) =>
+				r.url?.endsWith("/v1/session-usage"),
+			);
+			expect(usage.map((r) => r.url)).toEqual(["/base/v1/session-usage"]);
+			expect(usage[0]?.body).toEqual([
+				expect.objectContaining({
+					session_id: "s-1",
+					skills: {
+						items: [{ name: "ship", calls: 1, failures: 0 }],
+						other: { calls: 0, failures: 0 },
+					},
+				}),
+			]);
+			expect(JSON.stringify(usage[0]?.body)).not.toContain("production");
+		}, 15_000);
 
 		it("exits 0 on unreadable input", async () => {
 			const child = spawn(process.execPath, [hookScript, "session-start"]);

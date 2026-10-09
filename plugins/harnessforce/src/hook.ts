@@ -2,6 +2,7 @@ import {
 	COLLECT_BUDGET_MS,
 	collectConfig,
 } from "@harnessforce/agent-core/config/collect";
+import type { ConfigComponent } from "@harnessforce/agent-core/config/component";
 import { isIssueIdentifier } from "@harnessforce/agent-core/issue";
 import { readManagedEnv } from "@harnessforce/agent-core/managed";
 import type { RunGit } from "@harnessforce/agent-core/process/git";
@@ -17,8 +18,9 @@ import {
 	type IngestPath,
 	ingestBaseFrom,
 	type KeyKind,
-	postItem,
+	postItems,
 	type SendOutcome,
+	workspaceIdOf,
 } from "./destination.js";
 import { type HookInput, parseHookInput } from "./input.js";
 import {
@@ -30,11 +32,25 @@ import {
 	type Scratchpad,
 	saveRegistration,
 } from "./scratchpad.js";
+import { COUNTING_EVENTS, countedOf } from "./usage/count.js";
+import { sendSessionUsage, sendUnsentUsage } from "./usage/send.js";
+import {
+	appendRecord,
+	createState,
+	identifiersOf,
+	type RecordLine,
+	readState,
+	removeExpiredFiles,
+	type UsageStore,
+	usageStoreOf,
+} from "./usage/store.js";
 import type { UserKeyRead } from "./user-key.js";
 
 export type HookDeps = {
 	env: Env;
 	now: () => Date;
+	// hookのprocessが始まった時刻（ms）。SessionEndの送信の予算はここから数える。
+	processStartMs: number;
 	git: RunGit;
 	fetch: Fetch;
 	stdout: (text: string) => void;
@@ -60,7 +76,7 @@ const logError = (deps: HookDeps) => (error: unknown) =>
 		`harnessforce: ${error instanceof Error ? error.message : String(error)}\n`,
 	);
 
-type Subject = "session registration" | "config snapshot";
+type Subject = "session registration" | "config snapshot" | "session usage";
 const report = (deps: HookDeps, subject: Subject, detail: string) =>
 	deps.stderr(`harnessforce: ${subject} ${detail}\n`);
 
@@ -79,15 +95,18 @@ async function selectUserKey(
 // Workspace用のkeyとその送信先はmanaged settingsのfileからだけ読む。processの環境変数はrepositoryのsettingsが書けるためである。
 // Workspace用のkeyが無ければ、processの環境変数の送信先と利用者用のkeyを使う。
 // 送信先の判定をkeyの判定より先に行い、両方が無ければ送信先の終端だけを書く。
+// withUserKeyが偽なら、Workspace用のkeyが無いときは何も書かずに送らない。
 async function resolveDestination(
 	deps: HookDeps,
 	cwd: string,
+	withUserKey = true,
 ): Promise<Destination | undefined> {
 	const managed = await readManagedEnv(deps.managedDir, [
 		"HARNESSFORCE_INGEST_KEY",
 		"HARNESSFORCE_ENDPOINT",
 	]);
 	const workspaceKey = managed.HARNESSFORCE_INGEST_KEY;
+	if (!workspaceKey && !withUserKey) return undefined;
 	const ingestBase = ingestBaseFrom(
 		workspaceKey
 			? managed.HARNESSFORCE_ENDPOINT
@@ -125,7 +144,7 @@ async function send(
 	subject: Subject,
 	deps: HookDeps,
 ): Promise<SendOutcome> {
-	const outcome = await postItem(destination, path, item, deps.fetch);
+	const outcome = await postItems(destination, path, [item], deps.fetch);
 	if (outcome.kind === "failed")
 		report(deps, subject, `failed (${outcome.reason})`);
 	return outcome;
@@ -184,31 +203,42 @@ async function registerSession(
 	);
 }
 
+// 打ち切った場合と失敗した場合はundefinedを返す。
+async function collectComponents(
+	input: HookInput,
+	deps: HookDeps,
+): Promise<ConfigComponent[] | undefined> {
+	// 収集の開始はproject rootを求める前とする（correlation.md「構成の収集」）。
+	const startedMs = deps.now().getTime();
+	try {
+		const projectRoot = await resolveProjectRoot(input.cwd, deps.git);
+		const result = await collectConfig({
+			projectRoot,
+			homeDir: deps.homeDir,
+			managedDir: deps.managedDir,
+			env: deps.env,
+			isExpired: () => deps.now().getTime() - startedMs > COLLECT_BUDGET_MS,
+		});
+		if (result.kind === "collected") return result.components;
+		report(deps, "config snapshot", `skipped (${result.reason})`);
+	} catch (error) {
+		logError(deps)(error);
+	}
+	return undefined;
+}
+
 // gitのrepositoryの外でも送る。componentsが0件なら送らない。
 async function sendConfigSnapshot(
 	input: HookInput,
+	components: ConfigComponent[],
 	destination: Destination,
 	deps: HookDeps,
 ): Promise<SendOutcome | undefined> {
-	// 収集の開始はproject rootを求める前とする（correlation.md「構成の収集」）。
-	const startedMs = deps.now().getTime();
-	const projectRoot = await resolveProjectRoot(input.cwd, deps.git);
-	const result = await collectConfig({
-		projectRoot,
-		homeDir: deps.homeDir,
-		managedDir: deps.managedDir,
-		env: deps.env,
-		isExpired: () => deps.now().getTime() - startedMs > COLLECT_BUDGET_MS,
-	});
-	if (result.kind === "skipped") {
-		report(deps, "config snapshot", `skipped (${result.reason})`);
-		return undefined;
-	}
-	if (result.components.length === 0) return undefined;
+	if (components.length === 0) return undefined;
 	const snapshot: ConfigSnapshot = {
 		agent: "claude_code",
 		session_id: input.sessionId,
-		components: result.components,
+		components,
 	};
 	return send(
 		destination,
@@ -219,22 +249,87 @@ async function sendConfigSnapshot(
 	);
 }
 
+// correlation.md「状態のfileの作成」: 送信先のWorkspaceのidと、sessionのconfig snapshotの識別子を持つ。
+async function createUsageState(
+	usage: UsageStore,
+	destination: Destination,
+	components: readonly ConfigComponent[],
+): Promise<void> {
+	const workspaceId = workspaceIdOf(destination.key);
+	if (workspaceId === undefined) return;
+	await createState(usage, {
+		workspaceId,
+		identifiers: identifiersOf(components),
+		sentLength: 0,
+	});
+}
+
+// 状態のfileが無いsessionでは記録しない。
+async function appendIfRecording(
+	usage: UsageStore,
+	line: RecordLine,
+): Promise<void> {
+	if (await readState(usage)) await appendRecord(usage, line);
+}
+
+const promptIdOf = (input: HookInput) =>
+	input.promptId === undefined ? {} : { promptId: input.promptId };
+
+// SessionStartの利用の要約: このsessionの状態のfileを作り、他のsessionの送れていない要約を送る。
+// 401は登録とsnapshotの401と同じく扱うため、送信の結果を返す。それ以外の失敗は次のsessionの開始で送り直す。
+async function startUsage(
+	usage: UsageStore,
+	destination: Destination,
+	collected: Promise<ConfigComponent[] | undefined>,
+	deps: HookDeps,
+): Promise<SendOutcome | undefined> {
+	const [, unsent] = await Promise.all([
+		collected
+			.then((components) =>
+				createUsageState(usage, destination, components ?? []),
+			)
+			.catch(logError(deps)),
+		sendUnsentUsage(usage, destination, deps).catch(logError(deps)),
+	]);
+	if (unsent?.kind === "failed")
+		report(deps, "session usage", `failed (${unsent.reason})`);
+	return unsent ?? undefined;
+}
+
 type RevokedKeyMessage = string;
 
 // 401を受けたら、失効したkeyの文言を返す。
 async function sendSessionStart(
 	input: HookInput,
+	usage: UsageStore | undefined,
 	deps: HookDeps,
 ): Promise<RevokedKeyMessage | undefined> {
-	if (input.source !== undefined && !REGISTERING_SOURCES.has(input.source))
-		return undefined;
+	const registers =
+		input.source === undefined || REGISTERING_SOURCES.has(input.source);
+	if (!registers && !usage) return undefined;
 	if (input.scratchpad && (await isMarkedUnauthorized(input.scratchpad)))
 		return undefined;
 	const destination = await resolveDestination(deps, input.cwd);
 	if (!destination) return undefined;
+	// resumeとcompactはsnapshotを送らないが、状態のfileを作るなら識別子のために構成を集める。
+	const collects = registers || (usage && !(await readState(usage)));
+	const collected = collects
+		? collectComponents(input, deps)
+		: Promise.resolve(undefined);
 	const outcomes = await Promise.all([
-		registerSession(input, destination, deps).catch(logError(deps)),
-		sendConfigSnapshot(input, destination, deps).catch(logError(deps)),
+		registers
+			? registerSession(input, destination, deps).catch(logError(deps))
+			: undefined,
+		registers
+			? collected
+					.then((components) =>
+						components
+							? sendConfigSnapshot(input, components, destination, deps)
+							: undefined,
+					)
+					.catch(logError(deps))
+			: undefined,
+		usage ? startUsage(usage, destination, collected, deps) : undefined,
 	]);
 	if (!outcomes.some((outcome) => outcome?.kind === "unauthorized"))
 		return undefined;
@@ -243,10 +338,19 @@ async function sendSessionStart(
 
 // sourceや送信の結果によらず、session contextを必ず1回出す。resumeとcompactの後のcontextにもsession IDを残すためである。
 async function onSessionStart(input: HookInput, deps: HookDeps): Promise<void> {
-	const revoked = await sendSessionStart(input, deps).catch((error) => {
+	const usage = usageStoreOf(input.sessionId, deps.env);
+	const startedAt = deps.now();
+	if (usage) await removeExpiredFiles(usage, startedAt).catch(logError(deps));
+	const revoked = await sendSessionStart(input, usage, deps).catch((error) => {
 		logError(deps)(error);
 		return undefined;
 	});
+	if (usage)
+		await appendIfRecording(usage, {
+			at: startedAt.toISOString(),
+			kind: "start",
+			...promptIdOf(input),
+		}).catch(logError(deps));
 	writeJson(deps, {
 		...sessionContext(input.sessionId),
 		...(revoked === undefined ? {} : { systemMessage: revoked }),
@@ -258,6 +362,13 @@ async function onUserPromptSubmit(
 	input: HookInput,
 	deps: HookDeps,
 ): Promise<void> {
+	const usage = usageStoreOf(input.sessionId, deps.env);
+	if (usage)
+		await appendIfRecording(usage, {
+			at: deps.now().toISOString(),
+			kind: "prompt",
+			...promptIdOf(input),
+		}).catch(logError(deps));
 	const pad = input.scratchpad;
 	if (!input.promptId || !pad || (await isMarkedUnauthorized(pad))) return;
 	const saved = await loadRegistration(pad);
@@ -277,10 +388,54 @@ async function onUserPromptSubmit(
 		});
 }
 
+// correlation.md「送る契機」: SessionEndのhook全体の1.5秒の予算のうち、processの開始から使う時間。残りは余裕とする。
+const SESSION_END_BUDGET_MS = 1000;
+
+// SessionEndは`hf otel-headers`を起動せず、Workspace用のkeyを選ぶ場合だけ送る。JSONの出力は捨てられるためstdoutへ書かない。
+async function onSessionEnd(input: HookInput, deps: HookDeps): Promise<void> {
+	const usage = usageStoreOf(input.sessionId, deps.env);
+	if (!usage) return;
+	if (input.scratchpad && (await isMarkedUnauthorized(input.scratchpad)))
+		return;
+	const destination = await resolveDestination(deps, input.cwd, false);
+	if (!destination) return;
+	const outcome = await sendSessionUsage(
+		usage,
+		destination,
+		deps.processStartMs + SESSION_END_BUDGET_MS,
+		deps,
+	);
+	if (outcome && outcome.kind !== "accepted")
+		report(
+			deps,
+			"session usage",
+			`failed (${outcome.kind === "failed" ? outcome.reason : "HTTP 401"})`,
+		);
+}
+
+// correlation.md「数えるhook」: 状態のfileの識別子で名前を対応させ、1回を1行として記録する。stdoutへ何も書かない。
+const onCountingEvent =
+	(event: (typeof COUNTING_EVENTS)[number]) =>
+	async (input: HookInput, deps: HookDeps): Promise<void> => {
+		const usage = usageStoreOf(input.sessionId, deps.env);
+		const state = usage && (await readState(usage));
+		const counted = state && countedOf(event, input.fields, state.identifiers);
+		if (usage && counted)
+			await appendRecord(usage, {
+				at: deps.now().toISOString(),
+				...promptIdOf(input),
+				...counted,
+			});
+	};
+
 type Handler = (input: HookInput, deps: HookDeps) => Promise<void>;
 const HANDLERS = new Map<string, Handler>([
 	["session-start", onSessionStart],
 	["user-prompt-submit", onUserPromptSubmit],
+	["session-end", onSessionEnd],
+	...COUNTING_EVENTS.map(
+		(event) => [event, onCountingEvent(event)] as [string, Handler],
+	),
 ]);
 
 export async function runHook(

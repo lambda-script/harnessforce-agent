@@ -32,6 +32,7 @@ const PUBLIC_TYPES = [
 	"IngestIssue",
 	"SessionImport",
 	"SessionRegistration",
+	"SessionUsageSummary",
 ];
 
 const fixture = `import {

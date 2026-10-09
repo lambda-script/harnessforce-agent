@@ -64,12 +64,17 @@ the [plugin README](plugins/harnessforce/README.md#session-registration-hooks).
 - **Hashes only:** the config snapshot describes CLAUDE.md files, rules, skills, agents, commands,
   settings and MCP servers by kind, scope, identifier and SHA-256 hash. Their contents, settings
   values and MCP server URLs, headers and environment are never sent.
+- **Names and counts only:** the session usage summary counts calls and failures of the skills,
+  commands, subagents and MCP servers listed in the session's config snapshot, permission requests
+  and compactions. Command arguments, tool inputs and results, error messages and file paths are never
+  sent, and names outside the config snapshot are only counted.
 - **Keys stay in the keychain:** `hf init` stores keys and tokens only in the OS keychain, never in a
   plain file, and `hf run` never puts them in the agent's environment, arguments or settings.
 - **Keys go only where you connected:** the user key and the API token are sent only to the origins
   pinned by `hf init`, and the plugin reads a Workspace key only from the managed settings file, so a
   repository's `.claude/settings.json` cannot redirect them.
-- **Fails quietly:** the hooks always exit 0 and give up after 2 seconds; a session is never blocked.
+- **Fails quietly:** the hooks always exit 0 and give up after 2 seconds (1 second at session end); a
+  session is never blocked.
 
 The per-package READMEs describe exactly what each command and hook sends.
 
@@ -79,7 +84,7 @@ The per-package READMEs describe exactly what each command and hook sends.
 flowchart LR
   subgraph machine["Your machine"]
     cc["Claude Code"]
-    hook["plugin hooks<br/>SessionStart, UserPromptSubmit"]
+    hook["plugin hooks<br/>SessionStart, UserPromptSubmit,<br/>tool and command counts, SessionEnd"]
     skill["record-run skill"]
     hf["hf CLI"]
     keychain[("OS keychain")]
@@ -90,7 +95,7 @@ flowchart LR
   end
   subgraph service["Harnessforce"]
     web["apps/web<br/>login, Read API, MCP server"]
-    ingest["ingest API<br/>sessions, config snapshots,<br/>session imports, OTLP"]
+    ingest["ingest API<br/>sessions, config snapshots,<br/>session imports, session usage, OTLP"]
   end
 
   cc -- "hook events" --> hook
@@ -99,7 +104,7 @@ flowchart LR
   cc -- "MCP tools over HTTP" --> web
   skill -. "guides tool use" .-> cc
   hook -- "hf otel-headers" --> hf
-  hook -- "registration, snapshot" --> ingest
+  hook -- "registration, snapshot,<br/>usage summary" --> ingest
   hf -- "keys and tokens" --> keychain
   hf -- "hf init, hf run, hf import" --> web
   hf -- "hf import" --> ingest
@@ -110,7 +115,8 @@ flowchart LR
 ```
 
 - The **plugin hooks** register each session and its config snapshot with the ingest API, using the
-  Workspace key from managed settings or the user key that `hf otel-headers` reads from the keychain.
+  Workspace key from managed settings or the user key that `hf otel-headers` reads from the keychain,
+  and send a usage summary of each session when it ends or, with a user key, when the next one starts.
 - The **`hf` CLI** logs in with OAuth 2.0 and PKCE, supplies the ingest key to Claude Code's
   OpenTelemetry exporter through `otelHeadersHelper`, resolves Issues through the Read API, and imports
   past sessions.
