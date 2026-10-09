@@ -95,6 +95,12 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}) {
 		sleep: async () => {},
 		readStdin: async () => Buffer.alloc(0),
 		top: fakeTty({ isTty: false }).io,
+		runOriginal: async () => {
+			throw new Error("the original statusLine command must not be run");
+		},
+		spawnSender: () => {
+			throw new Error("the usage limits must not be sent");
+		},
 		...deps,
 		stdout: (text) => out.push(text),
 		stderr: (text) => err.push(text),

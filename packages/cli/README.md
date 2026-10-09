@@ -33,6 +33,7 @@ harnessforce init
 | `harnessforce tune record` / `harnessforce tune --purge` | Records a proposal from stdin / deletes everything under `~/.harnessforce/tune/` |
 | `harnessforce top [--once] [--json] [--ascii] [--theme <auto\|light\|dark\|ansi>]` | Shows the Claude Code and Codex sessions on this machine in the terminal: state, tokens, context and tool failures. Reads only local files and never connects to Harnessforce |
 | `harnessforce hook session-start` | The entry of Codex's `SessionStart` hook: reads `session_id`, `cwd` and `source` from stdin, registers the session, and prints the session ID for the agent's context. Always exits 0 |
+| `harnessforce usage-limits statusline` | A statusLine command that wraps your existing one: it passes stdin to the original command, returns its output and exit code unchanged, then sends only the usage percentage and reset time of the 5-hour and 7-day windows. It sends nothing until you have consented |
 | `harnessforce --version` | Prints the version |
 
 Builds made before the first npm publish also install `hf` as an alias of `harnessforce`, so settings written
@@ -78,6 +79,15 @@ Codex runs this command through the `[[hooks.SessionStart]]` entry that `harness
   ID. When the key was revoked (401) it prints that line and the message as plain text instead, and writes the
   message to stderr.
 - never fails the session: any error ends with exit code 0, and nothing is sent outside a git repository.
+
+## Usage limits in the statusLine (`harnessforce usage-limits statusline`)
+
+Claude Code passes the plan limits (`rate_limits`) only to the statusLine command, not to hooks. `harnessforce usage-limits statusline` is meant to sit in front of the statusLine you already use (for example claude-hud):
+
+- It reads all of stdin and, if `~/.harnessforce/usage-limits.json` has an `original` command, runs it with `sh -c`, hands it the same stdin and the same environment, and returns its stdout, stderr and exit code as they are. No time limit is added.
+- After that, only if `usage-limits.json` records your consent for the current text version, it takes `rate_limits.five_hour` and `rate_limits.seven_day` (`used_percentage` and `resets_at`) and sends them to `POST <ingest endpoint>/v1/usage-limits` with the user ingest key from the keychain. Nothing else in the JSON (`cwd`, `transcript_path`, `cost`, and so on) is read or sent.
+- The send runs in a detached child process with stdin, stdout and stderr closed, so the statusLine is never delayed. A failure does not change the output or the exit code.
+- It sends at most once every 5 minutes, unless the reset time of a window changed. The time and the reset times of the last send are kept in `~/.harnessforce/usage-limits-state.json` (owner-only).
 
 ## What is never sent
 

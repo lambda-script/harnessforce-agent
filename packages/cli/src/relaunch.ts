@@ -5,7 +5,11 @@ import {
 import type { Env } from "@harnessforce/agent-core/types";
 
 // keyやtokenを送るsubcommand。`harnessforce otel-headers`は通信を行わないため起動し直さない（correlation.md「Node.jsの実行時の変数」）。
+// `harnessforce usage-limits statusline`は元のstatusLineのcommandへ環境を受け継ぐため起動し直さず、送信は切り離した子processが起動し直して行う。
 const SENDING_COMMANDS = new Set(["init", "run", "import", "hook"]);
+const isSending = (argv: readonly string[]) =>
+	SENDING_COMMANDS.has(argv[0] ?? "") ||
+	(argv[0] === "usage-limits" && argv[1] !== "statusline");
 const HOOK_RESTART_FAILED =
 	"harnessforce: session registration skipped (restart failed)";
 const RESTART_FAILED = "harnessforceを起動し直せませんでした";
@@ -22,7 +26,7 @@ export async function relaunchHf(
 	argv: readonly string[],
 	deps: RelaunchDeps,
 ): Promise<number | undefined> {
-	if (!SENDING_COMMANDS.has(argv[0] ?? "")) return undefined;
+	if (!isSending(argv)) return undefined;
 	const outcome = await relaunchWithoutRuntimeVariables({
 		platform: deps.platform,
 		env: deps.env,

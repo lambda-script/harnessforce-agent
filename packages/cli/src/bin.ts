@@ -16,6 +16,8 @@ import { run } from "./main.js";
 import { relaunchHf } from "./relaunch.js";
 import { launchAgent } from "./run/process.js";
 import { createProcessIo } from "./top/process-io.js";
+import { runOriginalCommand } from "./usage-limits/original.js";
+import { spawnUsageSender } from "./usage-limits/spawn-sender.js";
 
 // buildが書く既定の接続先（scripts/build-config.mjs）。distのbin.jsと同じdirectoryにある。
 const { url: defaultUrl } = createRequire(import.meta.url)(
@@ -84,6 +86,8 @@ process.exitCode =
 		}),
 		sleep: (ms) => delay(ms),
 		top: createProcessIo(),
+		runOriginal: runOriginalCommand,
+		spawnSender: spawnUsageSender,
 		readStdin: async (maxBytes) => {
 			const chunks: Buffer[] = [];
 			let size = 0;

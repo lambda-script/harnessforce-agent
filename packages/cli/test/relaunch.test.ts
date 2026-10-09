@@ -34,7 +34,22 @@ describe("relaunching harnessforce without Node runtime variables", () => {
 	});
 
 	it.each([
+		["usage-limits", "send"],
+		["usage-limits", "on"],
+	])("relaunches harnessforce %j", async (...argv) => {
+		const code = await relaunchHf(argv, {
+			platform: "linux",
+			env: { NODE_OPTIONS: "--x" },
+			spawnSelf: exitingWith(0, []),
+			stderr: () => {},
+		});
+		expect(code).toBe(0);
+	});
+
+	// 元のstatusLineのcommandへ利用者の環境をそのまま渡すため、statuslineは起動し直さない。
+	it.each([
 		["otel-headers"],
+		["usage-limits", "statusline"],
 		["--version"],
 		[],
 	])("does not relaunch %j", async (...argv) => {
