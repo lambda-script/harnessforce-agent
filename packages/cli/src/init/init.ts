@@ -15,6 +15,13 @@ import {
 	urlOriginAccount,
 } from "../credentials/keychain.js";
 import {
+	codexConfigPath,
+	mergeCodexConfig,
+	readCodexConfig,
+	writeCodexConfig,
+} from "../shared/codex-config.js";
+import {
+	codexNotes,
 	INIT_MESSAGES,
 	type InitMessage,
 	listenFailedMessage,
@@ -70,13 +77,14 @@ const sha256Hex = (value: string) =>
 
 export function init(args: InitArgs, deps: InitDeps): Promise<number> {
 	return runUntilStop(async () => {
-		await runInit(args, deps);
-		deps.stdout(`${INIT_MESSAGES.success}\n`);
+		const codexPath = await runInit(args, deps);
+		deps.stdout(`${INIT_MESSAGES.success}\n${codexNotes(codexPath)}\n`);
 		return 0;
 	}, deps.stderr);
 }
 
-async function runInit(args: InitArgs, deps: InitDeps) {
+// 書いたCodexの`config.toml`のpathを返す。
+async function runInit(args: InitArgs, deps: InitDeps): Promise<string> {
 	const port = args.port ?? DEFAULT_PORT;
 	const base =
 		parseAllowedUrl(args.url ?? deps.defaultUrl) ?? stop("invalidUrl");
@@ -115,9 +123,14 @@ async function runInit(args: InitArgs, deps: InitDeps) {
 			return stop("saveFailed");
 		},
 	);
+	const codexPath = codexConfigPath(deps.env, deps.homeDir);
+	await saveCodexConfig(issued, recordedUrl, codexPath, args.sendContent).catch(
+		() => stop("codexSaveFailed"),
+	);
 	// 発行と保存は済んでいるため、本文のopt-inが無いことを失敗とせず、opt-inの場所を示す。
 	if (args.sendContent && !issued.contentOptIn)
 		deps.stdout(`${INIT_MESSAGES.contentNotOptedIn}\n`);
+	return codexPath;
 }
 
 // correlation.md「CLI」の手順1。keychainの利用者用IngestKeyすべてのhashと、ApiTokenすべてのrefresh tokenのhash。
@@ -252,4 +265,20 @@ async function save(
 		settingsPath,
 		mergeUserSettings(current.settings, env),
 	);
+}
+
+// correlation.md「Codex」: 利用者用のIngestKeyだけを書く。ApiTokenは書かない。
+async function saveCodexConfig(
+	issued: Issued,
+	connection: string,
+	path: string,
+	sendContent: boolean,
+): Promise<void> {
+	const merged = mergeCodexConfig(await readCodexConfig(path), {
+		connection,
+		ingestEndpoint: issued.ingestEndpoint,
+		ingestKey: issued.ingestKey,
+		logUserPrompt: sendContent && issued.contentOptIn,
+	});
+	await writeCodexConfig(path, merged);
 }
