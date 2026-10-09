@@ -130,6 +130,8 @@ function stateCell(row: TopRow, options: FrameOptions): string {
 
 function toolsCell(row: TopRow, options: FrameOptions): string {
 	const g = glyphsOf(options);
+	// 失敗の数が空欄の行（Codex）は、呼び出しの数だけを示す。0失敗とは示さない。
+	if (row.toolFailures === undefined) return String(row.toolCalls);
 	const ratio = `${row.toolFailures}/${row.toolCalls}`;
 	return row.toolFailures > 0
 		? `${options.painter.color("critical", g.failure)} ${ratio}`
@@ -141,7 +143,7 @@ function header(sessions: readonly TopRow[], options: FrameOptions): string {
 	const active = sessions.filter(
 		(s) => sessionState(s.lastEventAtMs, options.nowMs) === "active",
 	).length;
-	const failures = sessions.reduce((sum, s) => sum + s.toolFailures, 0);
+	const failures = sessions.reduce((sum, s) => sum + (s.toolFailures ?? 0), 0);
 	const parts = [
 		options.painter.bold("harnessforce top"),
 		`local ${g.separator} ${sessions.length} sessions ${g.separator} ${active} active ${g.separator} ${failures} tool failures`,
@@ -168,6 +170,8 @@ function table(
 	showUsage: boolean,
 ): string[] {
 	const wide = options.ambiguousWide;
+	// 記号を使わず、文字で示す。
+	const agentWidth = 6;
 	const fixed: Column[] = [
 		{ title: "STATE", width: 9, cell: (r) => stateCell(r, options) },
 		{ title: "MODEL", width: 14, cell: (r) => r.model ?? "" },
@@ -194,7 +198,8 @@ function table(
 		{ title: "TOOLS", width: 8, cell: (r) => toolsCell(r, options) },
 	];
 	// 先頭の2桁は選択の印、列の間は1桁。残りの幅をrepositoryとbranchの列に割り当てる。
-	const used = 2 + fixed.reduce((sum, c) => sum + c.width + 1, 0);
+	const used =
+		2 + agentWidth + 1 + fixed.reduce((sum, c) => sum + c.width + 1, 0);
 	const repoWidth = Math.max(8, options.width - used);
 	const cells = (r: TopRow | undefined, index: number) => {
 		const mark =
@@ -202,6 +207,7 @@ function table(
 				? `${options.painter.color("primary", ">")} `
 				: "  ";
 		const columns = [
+			padEnd(r ? r.agent : "AGENT", agentWidth, wide),
 			r ? padEnd(stateCell(r, options), 9, wide) : padEnd("STATE", 9, wide),
 			padEnd(
 				truncate(
@@ -247,11 +253,11 @@ function shortRows(
 				? `${options.painter.color("primary", ">")} `
 				: "  ";
 		const failure =
-			r.toolFailures > 0
+			r.toolFailures !== undefined && r.toolFailures > 0
 				? ` ${options.painter.color("critical", g.failure)}${r.toolFailures}`
 				: "";
 		return clip(
-			`${mark}${stateCell(r, options)}${failure} ${repositoryLabel(r)}`,
+			`${mark}${r.agent} ${stateCell(r, options)}${failure} ${repositoryLabel(r)}`,
 			options,
 		);
 	});
@@ -365,7 +371,7 @@ export function renderDetail(row: TopRow, options: FrameOptions): string[] {
 		...row.tools.map(
 			(t) =>
 				`  ${padEnd(t.tool, 16, options.ambiguousWide)} ${String(t.calls).padStart(4)}${
-					t.failures > 0
+					t.failures !== undefined && t.failures > 0
 						? `  ${options.painter.color("critical", g.failure)} ${t.failures}`
 						: ""
 				}`,

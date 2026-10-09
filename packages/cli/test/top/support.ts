@@ -70,6 +70,92 @@ export function transcript(
 	);
 }
 
+// Codexのrollout。本文にはSECRETを入れ、画面とJSONに出ないことを確かめる。
+export function codexRollout(
+	sessionId: string,
+	lastOffsetSec: number,
+	options: { info?: boolean; branch?: string } = {},
+): string {
+	const call = (type: string, name?: string) =>
+		line({
+			timestamp: iso(lastOffsetSec - 60),
+			type: "response_item",
+			payload: {
+				type,
+				...(name ? { name } : {}),
+				arguments: "SECRET args",
+				call_id: `${sessionId}-${type}`,
+			},
+		});
+	return (
+		line({
+			timestamp: iso(lastOffsetSec - 300),
+			type: "session_meta",
+			payload: {
+				id: sessionId,
+				cwd: "/work/web",
+				git: { branch: options.branch ?? "feature/ENG-42" },
+			},
+		}) +
+		line({
+			timestamp: iso(lastOffsetSec - 290),
+			type: "turn_context",
+			payload: { turn_id: "t1", model: "gpt-5-codex", cwd: "/work/web" },
+		}) +
+		line({
+			timestamp: iso(lastOffsetSec - 280),
+			type: "event_msg",
+			payload: { type: "user_message", message: "SECRET prompt" },
+		}) +
+		call("function_call", "shell_command") +
+		call("function_call", "shell_command") +
+		call("local_shell_call") +
+		line({
+			timestamp: iso(lastOffsetSec - 50),
+			type: "event_msg",
+			payload: {
+				type: "exec_command_end",
+				exit_code: 1,
+				status: "failed",
+				aggregated_output: "SECRET output",
+			},
+		}) +
+		line({
+			timestamp: iso(lastOffsetSec - 40),
+			type: "future_type_without_meaning",
+			payload: { text: "SECRET future" },
+		}) +
+		line({
+			timestamp: iso(lastOffsetSec),
+			type: "event_msg",
+			payload: {
+				type: "token_count",
+				info:
+					options.info === false
+						? null
+						: {
+								total_token_usage: {
+									input_tokens: 1000,
+									cached_input_tokens: 700,
+									cache_write_input_tokens: 50,
+									output_tokens: 200,
+									total_tokens: 1200,
+								},
+								last_token_usage: {
+									input_tokens: 900,
+									cached_input_tokens: 600,
+									cache_write_input_tokens: 50,
+									output_tokens: 80,
+									total_tokens: 980,
+								},
+								model_context_window: 258400,
+							},
+				rate_limits: {},
+			},
+		})
+	);
+}
+
 export function projects() {
 	const base = tempDir("hf-top-home-");
 	const projectsDir = join(base, ".claude", "projects", "-work-web");
@@ -81,7 +167,17 @@ export function projects() {
 		utimesSync(path, mtime, mtime);
 		return path;
 	};
-	return { home: base, write };
+	// `$HOME/.codex/sessions/YYYY/MM/DD/<name>`。
+	const writeCodex = (name: string, text: string, day = "2026/10/09") => {
+		const dir = join(base, ".codex", "sessions", day);
+		mkdirSync(dir, { recursive: true });
+		const path = join(dir, name);
+		writeFileSync(path, text);
+		const mtime = new Date(NOW);
+		utimesSync(path, mtime, mtime);
+		return path;
+	};
+	return { home: base, write, writeCodex };
 }
 
 export const gitWithRemote: RunGit = async (cwd, args) => {

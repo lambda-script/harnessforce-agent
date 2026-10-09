@@ -1,8 +1,11 @@
-import { open, stat } from "node:fs/promises";
+import type { Dirent } from "node:fs";
+import { open, readdir, stat } from "node:fs/promises";
+import { join } from "node:path";
 import { isObject } from "@harnessforce/agent-core/object";
 import type { RunGit } from "@harnessforce/agent-core/process/git";
 import { resolveRepository } from "@harnessforce/agent-core/vcs";
 import { listTranscripts } from "../import/sessions.js";
+import { CodexSessionAccumulator } from "./codex-session.js";
 import { SessionAccumulator, type TopSession } from "./session.js";
 
 // terminal-view.md「読むもの」: 最後のeventがこの時間以内のsessionだけを対象にする。
@@ -19,10 +22,15 @@ export type TopSnapshot = {
 	skippedFiles: number;
 };
 
+type Accumulator = {
+	add(row: Record<string, unknown>): void;
+	result(): TopSession | undefined;
+};
+
 type FileState = {
 	// 読み終えたbyteの位置。
 	offset: number;
-	accumulator: SessionAccumulator;
+	accumulator: Accumulator;
 	skippedLines: number;
 	unreadable: boolean;
 };
@@ -30,15 +38,51 @@ type FileState = {
 type ReaderOptions = {
 	// Claude Codeのconfigの基点の`projects`。
 	projectsDir: string;
+	// Codexの`$CODEX_HOME/sessions`。無くてもよい。
+	codexSessionsDir: string;
 	git: RunGit;
 };
 
-const freshState = (): FileState => ({
+type Source = {
+	path: string;
+	newAccumulator: () => Accumulator;
+};
+
+const freshState = (newAccumulator: () => Accumulator): FileState => ({
 	offset: 0,
-	accumulator: new SessionAccumulator(),
+	accumulator: newAccumulator(),
 	skippedLines: 0,
 	unreadable: false,
 });
+
+const readDir = (dir: string): Promise<Dirent[]> =>
+	readdir(dir, { withFileTypes: true }).catch(() => []);
+
+// `sessions/YYYY/MM/DD/rollout-*.jsonl`だけを読む。圧縮されたfile（.jsonl.zst）と
+// archived_sessionsは読まない（terminal-view.md「読むもの」）。
+async function listRollouts(sessionsDir: string): Promise<string[]> {
+	const level = async (dir: string, depth: number): Promise<string[]> => {
+		const entries = await readDir(dir);
+		if (depth === 3)
+			return entries
+				.filter(
+					(e) =>
+						e.isFile() &&
+						e.name.startsWith("rollout-") &&
+						e.name.endsWith(".jsonl"),
+				)
+				.map((e) => join(dir, e.name));
+		const children = entries.filter(
+			(e) => e.isDirectory() && /^\d+$/.test(e.name),
+		);
+		return (
+			await Promise.all(
+				children.map((e) => level(join(dir, e.name), depth + 1)),
+			)
+		).flat();
+	};
+	return level(sessionsDir, 0);
+}
 
 // 改行までそろった行だけを渡す。
 function feed(state: FileState, text: string): void {
@@ -65,6 +109,7 @@ const CHUNK_BYTES = 1024 * 1024;
 async function readAppended(
 	path: string,
 	state: FileState,
+	newAccumulator: () => Accumulator,
 ): Promise<FileState> {
 	let size: number;
 	try {
@@ -72,7 +117,7 @@ async function readAppended(
 	} catch {
 		return { ...state, unreadable: true };
 	}
-	const next = size < state.offset ? freshState() : state;
+	const next = size < state.offset ? freshState(newAccumulator) : state;
 	if (size === next.offset) return { ...next, unreadable: false };
 	try {
 		const handle = await open(path, "r");
@@ -106,7 +151,11 @@ async function readAppended(
 	}
 }
 
-export function createTopReader({ projectsDir, git }: ReaderOptions) {
+export function createTopReader({
+	projectsDir,
+	codexSessionsDir,
+	git,
+}: ReaderOptions) {
 	const files = new Map<string, FileState>();
 	const repositories = new Map<string, Promise<string | undefined>>();
 	const repositoryOf = (cwd: string) => {
@@ -120,24 +169,39 @@ export function createTopReader({ projectsDir, git }: ReaderOptions) {
 			const sessions = new Map<string, TopRow>();
 			let skippedLines = 0;
 			let skippedFiles = 0;
-			for (const path of await listTranscripts(projectsDir)) {
+			const sources: Source[] = [
+				...(await listTranscripts(projectsDir)).map((path) => ({
+					path,
+					newAccumulator: () => new SessionAccumulator(),
+				})),
+				...(await listRollouts(codexSessionsDir)).map((path) => ({
+					path,
+					newAccumulator: () => new CodexSessionAccumulator(),
+				})),
+			];
+			for (const { path, newAccumulator } of sources) {
 				// 最後に書かれた時刻が範囲より前なら、最後のeventも範囲より前にある。
 				const modifiedMs = (await stat(path).catch(() => undefined))?.mtimeMs;
 				if (modifiedMs !== undefined && modifiedMs < nowMs - WINDOW_MS)
 					continue;
-				const state = await readAppended(path, files.get(path) ?? freshState());
+				const state = await readAppended(
+					path,
+					files.get(path) ?? freshState(newAccumulator),
+					newAccumulator,
+				);
 				files.set(path, state);
 				skippedLines += state.skippedLines;
 				if (state.unreadable) skippedFiles += 1;
 				const session = state.accumulator.result();
 				if (!session || session.lastEventAtMs < nowMs - WINDOW_MS) continue;
-				const existing = sessions.get(session.sessionId);
+				const key = `${session.agent}:${session.sessionId}`;
+				const existing = sessions.get(key);
 				if (existing && existing.lastEventAtMs >= session.lastEventAtMs)
 					continue;
 				const repository = session.cwd
 					? await repositoryOf(session.cwd)
 					: undefined;
-				sessions.set(session.sessionId, {
+				sessions.set(key, {
 					...session,
 					...(repository === undefined ? {} : { repository }),
 				});

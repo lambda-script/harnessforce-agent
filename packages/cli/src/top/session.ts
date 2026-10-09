@@ -3,10 +3,10 @@ import { isObject } from "@harnessforce/agent-core/object";
 // terminal-view.md「本人の表示」「行」: 最後のeventがこの時間以内のsessionを`active`とする。
 // agentの状態の判定ではなく、最後のeventからの経過時間による表示上の区切りである。
 export const ACTIVE_WINDOW_MS = 60_000;
-const HOUR_MS = 60 * 60 * 1000;
+export const HOUR_MS = 60 * 60 * 1000;
 // semconvのToken（空白を含まない文字列）と同じ制約。満たさない値は数えない。
-const MAX_TOOL_NAME = 128;
-const MAX_MODEL = 128;
+export const MAX_TOOL_NAME = 128;
+export const MAX_MODEL = 128;
 // API errorなどでClaude Codeが自分で作る応答。modelの呼び出しではない。
 const SYNTHETIC_MODEL = "<synthetic>";
 // detached HEADではgitBranchが"HEAD"になり、branchではない。
@@ -24,10 +24,18 @@ export type TokenCounts = {
 	cacheWrite: number;
 };
 
-export type ToolSummary = { tool: string; calls: number; failures: number };
+// failuresがundefinedのときは取り出せない値（空欄）。0とは区別する。
+export type ToolSummary = {
+	tool: string;
+	calls: number;
+	failures: number | undefined;
+};
+
+type Agent = "claude" | "codex";
 
 // 記録から計算した値だけを持つ。prompt、response、toolの入力と出力、path、commandは持たない（terminal-view.md「守ること」）。
 export type TopSession = {
+	agent: Agent;
 	sessionId: string;
 	cwd?: string;
 	branch?: string;
@@ -40,7 +48,8 @@ export type TopSession = {
 	// 直近の応答のusageの入力、cache read、cache writeの和。割合は示さない。
 	contextTokens?: number;
 	toolCalls: number;
-	toolFailures: number;
+	// Codexのrolloutには呼び出しの成否が保存されないため、取り出せない（undefined）。
+	toolFailures: number | undefined;
 	tools: ToolSummary[];
 	// 応答の数をmodelごとに数えた値。
 	models: { model: string; responses: number }[];
@@ -56,18 +65,18 @@ export function sessionState(
 	return nowMs - lastEventAtMs <= ACTIVE_WINDOW_MS ? "active" : "idle";
 }
 
-const isToken = (value: unknown, maxLength: number): value is string =>
+export const isToken = (value: unknown, maxLength: number): value is string =>
 	typeof value === "string" &&
 	value.length >= 1 &&
 	value.length <= maxLength &&
 	/^\S+$/.test(value);
 
-const tokens = (value: unknown) =>
+export const tokens = (value: unknown) =>
 	typeof value === "number" && Number.isSafeInteger(value) && value >= 0
 		? value
 		: undefined;
 
-function toInstantMs(value: unknown): number | undefined {
+export function toInstantMs(value: unknown): number | undefined {
 	if (typeof value !== "string" || !INSTANT.test(value)) return undefined;
 	const ms = Date.parse(value);
 	return Number.isNaN(ms) ? undefined : ms;
@@ -180,10 +189,12 @@ export class SessionAccumulator {
 		const summaries = new Map<string, ToolSummary>();
 		for (const [id, tool] of this.toolNames) {
 			const summary = summaries.get(tool) ?? { tool, calls: 0, failures: 0 };
+			const failures =
+				(summary.failures ?? 0) + (this.failedToolUses.has(id) ? 1 : 0);
 			summaries.set(tool, {
 				tool,
 				calls: summary.calls + 1,
-				failures: summary.failures + (this.failedToolUses.has(id) ? 1 : 0),
+				failures,
 			});
 		}
 		return [...summaries.values()].sort((a, b) =>
@@ -195,6 +206,7 @@ export class SessionAccumulator {
 		if (!this.sessionId || !Number.isFinite(this.firstMs)) return undefined;
 		const tools = this.summarizeTools();
 		return {
+			agent: "claude",
 			sessionId: this.sessionId,
 			...(this.cwd ? { cwd: this.cwd } : {}),
 			...(this.branch ? { branch: this.branch } : {}),
@@ -206,7 +218,7 @@ export class SessionAccumulator {
 				? {}
 				: { contextTokens: this.contextTokens }),
 			toolCalls: tools.reduce((sum, t) => sum + t.calls, 0),
-			toolFailures: tools.reduce((sum, t) => sum + t.failures, 0),
+			toolFailures: tools.reduce((sum, t) => sum + (t.failures ?? 0), 0),
 			tools,
 			models: [...this.modelResponses].map(([model, responses]) => ({
 				model,

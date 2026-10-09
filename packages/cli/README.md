@@ -31,7 +31,7 @@ harnessforce init
 | `harnessforce import` | Sends the metadata of past Claude Code sessions in connected repositories |
 | `harnessforce tune [--all] [--no-send] [--show-report] [--json]` | Analyzes past sessions on this machine by public rules and sends the counts (analysis reports) |
 | `harnessforce tune record` / `harnessforce tune --purge` | Records a proposal from stdin / deletes everything under `~/.harnessforce/tune/` |
-| `harnessforce top [--once] [--json] [--ascii] [--theme <auto\|light\|dark\|ansi>]` | Shows the Claude Code sessions on this machine in the terminal: state, tokens, context and tool failures. Reads only local files and never connects to Harnessforce |
+| `harnessforce top [--once] [--json] [--ascii] [--theme <auto\|light\|dark\|ansi>]` | Shows the Claude Code and Codex sessions on this machine in the terminal: state, tokens, context and tool failures. Reads only local files and never connects to Harnessforce |
 | `harnessforce hook session-start` | The entry of Codex's `SessionStart` hook: reads `session_id`, `cwd` and `source` from stdin, registers the session, and prints the session ID for the agent's context. Always exits 0 |
 | `harnessforce --version` | Prints the version |
 
@@ -41,12 +41,17 @@ version, because the Hugging Face CLI also uses the name `hf`.
 
 ## Watching your sessions (`harnessforce top`)
 
-`harnessforce top` reads the Claude Code transcripts on this machine (the same place as `harnessforce import`) and shows
-one row per session whose last event is within 24 hours. It needs no `harnessforce init`, makes no network
+`harnessforce top` reads the Claude Code transcripts on this machine (the same place as `harnessforce import`) and the
+Codex rollouts (`sessions/YYYY/MM/DD/rollout-*.jsonl` under `$CODEX_HOME` when it is an absolute path, otherwise
+`~/.codex`) and shows one row per session whose last event is within 24 hours. It needs no `harnessforce init`, makes no network
 connection, never reads the keychain and writes nothing to disk. It shows counts, times, ids, the repository and
 branch, model and tool names only: no prompt, response, tool input or output, path, command or error text, no cost and
 no context percentage.
 
+- The `agent` column says `claude` or `codex`; `--json` uses `claude_code` or `codex`. For Codex, the tool failure
+  count is blank (`tool_failures` is `null`) because Codex does not save whether a call succeeded; the tool column
+  shows the call count only. Rollouts compressed to `.jsonl.zst` (Codex does this after 7 days) and
+  `archived_sessions` are not read.
 - A session is `active` when its last event is within 60 seconds, otherwise `idle`.
 - Keys: `q` quit, `?` help, `↑` `↓` / `j` `k` select, `Enter` detail, `Esc` back, `/` filter, `s` order, `p` pause, `r` refresh.
 - `--once` prints one plain-text table (no escapes). `--json` prints `{"sessions": [...]}`. A pipe or redirect behaves like `--once`.

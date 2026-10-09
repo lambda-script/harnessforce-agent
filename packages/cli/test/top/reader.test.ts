@@ -54,7 +54,11 @@ function setup() {
 		if (args[0] === "remote" && args.length === 1) return "origin";
 		return "git@github.com:Acme/Web.git";
 	};
-	const reader = createTopReader({ projectsDir, git });
+	const reader = createTopReader({
+		projectsDir,
+		codexSessionsDir: tempDir("hf-top-codex-"),
+		git,
+	});
 	return { write, reader, calls, project };
 }
 
@@ -176,6 +180,7 @@ describe("reading the sessions on this machine", () => {
 	it("reports nothing when there is no projects directory", async () => {
 		const reader = createTopReader({
 			projectsDir: "/nonexistent/hf-top-projects",
+			codexSessionsDir: "/nonexistent/hf-top-codex",
 			git: async () => undefined,
 		});
 		expect(await reader.refresh(NOW)).toEqual({

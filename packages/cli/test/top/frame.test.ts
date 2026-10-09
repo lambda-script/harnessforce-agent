@@ -14,6 +14,7 @@ const NOW = Date.parse("2026-10-09T12:00:00Z");
 
 function row(overrides: Partial<TopRow> = {}): TopRow {
 	return {
+		agent: "claude",
 		sessionId: "sess-1234abcd",
 		cwd: "/work/web",
 		repository: "github.com/acme/web",
@@ -262,5 +263,52 @@ describe("a colored frame at every width", () => {
 			const last = [...l.matchAll(/\x1b\[([0-9;]*)m/g)].at(-1)?.[1];
 			if (last !== undefined) expect(["0", "22", "39"]).toContain(last);
 		}
+	});
+});
+
+const codexRow = (overrides: Partial<TopRow> = {}) =>
+	row({
+		agent: "codex",
+		sessionId: "codex-1234",
+		model: "gpt-5-codex",
+		toolFailures: undefined,
+		toolCalls: 3,
+		tools: [{ tool: "shell_command", calls: 3, failures: undefined }],
+		...overrides,
+	});
+
+// terminal-view.md「行」: agentは文字で示し、Codexのtoolの失敗は空欄にする。
+describe("Codex rows", () => {
+	it.each([
+		40, 59, 60, 89, 90, 120,
+	])("shows the agent as text and does not wrap at %i columns", (width) => {
+		const lines = renderList([row(), codexRow()], options(width));
+		const text = lines.join("\n");
+		expect(text).toContain("claude");
+		expect(text).toContain("codex");
+		expect(widest(lines)).toBeLessThanOrEqual(width);
+	});
+
+	it("puts the agent first in the short form", () => {
+		const lines = renderList([codexRow()], options(50));
+		expect(lines[1]).toMatch(/^[> ] codex /);
+	});
+
+	it("shows the call count only, with no failure mark, when the failures are blank", () => {
+		const text = renderList([codexRow()], options(100)).join("\n");
+		expect(text).not.toContain("✕");
+		expect(text).not.toContain("0/3");
+		expect(text).toMatch(/\b3\b/);
+	});
+
+	it("leaves the Codex rows out of the header's failure total", () => {
+		const header = renderList([row(), codexRow()], options(100))[0];
+		expect(header).toContain("2 tool failures");
+	});
+
+	it("shows the tool names of a Codex session without failure marks", () => {
+		const text = renderDetail(codexRow(), options(100)).join("\n");
+		expect(text).toContain("shell_command");
+		expect(text).not.toContain("✕");
 	});
 });
