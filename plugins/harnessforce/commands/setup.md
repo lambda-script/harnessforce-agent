@@ -1,5 +1,5 @@
 ---
-description: Harnessforceのsetup。Node.jsの確認、本文データを送るかの選択、CLIの導入、harnessforce init、過去のsessionの取り込み、再起動後の最初のイベントの確認までを対話で進める
+description: Harnessforceのsetup。Node.jsの確認、本文データを送るかの選択、CLIの導入、harnessforce init、過去のsessionの取り込み、利用枠を共有するかの選択、再起動後の最初のイベントの確認までを対話で進める
 disable-model-invocation: true
 ---
 
@@ -15,7 +15,7 @@ disable-model-invocation: true
 
 ## 2. 再起動後の実行かを確かめる
 
-`harnessforce --version`が成功し、かつこのsessionの環境変数`HARNESSFORCE_WORKSPACE_ID`が空でなければ、`harnessforce init`の後に再起動したsessionである。手順3から7を行わずに手順8へ進む。
+`harnessforce --version`が成功し、かつこのsessionの環境変数`HARNESSFORCE_WORKSPACE_ID`が空でなければ、`harnessforce init`の後に再起動したsessionである。手順3から8を行わずに手順9へ進む。
 
 ## 3. CLIを導入する
 
@@ -56,12 +56,28 @@ opt-inしていないWorkspaceでは`harnessforce init --send-content`は本文�
 
 `harnessforce import`を実行し、送信した件数と読み飛ばした件数を利用者へ伝える。
 
-## 7. 再起動を案内する
+## 7. 利用枠を共有するかを選ぶ
+
+`harnessforce init`の後に、利用枠（Claude Codeの5時間と7日の枠の使用率とリセット時刻）をこのWorkspaceのメンバーと共有する選択肢を、既定では選ばれない状態で利用者に示す。選ばれなければ、何も実行せず手順8へ進む。
+
+選択肢の文言は次をそのまま使う。
+
+> 利用枠を共有できます（既定では共有しません）。共有すると、あなたの名前とともに、あなたの利用枠（5時間・7日などの窓の使用率とリセット時刻だけ）を、このWorkspaceのメンバー全員が見られます。プロンプトなどの本文は送りません。いつでもやめられ、やめると保存済みの値も削除します。メンバーの順位づけには使いません。共有しますか？
+>
+> You can share your usage limits (not shared by default). If shared, everyone in this workspace can see your usage limits together with your name (only the usage percentage and reset time of each window, such as 5 hours and 7 days). No prompt or other content is sent. You can stop at any time, and stopping deletes the stored values. They are not used to rank members. Share them?
+>
+> 共有しません（既定）。後から`harnessforce usage-limits on`で設定できます
+>
+> Not shared (by default). You can set it up later with `harnessforce usage-limits on`.
+
+共有を選んだ場合だけ、文面への同意として`harnessforce usage-limits on --yes`を実行する。既にstatusLineを使っている場合（claude-hudなど）は、そのcommandを包んで表示と終了コードを変えずに残す。Windowsや、組み込めないstatusLineでは、このcommandは何も変えずに理由を表示して0以外で終わる。その表示を利用者へそのまま示し、他の手順は続ける。やめるときは`harnessforce usage-limits off`を案内する。
+
+## 8. 再起動を案内する
 
 次を利用者へ伝えて終わる。
 
 > Claude Codeを再起動すると設定が反映されます。再起動したsessionで、もう一度`/harnessforce:setup`を実行してください。最初のイベントが届いたかを確認します。
 
-## 8. 最初のイベントを確認する
+## 9. 最初のイベントを確認する
 
 このsessionの開始時に、pluginのhookがsessionをHarnessforceへ送っている。利用者に、ブラウザでHarnessforceのHome（環境変数`HARNESSFORCE_URL`のURL）を開き、最初のRunの待機画面で受信を確認するよう伝える。15分待っても届かなければ、待機画面が示す原因ごとの確認手順に沿って確かめるよう伝える。
