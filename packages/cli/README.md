@@ -32,6 +32,7 @@ harnessforce init
 | `harnessforce tune [--all] [--no-send] [--show-report] [--json]` | Analyzes past sessions on this machine by public rules and sends the counts (analysis reports) |
 | `harnessforce tune record` / `harnessforce tune --purge` | Records a proposal from stdin / deletes everything under `~/.harnessforce/tune/` |
 | `harnessforce top [--once] [--json] [--ascii] [--theme <auto\|light\|dark\|ansi>]` | Shows the Claude Code sessions on this machine in the terminal: state, tokens, context and tool failures. Reads only local files and never connects to Harnessforce |
+| `harnessforce hook session-start` | The entry of Codex's `SessionStart` hook: reads `session_id`, `cwd` and `source` from stdin, registers the session, and prints the session ID for the agent's context. Always exits 0 |
 | `harnessforce --version` | Prints the version |
 
 Builds made before the first npm publish also install `hf` as an alias of `harnessforce`, so settings written
@@ -57,6 +58,21 @@ no context percentage.
 - The screen restores the alternate screen and the cursor on `q`, Ctrl-C, SIGTERM, SIGHUP and a normal exit. A console that does not understand VT escape sequences is not detected: use `--once` or `--ascii` there.
 - `~/.harnessforce/config.json` may set `{"top": {"ambiguous_width": 2, "braille": true}}`. An unreadable file or a
   value out of range falls back to the defaults and says so; the file is never written.
+
+## Codex `SessionStart` hook (`harnessforce hook session-start`)
+
+Codex runs this command through the `[[hooks.SessionStart]]` entry that `harnessforce init` writes into Codex's
+`config.toml`. It uses only `session_id`, `cwd` and `source` from the JSON on stdin, and:
+
+- sends the session registration (`agent` is `codex`) only when `source` is `startup`, `clear` or missing, and
+  only to the ingest origin that `harnessforce init` pinned, with the user ingest key from the keychain. The
+  Workspace and the endpoint come from `HARNESSFORCE_WORKSPACE_ID` and `HARNESSFORCE_ENDPOINT`, or from the
+  Claude Code user settings that `harnessforce init` wrote. When `HARNESSFORCE_ISSUE` is a valid identifier
+  (`harnessforce run --issue` sets it), the registration claims `source=cli` with that Issue.
+- prints `{"hookSpecificOutput": {...}}` carrying `harnessforce session_id: <id>` so the agent knows its session
+  ID. When the key was revoked (401) it prints that line and the message as plain text instead, and writes the
+  message to stderr.
+- never fails the session: any error ends with exit code 0, and nothing is sent outside a git repository.
 
 ## What is never sent
 

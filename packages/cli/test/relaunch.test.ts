@@ -15,6 +15,7 @@ describe("relaunching harnessforce without Node runtime variables", () => {
 		"init",
 		"run",
 		"import",
+		"hook",
 	])("relaunches harnessforce %s and ends with the relaunched exit code", async (command) => {
 		const seen: Record<string, string>[] = [];
 		const err: string[] = [];
@@ -74,5 +75,22 @@ describe("relaunching harnessforce without Node runtime variables", () => {
 		});
 		expect(code).toBe(1);
 		expect(err).toEqual(["harnessforceを起動し直せませんでした\n"]);
+	});
+
+	// correlation.md「hook」: hookはどの失敗でもsessionを止めず、常にexit 0で終える。
+	it("lets the hook skip with exit 0 when the relaunch fails", async () => {
+		const err: string[] = [];
+		const code = await relaunchHf(["hook", "session-start"], {
+			platform: "linux",
+			env: { NODE_EXTRA_CA_CERTS: "/x.pem" },
+			spawnSelf: () => {
+				throw new Error("EAGAIN");
+			},
+			stderr: (text) => err.push(text),
+		});
+		expect(code).toBe(0);
+		expect(err).toEqual([
+			"harnessforce: session registration skipped (restart failed)\n",
+		]);
 	});
 });

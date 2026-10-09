@@ -91,6 +91,7 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}) {
 			throw new Error("the agent must not be launched");
 		},
 		importGit: async () => undefined,
+		hookGit: async () => undefined,
 		sleep: async () => {},
 		readStdin: async () => Buffer.alloc(0),
 		top: fakeTty({ isTty: false }).io,

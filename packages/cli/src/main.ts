@@ -1,4 +1,6 @@
 import { createRequire } from "node:module";
+import type { RunGit } from "@harnessforce/agent-core/process/git";
+import { HOOK_USAGE, sessionStart } from "./hook/session-start.js";
 import { type ImportDeps, importCommand } from "./import/command.js";
 import { type InitArgs, type InitDeps, init } from "./init/init.js";
 import { otelHeaders } from "./otel-headers.js";
@@ -16,6 +18,8 @@ export type CliDeps = InitDeps &
 		importGit: ImportDeps["git"];
 		readStdin: TuneCommandDeps["readStdin"];
 		top: TopIo;
+		// hookが使うgit。hookのprocessの現在のdirectoryとsessionのrepositoryの外から解決する。
+		hookGit: RunGit;
 	};
 
 // src（test）とdist（公開物）のどちらから読んでも、1つ上がpackage.jsonになる。
@@ -24,7 +28,7 @@ const { version } = createRequire(import.meta.url)("../package.json") as {
 };
 
 const USAGE =
-	"Usage: harnessforce --version | harnessforce init [--url <base URL>] [--port <port>] [--send-content] | harnessforce import | harnessforce otel-headers | harnessforce run --issue <identifier> -- <agent> [args] | harnessforce tune [--all] [--no-send] [--show-report] [--json] | harnessforce tune record | harnessforce tune --purge | harnessforce top [--once] [--json] [--ascii] [--theme <auto|light|dark|ansi>]\n";
+	"Usage: harnessforce --version | harnessforce init [--url <base URL>] [--port <port>] [--send-content] | harnessforce import | harnessforce otel-headers | harnessforce run --issue <identifier> -- <agent> [args] | harnessforce tune [--all] [--no-send] [--show-report] [--json] | harnessforce tune record | harnessforce tune --purge | harnessforce hook session-start | harnessforce top [--once] [--json] [--ascii] [--theme <auto|light|dark|ansi>]\n";
 
 // `harnessforce init`の引数。受け付けない形ならundefined。--portの値は1〜65535の整数（correlation.md「CLI」）。
 function parseInitArgs(args: readonly string[]): InitArgs | undefined {
@@ -96,6 +100,23 @@ export async function run(
 			git: deps.importGit,
 			now: () => deps.now().getTime(),
 		});
+	if (command === "hook") {
+		if (rest.length !== 1 || rest[0] !== "session-start") {
+			deps.stderr(HOOK_USAGE);
+			return 1;
+		}
+		return sessionStart({
+			env: deps.env,
+			homeDir: deps.homeDir,
+			now: deps.now,
+			git: deps.hookGit,
+			fetch: deps.fetch,
+			keychain: deps.keychain,
+			readStdin: deps.readStdin,
+			stdout: deps.stdout,
+			stderr: deps.stderr,
+		});
+	}
 	if (command === "top")
 		return topCommand(rest, {
 			homeDir: deps.homeDir,
