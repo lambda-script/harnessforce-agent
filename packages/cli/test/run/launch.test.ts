@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	buildLaunch,
 	isClaudeCode,
+	isCodex,
 	resourceAttributes,
 } from "../../src/run/launch.js";
 
@@ -60,6 +61,21 @@ describe("isClaudeCode", () => {
 		expect(isClaudeCode(agent)).toBe(expected));
 });
 
+// correlation.md「`harnessforce run -- codex`」手順4: basenameが`codex`、`codex.exe`、`codex.cmd`のagent。
+describe("isCodex", () => {
+	it.each([
+		["codex", true],
+		["/usr/local/bin/codex", true],
+		["C:\\Tools\\codex.exe", true],
+		["codex.cmd", true],
+		["CODEX.CMD", true],
+		["claude", false],
+		["codex-dev", false],
+		["my-codex", false],
+		["codex.sh", false],
+	])("%s → %s", (agent, expected) => expect(isCodex(agent)).toBe(expected));
+});
+
 describe("buildLaunch", () => {
 	const attributes = "hf.issue.identifier=ENG-1";
 	const stepThree = {
@@ -75,7 +91,7 @@ describe("buildLaunch", () => {
 
 	it("sets only the destination, telemetry and HARNESSFORCE_ISSUE, never a key or headers", () => {
 		const launch = buildLaunch({
-			agent: "codex",
+			agent: "claude",
 			args: ["--flag"],
 			issueIdentifier: "ENG-1",
 			resourceAttributes: attributes,
@@ -83,9 +99,10 @@ describe("buildLaunch", () => {
 			...target,
 		});
 		expect(launch).toEqual({
-			command: "codex",
+			command: "claude",
 			args: ["--flag"],
 			env: { PATH: "/bin", ...stepThree },
+			settingsEnv: stepThree,
 		});
 		expect(launch.env).not.toHaveProperty("OTEL_EXPORTER_OTLP_HEADERS");
 	});
@@ -103,7 +120,7 @@ describe("buildLaunch", () => {
 			].map((name) => [name, "x"]),
 		);
 		const launch = buildLaunch({
-			agent: "codex",
+			agent: "claude",
 			args: [],
 			issueIdentifier: "ENG-1",
 			resourceAttributes: attributes,
@@ -129,7 +146,7 @@ describe("buildLaunch", () => {
 			Harnessforce_Workspace_Id: "other",
 		};
 		const windows = buildLaunch({
-			agent: "codex",
+			agent: "claude",
 			args: [],
 			issueIdentifier: "ENG-1",
 			resourceAttributes: attributes,
@@ -139,7 +156,7 @@ describe("buildLaunch", () => {
 		});
 		expect(windows.env).toEqual(stepThree);
 		const linux = buildLaunch({
-			agent: "codex",
+			agent: "claude",
 			args: [],
 			issueIdentifier: "ENG-1",
 			resourceAttributes: attributes,
@@ -165,7 +182,7 @@ describe("buildLaunch", () => {
 	it("gives other agents no settings", () =>
 		expect(
 			buildLaunch({
-				agent: "codex",
+				agent: "aider",
 				args: [],
 				issueIdentifier: "ENG-1",
 				resourceAttributes: attributes,
@@ -185,5 +202,78 @@ describe("buildLaunch", () => {
 		});
 		expect(Object.keys(launch.env)).not.toContain("OTEL_LOG_USER_PROMPTS");
 		expect(JSON.stringify(launch.settingsEnv)).not.toContain("OTEL_LOG_");
+	});
+});
+
+// correlation.md「`harnessforce run -- codex`」手順3と5: CodexはHARNESSFORCE_*の3つだけを受け取る。
+// CodexはCLAUDE_CODE_*とOTEL_RESOURCE_ATTRIBUTESを読まず、OTEL_EXPORTER_OTLP_ENDPOINTを設定すると
+// [otel]のexporterのendpointの代わりに使われ、headerが付かないおそれがある。
+describe("buildLaunch for Codex", () => {
+	const codexEnv = {
+		HARNESSFORCE_WORKSPACE_ID: "ws1",
+		HARNESSFORCE_ENDPOINT: "https://ingest.example.test/base",
+		HARNESSFORCE_ISSUE: "ENG-1",
+	};
+	const request = (overrides: object = {}) => ({
+		agent: "codex",
+		args: ["exec", "--flag"],
+		issueIdentifier: "ENG-1",
+		resourceAttributes: "hf.issue.identifier=ENG-1",
+		shellEnv: { PATH: "/bin" },
+		...target,
+		...overrides,
+	});
+
+	it("sets only the three HARNESSFORCE variables, never an OTLP, Claude Code or resource variable", () => {
+		const launch = buildLaunch(request());
+		expect(launch).toEqual({
+			command: "codex",
+			args: ["exec", "--flag"],
+			env: { PATH: "/bin", ...codexEnv },
+		});
+		for (const name of [
+			"OTEL_EXPORTER_OTLP_ENDPOINT",
+			"OTEL_EXPORTER_OTLP_PROTOCOL",
+			"OTEL_EXPORTER_OTLP_HEADERS",
+			"OTEL_RESOURCE_ATTRIBUTES",
+			"CLAUDE_CODE_ENABLE_TELEMETRY",
+			"CLAUDE_CODE_ENHANCED_TELEMETRY_BETA",
+		])
+			expect(launch.env).not.toHaveProperty(name);
+	});
+
+	it("passes no settings file, for every spelling of the command", () => {
+		for (const agent of ["codex", "/opt/bin/codex", "codex.exe", "codex.cmd"])
+			expect(buildLaunch(request({ agent })).settingsEnv).toBeUndefined();
+	});
+
+	it("overrides the shell's HARNESSFORCE variables and leaves its other variables alone", () => {
+		const launch = buildLaunch(
+			request({
+				shellEnv: {
+					PATH: "/bin",
+					HARNESSFORCE_WORKSPACE_ID: "other",
+					HARNESSFORCE_ISSUE: "OLD-1",
+					OTEL_METRICS_EXPORTER: "otlp",
+				},
+			}),
+		);
+		expect(launch.env).toEqual({
+			PATH: "/bin",
+			OTEL_METRICS_EXPORTER: "otlp",
+			...codexEnv,
+		});
+	});
+
+	it("overrides the HARNESSFORCE variables regardless of case on Windows only", () => {
+		const shellEnv = { Harnessforce_Workspace_Id: "other", Path: "C:\\bin" };
+		expect(buildLaunch(request({ shellEnv, platform: "win32" })).env).toEqual({
+			Path: "C:\\bin",
+			...codexEnv,
+		});
+		expect(buildLaunch(request({ shellEnv })).env).toEqual({
+			...shellEnv,
+			...codexEnv,
+		});
 	});
 });
