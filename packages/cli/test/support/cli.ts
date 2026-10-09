@@ -1,6 +1,7 @@
 import type { Keychain, KeychainItem } from "../../src/credentials/keychain.js";
 import { startLoopback } from "../../src/init/loopback.js";
 import { type CliDeps, run } from "../../src/main.js";
+import { fakeTty } from "../top/support.js";
 
 type FakeKeychainOptions = {
 	available?: boolean;
@@ -92,6 +93,7 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}) {
 		importGit: async () => undefined,
 		sleep: async () => {},
 		readStdin: async () => Buffer.alloc(0),
+		top: fakeTty({ isTty: false }).io,
 		...deps,
 		stdout: (text) => out.push(text),
 		stderr: (text) => err.push(text),
