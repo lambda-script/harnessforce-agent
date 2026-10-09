@@ -1,9 +1,9 @@
-import type { Fetch } from "@harnessforce/agent-core/types";
-import { parseAllowedUrl, underBase } from "@harnessforce/agent-core/url";
 import type {
 	ConfigSnapshot,
 	SessionRegistration,
 } from "@harnessforce/semconv";
+import type { Fetch } from "./types.js";
+import { parseAllowedUrl, underBase } from "./url.js";
 
 export type IngestItem = SessionRegistration | ConfigSnapshot;
 export type KeyKind = "user" | "workspace";
@@ -14,7 +14,7 @@ export type SendOutcome =
 	| { kind: "unauthorized" }
 	| { kind: "failed"; reason: string };
 
-// correlation.md「hook」の共通の規則: 送信の上限時間。
+// pluginのhookとCLIのhookが共有する、ingestへの送信。correlation.md「hook」の共通の規則: 送信の上限時間。
 const SEND_TIMEOUT_MS = 2000;
 
 // HARNESSFORCE_ENDPOINTはpathを含んでよいbase URL。schemeを確かめ、末尾の/を除いたpathを持つbaseを返す。

@@ -2,15 +2,6 @@ import {
 	COLLECT_BUDGET_MS,
 	collectConfig,
 } from "@harnessforce/agent-core/config/collect";
-import { isIssueIdentifier } from "@harnessforce/agent-core/issue";
-import { readManagedEnv } from "@harnessforce/agent-core/managed";
-import type { RunGit } from "@harnessforce/agent-core/process/git";
-import type { Env, Fetch } from "@harnessforce/agent-core/types";
-import { resolveProjectRoot, resolveVcs } from "@harnessforce/agent-core/vcs";
-import type {
-	ConfigSnapshot,
-	SessionRegistration,
-} from "@harnessforce/semconv";
 import {
 	type Destination,
 	type IngestItem,
@@ -19,7 +10,17 @@ import {
 	type KeyKind,
 	postItem,
 	type SendOutcome,
-} from "./destination.js";
+} from "@harnessforce/agent-core/ingest";
+import { isIssueIdentifier } from "@harnessforce/agent-core/issue";
+import { readManagedEnv } from "@harnessforce/agent-core/managed";
+import type { RunGit } from "@harnessforce/agent-core/process/git";
+import { sessionContext } from "@harnessforce/agent-core/session-context";
+import type { Env, Fetch } from "@harnessforce/agent-core/types";
+import { resolveProjectRoot, resolveVcs } from "@harnessforce/agent-core/vcs";
+import type {
+	ConfigSnapshot,
+	SessionRegistration,
+} from "@harnessforce/semconv";
 import { type HookInput, parseHookInput } from "./input.js";
 import {
 	claimFirstPrompt,
@@ -147,14 +148,6 @@ async function reportRevokedKey(
 // stdoutはJSONのobject1つだけとする（correlation.md「hook」）。JSONの出力はstdoutがそのobjectだけのときに解釈される。
 const writeJson = (deps: HookDeps, output: object) =>
 	deps.stdout(`${JSON.stringify(output)}\n`);
-
-// correlation.md「session context」: skillがstart_runへ渡すsession IDを、session registrationと同じ値でcontextへ加える。
-const sessionContext = (sessionId: string) => ({
-	hookSpecificOutput: {
-		hookEventName: "SessionStart",
-		additionalContext: `harnessforce session_id: ${sessionId}`,
-	},
-});
 
 async function registerSession(
 	input: HookInput,

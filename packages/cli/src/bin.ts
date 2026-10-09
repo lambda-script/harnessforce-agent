@@ -76,6 +76,12 @@ process.exitCode =
 				tmpDir: tmpdir(),
 			}),
 		importGit: createImportGit(process.platform, process.env, process.cwd()),
+		hookGit: createGitRunner({
+			platform: process.platform,
+			env: process.env,
+			processCwd: process.cwd(),
+			excludeTarget: true,
+		}),
 		sleep: (ms) => delay(ms),
 		top: createProcessIo(),
 		readStdin: async (maxBytes) => {
