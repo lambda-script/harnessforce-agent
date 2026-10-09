@@ -15,6 +15,7 @@ import { startLoopback } from "./init/loopback.js";
 import { run } from "./main.js";
 import { relaunchHf } from "./relaunch.js";
 import { launchAgent } from "./run/process.js";
+import { createProcessIo } from "./top/process-io.js";
 
 // buildが書く既定の接続先（scripts/build-config.mjs）。distのbin.jsと同じdirectoryにある。
 const { url: defaultUrl } = createRequire(import.meta.url)(
@@ -76,6 +77,7 @@ process.exitCode =
 			}),
 		importGit: createImportGit(process.platform, process.env, process.cwd()),
 		sleep: (ms) => delay(ms),
+		top: createProcessIo(),
 		readStdin: async (maxBytes) => {
 			const chunks: Buffer[] = [];
 			let size = 0;

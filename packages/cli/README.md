@@ -31,11 +31,32 @@ harnessforce init
 | `harnessforce import` | Sends the metadata of past Claude Code sessions in connected repositories |
 | `harnessforce tune [--all] [--no-send] [--show-report] [--json]` | Analyzes past sessions on this machine by public rules and sends the counts (analysis reports) |
 | `harnessforce tune record` / `harnessforce tune --purge` | Records a proposal from stdin / deletes everything under `~/.harnessforce/tune/` |
+| `harnessforce top [--once] [--json] [--ascii] [--theme <auto\|light\|dark\|ansi>]` | Shows the Claude Code sessions on this machine in the terminal: state, tokens, context and tool failures. Reads only local files and never connects to Harnessforce |
 | `harnessforce --version` | Prints the version |
 
 Builds made before the first npm publish also install `hf` as an alias of `harnessforce`, so settings written
 by `hf init` keep working until you run `harnessforce init` again. The alias is removed from the first published
 version, because the Hugging Face CLI also uses the name `hf`.
+
+## Watching your sessions (`harnessforce top`)
+
+`harnessforce top` reads the Claude Code transcripts on this machine (the same place as `harnessforce import`) and shows
+one row per session whose last event is within 24 hours. It needs no `harnessforce init`, makes no network
+connection, never reads the keychain and writes nothing to disk. It shows counts, times, ids, the repository and
+branch, model and tool names only: no prompt, response, tool input or output, path, command or error text, no cost and
+no context percentage.
+
+- A session is `active` when its last event is within 60 seconds, otherwise `idle`.
+- Keys: `q` quit, `?` help, `↑` `↓` / `j` `k` select, `Enter` detail, `Esc` back, `/` filter, `s` order, `p` pause, `r` refresh.
+- `--once` prints one plain-text table (no escapes). `--json` prints `{"sessions": [...]}`. A pipe or redirect behaves like `--once`.
+- `--ascii` draws with ASCII characters only.
+- The terminal background is never painted. Colors are foreground only, so a symbol and its label always carry the
+  meaning. `--theme auto` asks the terminal for its background once (100 ms limit); when it answers, the colors of the
+  Harnessforce web design system are used, and any color with less than 3:1 contrast on that background is left out.
+  Without an answer, or with `--theme ansi`, the terminal's own 16 colors are used. `NO_COLOR` turns colors off.
+- The screen restores the alternate screen and the cursor on `q`, Ctrl-C, SIGTERM, SIGHUP and a normal exit. A console that does not understand VT escape sequences is not detected: use `--once` or `--ascii` there.
+- `~/.harnessforce/config.json` may set `{"top": {"ambiguous_width": 2, "braille": true}}`. An unreadable file or a
+  value out of range falls back to the defaults and says so; the file is never written.
 
 ## What is never sent
 
