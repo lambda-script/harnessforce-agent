@@ -120,6 +120,85 @@ describe("run recording skill", () => {
 
 	it("tells the agent that its records stay proposed until a person approves them", () =>
 		expect(body).toMatch(/`proposed`[^\n]*承認/));
+
+	// correlation.md「agentによるIssueの作成」
+	describe("creating an issue for unassigned work", () => {
+		it("treats an issue identifier in the branch name as given once get_issue resolves it", () =>
+			expect(body).toMatch(/branch名[^\n]*`get_issue`で[^\n]*解決/));
+
+		it("asks once per session id and not again after a refusal", () => {
+			expect(body).toMatch(/同じ値で尋ねるのは1回だけ/);
+			expect(body).toMatch(/断ったら[^\n]*再び尋ねない/);
+		});
+
+		it("asks only for work that commits changes", () =>
+			expect(body).toMatch(
+				/調べもの、質問への回答、計画だけの会話では尋ねない/,
+			));
+
+		it("treats an unresolved branch identifier as no identifier", () =>
+			expect(body).toMatch(/`not_found`なら識別子が無い場合と同じに扱う/));
+
+		it("shows existing candidates from list_issues before proposing a new issue", () => {
+			const steps = body.slice(body.indexOf("既存のIssueを先に示す"));
+			expect(steps).toMatch(/`-status:done,canceled \{語\}`/);
+			expect(steps.indexOf("`list_issues`")).toBeLessThan(
+				steps.indexOf("`create_issue`"),
+			);
+		});
+
+		it("keeps the prompt body, paths, commands and secrets out of the title and description", () =>
+			expect(body).toMatch(
+				/titleと説明には、promptの本文、file path、command、secretを写さない/,
+			));
+
+		it("calls create_issue only after the user explicitly agrees", () => {
+			expect(body).toMatch(/承諾した場合だけ[^\n]*`create_issue`/);
+			expect(body).toMatch(/非対話[^\n]*作らない/);
+		});
+
+		it("does not create an issue without an active project", () =>
+			expect(body).toMatch(/0件ならIssueを作らず/));
+
+		it("tells teams that the issue is created only in Harnessforce", () =>
+			expect(body).toContain("Harnessforceにだけ作られ"));
+
+		it("never retries create_issue and recovers by an exact title match", () => {
+			expect(body).toContain("`create_issue`を再試行しない");
+			expect(body).toMatch(/titleが完全に一致し、作成時刻が呼び出しの後/);
+			expect(body).toMatch(/`start_run`だけが失敗したら[^\n]*作り直さない/);
+		});
+
+		it("stops asking when the token cannot create issues", () =>
+			expect(body).toMatch(/`forbidden`[^\n]*再び尋ねない/));
+
+		it("leaves planning objects to the user", () =>
+			expect(body).toMatch(
+				/`create_project`、`create_milestone`、`create_cycle`、`create_objective`を[^\n]*呼ばない/,
+			));
+	});
+
+	// correlation.md「agentによる状態の更新」
+	describe("updating the status of a native issue", () => {
+		it("tells native issues apart by a null external", () =>
+			expect(body).toContain("`external`が`null`"));
+
+		it("asks before moving a native issue to started or done", () => {
+			expect(body).toMatch(
+				/承諾した場合だけ[^\n]*`update_issue`で状態を`started`/,
+			);
+			expect(body).toMatch(/承諾した場合だけ状態を`done`/);
+		});
+
+		it("does not ask to complete an issue whose pull request is only opened", () =>
+			expect(body).toMatch(/mergeされていない場合は尋ねない/));
+
+		it("never changes the status of an issue from an external provider", () =>
+			expect(body).toContain("外部由来のIssueの状態は変えない"));
+
+		it("asks again only once after a conflict", () =>
+			expect(body).toMatch(/`conflict`[^\n]*1回だけ尋ね直す/));
+	});
 });
 
 // onboarding.md「チェックリスト」の手順4「自分の端末で設定する」。
