@@ -5,10 +5,26 @@ import type {
 import type { Fetch } from "./types.js";
 import { parseAllowedUrl, underBase } from "./url.js";
 
-export type IngestItem = SessionRegistration | ConfigSnapshot;
+// usage-limits.md「送信」。窓の消費率とresetの時刻だけを持つ。
+export type UsageLimitSummary = {
+	agent: "claude_code";
+	observed_at: string;
+	windows: {
+		window_minutes: number;
+		used_percent: number;
+		resets_at: string;
+	}[];
+};
+export type IngestItem =
+	| SessionRegistration
+	| ConfigSnapshot
+	| UsageLimitSummary;
 export type KeyKind = "user" | "workspace";
 export type Destination = { ingestBase: URL; key: string; keyKind: KeyKind };
-export type IngestPath = "v1/sessions" | "v1/config-snapshots";
+export type IngestPath =
+	| "v1/sessions"
+	| "v1/config-snapshots"
+	| "v1/usage-limits";
 export type SendOutcome =
 	| { kind: "accepted" }
 	| { kind: "unauthorized" }
@@ -33,6 +49,7 @@ export async function postItem(
 	path: IngestPath,
 	item: IngestItem,
 	fetchImpl: Fetch,
+	timeoutMs: number = SEND_TIMEOUT_MS,
 ): Promise<SendOutcome> {
 	try {
 		const response = await fetchImpl(underBase(destination.ingestBase, path), {
@@ -44,7 +61,7 @@ export async function postItem(
 			body: JSON.stringify([item]),
 			// redirect先へkeyを渡さない。redirectは送信の失敗として扱う。
 			redirect: "error",
-			signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
+			signal: AbortSignal.timeout(timeoutMs),
 		});
 		await response.body?.cancel();
 		if (response.status === 401) return { kind: "unauthorized" };

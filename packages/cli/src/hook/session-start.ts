@@ -1,7 +1,6 @@
 import { isAbsolute } from "node:path";
 import {
 	type Destination,
-	ingestBaseFrom,
 	postItem,
 	type SendOutcome,
 } from "@harnessforce/agent-core/ingest";
@@ -15,13 +14,8 @@ import {
 import type { Env, Fetch } from "@harnessforce/agent-core/types";
 import { resolveVcs } from "@harnessforce/agent-core/vcs";
 import { isToken, type SessionRegistration } from "@harnessforce/semconv";
-import {
-	ingestKeyAccount,
-	ingestOriginAccount,
-	type Keychain,
-} from "../credentials/keychain.js";
-import { resolveCliDestinations } from "../destinations.js";
-import { userSettingsPath } from "../shared/settings.js";
+import type { Keychain } from "../credentials/keychain.js";
+import { resolveUserDestination } from "../credentials/user-destination.js";
 
 export const HOOK_USAGE = "Usage: harnessforce hook session-start\n";
 
@@ -73,39 +67,17 @@ function parseInput(raw: string): Input | undefined {
 const report = (deps: SessionStartDeps, detail: string) =>
 	deps.stderr(`harnessforce: session registration ${detail}\n`);
 
-// 利用者用のkeyは、`harnessforce init`が固定した送信先のoriginへだけ出す（correlation.md「CLI」の送信先の固定）。
 async function resolveDestination(
 	deps: SessionStartDeps,
 ): Promise<Destination | undefined> {
-	const { workspaceId, ingestEndpoint } = await resolveCliDestinations(
-		deps.env,
-		userSettingsPath(deps.env, deps.homeDir),
-		"",
-	);
-	// Claude Codeを設定していない端末では、どちらも無い。毎回の stderr を避けるため、何も言わずに送らない。
-	if (!workspaceId && !ingestEndpoint) return undefined;
-	const ingestBase = ingestBaseFrom(ingestEndpoint);
-	if (!workspaceId || !ingestBase) {
-		report(deps, "skipped (invalid endpoint)");
+	const resolved = await resolveUserDestination(deps);
+	// Claude Codeを設定していない端末では、毎回の stderr を避けるため、何も言わずに送らない。
+	if (resolved.kind === "none") return undefined;
+	if (resolved.kind === "skipped") {
+		report(deps, `skipped (${resolved.reason})`);
 		return undefined;
 	}
-	if (!(await deps.keychain.isAvailable())) {
-		report(deps, "skipped (no ingest key)");
-		return undefined;
-	}
-	const key = await deps.keychain.get(ingestKeyAccount(workspaceId));
-	if (!key) {
-		report(deps, "skipped (no ingest key)");
-		return undefined;
-	}
-	const pinnedOrigin = await deps.keychain.get(
-		ingestOriginAccount(workspaceId),
-	);
-	if (pinnedOrigin !== ingestBase.origin) {
-		report(deps, "skipped (destination not verified)");
-		return undefined;
-	}
-	return { ingestBase, key, keyKind: "user" };
+	return resolved.destination;
 }
 
 // Workspace用のkeyではないため、`HARNESSFORCE_ISSUE`が制約を満たせばsource=cliを名乗る。

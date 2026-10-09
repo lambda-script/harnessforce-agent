@@ -8,6 +8,10 @@ import { type RunArgs, type RunDeps, runIssue } from "./run/run.js";
 import { topCommand } from "./top/command.js";
 import type { TopIo } from "./top/io.js";
 import { type TuneCommandDeps, tuneCommand } from "./tune/tune.js";
+import {
+	type UsageLimitsDeps,
+	usageLimitsCommand,
+} from "./usage-limits/command.js";
 
 // harnessforce tuneはharnessforce importと同じgitの呼び出しの上限でcwdのrepositoryを求める。
 // managedDirはharnessforce otel-headersがWorkspace用のkeyを読むfileと、harnessforce runが構成を集めるmanagedの基点のdirectory。
@@ -20,6 +24,9 @@ export type CliDeps = InitDeps &
 		top: TopIo;
 		// hookが使うgit。hookのprocessの現在のdirectoryとsessionのrepositoryの外から解決する。
 		hookGit: RunGit;
+		// harnessforce usage-limits statusline: 元のstatusLineのcommandの実行と、切り離した送信の子process。
+		runOriginal: UsageLimitsDeps["runOriginal"];
+		spawnSender: UsageLimitsDeps["spawnSender"];
 	};
 
 // src（test）とdist（公開物）のどちらから読んでも、1つ上がpackage.jsonになる。
@@ -28,7 +35,7 @@ const { version } = createRequire(import.meta.url)("../package.json") as {
 };
 
 const USAGE =
-	"Usage: harnessforce --version | harnessforce init [--url <base URL>] [--port <port>] [--send-content] | harnessforce import | harnessforce otel-headers | harnessforce run --issue <identifier> -- <agent> [args] | harnessforce tune [--all] [--no-send] [--show-report] [--json] | harnessforce tune record | harnessforce tune --purge | harnessforce hook session-start | harnessforce top [--once] [--json] [--ascii] [--theme <auto|light|dark|ansi>]\n";
+	"Usage: harnessforce --version | harnessforce init [--url <base URL>] [--port <port>] [--send-content] | harnessforce import | harnessforce otel-headers | harnessforce run --issue <identifier> -- <agent> [args] | harnessforce tune [--all] [--no-send] [--show-report] [--json] | harnessforce tune record | harnessforce tune --purge | harnessforce hook session-start | harnessforce top [--once] [--json] [--ascii] [--theme <auto|light|dark|ansi>] | harnessforce usage-limits statusline\n";
 
 // `harnessforce init`の引数。受け付けない形ならundefined。--portの値は1〜65535の整数（correlation.md「CLI」）。
 function parseInitArgs(args: readonly string[]): InitArgs | undefined {
@@ -128,6 +135,7 @@ export async function run(
 			git: deps.importGit,
 			top: deps.top,
 		});
+	if (command === "usage-limits") return usageLimitsCommand(rest, deps);
 	const initArgs = command === "init" ? parseInitArgs(rest) : undefined;
 	if (initArgs) return init(initArgs, deps);
 	const runArgs = command === "run" ? parseRunArgs(rest) : undefined;
