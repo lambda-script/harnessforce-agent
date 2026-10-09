@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # 過去のsessionの分析と改善の提案
 
-次の手順を順に進める。この実行では、利用者のファイル、設定、repository、managed settingsを書き換えない。書き込むのは`hf tune`と`hf tune record`が`~/.harnessforce/tune/`へ書くものだけである。
+次の手順を順に進める。この実行では、利用者のファイル、設定、repository、managed settingsを書き換えない。書き込むのは`harnessforce tune`と`harnessforce tune record`が`~/.harnessforce/tune/`へ書くものだけである。
 
 ## 1. modelのproviderへ渡ることを伝える
 
@@ -16,23 +16,23 @@ disable-model-invocation: true
 
 ## 2. 分析する
 
-次を実行する。`hf tune --json`を起動し、分析結果と、提案を作る条件を対象ごとに判定した結果を表示する。送信と未送信の分の再送を含むため、Bashのtimeoutを10分にする。
+次を実行する。`harnessforce tune --json`を起動し、分析結果と、提案を作る条件を対象ごとに判定した結果を表示する。送信と未送信の分の再送を含むため、Bashのtimeoutを10分にする。
 
 ```sh
 node "${CLAUDE_PLUGIN_ROOT}/skills/propose-improvements/scripts/summarize.mjs" $ARGUMENTS
 ```
 
-- stderrの行は`hf tune`の文言である。省略も言い換えもせずに、すべてそのまま表示する。
+- stderrの行は`harnessforce tune`の文言である。省略も言い換えもせずに、すべてそのまま表示する。
 - stdoutの分析結果（人の介入、ループにできる繰り返し、MCP server、使い方）をそのまま表示する。「未計測」を0と言い換えない。使い方は端末だけの値であり、Harnessforceへ送られない。
 - 「前回の提案の前後」の行があれば、新しい提案の前に「前回の提案の前後」としてそのまま表示し、「前後の差（因果を示しません）」と「起点は適用を検出した時刻です」を省略しない。「比較データなし」を差0と言い換えない。
-- 終了コードが0と3以外なら、提案を作らずに終わる。`hf`が見つからない旨の文言が出た場合も同じである。
+- 終了コードが0と3以外なら、提案を作らずに終わる。`harnessforce`が見つからない旨の文言が出た場合も同じである。
 - 「データ不足のため提案を作りません」の行があれば、その行を表示し、提案を作らずに終わる。
 
 ## 3. 提案を作る
 
 「提案の対象」の行をすべて表示する。「データ不足」と「未計測のため提案しません」の行は、あと何が必要かを含めてそのまま表示し、その対象の提案を作らない。
 
-「提案を作れます」の対象について、このpluginの`propose-improvements`のskillの手順に従って提案を作り、`hf tune record`で記録してから表示する。記録が終了コード0で終わらなかった提案は表示しない。
+「提案を作れます」の対象について、このpluginの`propose-improvements`のskillの手順に従って提案を作り、`harnessforce tune record`で記録してから表示する。記録が終了コード0で終わらなかった提案は表示しない。
 
 ## 4. 適用の仕方を伝える
 

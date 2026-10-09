@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { REDACTION_KINDS, REDACTION_RULES, redactText } from "../src/index.js";
 
-// privacy-and-retention.md「Redaction」: semconvの0.1.0が公開された後は、本体のredactionとhf tune publishの
+// privacy-and-retention.md「Redaction」: semconvの0.1.0が公開された後は、本体のredactionとharnessforce tune publishの
 // 検査がこの定義を使う。本体のpackages/core（公開前の正本）の定義と1文字も違わないことを固定する。
 const CORE_DEFINITIONS = [
 	{

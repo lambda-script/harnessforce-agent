@@ -1,5 +1,5 @@
 // correlation.md「hook」の共通の規則のscheme。keyを平文で流さないため、http:はlocalの受信だけに許す。
-// 接続先（`hf init --url`、buildの既定値）とingestの送信先の両方に同じ規則を使う。
+// 接続先（`harnessforce init --url`、buildの既定値）とingestの送信先の両方に同じ規則を使う。
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 export function parseAllowedUrl(value: string | undefined): URL | undefined {

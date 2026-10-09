@@ -49,7 +49,7 @@ export type InitDeps = {
 	callbackTimeoutMs: number;
 };
 
-// `hf init`の引数。portが無ければloopbackのcallback portの既定を使う。
+// `harnessforce init`の引数。portが無ければloopbackのcallback portの既定を使う。
 export type InitArgs = {
 	url: string | undefined;
 	port: number | undefined;

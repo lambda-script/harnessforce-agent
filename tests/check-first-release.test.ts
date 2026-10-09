@@ -59,6 +59,37 @@ describe("checkFirstRelease", () => {
 			}),
 		).rejects.toThrow("@harnessforce/semconv is 0.1.1"));
 
+	// correlation.md「コマンド名」: `hf`の別名は最初のnpm publishより前のbuildだけが持つ。
+	it("fails when the first release still exposes the hf alias", async () =>
+		await expect(
+			checkFirstRelease({
+				packages: [
+					{
+						name: "@harnessforce/cli",
+						version: "0.1.0",
+						bin: { harnessforce: "./dist/bin.js", hf: "./dist/bin.js" },
+					},
+				],
+				changesets: [],
+				isPublished: notOnRegistry,
+			}),
+		).rejects.toThrow("@harnessforce/cli exposes the hf alias"));
+
+	it("allows the hf alias once 0.1.0 is on the registry", async () =>
+		await expect(
+			checkFirstRelease({
+				packages: [
+					{
+						name: "@harnessforce/cli",
+						version: "0.1.0",
+						bin: { harnessforce: "./dist/bin.js", hf: "./dist/bin.js" },
+					},
+				],
+				changesets: [],
+				isPublished: onRegistry,
+			}),
+		).resolves.toBeUndefined());
+
 	it("allows changesets once 0.1.0 is on the registry", async () =>
 		await expect(
 			checkFirstRelease({

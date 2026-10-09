@@ -10,12 +10,12 @@ const exitingWith =
 		return spawn(process.execPath, ["-e", `process.exit(${code})`], { env });
 	};
 
-describe("relaunching hf without Node runtime variables", () => {
+describe("relaunching harnessforce without Node runtime variables", () => {
 	it.each([
 		"init",
 		"run",
 		"import",
-	])("relaunches hf %s and ends with the relaunched exit code", async (command) => {
+	])("relaunches harnessforce %s and ends with the relaunched exit code", async (command) => {
 		const seen: Record<string, string>[] = [];
 		const err: string[] = [];
 		const code = await relaunchHf([command], {
@@ -73,6 +73,6 @@ describe("relaunching hf without Node runtime variables", () => {
 			stderr: (text) => err.push(text),
 		});
 		expect(code).toBe(1);
-		expect(err).toEqual(["hfを起動し直せませんでした\n"]);
+		expect(err).toEqual(["harnessforceを起動し直せませんでした\n"]);
 	});
 });

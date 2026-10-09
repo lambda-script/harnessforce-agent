@@ -1,7 +1,7 @@
 {
 	"name": "@harnessforce/cli",
 	"version": "0.1.0",
-	"description": "Harnessforce command line (hf)",
+	"description": "Harnessforce command line (harnessforce)",
 	"keywords": [
 		"harnessforce",
 		"claude-code",
@@ -16,6 +16,7 @@
 	},
 	"type": "module",
 	"bin": {
+		"harnessforce": "./dist/bin.js",
 		"hf": "./dist/bin.js"
 	},
 	"files": [

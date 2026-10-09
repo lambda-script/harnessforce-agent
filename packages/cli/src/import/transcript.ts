@@ -22,7 +22,7 @@ export type TranscriptSession = {
 	toolCalls: ToolCallSummary[];
 };
 
-// hf tuneの分析に使うevent（improvement-loop.md「読むもの」）。本文を含むため、端末の外へ出さず、表示もしない。
+// harnessforce tuneの分析に使うevent（improvement-loop.md「読むもの」）。本文を含むため、端末の外へ出さず、表示もしない。
 export type TranscriptEvent =
 	| { type: "prompt"; ms: number; text: string }
 	| { type: "response"; ms: number }
@@ -37,7 +37,7 @@ export type TranscriptEvent =
 			output: string;
 	  };
 
-// hf tuneの端末だけの値（improvement-loop.md「端末だけの値」）の元になる、応答ごとのusage。
+// harnessforce tuneの端末だけの値（improvement-loop.md「端末だけの値」）の元になる、応答ごとのusage。
 // 読めないtoken数はundefinedとし、0と区別する。
 export type ResponseUsage = {
 	model: string;
@@ -170,7 +170,7 @@ class Accumulator {
 	// usageを持つ応答。同じmessage.idの行は同じusageを持つため、1つの応答として1回だけ数える。
 	readonly usages = new Map<string, ResponseUsage>();
 
-	// 分析に使うeventを集める場合だけ配列を持つ。hf importは集めない。
+	// 分析に使うeventを集める場合だけ配列を持つ。harnessforce importは集めない。
 	constructor(readonly events?: TranscriptEvent[]) {}
 
 	add(row: Row): void {
@@ -427,7 +427,7 @@ export async function parseTranscript(path: string): Promise<TranscriptResult> {
 		: { kind: "empty", skippedLines };
 }
 
-// hf tuneの読み込み。hf importと同じ処理で読み、分析に使うeventの列を加える。
+// harnessforce tuneの読み込み。harnessforce importと同じ処理で読み、分析に使うeventの列を加える。
 export async function parseTranscriptEvents(
 	path: string,
 ): Promise<TranscriptEvents> {

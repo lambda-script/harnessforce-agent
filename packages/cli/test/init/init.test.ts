@@ -14,26 +14,27 @@ import {
 	TOKEN_EXPIRY,
 } from "./harness.js";
 
-// correlation.md「CLI」の`hf init`が定める文言。
+// correlation.md「CLI」の`harnessforce init`が定める文言。
 const M = {
 	success:
 		"Harnessforceに接続しました。Claude Codeを再起動すると設定が反映されます",
 	invalidUrl: "接続先のURLが不正です",
 	keychain: "OSのキーチェーンを利用できないため、送信キーを保存できません",
 	tooManyKeys:
-		"keychainにある送信キーが多すぎるため、`hf init`を実行できません",
+		"keychainにある送信キーが多すぎるため、`harnessforce init`を実行できません",
 	tooManyCredentials:
-		"keychainにある送信キーまたはログインの情報が多すぎるため、`hf init`を実行できません",
+		"keychainにある送信キーまたはログインの情報が多すぎるため、`harnessforce init`を実行できません",
 	settings: "Claude Codeのuser settingsを読めません",
 	network:
-		"Harnessforceとの通信に失敗しました。もう一度`hf init`を実行してください",
+		"Harnessforceとの通信に失敗しました。もう一度`harnessforce init`を実行してください",
 	listen: "ログインの待ち受けを開始できませんでした",
 	timeout:
-		"ログインが時間内に完了しませんでした。もう一度`hf init`を実行してください",
+		"ログインが時間内に完了しませんでした。もう一度`harnessforce init`を実行してください",
 	denied: "ログインが拒否されました",
 	noWorkspace:
-		"参加しているWorkspaceがありません。Workspaceを作成するか招待を受諾してから、もう一度`hf init`を実行してください",
-	loginFailed: "ログインに失敗しました。もう一度`hf init`を実行してください",
+		"参加しているWorkspaceがありません。Workspaceを作成するか招待を受諾してから、もう一度`harnessforce init`を実行してください",
+	loginFailed:
+		"ログインに失敗しました。もう一度`harnessforce init`を実行してください",
 	viewer:
 		"閲覧のみのロールでは送信キーを発行できません。Workspaceの管理者に連絡してください",
 	limitAdmin:
@@ -43,16 +44,16 @@ const M = {
 	gate: "受信側へ反映できませんでした。変更はしていません。もう一度お試しください",
 	noIngest: "この環境はテレメトリを受信しないため、送信キーを発行できません",
 	saveFailed:
-		"送信キーを保存できませんでした。もう一度`hf init`を実行してください",
+		"送信キーを保存できませんでした。もう一度`harnessforce init`を実行してください",
 	contentNotOptedIn:
-		"このWorkspaceは本文データをopt-inしていないため、本文を送る設定は有効にしませんでした。Workspaceの設定のデータの保持でopt-inしてから、もう一度`hf init --send-content`を実行してください",
+		"このWorkspaceは本文データをopt-inしていないため、本文を送る設定は有効にしませんでした。Workspaceの設定のデータの保持でopt-inしてから、もう一度`harnessforce init --send-content`を実行してください",
 };
 
 const failed = (message: string) => ({ code: 1, out: "", err: `${message}\n` });
 
 // portを確保できなかったときの文言。使えなかったportと`--port`の逃げ道を示す（correlation.md「CLI」）。
 const listenFailed = (port: number) =>
-	`${M.listen}。port ${port}を使っているprocessを終えるか、\`hf init --port\`で別のportを指定してください`;
+	`${M.listen}。port ${port}を使っているprocessを終えるか、\`harnessforce init --port\`で別のportを指定してください`;
 
 const EXISTING = {
 	"ws1:ingest-key": "hf_ik_ws1_old",
@@ -69,7 +70,7 @@ const issuedApiToken = {
 	refresh_token_expires_at: issued.refresh_token_expires_at,
 };
 
-describe("hf init", () => {
+describe("harnessforce init", () => {
 	it("logs in, issues credentials, stores them and writes user settings", async () => {
 		const server = await startCredentialsServer();
 		const browser = fakeBrowser();
@@ -156,7 +157,7 @@ describe("hf init", () => {
 				OTEL_TRACES_EXPORTER: "otlp",
 				OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf",
 			},
-			otelHeadersHelper: "hf otel-headers",
+			otelHeadersHelper: "harnessforce otel-headers",
 			enabledPlugins: {
 				"other@market": true,
 				"harnessforce@harnessforce-agent": true,
@@ -206,7 +207,7 @@ describe("hf init", () => {
 		expect(home.read()).not.toContain("pass");
 	});
 
-	it("re-pins both origins on a later hf init with another --url", async () => {
+	it("re-pins both origins on a later harnessforce init with another --url", async () => {
 		const server = await startCredentialsServer({ basePath: "/hf" });
 		const { keychain, items } = fakeKeychain({
 			items: {
@@ -264,7 +265,7 @@ describe("hf init", () => {
 		expect(
 			JSON.parse(readFileSync(join(configDir, "settings.json"), "utf8"))
 				.otelHeadersHelper,
-		).toBe("hf otel-headers");
+		).toBe("harnessforce otel-headers");
 	});
 
 	it("prints the authorization URL when the browser cannot be opened and keeps waiting", async () => {
@@ -306,7 +307,7 @@ describe("hf init", () => {
 		])("rejects the arguments %j with usage", async (argv) => {
 			const result = await runInit(argv, { homeDir: makeHome().home });
 			expect(result.code).toBe(1);
-			expect(result.err).toContain("Usage: hf");
+			expect(result.err).toContain("Usage: harnessforce");
 		});
 
 		it.each([

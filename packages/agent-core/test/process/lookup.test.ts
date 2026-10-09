@@ -130,32 +130,40 @@ describe("finding a command on PATH", () => {
 
 	it("excludes every base, such as the hook's process directory and its input cwd", async () => {
 		const fs = memoryFs(
-			{ "/proc-cwd/hf": "", "/work/web/bin/hf": "", "/usr/local/bin/hf": "" },
+			{
+				"/proc-cwd/harnessforce": "",
+				"/work/web/bin/harnessforce": "",
+				"/usr/local/bin/harnessforce": "",
+			},
 			{ gitMarkers: ["/work/web/.git"] },
 		);
 		expect(
-			await findCommand("hf", {
+			await findCommand("harnessforce", {
 				platform: "darwin",
 				env: { PATH: "/proc-cwd:/work/web/bin:/usr/local/bin" },
 				bases: ["/proc-cwd", "/work/web"],
 				fs,
 			}),
-		).toBe("/usr/local/bin/hf");
+		).toBe("/usr/local/bin/harnessforce");
 	});
 
 	it("skips empty and relative PATH entries and files without the execute permission", async () => {
 		const fs = memoryFs(
-			{ "bin/hf": "", "/opt/a/hf": "", "/opt/b/hf": "" },
-			{ notExecutable: ["/opt/a/hf"] },
+			{
+				"bin/harnessforce": "",
+				"/opt/a/harnessforce": "",
+				"/opt/b/harnessforce": "",
+			},
+			{ notExecutable: ["/opt/a/harnessforce"] },
 		);
 		expect(
-			await findCommand("hf", {
+			await findCommand("harnessforce", {
 				platform: "linux",
 				env: { PATH: "::bin:/opt/a:/opt/b" },
 				bases: ["/work"],
 				fs,
 			}),
-		).toBe("/opt/b/hf");
+		).toBe("/opt/b/harnessforce");
 	});
 
 	it("does not append PATHEXT to a name that already has one of its extensions", async () => {
@@ -193,15 +201,15 @@ describe("finding a command on PATH", () => {
 	});
 
 	it("reads Path and Pathext case-insensitively on Windows", async () => {
-		const fs = memoryFs({ "C:\\npm\\hf.cmd": "" });
+		const fs = memoryFs({ "C:\\npm\\harnessforce.cmd": "" });
 		expect(
-			await findCommand("hf", {
+			await findCommand("harnessforce", {
 				platform: "win32",
 				env: { Path: "C:\\npm", Pathext: ".CMD" },
 				bases: ["C:\\work"],
 				fs,
 			}),
-		).toBe("C:\\npm\\hf.CMD");
+		).toBe("C:\\npm\\harnessforce.CMD");
 	});
 });
 
@@ -242,7 +250,7 @@ describe("building the command line on Windows", () => {
 	});
 
 	it("starts an npm shim with the running node instead of a node on PATH", async () => {
-		const shim = `${shimDir}\\hf.cmd`;
+		const shim = `${shimDir}\\harnessforce.cmd`;
 		const line = await commandLineFor(
 			shim,
 			["otel-headers"],
@@ -272,7 +280,7 @@ describe("building the command line on Windows", () => {
 	});
 
 	it("starts an npm shim when no node is on PATH", async () => {
-		const shim = `${shimDir}\\hf.cmd`;
+		const shim = `${shimDir}\\harnessforce.cmd`;
 		expect(
 			await commandLineFor(
 				shim,
@@ -326,7 +334,7 @@ describe("building the command line on Windows", () => {
 		expect(line?.file).toBe("C:\\Windows\\System32\\cmd.exe");
 	});
 
-	it("quotes every argument for hf run's cmd.exe command line", async () => {
+	it("quotes every argument for harnessforce run's cmd.exe command line", async () => {
 		const file = "C:\\tools\\agent.bat";
 		expect(
 			await commandLineFor(
@@ -399,7 +407,10 @@ describe("building the command line on Windows", () => {
 	});
 
 	it("refuses ! and % in the path of a batch file", async () => {
-		for (const file of ["C:\\a!b\\hf.cmd", "C:\\a%b\\hf.cmd"])
+		for (const file of [
+			"C:\\a!b\\harnessforce.cmd",
+			"C:\\a%b\\harnessforce.cmd",
+		])
 			expect(
 				await commandLineFor(file, ["otel-headers"], context({ [file]: "" }), {
 					quoteArgs: false,
@@ -471,7 +482,7 @@ describe("building the command line elsewhere", () => {
 			const script = join(dir, "bin.js");
 			writeFileSync(script, "#!/usr/bin/env node\n");
 			chmodSync(script, 0o755);
-			const link = join(dir, "hf");
+			const link = join(dir, "harnessforce");
 			symlinkSync(script, link);
 			expect(
 				await commandLineFor(link, ["otel-headers"], {

@@ -2,7 +2,7 @@
 	"name": "@harnessforce/agent-core",
 	"version": "0.0.0",
 	"private": true,
-	"description": "Logic shared by the hf CLI and the Claude Code plugin hook, bundled into both (not published to npm)",
+	"description": "Logic shared by the harnessforce CLI and the Claude Code plugin hook, bundled into both (not published to npm)",
 	"license": "Apache-2.0",
 	"type": "module",
 	"exports": {

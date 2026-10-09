@@ -60,7 +60,7 @@ export function resourceAttributes(
 	].flatMap(([name, value]) =>
 		value === undefined ? [] : [`${name}=${encodeURIComponent(value)}`],
 	);
-	// 利用者がshellで付けた属性は残す。hf.*はhf runが決めた値だけにする。
+	// 利用者がshellで付けた属性は残す。hf.*はharnessforce runが決めた値だけにする。
 	const kept = (shellValue ?? "")
 		.split(",")
 		.map((entry) => entry.trim())
@@ -68,7 +68,7 @@ export function resourceAttributes(
 	return [...kept, ...ours].join(",");
 }
 
-// correlation.md「CLI」の`hf run`の手順3から5。利用者用のkeyとApiTokenはどこにも置かない。
+// correlation.md「CLI」の`harnessforce run`の手順3から5。利用者用のkeyとApiTokenはどこにも置かない。
 export function buildLaunch(request: LaunchRequest): Launch {
 	const injectedEnv: Record<string, string> = {
 		HARNESSFORCE_WORKSPACE_ID: request.workspaceId,

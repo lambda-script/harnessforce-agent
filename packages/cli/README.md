@@ -1,6 +1,6 @@
 # @harnessforce/cli
 
-`hf`, the command line of [Harnessforce](https://github.com/lambda-script/harnessforce-agent). It
+`harnessforce`, the command line of [Harnessforce](https://github.com/lambda-script/harnessforce-agent). It
 connects a machine to a Harnessforce Workspace, supplies the ingest key to Claude Code's OpenTelemetry
 exporter, launches an agent linked to an Issue, and imports the metadata of past Claude Code sessions.
 
@@ -18,34 +18,38 @@ then, install it from the [local marketplace build](https://github.com/lambda-sc
 
 ```sh
 npm install -g @harnessforce/cli
-hf init
+harnessforce init
 ```
 
 ## Commands
 
 | Command | What it does |
 | --- | --- |
-| `hf init [--url <base URL>] [--port <port>] [--send-content]` | Logs in with the browser, stores a user ingest key and an API token in the keychain, and configures Claude Code |
-| `hf otel-headers` | Prints the `Authorization` header for Claude Code's `otelHeadersHelper` |
-| `hf run --issue <identifier> -- <agent> [args]` | Launches an agent with its session linked to an Issue |
-| `hf import` | Sends the metadata of past Claude Code sessions in connected repositories |
-| `hf tune [--all] [--no-send] [--show-report] [--json]` | Analyzes past sessions on this machine by public rules and sends the counts (analysis reports) |
-| `hf tune record` / `hf tune --purge` | Records a proposal from stdin / deletes everything under `~/.harnessforce/tune/` |
-| `hf --version` | Prints the version |
+| `harnessforce init [--url <base URL>] [--port <port>] [--send-content]` | Logs in with the browser, stores a user ingest key and an API token in the keychain, and configures Claude Code |
+| `harnessforce otel-headers` | Prints the `Authorization` header for Claude Code's `otelHeadersHelper` |
+| `harnessforce run --issue <identifier> -- <agent> [args]` | Launches an agent with its session linked to an Issue |
+| `harnessforce import` | Sends the metadata of past Claude Code sessions in connected repositories |
+| `harnessforce tune [--all] [--no-send] [--show-report] [--json]` | Analyzes past sessions on this machine by public rules and sends the counts (analysis reports) |
+| `harnessforce tune record` / `harnessforce tune --purge` | Records a proposal from stdin / deletes everything under `~/.harnessforce/tune/` |
+| `harnessforce --version` | Prints the version |
+
+Builds made before the first npm publish also install `hf` as an alias of `harnessforce`, so settings written
+by `hf init` keep working until you run `harnessforce init` again. The alias is removed from the first published
+version, because the Hugging Face CLI also uses the name `hf`.
 
 ## What is never sent
 
-Harnessforce never turns on prompt or body logging by itself. `hf run` never turns it on, and `hf init`
+Harnessforce never turns on prompt or body logging by itself. `harnessforce run` never turns it on, and `harnessforce init`
 adds `OTEL_LOG_USER_PROMPTS=1` to the Claude Code user settings only with `--send-content`, and only
 when the credentials response says the Workspace has opted in to content. Without that, prompts,
 responses, tool inputs and outputs, and file contents are not sent. For a Workspace that has not opted
-in, `hf init --send-content` leaves the setting alone, prints the reason, and still exits 0. `hf run`
+in, `harnessforce init --send-content` leaves the setting alone, prints the reason, and still exits 0. `harnessforce run`
 never puts the user key or the API token in the agent's environment, arguments or settings. Keys and
-tokens are sent only to the origins pinned by `hf init`.
+tokens are sent only to the origins pinned by `harnessforce init`.
 
-## CLI credentials (`hf init`, `hf otel-headers`)
+## CLI credentials (`harnessforce init`, `harnessforce otel-headers`)
 
-`hf init [--url <base URL>] [--port <port>] [--send-content]` connects this machine to a Harnessforce Workspace:
+`harnessforce init [--url <base URL>] [--port <port>] [--send-content]` connects this machine to a Harnessforce Workspace:
 
 1. It checks the OS keychain first: macOS Keychain, the Secret Service on Linux, or the Windows
    Credential Manager (through [`@napi-rs/keyring`](https://github.com/Brooooooklyn/keyring-node)).
@@ -69,10 +73,10 @@ tokens are sent only to the origins pinned by `hf init`.
    - `env`: the OTel exporter variables, `HARNESSFORCE_URL`, `HARNESSFORCE_ENDPOINT` and
      `HARNESSFORCE_WORKSPACE_ID`, but no key. With `--send-content` and a Workspace that has opted in
      to content it also adds `OTEL_LOG_USER_PROMPTS=1`
-   - `otelHeadersHelper`: `hf otel-headers`
+   - `otelHeadersHelper`: `harnessforce otel-headers`
    - `enabledPlugins["harnessforce@harnessforce-agent"]`
 
-`hf otel-headers` prints `{"Authorization":"Bearer <key>"}`. The key is `HARNESSFORCE_INGEST_KEY` from
+`harnessforce otel-headers` prints `{"Authorization":"Bearer <key>"}`. The key is `HARNESSFORCE_INGEST_KEY` from
 the managed settings file when that is set, and otherwise the user key for
 `HARNESSFORCE_WORKSPACE_ID` from the keychain. If
 there is no key, it prints nothing and exits 1. The user key is printed only when every destination
@@ -80,18 +84,18 @@ variable that is set (`HARNESSFORCE_ENDPOINT`, `OTEL_EXPORTER_OTLP_ENDPOINT` and
 `OTEL_EXPORTER_OTLP_*_ENDPOINT`) has the pinned origin. This stops a repository's
 `.claude/settings.json` `env` from pointing the hook at another host to collect the key. Otherwise it
 writes `harnessforce: user key withheld (destination not verified)` to stderr and exits 1. Run
-`hf init` again to re-pin.
+`harnessforce init` again to re-pin.
 
 ### Refreshing the API token
 
-`hf import` and `hf run --issue` call the Read API with the access token. When it has expired, or the
+`harnessforce import` and `harnessforce run --issue` call the Read API with the access token. When it has expired, or the
 Read API answers 401 once, they take `~/.harnessforce/token.lock`, read the keychain again (another
 process may have refreshed already), and exchange the refresh token at the `token_endpoint` from the
 authorization server metadata of the base URL, only when that endpoint is on the pinned base URL
 origin. The new pair replaces `<workspace_id>:api-token`. A lock older than 60 seconds is treated as
 abandoned, and waiting more than 30 seconds for it counts as a failed refresh. If the refresh fails, or
 the refreshed token is also answered with 401, they stop with
-「ログインの有効期限が切れました。`hf init`を実行してください」.
+「ログインの有効期限が切れました。`harnessforce init`を実行してください」.
 
 ### Default connection
 
@@ -100,16 +104,16 @@ The build fails without it. The value must be `https:`, or `http:` for localhost
 uses the same value for its MCP server URL. See
 [Building the local marketplace](https://github.com/lambda-script/harnessforce-agent/blob/main/docs/runbooks/local-marketplace.md).
 
-## Launching an agent for an Issue (`hf run`)
+## Launching an agent for an Issue (`harnessforce run`)
 
-`hf run --issue <identifier> -- <agent> [args]` links the session to an Issue before it starts:
+`harnessforce run --issue <identifier> -- <agent> [args]` links the session to an Issue before it starts:
 
 1. It reads the Read API base URL (`HARNESSFORCE_URL`, then `env.HARNESSFORCE_URL` in the Claude Code user
    settings, then the build default), the ingest endpoint (`HARNESSFORCE_ENDPOINT`, then the user
    settings) and the Workspace (`HARNESSFORCE_WORKSPACE_ID`, then the user settings). Before sending
    anything it checks, in order: the keychain, the Workspace, its user key, the ingest endpoint and its
-   scheme, the ingest origin pinned by `hf init`, the API token, the Read API scheme, and the Read API
-   origin pinned by `hf init`. The first failed check stops it, usually asking you to run `hf init`.
+   scheme, the ingest origin pinned by `harnessforce init`, the API token, the Read API scheme, and the Read API
+   origin pinned by `harnessforce init`. The first failed check stops it, usually asking you to run `harnessforce init`.
 2. It resolves the Issue with `GET /api/v1/issues/{identifier}` and the stored API token. If the Issue
    does not exist, it prints up to 10 candidates from `GET /api/v1/issues?query=<identifier>` and stops.
 3. It computes the config snapshot ID locally with the same collection as the SessionStart hook.
@@ -119,7 +123,7 @@ uses the same value for its MCP server URL. See
    `hf.vcs.repository`, `hf.vcs.branch`, `hf.vcs.commit` and `hf.agent.config_version`. It removes
    `OTEL_EXPORTER_OTLP_HEADERS` and the per-signal `*_HEADERS`, `*_ENDPOINT` and `*_PROTOCOL` variables
    inherited from the shell. The user key and the API token are never put in the agent's environment,
-   arguments or settings: Claude Code gets the key only through `otelHeadersHelper` (`hf otel-headers`).
+   arguments or settings: Claude Code gets the key only through `otelHeadersHelper` (`harnessforce otel-headers`).
 5. For Claude Code (`claude`), the same values also go in a settings file passed as
    `--settings <absolute path>` before your arguments, because settings files can override the shell.
    The file is created with mode 0600 in the temp directory and deleted when the agent exits.
@@ -131,10 +135,10 @@ uses the same value for its MCP server URL. See
 
 It exits with the agent's exit code. Prompt and body logging are never turned on.
 
-## Importing past sessions (`hf import`)
+## Importing past sessions (`harnessforce import`)
 
-`hf import` sends metadata of past Claude Code sessions on this machine to Harnessforce, so that
-work done before the plugin was installed can be linked to issues too. Run `hf init` first.
+`harnessforce import` sends metadata of past Claude Code sessions on this machine to Harnessforce, so that
+work done before the plugin was installed can be linked to issues too. Run `harnessforce init` first.
 
 - It reads the transcripts in `~/.claude/projects/<project>/<session>.jsonl` (or
   `$CLAUDE_CONFIG_DIR/projects`). Their format is not documented, so the parser is versioned
@@ -146,9 +150,9 @@ work done before the plugin was installed can be linked to issues too. Run `hf i
   repositories come from `GET <HARNESSFORCE_URL>/api/v1/repositories` (all pages) and the import
   window from `session_import_days` (`GET <HARNESSFORCE_URL>/api/v1/workspace`), both with the API
   token. The API token is sent only when the origin of `HARNESSFORCE_URL` matches the one pinned by
-  `hf init`; otherwise nothing is sent and it asks you to run `hf init`.
+  `harnessforce init`; otherwise nothing is sent and it asks you to run `harnessforce init`.
 - Sessions are sent 100 at a time to `POST <HARNESSFORCE_ENDPOINT>/v1/imports/sessions` with the user
-  ingest key, only when the endpoint origin matches the one pinned by `hf init`. `429` and `503` are
+  ingest key, only when the endpoint origin matches the one pinned by `harnessforce init`. `429` and `503` are
   retried up to 3 times after `Retry-After` (at most 60 seconds).
 - Sent sessions are recorded in `~/.harnessforce/import-state.json` per Workspace and ingest endpoint,
   so running it again continues where it stopped and never sends a session twice to the same place.
@@ -157,12 +161,12 @@ work done before the plugin was installed can be linked to issues too. Run `hf i
 
 The Workspace, the connection URL and the ingest endpoint come from `HARNESSFORCE_WORKSPACE_ID`,
 `HARNESSFORCE_URL` and `HARNESSFORCE_ENDPOINT` in the environment, and otherwise from the `env` that
-`hf init` wrote to the Claude Code user settings.
+`harnessforce init` wrote to the Claude Code user settings.
 
-## Analyzing past sessions (`hf tune`)
+## Analyzing past sessions (`harnessforce tune`)
 
-`hf tune` reads the same transcripts as `hf import` and turns each session into an analysis report:
-interventions, loops that could be automated, and MCP server calls. Run `hf init` first. The Viewer
+`harnessforce tune` reads the same transcripts as `harnessforce import` and turns each session into an analysis report:
+interventions, loops that could be automated, and MCP server calls. Run `harnessforce init` first. The Viewer
 role cannot use it.
 
 - The categories come from public rules and a public vocabulary (`src/tune/analyze.ts`,
@@ -173,10 +177,10 @@ role cannot use it.
   commands, paths and error text never leave the machine.
 - By default it analyzes sessions started in the last 30 days in connected repositories. `--all`
   analyzes every session, but still sends only sessions in connected repositories that started within
-  `session_import_days`. Sessions without a Run are imported first, like `hf import`.
+  `session_import_days`. Sessions without a Run are imported first, like `harnessforce import`.
 - Sending is fail-open: when Harnessforce cannot be reached, the reports stay in
   `~/.harnessforce/tune/unsent.json` and are sent by the next run. `401` and `403` delete the unsent
-  reports and ask you to run `hf init`.
+  reports and ask you to run `harnessforce init`.
 - `--no-send`, or `{"tune": {"send_report": false}}` in `~/.harnessforce/config.json`, sends nothing.
   A config file it cannot read also sends nothing.
 - It also counts usage per session (auto and manual context compactions, responses, cache reuse
@@ -185,7 +189,7 @@ role cannot use it.
 - `--json` also lists, for each recorded proposal whose application was detected, the value of its
   category in the 14 days before and after the detection time (`followups`). The difference is not
   a cause. Once a `--json` run outputs a follow-up whose after period has ended, later runs omit it.
-- Everything it keeps is under `~/.harnessforce/tune/`; `hf tune --purge` deletes it.
+- Everything it keeps is under `~/.harnessforce/tune/`; `harnessforce tune --purge` deletes it.
 
 ## License
 

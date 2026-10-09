@@ -48,7 +48,7 @@ export async function loadRegistration(
 	}
 }
 
-// 送らないpromptで`hf`を起動しないよう、送信先とkeyを判定する前に確かめる。
+// 送らないpromptで`harnessforce`を起動しないよう、送信先とkeyを判定する前に確かめる。
 export async function isFirstPromptSent(pad: Scratchpad): Promise<boolean> {
 	return access(firstPromptSentMark(pad)).then(
 		() => true,

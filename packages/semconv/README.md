@@ -2,7 +2,7 @@
 
 The semantic conventions of [Harnessforce](https://github.com/lambda-script/harnessforce-agent): the
 `hf.*` OpenTelemetry resource attribute names and the JSON Schemas of the items sent to the
-Harnessforce ingest API. The `hf` CLI and the Claude Code plugin hook build what they send from this
+Harnessforce ingest API. The `harnessforce` CLI and the Claude Code plugin hook build what they send from this
 package, and the Harnessforce service validates what it receives against the same schemas.
 
 ## Install

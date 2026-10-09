@@ -118,7 +118,7 @@ async function prepareLaunch(args: RunArgs, deps: RunDeps): Promise<Launch> {
 	});
 }
 
-// correlation.md「CLI」の`hf run --issue <識別子> -- <agent> [args]`。
+// correlation.md「CLI」の`harnessforce run --issue <識別子> -- <agent> [args]`。
 export function runIssue(args: RunArgs, deps: RunDeps): Promise<number> {
 	return runUntilStop(async () => {
 		const outcome = await deps.launch(await prepareLaunch(args, deps));

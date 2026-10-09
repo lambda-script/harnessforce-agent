@@ -14,11 +14,11 @@ import {
 
 // correlation.md「hook」の共通の規則が、選んだkeyの種類ごとに定める文言。
 const USER_KEY_REVOKED =
-	"送信キーが失効しています。`hf init`を実行してください";
+	"送信キーが失効しています。`harnessforce init`を実行してください";
 const WORKSPACE_KEY_REVOKED =
 	"組織の送信キーが失効しています。Workspaceの管理者に連絡してください";
 
-// managed settingsのfileを持たず、hf initで設定した端末。
+// managed settingsのfileを持たず、harnessforce initで設定した端末。
 const userEnv = {
 	HARNESSFORCE_ENDPOINT: "https://ingest.example.test",
 	HARNESSFORCE_WORKSPACE_ID: "ws1",
@@ -43,7 +43,7 @@ const start = event("session-start");
 const submit = event("user-prompt-submit");
 
 describe("hook key selection", () => {
-	it("sends with the user key read through hf otel-headers", async () => {
+	it("sends with the user key read through harnessforce otel-headers", async () => {
 		const h = harness({ ...noManaged, env: userEnv, userKey });
 		await start(h);
 		expect(h.userKeyReads()).toBe(1);
@@ -54,7 +54,7 @@ describe("hook key selection", () => {
 		expect(h.err()).toBe("");
 	});
 
-	it("prefers the Workspace key and does not start hf", async () => {
+	it("prefers the Workspace key and does not start harnessforce", async () => {
 		const h = harness({
 			env: userEnv,
 			managed: { HARNESSFORCE_INGEST_KEY: "hf_ik_ws9_managed" },
@@ -67,7 +67,7 @@ describe("hook key selection", () => {
 		});
 	});
 
-	it("does not start hf without HARNESSFORCE_WORKSPACE_ID", async () => {
+	it("does not start harnessforce without HARNESSFORCE_WORKSPACE_ID", async () => {
 		const h = harness({
 			...noManaged,
 			env: { ...userEnv, HARNESSFORCE_WORKSPACE_ID: undefined },
@@ -94,7 +94,7 @@ describe("hook key selection", () => {
 		);
 	});
 
-	it("treats hf missing from PATH as no key without a read failure line", async () => {
+	it("treats harnessforce missing from PATH as no key without a read failure line", async () => {
 		const h = harness({
 			...noManaged,
 			env: userEnv,
@@ -123,7 +123,7 @@ describe("hook key selection", () => {
 		);
 	});
 
-	it("does not start hf again after the first prompt was sent", async () => {
+	it("does not start harnessforce again after the first prompt was sent", async () => {
 		const h = harness({ ...noManaged, env: userEnv, userKey });
 		const dir = scratchpad();
 		await start(h, { scratchpad_dir: dir });

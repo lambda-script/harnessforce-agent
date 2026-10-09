@@ -13,10 +13,10 @@ import {
 } from "./harness.js";
 
 const INIT =
-	"`hf init`を実行してください。Viewerのロールでは`hf tune`を利用できません\n";
+	"`harnessforce init`を実行してください。Viewerのロールでは`harnessforce tune`を利用できません\n";
 const isValidReport = compileSchema(SCHEMAS["analysis-report"]);
 
-describe("hf tune", () => {
+describe("harnessforce tune", () => {
 	it("imports first, then sends schema-only reports without any prompt text", async () => {
 		const t = await setupTune();
 		const result = await t.run();
@@ -55,7 +55,7 @@ describe("hf tune", () => {
 		]);
 	});
 
-	it("guides hf init and sends nothing on a terminal without hf init", async () => {
+	it("guides harnessforce init and sends nothing on a terminal without harnessforce init", async () => {
 		const t = await setupTune();
 		const result = await t.run([], {
 			keychain: (await import("../support/cli.js")).fakeKeychain().keychain,
@@ -93,14 +93,14 @@ describe("hf tune", () => {
 
 	it.each([
 		401, 403,
-	])("deletes the unsent reports and guides hf init on %i", async (status) => {
+	])("deletes the unsent reports and guides harnessforce init on %i", async (status) => {
 		const t = await setupTune({ analysis: [{ status: 503 }, { status }] });
 		await t.run();
 		const result = await t.run();
 		expect(result.code).toBe(3);
 		expect(result.out).toContain("分析したsession: 10件");
 		expect(result.err).toContain(
-			"送信キーを使えません。未送信の分析結果10件を削除しました。`hf init`を実行してください\n",
+			"送信キーを使えません。未送信の分析結果10件を削除しました。`harnessforce init`を実行してください\n",
 		);
 		expect(t.readTune("unsent.json").destinations).toEqual({});
 	});
@@ -139,7 +139,7 @@ describe("hf tune", () => {
 		const result = await t.run();
 		expect(result.code).toBe(3);
 		expect(result.err).toContain(
-			"送信キーを使えません。未送信の分析結果10件を削除しました。`hf init`を実行してください\n",
+			"送信キーを使えません。未送信の分析結果10件を削除しました。`harnessforce init`を実行してください\n",
 		);
 		expect(t.reportBodies()).toHaveLength(1);
 		expect(t.readTune("unsent.json").destinations).toEqual({});
@@ -269,7 +269,7 @@ describe("hf tune", () => {
 		expect(result.code).toBe(3);
 		expect(result.out).toContain("分析したsession: 10件");
 		expect(result.err).toContain(
-			"ログインの有効期限が切れました。`hf init`を実行してください\n",
+			"ログインの有効期限が切れました。`harnessforce init`を実行してください\n",
 		);
 		expect(t.readTune("unsent.json").destinations).toEqual({});
 		expect(t.readTune("repositories.json").destinations).toEqual({});
@@ -452,7 +452,7 @@ describe("hf tune", () => {
 		expect(await t.run(["--bogus"])).toEqual({
 			code: 2,
 			out: "",
-			err: "使い方: hf tune [--all] [--no-send] [--show-report] [--json] ｜ hf tune record ｜ hf tune --purge\n",
+			err: "使い方: harnessforce tune [--all] [--no-send] [--show-report] [--json] ｜ harnessforce tune record ｜ harnessforce tune --purge\n",
 		});
 		expect((await t.run(["record", "--all"])).code).toBe(2);
 	});

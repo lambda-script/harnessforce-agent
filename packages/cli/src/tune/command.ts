@@ -227,7 +227,7 @@ async function sessionConfigsFor(
 	return { configs, servers };
 }
 
-// improvement-loop.md「送信」: 送る前に、Runの無いsessionをhf importと同じ規則で取り込む。
+// improvement-loop.md「送信」: 送る前に、Runの無いsessionをharnessforce importと同じ規則で取り込む。
 // 401を受けたらtrueを返し、分析結果を送らない。
 async function importBeforeSending(
 	sessions: readonly TuneSession[],
@@ -598,7 +598,7 @@ async function analyzeUnderLock(
 	return notices.flush(deps.stderr);
 }
 
-// improvement-loop.md「`hf tune`」の分析を行う呼び出し。
+// improvement-loop.md「`harnessforce tune`」の分析を行う呼び出し。
 export function analyzeCommand(
 	options: AnalyzeOptions,
 	deps: TuneDeps,

@@ -11,9 +11,9 @@ the `harnessforce-agent` marketplace in this repository, not through npm.
 | `SessionStart` and `UserPromptSubmit` hooks | Register each session and its config snapshot with Harnessforce |
 | MCP server `harnessforce` (`<connection URL>/mcp`, HTTP) | Tools to start a run, read an Issue, and record plans, decisions and the Definition of Done |
 | Skill `record-run` | Tells the agent when to call those tools |
-| Command `/harnessforce:setup` | Checks Node.js, installs the `hf` CLI, asks whether to send content, runs `hf init` (`--send-content` when chosen) and `hf import`, and confirms the first event after a restart |
-| Command `/harnessforce:tune` | Tells you that the agent reads parts of your transcripts through your model provider, runs `hf tune --json`, shows the analysis and the before and after of earlier applied proposals, and makes proposals for the targets with enough data |
-| Skill `propose-improvements` | How the agent writes a proposal (evidence, diff or pull request draft, expected effect, how to measure), keeps permissions minimal and loops bounded, and records it with `hf tune record` before showing it |
+| Command `/harnessforce:setup` | Checks Node.js, installs the `harnessforce` CLI, asks whether to send content, runs `harnessforce init` (`--send-content` when chosen) and `harnessforce import`, and confirms the first event after a restart |
+| Command `/harnessforce:tune` | Tells you that the agent reads parts of your transcripts through your model provider, runs `harnessforce tune --json`, shows the analysis and the before and after of earlier applied proposals, and makes proposals for the targets with enough data |
+| Skill `propose-improvements` | How the agent writes a proposal (evidence, diff or pull request draft, expected effect, how to measure), keeps permissions minimal and loops bounded, and records it with `harnessforce tune record` before showing it |
 
 The hooks and the MCP server exist only in the build output, because their scripts and connection URL
 come from the build. The copy of the plugin in this repository has no hooks and no MCP server. See
@@ -52,16 +52,16 @@ contents are never sent.
   environment variables. Values distributed through MDM or server-managed settings are not read.
   Hooks do not receive `OTEL_*` variables, so these are separate.
 - Without a managed Workspace key, the hook sends to `HARNESSFORCE_ENDPOINT` from the environment with
-  the user ingest key that `hf init` stored for
-  `HARNESSFORCE_WORKSPACE_ID`, reading it by running `hf otel-headers` from `PATH` (1 second limit).
-  With a user key and `HARNESSFORCE_ISSUE` (set by `hf run`), the registration claims `source=cli`
+  the user ingest key that `harnessforce init` stored for
+  `HARNESSFORCE_WORKSPACE_ID`, reading it by running `harnessforce otel-headers` from `PATH` (1 second limit).
+  With a user key and `HARNESSFORCE_ISSUE` (set by `harnessforce run`), the registration claims `source=cli`
   with that issue identifier. A Workspace key never claims `source=cli`.
 - Requires Node.js 18 or later on `PATH`. The hook always exits 0: outside a git repository, without
   configuration, on errors, or after 2 seconds it gives up quietly and writes the reason to stderr
   (Claude Code's debug log). Without Node.js, Claude Code shows a non-blocking `hook error`.
 - If the key is revoked, Claude Code shows once per session:
   組織の送信キーが失効しています。Workspaceの管理者に連絡してください (Workspace key) or
-  送信キーが失効しています。`hf init`を実行してください (user key)
+  送信キーが失効しています。`harnessforce init`を実行してください (user key)
 
 ## Config snapshot
 
@@ -79,7 +79,7 @@ an identifier, plus a SHA-256 hash:
 File contents, settings values and MCP server configuration (URLs, headers, environment) are never
 sent, only their hashes. Nothing is sent when there are no components, and the snapshot is skipped
 when collection takes over 1 second or finds more than 1,000 components. The collector lives in
-`packages/agent-core/src/config`, shared with `hf run` so it can compute the same snapshot ID.
+`packages/agent-core/src/config`, shared with `harnessforce run` so it can compute the same snapshot ID.
 
 ## License
 

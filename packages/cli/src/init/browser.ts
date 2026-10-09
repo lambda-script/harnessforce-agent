@@ -65,7 +65,7 @@ export async function openBrowser(
 	);
 	return new Promise((resolve) => {
 		const child = spawnImpl(command, args, childEnv);
-		// ブラウザを前面で動かし続けるopenerでも、hfの終了を待たせない。
+		// ブラウザを前面で動かし続けるopenerでも、harnessforceの終了を待たせない。
 		child.unref();
 		const timer = setTimeout(() => resolve(true), stillRunningMs);
 		const finish = (opened: boolean) => {

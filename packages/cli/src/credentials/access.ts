@@ -19,7 +19,7 @@ export type AccessDeps = {
 	defaultUrl: string;
 };
 
-// 終端ごとの文言。hf runとhf importは、ApiTokenが無い場合の文言だけが異なる。
+// 終端ごとの文言。harnessforce runとharnessforce importは、ApiTokenが無い場合の文言だけが異なる。
 export type AccessMessages = Record<
 	"keychainUnavailable" | "initRequired" | "invalidUrl" | "apiTokenMissing",
 	string
@@ -61,7 +61,7 @@ export async function verifyCliAccess(
 	// hookが拒否する送信先へ、hookと同じ利用者用のkeyを送らない。
 	const ingestOrigin = await read(ingestOriginAccount(workspaceId));
 	if (ingestOrigin !== ingest.origin) stop("initRequired");
-	// 形の違う値（以前のversionのhf initが保存した値を含む）は、ApiTokenが無いものとして扱う。
+	// 形の違う値（以前のversionのharnessforce initが保存した値を含む）は、ApiTokenが無いものとして扱う。
 	const apiToken =
 		parseStoredApiToken(
 			await read(apiTokenAccount(workspaceId)),
@@ -69,7 +69,7 @@ export async function verifyCliAccess(
 		) ?? stop("apiTokenMissing");
 	const readApiBase =
 		parseAllowedUrl(destinations.readApiUrl) ?? stop("invalidUrl");
-	// shellやrepositoryのsettingsが書き換えた接続先へApiTokenを送らない。hf initが使った接続先のoriginへだけ送る。
+	// shellやrepositoryのsettingsが書き換えた接続先へApiTokenを送らない。harnessforce initが使った接続先のoriginへだけ送る。
 	const urlOrigin = await read(urlOriginAccount(workspaceId));
 	if (urlOrigin !== readApiBase.origin) stop("initRequired");
 	return {

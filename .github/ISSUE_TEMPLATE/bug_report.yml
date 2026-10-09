@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in the plugin, the hf CLI or the semantic conventions does not work as documented
+description: Something in the plugin, the harnessforce CLI or the semantic conventions does not work as documented
 labels: [bug]
 body:
   - type: markdown
@@ -12,7 +12,7 @@ body:
       label: Component
       options:
         - harnessforce plugin (hooks, MCP, setup)
-        - "@harnessforce/cli (hf)"
+        - "@harnessforce/cli (harnessforce)"
         - "@harnessforce/semconv"
         - Build or development tooling
     validations:
@@ -29,7 +29,7 @@ body:
     attributes:
       label: Steps to reproduce
       placeholder: |
-        1. Run `hf ...`
+        1. Run `harnessforce ...`
         2. ...
     validations:
       required: true
@@ -37,13 +37,13 @@ body:
     id: logs
     attributes:
       label: Output
-      description: Relevant output, such as `hf` stderr or lines starting with `harnessforce:` in the Claude Code debug log.
+      description: Relevant output, such as `harnessforce` stderr or lines starting with `harnessforce:` in the Claude Code debug log.
       render: text
   - type: input
     id: version
     attributes:
       label: Version
-      description: "`hf --version`, the plugin version, or the commit you built."
+      description: "`harnessforce --version`, the plugin version, or the commit you built."
     validations:
       required: true
   - type: input

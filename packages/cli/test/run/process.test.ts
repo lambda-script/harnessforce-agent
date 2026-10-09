@@ -209,7 +209,7 @@ describe.skipIf(process.platform === "win32")(
 	},
 );
 
-describe("running git for hf run", () => {
+describe("running git for harnessforce run", () => {
 	const runGit: RunGit = (cwd, args) =>
 		createGitRunner({
 			platform: process.platform,

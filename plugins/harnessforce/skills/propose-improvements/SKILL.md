@@ -1,6 +1,6 @@
 ---
 name: propose-improvements
-description: /harnessforce:tuneの分析結果から、人の介入、ループにできる繰り返し、MCP server、使い方（contextの圧縮、cacheの再利用、modelの使い分け）の改善の提案を作り、hf tune recordで記録してから表示する。/harnessforce:tuneが「提案を作れます」と判定した対象にだけ使う。ファイルは書き換えない。
+description: /harnessforce:tuneの分析結果から、人の介入、ループにできる繰り返し、MCP server、使い方（contextの圧縮、cacheの再利用、modelの使い分け）の改善の提案を作り、harnessforce tune recordで記録してから表示する。/harnessforce:tuneが「提案を作れます」と判定した対象にだけ使う。ファイルは書き換えない。
 ---
 
 # 分析結果から改善の提案を作る
@@ -10,7 +10,7 @@ description: /harnessforce:tuneの分析結果から、人の介入、ループ�
 ## 書き換えない
 
 - 利用者のファイル、設定、repository、managed settingsを書き換えない。Edit、Writeのtool、`git apply`、`git commit`、branchの作成、`gh pr create`を使わない。差分とPull Requestの下書きは表示するだけである。
-- 書き込むのは、`hf tune record`が`~/.harnessforce/tune/`へ書く記録だけである。一時fileも作らない。
+- 書き込むのは、`harnessforce tune record`が`~/.harnessforce/tune/`へ書く記録だけである。一時fileも作らない。
 
 ## 作る条件
 
@@ -26,7 +26,7 @@ description: /harnessforce:tuneの分析結果から、人の介入、ループ�
 | 使い方の`model_choice` | `models`を持つsessionが10以上あり、分析した範囲の`models`の合計で、1つの`message.model`の値が`output_tokens`の合計の90%以上を占める |
 
 - 未計測（`not_measured`）の値を根拠にしない。未計測を0として扱わない。
-- 使い方の提案の変更の種類は、`claude_md`、`rule`、`skill`、`agent`、`command`に限る（例: 肥大したCLAUDE.mdを分ける、探索をsubagentへ移してそのagentの`model`を指定する）。settingsの`model`など、他の変更の種類にしない。`hf tune record`は他の変更の種類を拒否する。`claude_md`の変更は適用を検出しないため、前回の提案の前後にも現れない。
+- 使い方の提案の変更の種類は、`claude_md`、`rule`、`skill`、`agent`、`command`に限る（例: 肥大したCLAUDE.mdを分ける、探索をsubagentへ移してそのagentの`model`を指定する）。settingsの`model`など、他の変更の種類にしない。`harnessforce tune record`は他の変更の種類を拒否する。`claude_md`の変更は適用を検出しないため、前回の提案の前後にも現れない。
 - 使い方の値（`usage`）は端末だけの値であり、Harnessforceへ送られない。提案の根拠には使ってよい。
 - ハーネスの構成（skill、rule、agent、command、hook、MCP server、modelのversionごとの成果の差）を対象にした提案は作らない。
 - 調べても、利用者がそのまま適用できる変更が見つからなければ、その対象の提案を作らず、理由を1行で伝える。
@@ -79,10 +79,10 @@ componentの`source`は適用先のscope（`user`、`repository`、`local`、`ma
 
 ## 記録してから表示する
 
-提案を表示する前に、提案ごとに`hf tune record`を実行し、stdinへUTF-8のJSONのobjectを1つ渡す。入力はheredocで渡し、fileに書かない。区切りの語は、入力に現れない語にする。
+提案を表示する前に、提案ごとに`harnessforce tune record`を実行し、stdinへUTF-8のJSONのobjectを1つ渡す。入力はheredocで渡し、fileに書かない。区切りの語は、入力に現れない語にする。
 
 ```sh
-hf tune record <<'HF_TUNE_RECORD_7f3c'
+harnessforce tune record <<'HF_TUNE_RECORD_7f3c'
 {"category": "...", "change_type": "...", "scope": "...", "path": "...", "evidence_session_ids": ["..."], "body": "..."}
 HF_TUNE_RECORD_7f3c
 ```
@@ -100,6 +100,6 @@ HF_TUNE_RECORD_7f3c
 | `evidence_session_ids` | ✓ | 根拠のsessionのsession ID（1件以上）。「根拠のsession」に表示されたものだけを使う |
 | `body` | ✓ | 提案の本文（markdown）。根拠、変更、期待する効果、測り方 |
 
-- `hf tune record`が終了コード0で終わった提案だけを表示する。0以外で終わった提案は表示せず、stderrの文言を伝える。
+- `harnessforce tune record`が終了コード0で終わった提案だけを表示する。0以外で終わった提案は表示せず、stderrの文言を伝える。
 - 同じ提案は同じ入力で記録する。同じ`category`、`change_type`、`path`、適用後の内容なら、何回記録しても1件として数えられる。
 - 表示では、対象のカテゴリ、根拠、変更の種類、適用先、変更、期待する効果、測り方を、この順に示す。

@@ -157,10 +157,10 @@ function runBundle(
 	});
 }
 
-// `hf otel-headers`の代わりのscript。keychainには触れず、固定のkeyを返す。
+// `harnessforce otel-headers`の代わりのscript。keychainには触れず、固定のkeyを返す。
 function hfReturning(key: string): string {
 	const dir = tempDir("hf-bin-");
-	const hf = join(dir, "hf");
+	const hf = join(dir, "harnessforce");
 	writeFileSync(
 		hf,
 		`#!/bin/sh\n[ "$1" = otel-headers ] && printf '{"Authorization":"Bearer ${key}"}'\n`,
@@ -413,7 +413,8 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 			expect(result.code).toBe(0);
 			expect(JSON.parse(result.stdout)).toEqual({
 				...JSON.parse(SESSION_CONTEXT),
-				systemMessage: "送信キーが失効しています。`hf init`を実行してください",
+				systemMessage:
+					"送信キーが失効しています。`harnessforce init`を実行してください",
 			});
 		});
 
@@ -433,10 +434,10 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 			expect(result.elapsedMs).toBeLessThan(4000);
 		}, 10_000);
 
-		// `hf otel-headers`の代わりのscript。keychainには触れない。
+		// `harnessforce otel-headers`の代わりのscript。keychainには触れない。
 		function fakeHfOnPath(): string {
 			const dir = tempDir("hf-bin-");
-			const hf = join(dir, "hf");
+			const hf = join(dir, "harnessforce");
 			writeFileSync(
 				hf,
 				`#!/bin/sh\n[ "$1" = otel-headers ] && printf '{"Authorization":"Bearer hf_ik_%s_user"}' "$HARNESSFORCE_WORKSPACE_ID"\n`,
@@ -446,7 +447,7 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 		}
 
 		it.skipIf(process.platform === "win32")(
-			"sends with the user key from hf on PATH and claims source=cli",
+			"sends with the user key from harnessforce on PATH and claims source=cli",
 			async () => {
 				const repo = makeRepo();
 				const ingest = await startIngest("accept");
@@ -477,10 +478,10 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 			},
 		);
 
-		// hf initが固定した送信先の代わりに、testのingestのoriginだけへkeyを出すhf。
+		// harnessforce initが固定した送信先の代わりに、testのingestのoriginだけへkeyを出すharnessforce。
 		function pinnedHfOnPath(pinnedOrigin: string): string {
 			const dir = tempDir("hf-bin-");
-			const hf = join(dir, "hf");
+			const hf = join(dir, "harnessforce");
 			writeFileSync(
 				hf,
 				`#!/bin/sh\ncase "$HARNESSFORCE_ENDPOINT" in\n  ${pinnedOrigin}/*) printf '{"Authorization":"Bearer hf_ik_ws1_user"}' ;;\n  *) echo "harnessforce: user key withheld (destination not verified)" >&2; exit 1 ;;\nesac\n`,
@@ -490,7 +491,7 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 		}
 
 		it.skipIf(process.platform === "win32")(
-			"passes its destination to hf and sends nothing when hf withholds the key",
+			"passes its destination to harnessforce and sends nothing when harnessforce withholds the key",
 			async () => {
 				const repo = makeRepo();
 				const ingest = await startIngest("accept");
@@ -512,9 +513,9 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 			},
 		);
 
-		// correlation.md「commandの解決」のNode.jsのscript: npmのhfは`env`にnodeを探させず、hookのnodeで起動する。
+		// correlation.md「commandの解決」のNode.jsのscript: npmのharnessforceは`env`にnodeを探させず、hookのnodeで起動する。
 		it.skipIf(process.platform === "win32")(
-			"starts npm's hf with the hook's node, not a node found through an empty PATH entry",
+			"starts npm's harnessforce with the hook's node, not a node found through an empty PATH entry",
 			async () => {
 				const repo = makeRepo();
 				const ingest = await startIngest("accept");
@@ -527,10 +528,10 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 				chmodSync(join(hookCwd, "node"), 0o755);
 				const hfDir = tempDir("hf-bin-");
 				writeFileSync(
-					join(hfDir, "hf"),
+					join(hfDir, "harnessforce"),
 					`#!/usr/bin/env node\nif (process.argv[2] === "otel-headers") process.stdout.write(JSON.stringify({ Authorization: "Bearer hf_ik_ws1_user" }));\n`,
 				);
-				chmodSync(join(hfDir, "hf"), 0o755);
+				chmodSync(join(hfDir, "harnessforce"), 0o755);
 				const result = await runBundle(
 					"session-start",
 					{ session_id: "s-1", cwd: repo.dir, source: "startup" },
@@ -554,7 +555,7 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 			},
 		);
 
-		// correlation.md「Node.jsの実行時の変数」: 取り除いて起動し直してから送る。hfへも渡さない。
+		// correlation.md「Node.jsの実行時の変数」: 取り除いて起動し直してから送る。harnessforceへも渡さない。
 		it.skipIf(process.platform === "win32")(
 			"relaunches without Node runtime variables and sends directly",
 			async () => {
@@ -580,10 +581,10 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 				const hfDir = tempDir("hf-bin-");
 				const envOut = join(hfDir, "env.txt");
 				writeFileSync(
-					join(hfDir, "hf"),
+					join(hfDir, "harnessforce"),
 					`#!/bin/sh\nenv > "${envOut}"\nprintf '{"Authorization":"Bearer hf_ik_ws1_user"}'\n`,
 				);
-				chmodSync(join(hfDir, "hf"), 0o755);
+				chmodSync(join(hfDir, "harnessforce"), 0o755);
 				const runtime = {
 					NODE_TLS_REJECT_UNAUTHORIZED: "0",
 					NODE_OPTIONS: "--no-deprecation",

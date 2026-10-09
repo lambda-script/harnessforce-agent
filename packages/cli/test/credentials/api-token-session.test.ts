@@ -192,7 +192,7 @@ describe("an ApiToken session", () => {
 
 	it.each([
 		["nothing stored", undefined],
-		["a value from an older hf init", "hf_at_ws1_plain"],
+		["a value from an older harnessforce init", "hf_at_ws1_plain"],
 		[
 			"a token of another workspace",
 			{ ...token("x"), access_token: "hf_at_ws2_x" },

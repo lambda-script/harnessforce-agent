@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { isObject } from "@harnessforce/agent-core/object";
 
-// improvement-loop.md「端末の設定」: `~/.harnessforce/config.json`の`tune.send_report`。hfはこのfileを書かない。
+// improvement-loop.md「端末の設定」: `~/.harnessforce/config.json`の`tune.send_report`。harnessforceはこのfileを書かない。
 export type SendSetting = "send" | "no_send" | "unreadable";
 
 const tuneConfigPath = (homeDir: string) =>

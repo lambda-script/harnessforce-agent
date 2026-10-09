@@ -7,9 +7,9 @@ import { type CommandLine, commandLine, resolveAgentFile } from "./command.js";
 import type { Launch } from "./launch.js";
 import type { LaunchOutcome } from "./run.js";
 
-// 端末からのCtrl-Cはagentも受け取る。agentが扱うため、hfは終わらずにagentの終了を待つ。
+// 端末からのCtrl-Cはagentも受け取る。agentが扱うため、harnessforceは終わらずにagentの終了を待つ。
 const IGNORED_WHILE_RUNNING = ["SIGINT", "SIGQUIT"] as const;
-// hfだけに届いた終了の要求はagentへ渡す。
+// harnessforceだけに届いた終了の要求はagentへ渡す。
 const FORWARDED = ["SIGTERM", "SIGHUP"] as const;
 
 export type LaunchOptions = {
@@ -22,7 +22,7 @@ export type LaunchOptions = {
 
 const FAILED: LaunchOutcome = { kind: "failed" };
 
-// correlation.md「CLI」の`hf run`の手順4、7、8。
+// correlation.md「CLI」の`harnessforce run`の手順4、7、8。
 export async function launchAgent(
 	launch: Launch,
 	options: LaunchOptions,

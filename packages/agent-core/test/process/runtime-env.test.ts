@@ -62,7 +62,7 @@ describe("relaunching without the runtime variables", () => {
 		expect(outcome).toEqual({ kind: "not-needed" });
 	});
 
-	it("relaunches with the clean environment and stashes the removed values for hf", async () => {
+	it("relaunches with the clean environment and stashes the removed values for harnessforce", async () => {
 		const envs: Record<string, string>[] = [];
 		const child = fakeChild();
 		const outcome = relaunchWithoutRuntimeVariables({

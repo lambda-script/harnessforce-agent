@@ -60,7 +60,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm turbo run test --filter=@harnessforce/agent-core --filter=@harnessforce/cli --filter=harnessforce-plugin
 
-  # correlation.md「実行環境」: hookは端末のNode.js 18以上で動き、hfも同じNode.jsで起動される。
+  # correlation.md「実行環境」: hookは端末のNode.js 18以上で動き、harnessforceも同じNode.jsで起動される。
   # 開発とbuildは.node-versionのNode.jsで行い、build済みの成果物だけを18で実行する。
   node18-runtime:
     runs-on: ubuntu-24.04
