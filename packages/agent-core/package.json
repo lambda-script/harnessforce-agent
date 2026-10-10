@@ -6,10 +6,7 @@
 	"license": "Apache-2.0",
 	"type": "module",
 	"exports": {
-		"./raw-plugin": {
-			"types": "./raw-plugin.d.mts",
-			"default": "./raw-plugin.mjs"
-		},
+		"./raw-plugin": "./src/raw-plugin.mjs",
 		"./*": "./src/*.ts"
 	},
 	"scripts": {
