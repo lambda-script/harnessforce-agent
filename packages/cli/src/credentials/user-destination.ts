@@ -17,13 +17,17 @@ export type UserDestinationDeps = {
 	keychain: Keychain;
 };
 
-// `none`はClaude Codeを設定していない端末。`skipped`は設定はあるが、利用者用のkeyを出せない端末。
+// `none`はWorkspaceも送信先も無い端末。`skipped`は設定はあるが、送れない端末。`not configured`はWorkspaceと送信先の片方だけが無い場合。
 export type UserDestination =
 	| { kind: "ok"; destination: Destination }
 	| { kind: "none" }
 	| {
 			kind: "skipped";
-			reason: "invalid endpoint" | "no ingest key" | "destination not verified";
+			reason:
+				| "not configured"
+				| "invalid endpoint"
+				| "no ingest key"
+				| "destination not verified";
 	  };
 
 // 利用者用のkeyは、`harnessforce init`が固定した送信先のoriginへだけ出す（correlation.md「CLI」の送信先の固定）。
@@ -36,9 +40,10 @@ export async function resolveUserDestination(
 		"",
 	);
 	if (!workspaceId && !ingestEndpoint) return { kind: "none" };
+	if (!workspaceId || !ingestEndpoint)
+		return { kind: "skipped", reason: "not configured" };
 	const ingestBase = ingestBaseFrom(ingestEndpoint);
-	if (!workspaceId || !ingestBase)
-		return { kind: "skipped", reason: "invalid endpoint" };
+	if (!ingestBase) return { kind: "skipped", reason: "invalid endpoint" };
 	if (!(await deps.keychain.isAvailable()))
 		return { kind: "skipped", reason: "no ingest key" };
 	const key = await deps.keychain.get(ingestKeyAccount(workspaceId));

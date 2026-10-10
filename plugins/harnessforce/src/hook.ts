@@ -3,6 +3,11 @@ import {
 	collectConfig,
 } from "@harnessforce/agent-core/config/collect";
 import {
+	INVALID_ENDPOINT_WARNING,
+	notConfiguredWarning,
+	REGISTRATION_FAILED_WARNING,
+} from "@harnessforce/agent-core/hook-warning";
+import {
 	type Destination,
 	type IngestItem,
 	type IngestPath,
@@ -77,35 +82,48 @@ async function selectUserKey(
 	return read.kind === "found" ? read.key : undefined;
 }
 
+// 送れない理由が利用者の設定にあるときだけwarningを返す（correlation.md「hookの警告」）。
+type Resolved = { destination?: Destination; warning?: string };
+
 // Workspace用のkeyとその送信先はmanaged settingsのfileからだけ読む。processの環境変数はrepositoryのsettingsが書けるためである。
 // Workspace用のkeyが無ければ、processの環境変数の送信先と利用者用のkeyを使う。
-// 送信先の判定をkeyの判定より先に行い、両方が無ければ送信先の終端だけを書く。
+// 送信先の判定をkeyの判定より先に行い、両方が無ければ送信先の終端だけを書く。警告は、未設定を送信先の不正より先に判定する。
 async function resolveDestination(
 	deps: HookDeps,
 	cwd: string,
-): Promise<Destination | undefined> {
+): Promise<Resolved> {
 	const managed = await readManagedEnv(deps.managedDir, [
 		"HARNESSFORCE_INGEST_KEY",
 		"HARNESSFORCE_ENDPOINT",
 	]);
 	const workspaceKey = managed.HARNESSFORCE_INGEST_KEY;
-	const ingestBase = ingestBaseFrom(
-		workspaceKey
-			? managed.HARNESSFORCE_ENDPOINT
-			: deps.env.HARNESSFORCE_ENDPOINT,
-	);
+	const endpoint = workspaceKey
+		? managed.HARNESSFORCE_ENDPOINT
+		: deps.env.HARNESSFORCE_ENDPOINT;
+	const notConfigured =
+		!endpoint || !(workspaceKey || deps.env.HARNESSFORCE_WORKSPACE_ID);
+	const ingestBase = ingestBaseFrom(endpoint);
 	if (!ingestBase) {
 		report(deps, "session registration", "skipped (invalid endpoint)");
-		return undefined;
+		return {
+			warning: notConfigured
+				? notConfiguredWarning("claude_code")
+				: INVALID_ENDPOINT_WARNING,
+		};
 	}
 	if (workspaceKey)
-		return { ingestBase, key: workspaceKey, keyKind: "workspace" };
+		return {
+			destination: { ingestBase, key: workspaceKey, keyKind: "workspace" },
+		};
 	const userKey = await selectUserKey(deps, cwd);
 	if (!userKey) {
 		report(deps, "session registration", "skipped (no ingest key)");
-		return undefined;
+		// WORKSPACE_IDがあるのにkeyが無い端末は、otelHeadersHelperの通知と重ねない。
+		return notConfigured
+			? { warning: notConfiguredWarning("claude_code") }
+			: {};
 	}
-	return { ingestBase, key: userKey, keyKind: "user" };
+	return { destination: { ingestBase, key: userKey, keyKind: "user" } };
 }
 
 // Workspace用のkeyではsource=cliを名乗らない（control-plane.md「認証の種類と信頼」）。
@@ -212,37 +230,39 @@ async function sendConfigSnapshot(
 	);
 }
 
-type RevokedKeyMessage = string;
-
-// 401を受けたら、失効したkeyの文言を返す。
+// 利用者へ表示する1行。401のkeyの文言を、送信の失敗と設定の警告より優先する。
 async function sendSessionStart(
 	input: HookInput,
 	deps: HookDeps,
-): Promise<RevokedKeyMessage | undefined> {
+): Promise<string | undefined> {
 	if (input.source !== undefined && !REGISTERING_SOURCES.has(input.source))
 		return undefined;
 	if (input.scratchpad && (await isMarkedUnauthorized(input.scratchpad)))
 		return undefined;
-	const destination = await resolveDestination(deps, input.cwd);
-	if (!destination) return undefined;
-	const outcomes = await Promise.all([
+	const { destination, warning } = await resolveDestination(deps, input.cwd);
+	if (!destination) return warning;
+	const [registration, snapshot] = await Promise.all([
 		registerSession(input, destination, deps).catch(logError(deps)),
 		sendConfigSnapshot(input, destination, deps).catch(logError(deps)),
 	]);
-	if (!outcomes.some((outcome) => outcome?.kind === "unauthorized"))
-		return undefined;
-	return reportRevokedKey(destination, input.scratchpad, deps);
+	if (
+		[registration, snapshot].some((outcome) => outcome?.kind === "unauthorized")
+	)
+		return reportRevokedKey(destination, input.scratchpad, deps);
+	return registration?.kind === "failed"
+		? REGISTRATION_FAILED_WARNING
+		: undefined;
 }
 
 // sourceや送信の結果によらず、session contextを必ず1回出す。resumeとcompactの後のcontextにもsession IDを残すためである。
 async function onSessionStart(input: HookInput, deps: HookDeps): Promise<void> {
-	const revoked = await sendSessionStart(input, deps).catch((error) => {
+	const message = await sendSessionStart(input, deps).catch((error) => {
 		logError(deps)(error);
 		return undefined;
 	});
 	writeJson(deps, {
 		...sessionContext(input.sessionId),
-		...(revoked === undefined ? {} : { systemMessage: revoked }),
+		...(message === undefined ? {} : { systemMessage: message }),
 	});
 }
 
@@ -255,7 +275,7 @@ async function onUserPromptSubmit(
 	if (!input.promptId || !pad || (await isMarkedUnauthorized(pad))) return;
 	const saved = await loadRegistration(pad);
 	if (!saved || (await isFirstPromptSent(pad))) return;
-	const destination = await resolveDestination(deps, input.cwd);
+	const { destination } = await resolveDestination(deps, input.cwd);
 	if (!destination || !(await claimFirstPrompt(pad))) return;
 	const outcome = await send(
 		destination,

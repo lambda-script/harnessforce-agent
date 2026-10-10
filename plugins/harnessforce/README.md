@@ -37,6 +37,15 @@ Until then, install the [local marketplace build](../../docs/runbooks/local-mark
 Node.js 18 or later on `PATH`. Without it, Claude Code shows a non-blocking `hook error` and the session
 continues without sending anything.
 
+## Warnings
+
+When a hook cannot send, it shows one line in the session instead of staying silent: Node.js older than 18,
+a failed restart of the hook process, sending not set up (`/harnessforce:setup`), an endpoint that is set
+but not allowed, and a session registration that failed with anything other than 401. The line appears
+only at a session start that registers (`startup`, `clear`, `fork`), except for the two startup failures,
+which appear at every session start. A missing key while `HARNESSFORCE_WORKSPACE_ID` is set shows nothing,
+because `harnessforce otel-headers` already reports it.
+
 ## Session registration hooks
 
 The `harnessforce` plugin registers each Claude Code session with Harnessforce so that runs can be
