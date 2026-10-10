@@ -8,7 +8,7 @@ const skill = readFileSync(
 		import.meta.url,
 	),
 	"utf8",
-);
+).replace(/\r\n/g, "\n");
 
 // correlation.md「using-harnessforce」: 注入する本文はfrontmatterを除いたSKILL.mdの本文で、80行以内。
 describe("using-harnessforce body", () => {

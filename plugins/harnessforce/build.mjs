@@ -9,10 +9,10 @@ import {
 } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { rawPlugin } from "@harnessforce/agent-core/raw-plugin";
 import { parseAllowedUrl, underBase } from "@harnessforce/agent-core/url";
 import { buildConfigFrom } from "@harnessforce/cli/scripts/build-config.mjs";
 import { build } from "tsdown";
-import { rawPlugin } from "../../packages/agent-core/raw-plugin.mjs";
 
 const pluginDir = fileURLToPath(new URL(".", import.meta.url));
 const repoRoot = join(pluginDir, "../..");

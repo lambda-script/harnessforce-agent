@@ -1,5 +1,5 @@
+import { rawPlugin } from "@harnessforce/agent-core/raw-plugin";
 import { defineConfig } from "tsdown";
-import { rawPlugin } from "../agent-core/raw-plugin.mjs";
 
 export default defineConfig({
 	entry: { bin: "src/bin.ts" },
