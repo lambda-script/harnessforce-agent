@@ -101,7 +101,11 @@ describe("built harnessforce", () => {
 			process.execPath,
 			[join(dist, "bin.js"), "hook", "session-start"],
 			{
-				input: JSON.stringify({ session_id: "s-1", cwd: home }),
+				input: JSON.stringify({
+					session_id: "s-1",
+					cwd: home,
+					source: "resume",
+				}),
 				env: { PATH: process.env.PATH, HOME: home, USERPROFILE: home },
 			},
 		).toString();

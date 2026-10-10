@@ -183,14 +183,50 @@ describe("harnessforce hook session-start", () => {
 		expect(sent[0]?.url).toBe(`${ENDPOINT}/v1/sessions`);
 	});
 
-	it("sends nothing, says nothing on stderr, and still prints the context, when no destination is known", async () => {
-		const { run, sent } = setup({
-			env: { HARNESSFORCE_WORKSPACE_ID: "", HARNESSFORCE_ENDPOINT: "" },
-		});
+	// correlation.md「hookの警告」: Codexのhookは平文で、session IDの行、本文、警告の1行を出す。
+	const plain = (message: string) =>
+		`harnessforce session_id: sess-1\n${usingHarnessforceBody}\n${message}\n`;
+	const NOT_CONFIGURED =
+		"Harnessforceの送信が設定されていません。`harnessforce init`を実行してください";
+	const INVALID_ENDPOINT =
+		"Harnessforceの送信先が不正です。`harnessforce init`を実行し直してください";
+	const REGISTRATION_FAILED =
+		"Harnessforceへのsession登録に失敗しました。通信を確かめてください";
+
+	it.each([
+		[
+			"no workspace and no endpoint",
+			{ HARNESSFORCE_WORKSPACE_ID: "", HARNESSFORCE_ENDPOINT: "" },
+		],
+		["no workspace id", { HARNESSFORCE_WORKSPACE_ID: "" }],
+		["no endpoint", { HARNESSFORCE_ENDPOINT: "" }],
+	])("warns that sending is not configured with %s", async (_name, env) => {
+		const { run, sent } = setup({ env });
 		const result = await run();
 		expect(result.code).toBe(0);
-		expect(result.err).toBe("");
 		expect(sent).toEqual([]);
+		expect(result.err).toContain(NOT_CONFIGURED);
+		expect(result.out).toBe(plain(NOT_CONFIGURED));
+	});
+
+	it("warns about an endpoint that is set but not allowed", async () => {
+		const { run, sent } = setup({
+			env: { HARNESSFORCE_ENDPOINT: "http://ingest.example.test" },
+		});
+		const result = await run();
+		expect(sent).toEqual([]);
+		expect(result.out).toBe(plain(INVALID_ENDPOINT));
+	});
+
+	it.each([
+		"resume",
+		"compact",
+	])("does not warn on source %s even when sending is not configured", async (source) => {
+		const { run } = setup({
+			env: { HARNESSFORCE_WORKSPACE_ID: "", HARNESSFORCE_ENDPOINT: "" },
+			input: { session_id: "sess-1", cwd: "/work/web", source },
+		});
+		const result = await run();
 		expect(JSON.parse(result.out)).toEqual(context("sess-1"));
 	});
 
@@ -246,11 +282,20 @@ describe("harnessforce hook session-start", () => {
 		);
 	});
 
-	it("exits 0 and prints the context when the network is down", async () => {
+	it("exits 0 and warns about the failed registration when the network is down", async () => {
 		const { run } = setup({ fetchFails: true });
 		const result = await run();
 		expect(result.code).toBe(0);
-		expect(JSON.parse(result.out)).toEqual(context("sess-1"));
+		expect(result.out).toBe(plain(REGISTRATION_FAILED));
+	});
+
+	it.each([
+		400, 500, 503,
+	])("warns about the failed registration on HTTP %i", async (status) => {
+		const { run } = setup({ status });
+		const result = await run();
+		expect(result.code).toBe(0);
+		expect(result.out).toBe(plain(REGISTRATION_FAILED));
 	});
 
 	it("exits 0 with no output for an input it cannot use", async () => {

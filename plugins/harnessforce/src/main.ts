@@ -1,4 +1,8 @@
 import { homedir } from "node:os";
+import {
+	RESTART_FAILED_WARNING,
+	warningOnlyOutput,
+} from "@harnessforce/agent-core/hook-warning";
 import { managedDirFor } from "@harnessforce/agent-core/managed";
 import { createGitRunner } from "@harnessforce/agent-core/process/git";
 import {
@@ -29,10 +33,12 @@ async function main(): Promise<void> {
 		stash: false,
 		spawnSelf,
 	});
-	if (relaunch.kind === "failed")
+	if (relaunch.kind === "failed") {
 		process.stderr.write(
 			"harnessforce: session registration skipped (restart failed)\n",
 		);
+		process.stdout.write(warningOnlyOutput(RESTART_FAILED_WARNING));
+	}
 	if (relaunch.kind !== "not-needed") return;
 	const raw = await readStdin().catch(() => "");
 	await runHook(process.argv[2] ?? "", raw, {

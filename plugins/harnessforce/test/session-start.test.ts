@@ -17,6 +17,14 @@ import {
 const WORKSPACE_KEY_REVOKED =
 	"組織の送信キーが失効しています。Workspaceの管理者に連絡してください";
 
+// correlation.md「hookの警告」の文言。
+const NOT_CONFIGURED =
+	"Harnessforceの送信が設定されていません。`/harnessforce:setup`を実行してください";
+const INVALID_ENDPOINT =
+	"Harnessforceの送信先が不正です。`harnessforce init`を実行し直してください";
+const REGISTRATION_FAILED =
+	"Harnessforceへのsession登録に失敗しました。通信を確かめてください";
+
 const start = (h: Harness, input: Record<string, unknown> = {}) =>
 	runHook(
 		"session-start",
@@ -156,19 +164,24 @@ describe("SessionStart hook", () => {
 	});
 
 	it.each([
-		["missing", { HARNESSFORCE_ENDPOINT: undefined }],
-		["empty", { HARNESSFORCE_ENDPOINT: "" }],
+		["missing", { HARNESSFORCE_ENDPOINT: undefined }, NOT_CONFIGURED],
+		["empty", { HARNESSFORCE_ENDPOINT: "" }, NOT_CONFIGURED],
 		[
 			"plain http to a remote host",
 			{ HARNESSFORCE_ENDPOINT: "http://ingest.example.test" },
+			INVALID_ENDPOINT,
 		],
-		["not a URL", { HARNESSFORCE_ENDPOINT: "ingest" }],
-		["another scheme", { HARNESSFORCE_ENDPOINT: "ftp://ingest.example.test" }],
-	])("skips with invalid endpoint when the endpoint is %s", async (_, managed) => {
+		["not a URL", { HARNESSFORCE_ENDPOINT: "ingest" }, INVALID_ENDPOINT],
+		[
+			"another scheme",
+			{ HARNESSFORCE_ENDPOINT: "ftp://ingest.example.test" },
+			INVALID_ENDPOINT,
+		],
+	])("skips with invalid endpoint when the endpoint is %s", async (_, managed, message) => {
 		const h = harness({ managed });
 		await start(h);
 		expect(h.requests).toEqual([]);
-		expect(h.out()).toBe(sessionContextLine());
+		expect(h.out()).toBe(sessionContextLine({ systemMessage: message }));
 		expect(h.err()).toBe(
 			"harnessforce: session registration skipped (invalid endpoint)\n",
 		);
@@ -318,21 +331,25 @@ describe("SessionStart hook", () => {
 
 	it.each([
 		400, 403, 413, 429, 500, 503,
-	])("keeps the user out of it on HTTP %i", async (status) => {
+	])("warns once and does not stop on HTTP %i", async (status) => {
 		const dir = scratchpad();
 		const h = harness({ status });
 		await start(h, { scratchpad_dir: dir });
-		expect(h.out()).toBe(sessionContextLine());
+		expect(h.out()).toBe(
+			sessionContextLine({ systemMessage: REGISTRATION_FAILED }),
+		);
 		expect(h.err()).toBe(
 			`harnessforce: session registration failed (HTTP ${status})\n`,
 		);
 		expect(existsSync(join(dir, "unauthorized-s-1"))).toBe(false);
 	});
 
-	it("keeps the user out of it when the request fails", async () => {
+	it("warns once and does not stop when the request fails", async () => {
 		const h = harness({ fetchError: new TypeError("fetch failed") });
 		await expect(start(h)).resolves.toBeUndefined();
-		expect(h.out()).toBe(sessionContextLine());
+		expect(h.out()).toBe(
+			sessionContextLine({ systemMessage: REGISTRATION_FAILED }),
+		);
 		expect(h.err()).toBe(
 			"harnessforce: session registration failed (TypeError)\n",
 		);

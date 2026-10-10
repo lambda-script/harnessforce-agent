@@ -427,7 +427,11 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 				{ session_id: "s-1", cwd: repo.dir },
 				env(ingest.endpoint),
 			);
-			expect(result).toMatchObject({ code: 0, stdout: SESSION_CONTEXT });
+			// correlation.md「hookの警告」: 登録の失敗は、利用者へ1行を表示する。
+			expect(result.code).toBe(0);
+			expect(JSON.parse(result.stdout).systemMessage).toBe(
+				"Harnessforceへのsession登録に失敗しました。通信を確かめてください",
+			);
 			expect(result.stderr).toBe(
 				"harnessforce: session registration failed (TimeoutError)\n",
 			);

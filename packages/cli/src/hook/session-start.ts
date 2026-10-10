@@ -1,5 +1,10 @@
 import { isAbsolute } from "node:path";
 import {
+	INVALID_ENDPOINT_WARNING,
+	notConfiguredWarning,
+	REGISTRATION_FAILED_WARNING,
+} from "@harnessforce/agent-core/hook-warning";
+import {
 	type Destination,
 	postItem,
 	type SendOutcome,
@@ -68,17 +73,22 @@ function parseInput(raw: string): Input | undefined {
 const report = (deps: SessionStartDeps, detail: string) =>
 	deps.stderr(`harnessforce: session registration ${detail}\n`);
 
-async function resolveDestination(
-	deps: SessionStartDeps,
-): Promise<Destination | undefined> {
+// 送れない理由が利用者の設定にあるときだけwarningを返す（correlation.md「hookの警告」）。keychainのkeyが無い端末は表示しない。
+type Resolved = { destination?: Destination; warning?: string };
+
+async function resolveDestination(deps: SessionStartDeps): Promise<Resolved> {
 	const resolved = await resolveUserDestination(deps);
-	// Claude Codeを設定していない端末では、毎回の stderr を避けるため、何も言わずに送らない。
-	if (resolved.kind === "none") return undefined;
-	if (resolved.kind === "skipped") {
-		report(deps, `skipped (${resolved.reason})`);
-		return undefined;
+	if (resolved.kind === "ok") return { destination: resolved.destination };
+	if (resolved.kind === "none") {
+		report(deps, "skipped (not configured)");
+		return { warning: notConfiguredWarning("codex") };
 	}
-	return resolved.destination;
+	report(deps, `skipped (${resolved.reason})`);
+	if (resolved.reason === "not configured")
+		return { warning: notConfiguredWarning("codex") };
+	return resolved.reason === "invalid endpoint"
+		? { warning: INVALID_ENDPOINT_WARNING }
+		: {};
 }
 
 // Workspace用のkeyではないため、`HARNESSFORCE_ISSUE`が制約を満たせばsource=cliを名乗る。
@@ -91,14 +101,16 @@ function registrationSource(
 		: { source: "hook" };
 }
 
+type Registered = { outcome?: SendOutcome; warning?: string };
+
 async function register(
 	input: Input,
 	deps: SessionStartDeps,
-): Promise<SendOutcome | undefined> {
-	const destination = await resolveDestination(deps);
-	if (!destination) return undefined;
+): Promise<Registered> {
+	const { destination, warning } = await resolveDestination(deps);
+	if (!destination) return { warning };
 	const vcs = await resolveVcs(input.cwd, deps.git);
-	if (!vcs) return undefined;
+	if (!vcs) return {};
 	const registration: SessionRegistration = {
 		agent: "codex",
 		session_id: input.sessionId,
@@ -113,7 +125,7 @@ async function register(
 		deps.fetch,
 	);
 	if (outcome.kind === "failed") report(deps, `failed (${outcome.reason})`);
-	return outcome;
+	return { outcome };
 }
 
 // correlation.md「Codexのhook」。CodexのSessionStartのhookが起動する。どの失敗でもsessionを止めず、常にexit 0で終える。
@@ -124,22 +136,29 @@ export async function sessionStart(deps: SessionStartDeps): Promise<number> {
 		.catch(() => "");
 	const input = parseInput(raw);
 	if (!input) return 0;
-	const outcome =
+	const registered =
 		input.source === undefined || REGISTERING_SOURCES.has(input.source)
-			? await register(input, deps).catch((error) => {
+			? await register(input, deps).catch((error): Registered => {
 					report(
 						deps,
 						`failed (${error instanceof Error ? error.name : "unknown"})`,
 					);
-					return undefined;
+					return {};
 				})
-			: undefined;
-	if (outcome?.kind === "unauthorized") {
+			: {};
+	const warning =
+		registered.outcome?.kind === "unauthorized"
+			? REVOKED_MESSAGE
+			: (registered.warning ??
+				(registered.outcome?.kind === "failed"
+					? REGISTRATION_FAILED_WARNING
+					: undefined));
+	if (warning !== undefined) {
 		// `additionalContext`以外の項目をCodexが受け付けるか確認できていないため、JSONにせず平文で出す。
 		// SessionStartの平文のstdoutはそのままagentのcontextに加えられ、利用者とagentに届く。
-		deps.stderr(`${REVOKED_MESSAGE}\n`);
+		deps.stderr(`${warning}\n`);
 		deps.stdout(
-			`${sessionContextLine(input.sessionId)}\n${usingHarnessforceBody}\n${REVOKED_MESSAGE}\n`,
+			`${sessionContextLine(input.sessionId)}\n${usingHarnessforceBody}\n${warning}\n`,
 		);
 		return 0;
 	}

@@ -59,7 +59,7 @@ HarnessforceのMCP serverのtoolで、作業をIssueに結び付けて記録す�
 
 ## session IDが無い場合
 
-- contextに`harnessforce session_id:`の行が無ければ、session IDを推測して渡さず、`start_run`と`complete_run`を呼ばない。`get_issue`、`record_plan`、`record_decision`はRunに依らないため続ける。
+- contextに`harnessforce session_id:`の行が無ければ、session IDを推測して渡さず、`start_run`と`complete_run`を呼ばない。`get_issue`、`record_plan`、`record_decision`はRunに依らないため続ける。利用者には「Harnessforceのhookが動いていないため、Runを記録できません。`/harnessforce:setup`を実行してください」と1回だけ伝える。
 
 ## 記録の扱い
 
