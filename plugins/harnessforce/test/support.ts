@@ -1,5 +1,6 @@
 import type { RunGit } from "@harnessforce/agent-core/process/git";
 import type { Env } from "@harnessforce/agent-core/types";
+import { usingHarnessforceBody } from "@harnessforce/agent-core/using-harnessforce";
 import {
 	ConfigSnapshotSchema,
 	SessionRegistrationSchema,
@@ -118,7 +119,7 @@ export const sessionContext = (
 ) => ({
 	hookSpecificOutput: {
 		hookEventName: "SessionStart",
-		additionalContext: `harnessforce session_id: ${sessionId}`,
+		additionalContext: `harnessforce session_id: ${sessionId}\n\n${usingHarnessforceBody}`,
 	},
 	...extra,
 });

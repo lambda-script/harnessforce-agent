@@ -131,9 +131,9 @@ describe("SessionStart hook", () => {
 	it("escapes the session id by JSON serialization", async () => {
 		const h = harness();
 		await start(h, { session_id: 'a"b\\c' });
-		expect(JSON.parse(h.out()).hookSpecificOutput.additionalContext).toBe(
-			'harnessforce session_id: a"b\\c',
-		);
+		expect(
+			JSON.parse(h.out()).hookSpecificOutput.additionalContext.split("\n")[0],
+		).toBe('harnessforce session_id: a"b\\c');
 	});
 
 	it("passes the session id it received to the agent context", async () => {

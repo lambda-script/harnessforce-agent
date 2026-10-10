@@ -12,6 +12,7 @@ import {
 	sessionContextLine,
 } from "@harnessforce/agent-core/session-context";
 import type { Env, Fetch } from "@harnessforce/agent-core/types";
+import { usingHarnessforceBody } from "@harnessforce/agent-core/using-harnessforce";
 import { resolveVcs } from "@harnessforce/agent-core/vcs";
 import { isToken, type SessionRegistration } from "@harnessforce/semconv";
 import type { Keychain } from "../credentials/keychain.js";
@@ -137,7 +138,9 @@ export async function sessionStart(deps: SessionStartDeps): Promise<number> {
 		// `additionalContext`以外の項目をCodexが受け付けるか確認できていないため、JSONにせず平文で出す。
 		// SessionStartの平文のstdoutはそのままagentのcontextに加えられ、利用者とagentに届く。
 		deps.stderr(`${REVOKED_MESSAGE}\n`);
-		deps.stdout(`${sessionContextLine(input.sessionId)}\n${REVOKED_MESSAGE}\n`);
+		deps.stdout(
+			`${sessionContextLine(input.sessionId)}\n${usingHarnessforceBody}\n${REVOKED_MESSAGE}\n`,
+		);
 		return 0;
 	}
 	deps.stdout(`${JSON.stringify(sessionContext(input.sessionId))}\n`);

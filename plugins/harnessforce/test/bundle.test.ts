@@ -20,6 +20,7 @@ import {
 	managedDirFor,
 	readManagedEnv,
 } from "@harnessforce/agent-core/managed";
+import { usingHarnessforceBody } from "@harnessforce/agent-core/using-harnessforce";
 import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
@@ -29,7 +30,7 @@ const built = fileURLToPath(new URL("../dist/marketplace", import.meta.url));
 const SESSION_CONTEXT = `${JSON.stringify({
 	hookSpecificOutput: {
 		hookEventName: "SessionStart",
-		additionalContext: "harnessforce session_id: s-1",
+		additionalContext: `harnessforce session_id: s-1\n\n${usingHarnessforceBody}`,
 	},
 })}\n`;
 // buildの出力をnode_modulesの無い場所へ写し、bundleが依存packageを実行時に解決しないことも確かめる。

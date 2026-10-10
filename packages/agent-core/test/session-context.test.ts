@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { sessionContext, sessionContextLine } from "../src/session-context.js";
+import { usingHarnessforceBody } from "../src/using-harnessforce.js";
 
 // correlation.md「session context」: pluginのhookとCodexのhookが、同じ行と同じ形のJSONで session IDをagentのcontextへ渡す。
 describe("session context", () => {
@@ -12,7 +13,7 @@ describe("session context", () => {
 		expect(sessionContext("sess-1")).toEqual({
 			hookSpecificOutput: {
 				hookEventName: "SessionStart",
-				additionalContext: "harnessforce session_id: sess-1",
+				additionalContext: `harnessforce session_id: sess-1\n\n${usingHarnessforceBody}`,
 			},
 		}));
 });

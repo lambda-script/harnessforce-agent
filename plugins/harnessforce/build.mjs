@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import { parseAllowedUrl, underBase } from "@harnessforce/agent-core/url";
 import { buildConfigFrom } from "@harnessforce/cli/scripts/build-config.mjs";
 import { build } from "tsdown";
+import { rawPlugin } from "../../packages/agent-core/raw-plugin.mjs";
 
 const pluginDir = fileURLToPath(new URL(".", import.meta.url));
 const repoRoot = join(pluginDir, "../..");
@@ -161,6 +162,7 @@ async function buildMarketplace() {
 		format: "cjs",
 		fixedExtension: true,
 		target: "node18",
+		plugins: [rawPlugin()],
 		dts: false,
 		logLevel: "warn",
 	});
