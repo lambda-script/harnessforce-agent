@@ -1,3 +1,4 @@
+import { RESTART_FAILED_WARNING } from "@harnessforce/agent-core/hook-warning";
 import {
 	relaunchWithoutRuntimeVariables,
 	type SpawnSelf,
@@ -18,6 +19,7 @@ type RelaunchDeps = {
 	platform: NodeJS.Platform;
 	env: Env;
 	spawnSelf: SpawnSelf;
+	stdout: (text: string) => void;
 	stderr: (text: string) => void;
 };
 
@@ -38,6 +40,8 @@ export async function relaunchHf(
 	// hookはどの失敗でもsessionを止めず、常にexit 0で終える（correlation.md「hook」）。
 	if (argv[0] === "hook") {
 		deps.stderr(`${HOOK_RESTART_FAILED}\n`);
+		// correlation.md「hookの警告」: Codexのhookは平文の警告1行だけを出す。
+		deps.stdout(`${RESTART_FAILED_WARNING}\n`);
 		return 0;
 	}
 	deps.stderr(`${RESTART_FAILED}\n`);

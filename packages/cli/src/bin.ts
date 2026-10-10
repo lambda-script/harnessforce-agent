@@ -34,6 +34,7 @@ const relaunched = await relaunchHf(argv, {
 	platform: process.platform,
 	env: process.env,
 	spawnSelf,
+	stdout: (text) => process.stdout.write(text),
 	stderr: (text) => process.stderr.write(text),
 });
 

@@ -19,10 +19,12 @@ describe("relaunching harnessforce without Node runtime variables", () => {
 	])("relaunches harnessforce %s and ends with the relaunched exit code", async (command) => {
 		const seen: Record<string, string>[] = [];
 		const err: string[] = [];
+		const out: string[] = [];
 		const code = await relaunchHf([command], {
 			platform: "linux",
 			env: { HTTPS_PROXY: "http://p", PATH: "/usr/bin" },
 			spawnSelf: exitingWith(7, seen),
+			stdout: (text) => out.push(text),
 			stderr: (text) => err.push(text),
 		});
 		expect(code).toBe(7);
@@ -41,6 +43,7 @@ describe("relaunching harnessforce without Node runtime variables", () => {
 			platform: "linux",
 			env: { NODE_OPTIONS: "--x" },
 			spawnSelf: exitingWith(0, []),
+			stdout: () => {},
 			stderr: () => {},
 		});
 		expect(code).toBe(0);
@@ -60,6 +63,7 @@ describe("relaunching harnessforce without Node runtime variables", () => {
 				spawnSelf: () => {
 					throw new Error("must not relaunch");
 				},
+				stdout: () => {},
 				stderr: () => {},
 			}),
 		).toBeUndefined();
@@ -73,6 +77,7 @@ describe("relaunching harnessforce without Node runtime variables", () => {
 				spawnSelf: () => {
 					throw new Error("must not relaunch");
 				},
+				stdout: () => {},
 				stderr: () => {},
 			}),
 		).toBeUndefined();
@@ -80,12 +85,14 @@ describe("relaunching harnessforce without Node runtime variables", () => {
 
 	it("ends with the restart message when the relaunch fails", async () => {
 		const err: string[] = [];
+		const out: string[] = [];
 		const code = await relaunchHf(["import"], {
 			platform: "linux",
 			env: { NODE_EXTRA_CA_CERTS: "/x.pem" },
 			spawnSelf: () => {
 				throw new Error("EAGAIN");
 			},
+			stdout: (text) => out.push(text),
 			stderr: (text) => err.push(text),
 		});
 		expect(code).toBe(1);
@@ -95,17 +102,21 @@ describe("relaunching harnessforce without Node runtime variables", () => {
 	// correlation.md「hook」: hookはどの失敗でもsessionを止めず、常にexit 0で終える。
 	it("lets the hook skip with exit 0 when the relaunch fails", async () => {
 		const err: string[] = [];
+		const out: string[] = [];
 		const code = await relaunchHf(["hook", "session-start"], {
 			platform: "linux",
 			env: { NODE_EXTRA_CA_CERTS: "/x.pem" },
 			spawnSelf: () => {
 				throw new Error("EAGAIN");
 			},
+			stdout: (text) => out.push(text),
 			stderr: (text) => err.push(text),
 		});
 		expect(code).toBe(0);
 		expect(err).toEqual([
 			"harnessforce: session registration skipped (restart failed)\n",
 		]);
+		// correlation.md「hookの警告」: Codexのhookは平文の警告1行だけを出す。
+		expect(out).toEqual(["Harnessforceのhookを起動し直せませんでした\n"]);
 	});
 });

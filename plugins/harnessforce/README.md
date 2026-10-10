@@ -43,8 +43,7 @@ When a hook cannot send, it shows one line in the session instead of staying sil
 a failed restart of the hook process, sending not set up (`/harnessforce:setup`), an endpoint that is set
 but not allowed, and a session registration that failed with anything other than 401. The line appears
 only at a session start that registers (`startup`, `clear`, `fork`), except for the two startup failures,
-which appear at every session start. A missing key while `HARNESSFORCE_WORKSPACE_ID` is set shows nothing,
-because `harnessforce otel-headers` already reports it.
+which appear at every session start. A missing key while `HARNESSFORCE_WORKSPACE_ID` is set shows nothing.
 
 ## Session registration hooks
 
