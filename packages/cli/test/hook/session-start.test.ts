@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { usingHarnessforceBody } from "@harnessforce/agent-core/using-harnessforce";
 import { SessionRegistrationSchema } from "@harnessforce/semconv";
 import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { compileSchema } from "@harnessforce/test-support/validator";
@@ -104,7 +105,7 @@ function setup(
 const context = (id: string) => ({
 	hookSpecificOutput: {
 		hookEventName: "SessionStart",
-		additionalContext: `harnessforce session_id: ${id}`,
+		additionalContext: `harnessforce session_id: ${id}\n\n${usingHarnessforceBody}`,
 	},
 });
 
@@ -240,7 +241,9 @@ describe("harnessforce hook session-start", () => {
 		const result = await run();
 		expect(result.code).toBe(0);
 		expect(result.err).toContain(REVOKED);
-		expect(result.out).toBe(`harnessforce session_id: sess-1\n${REVOKED}\n`);
+		expect(result.out).toBe(
+			`harnessforce session_id: sess-1\n${usingHarnessforceBody}\n${REVOKED}\n`,
+		);
 	});
 
 	it("exits 0 and prints the context when the network is down", async () => {

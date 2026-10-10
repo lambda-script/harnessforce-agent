@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { usingHarnessforceBody } from "@harnessforce/agent-core/using-harnessforce";
 import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { describe, expect, it } from "vitest";
 
@@ -91,5 +92,21 @@ describe("built harnessforce", () => {
 				"--version",
 			]).toString(),
 		).toBe(`${version}\n`);
+	});
+
+	// correlation.md「using-harnessforce」: buildしたbundleが、実行時にfileを読まずに本文を注入する。
+	it("injects the using-harnessforce body from the bundle alone", () => {
+		const home = tempDir("hf-cli-hook-home-");
+		const out = execFileSync(
+			process.execPath,
+			[join(dist, "bin.js"), "hook", "session-start"],
+			{
+				input: JSON.stringify({ session_id: "s-1", cwd: home }),
+				env: { PATH: process.env.PATH, HOME: home, USERPROFILE: home },
+			},
+		).toString();
+		expect(JSON.parse(out).hookSpecificOutput.additionalContext).toBe(
+			`harnessforce session_id: s-1\n\n${usingHarnessforceBody}`,
+		);
 	});
 });

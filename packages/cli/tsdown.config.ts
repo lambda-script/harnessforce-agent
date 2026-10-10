@@ -1,3 +1,4 @@
+import { rawPlugin } from "@harnessforce/agent-core/raw-plugin";
 import { defineConfig } from "tsdown";
 
 export default defineConfig({
@@ -7,6 +8,7 @@ export default defineConfig({
 	// correlation.md「実行環境」: hookは端末のNode.js 18以上でharnessforceを起動する。
 	target: "node18",
 	fixedExtension: false,
+	plugins: [rawPlugin()],
 	// harnessforceはcommandとしてだけ公開し、型を公開しない。
 	dts: false,
 	deps: {
