@@ -49,7 +49,7 @@ function parseArgs(args: readonly string[]): Parsed | undefined {
 	return { kind: "analyze", options };
 }
 
-// improvement-loop.md「`hf tune`」の`record`と`--purge`: keychainと宛先を読まず、ネットワークを使わない。
+// improvement-loop.md「`harnessforce tune`」の`record`と`--purge`: keychainと宛先を読まず、ネットワークを使わない。
 async function underLock(
 	deps: TuneCommandDeps,
 	failure: string,

@@ -29,9 +29,9 @@ export const MINIMUM_SESSIONS = 10;
 export const TUNE_MESSAGES = {
 	keychainUnavailable: INIT_MESSAGES.keychainUnavailable,
 	initRequired:
-		"`hf init`を実行してください。Viewerのロールでは`hf tune`を利用できません",
+		"`harnessforce init`を実行してください。Viewerのロールでは`harnessforce tune`を利用できません",
 	invalidUrl: "接続先のURLが不正です",
-	locked: "別の`hf tune`が実行中のため、実行できません",
+	locked: "別の`harnessforce tune`が実行中のため、実行できません",
 	insufficient: (count: number) =>
 		`データ不足: 分析したsessionは${count}件です。提案には${MINIMUM_SESSIONS}件以上が必要です（あと${MINIMUM_SESSIONS - count}件）`,
 	outOfRange: (days: number, count: number) =>
@@ -62,14 +62,15 @@ export const TUNE_MESSAGES = {
 	rejected: (status: number, count: number) =>
 		`Harnessforceが送信を拒否しました（HTTP ${status}）。${count}件の分析結果を送信せずに削除しました`,
 	keyUnusable: (count: number) =>
-		`送信キーを使えません。未送信の分析結果${count}件を削除しました。\`hf init\`を実行してください`,
-	loginExpired: "ログインの有効期限が切れました。`hf init`を実行してください",
+		`送信キーを使えません。未送信の分析結果${count}件を削除しました。\`harnessforce init\`を実行してください`,
+	loginExpired:
+		"ログインの有効期限が切れました。`harnessforce init`を実行してください",
 	unwritable:
 		"`~/.harnessforce/tune/`に書き込めないため、分析結果を送信しません",
 	recordFailed: "提案を記録できませんでした",
 	recordInvalid: (field: string) => `提案の記録の入力が不正です: ${field}`,
 	usage:
-		"使い方: hf tune [--all] [--no-send] [--show-report] [--json] ｜ hf tune record ｜ hf tune --purge",
+		"使い方: harnessforce tune [--all] [--no-send] [--show-report] [--json] ｜ harnessforce tune record ｜ harnessforce tune --purge",
 	purged:
 		"`~/.harnessforce/tune/`の分析結果、提案、未送信の分析結果を削除しました",
 	purgeFailed: "`~/.harnessforce/tune/`の一部のfileを削除できませんでした",

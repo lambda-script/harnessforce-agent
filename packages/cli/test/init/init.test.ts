@@ -1,5 +1,12 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import {
+	chmodSync,
+	mkdirSync,
+	readFileSync,
+	statSync,
+	writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
+import { parse } from "@decimalturn/toml-patch";
 import { storedToken } from "@harnessforce/test-support/api-token";
 import { describe, expect, it } from "vitest";
 import { codeChallenge } from "../../src/init/pkce.js";
@@ -14,26 +21,27 @@ import {
 	TOKEN_EXPIRY,
 } from "./harness.js";
 
-// correlation.md「CLI」の`hf init`が定める文言。
+// correlation.md「CLI」の`harnessforce init`が定める文言。
 const M = {
 	success:
 		"Harnessforceに接続しました。Claude Codeを再起動すると設定が反映されます",
 	invalidUrl: "接続先のURLが不正です",
 	keychain: "OSのキーチェーンを利用できないため、送信キーを保存できません",
 	tooManyKeys:
-		"keychainにある送信キーが多すぎるため、`hf init`を実行できません",
+		"keychainにある送信キーが多すぎるため、`harnessforce init`を実行できません",
 	tooManyCredentials:
-		"keychainにある送信キーまたはログインの情報が多すぎるため、`hf init`を実行できません",
+		"keychainにある送信キーまたはログインの情報が多すぎるため、`harnessforce init`を実行できません",
 	settings: "Claude Codeのuser settingsを読めません",
 	network:
-		"Harnessforceとの通信に失敗しました。もう一度`hf init`を実行してください",
+		"Harnessforceとの通信に失敗しました。もう一度`harnessforce init`を実行してください",
 	listen: "ログインの待ち受けを開始できませんでした",
 	timeout:
-		"ログインが時間内に完了しませんでした。もう一度`hf init`を実行してください",
+		"ログインが時間内に完了しませんでした。もう一度`harnessforce init`を実行してください",
 	denied: "ログインが拒否されました",
 	noWorkspace:
-		"参加しているWorkspaceがありません。Workspaceを作成するか招待を受諾してから、もう一度`hf init`を実行してください",
-	loginFailed: "ログインに失敗しました。もう一度`hf init`を実行してください",
+		"参加しているWorkspaceがありません。Workspaceを作成するか招待を受諾してから、もう一度`harnessforce init`を実行してください",
+	loginFailed:
+		"ログインに失敗しました。もう一度`harnessforce init`を実行してください",
 	viewer:
 		"閲覧のみのロールでは送信キーを発行できません。Workspaceの管理者に連絡してください",
 	limitAdmin:
@@ -43,16 +51,28 @@ const M = {
 	gate: "受信側へ反映できませんでした。変更はしていません。もう一度お試しください",
 	noIngest: "この環境はテレメトリを受信しないため、送信キーを発行できません",
 	saveFailed:
-		"送信キーを保存できませんでした。もう一度`hf init`を実行してください",
+		"送信キーを保存できませんでした。もう一度`harnessforce init`を実行してください",
 	contentNotOptedIn:
-		"このWorkspaceは本文データをopt-inしていないため、本文を送る設定は有効にしませんでした。Workspaceの設定のデータの保持でopt-inしてから、もう一度`hf init --send-content`を実行してください",
+		"このWorkspaceは本文データをopt-inしていないため、本文を送る設定は有効にしませんでした。Workspaceの設定のデータの保持でopt-inしてから、もう一度`harnessforce init --send-content`を実行してください",
 };
+
+// Codexの`config.toml`を書いた後の案内（correlation.md「CLI」の手順8）。
+const codexNotes = (home: string) =>
+	[
+		`Codexの設定を書き込みました（${join(home, ".codex", "config.toml")}）。Codexを再起動すると反映されます`,
+		"Codexのhookは、Codexの/hooksで内容をtrustするまで実行されません。/hooksでharnessforceのSessionStartのhookをtrustしてください",
+		"HarnessforceのMCPを使う場合は、`codex mcp login harnessforce`でログインしてください",
+	].join("\n");
+const finished = (home: string) => `${M.success}\n${codexNotes(home)}\n`;
+
+const codexSaveFailed =
+	"Codexの設定を書き込めませんでした。もう一度`harnessforce init`を実行してください";
 
 const failed = (message: string) => ({ code: 1, out: "", err: `${message}\n` });
 
 // portを確保できなかったときの文言。使えなかったportと`--port`の逃げ道を示す（correlation.md「CLI」）。
 const listenFailed = (port: number) =>
-	`${M.listen}。port ${port}を使っているprocessを終えるか、\`hf init --port\`で別のportを指定してください`;
+	`${M.listen}。port ${port}を使っているprocessを終えるか、\`harnessforce init --port\`で別のportを指定してください`;
 
 const EXISTING = {
 	"ws1:ingest-key": "hf_ik_ws1_old",
@@ -69,7 +89,7 @@ const issuedApiToken = {
 	refresh_token_expires_at: issued.refresh_token_expires_at,
 };
 
-describe("hf init", () => {
+describe("harnessforce init", () => {
 	it("logs in, issues credentials, stores them and writes user settings", async () => {
 		const server = await startCredentialsServer();
 		const browser = fakeBrowser();
@@ -87,7 +107,7 @@ describe("hf init", () => {
 			keychain,
 			openBrowser: browser.open,
 		});
-		expect(result).toEqual({ code: 0, out: `${M.success}\n`, err: "" });
+		expect(result).toEqual({ code: 0, out: finished(home.home), err: "" });
 
 		const [authorization] = browser.opened;
 		expect(`${authorization?.origin}${authorization?.pathname}`).toBe(
@@ -151,12 +171,13 @@ describe("hf init", () => {
 				HARNESSFORCE_WORKSPACE_ID: "ws1",
 				CLAUDE_CODE_ENABLE_TELEMETRY: "1",
 				CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: "1",
+				OTEL_METRICS_INCLUDE_ENTRYPOINT: "true",
 				OTEL_METRICS_EXPORTER: "otlp",
 				OTEL_LOGS_EXPORTER: "otlp",
 				OTEL_TRACES_EXPORTER: "otlp",
 				OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf",
 			},
-			otelHeadersHelper: "hf otel-headers",
+			otelHeadersHelper: "harnessforce otel-headers",
 			enabledPlugins: {
 				"other@market": true,
 				"harnessforce@harnessforce-agent": true,
@@ -206,7 +227,7 @@ describe("hf init", () => {
 		expect(home.read()).not.toContain("pass");
 	});
 
-	it("re-pins both origins on a later hf init with another --url", async () => {
+	it("re-pins both origins on a later harnessforce init with another --url", async () => {
 		const server = await startCredentialsServer({ basePath: "/hf" });
 		const { keychain, items } = fakeKeychain({
 			items: {
@@ -264,7 +285,7 @@ describe("hf init", () => {
 		expect(
 			JSON.parse(readFileSync(join(configDir, "settings.json"), "utf8"))
 				.otelHeadersHelper,
-		).toBe("hf otel-headers");
+		).toBe("harnessforce otel-headers");
 	});
 
 	it("prints the authorization URL when the browser cannot be opened and keeps waiting", async () => {
@@ -306,7 +327,7 @@ describe("hf init", () => {
 		])("rejects the arguments %j with usage", async (argv) => {
 			const result = await runInit(argv, { homeDir: makeHome().home });
 			expect(result.code).toBe(1);
-			expect(result.err).toContain("Usage: hf");
+			expect(result.err).toContain("Usage: harnessforce");
 		});
 
 		it.each([
@@ -662,7 +683,7 @@ describe("hf init", () => {
 				defaultUrl: server.base,
 				openBrowser: fakeBrowser().open,
 			});
-			expect(result).toEqual({ code: 0, out: `${M.success}\n`, err: "" });
+			expect(result).toEqual({ code: 0, out: finished(home.home), err: "" });
 			expect(JSON.parse(home.read() ?? "").env.OTEL_LOG_USER_PROMPTS).toBe("1");
 		});
 
@@ -678,7 +699,7 @@ describe("hf init", () => {
 			});
 			expect(result).toEqual({
 				code: 0,
-				out: `${M.contentNotOptedIn}\n${M.success}\n`,
+				out: `${M.contentNotOptedIn}\n${finished(home.home)}`,
 				err: "",
 			});
 			const env = JSON.parse(home.read() ?? "").env;
@@ -697,7 +718,7 @@ describe("hf init", () => {
 			});
 			expect(result).toEqual({
 				code: 0,
-				out: `${M.contentNotOptedIn}\n${M.success}\n`,
+				out: `${M.contentNotOptedIn}\n${finished(home.home)}`,
 				err: "",
 			});
 			const env = JSON.parse(home.read() ?? "").env;
@@ -717,7 +738,7 @@ describe("hf init", () => {
 				defaultUrl: server.base,
 				openBrowser: fakeBrowser().open,
 			});
-			expect(result).toEqual({ code: 0, out: `${M.success}\n`, err: "" });
+			expect(result).toEqual({ code: 0, out: finished(home.home), err: "" });
 			expect(JSON.parse(home.read() ?? "").env.OTEL_LOG_USER_PROMPTS).toBe("0");
 		});
 	});
@@ -780,6 +801,167 @@ describe("hf init", () => {
 			expect(home.read()).toBe("{");
 			// 手順6の失敗では、新しいkeyはkeychainに保存されている。
 			expect(items.get("ws1:ingest-key")).toBe(issued.ingest_key);
+		});
+	});
+
+	describe("Codex config.toml", () => {
+		const codexPath = (home: string) => join(home, ".codex", "config.toml");
+
+		it("writes the exporter, the SessionStart hook and the MCP server with the new key", async () => {
+			const server = await startCredentialsServer();
+			const home = makeHome();
+			await runInit([], {
+				homeDir: home.home,
+				defaultUrl: server.base,
+				openBrowser: fakeBrowser().open,
+			});
+			const config = parse(readFileSync(codexPath(home.home), "utf8"));
+			expect(config).toEqual({
+				otel: {
+					exporter: {
+						"otlp-http": {
+							endpoint: issued.ingest_endpoint,
+							headers: { Authorization: `Bearer ${issued.ingest_key}` },
+							protocol: "binary",
+						},
+					},
+				},
+				hooks: {
+					SessionStart: [
+						{
+							hooks: [
+								{
+									type: "command",
+									command: "harnessforce hook session-start",
+									commandWindows: "harnessforce.cmd hook session-start",
+									timeout: 10,
+								},
+							],
+						},
+					],
+				},
+				mcp_servers: { harnessforce: { url: `${server.base}/mcp` } },
+			});
+			if (process.platform !== "win32")
+				expect(statSync(codexPath(home.home)).mode & 0o777).toBe(0o600);
+		});
+
+		it("keeps the other settings and does not add the ApiToken", async () => {
+			const server = await startCredentialsServer();
+			const home = makeHome();
+			mkdirSync(join(home.home, ".codex"));
+			writeFileSync(
+				codexPath(home.home),
+				'model = "gpt-5" # mine\n\n[otel]\nenvironment = "prod"\n',
+				{ mode: 0o644 },
+			);
+			await runInit([], {
+				homeDir: home.home,
+				defaultUrl: server.base,
+				openBrowser: fakeBrowser().open,
+			});
+			const text = readFileSync(codexPath(home.home), "utf8");
+			expect(text).toContain('model = "gpt-5" # mine');
+			expect(text).toContain('environment = "prod"');
+			expect(text).not.toContain(issued.access_token);
+			expect(text).not.toContain(issued.refresh_token);
+			if (process.platform !== "win32")
+				expect(statSync(codexPath(home.home)).mode & 0o777).toBe(0o600);
+		});
+
+		it("uses CODEX_HOME when it is an absolute path", async () => {
+			const server = await startCredentialsServer();
+			const home = makeHome();
+			const codexHome = join(home.home, "elsewhere");
+			await runInit([], {
+				homeDir: home.home,
+				env: { CODEX_HOME: codexHome },
+				defaultUrl: server.base,
+				openBrowser: fakeBrowser().open,
+			});
+			expect(readFileSync(join(codexHome, "config.toml"), "utf8")).toContain(
+				"harnessforce hook session-start",
+			);
+		});
+
+		it("replaces only its own items when run again", async () => {
+			const server = await startCredentialsServer();
+			const home = makeHome();
+			const run = () =>
+				runInit([], {
+					homeDir: home.home,
+					defaultUrl: server.base,
+					openBrowser: fakeBrowser().open,
+				});
+			await run();
+			const first = readFileSync(codexPath(home.home), "utf8");
+			await run();
+			expect(readFileSync(codexPath(home.home), "utf8")).toBe(first);
+		});
+
+		it("enables log_user_prompt only with --send-content and an opted-in workspace", async () => {
+			const optedIn = await startCredentialsServer({
+				credentials: {
+					status: 201,
+					body: { ...issued, content_opt_in: true },
+				},
+			});
+			const notOptedIn = await startCredentialsServer();
+			const read = async (server: { base: string }, argv: string[]) => {
+				const home = makeHome();
+				await runInit(argv, {
+					homeDir: home.home,
+					defaultUrl: server.base,
+					openBrowser: fakeBrowser().open,
+				});
+				return (
+					parse(readFileSync(codexPath(home.home), "utf8")) as {
+						otel: Record<string, unknown>;
+					}
+				).otel;
+			};
+			expect((await read(optedIn, ["--send-content"])).log_user_prompt).toBe(
+				true,
+			);
+			expect(await read(optedIn, [])).not.toHaveProperty("log_user_prompt");
+			expect(await read(notOptedIn, ["--send-content"])).not.toHaveProperty(
+				"log_user_prompt",
+			);
+		});
+
+		it("fails with the Codex message and leaves config.toml alone when it cannot be updated", async () => {
+			const server = await startCredentialsServer();
+			const home = makeHome();
+			mkdirSync(join(home.home, ".codex"));
+			writeFileSync(codexPath(home.home), "[otel");
+			const { keychain, items } = fakeKeychain();
+			expect(
+				await runInit([], {
+					homeDir: home.home,
+					defaultUrl: server.base,
+					keychain,
+					openBrowser: fakeBrowser().open,
+				}),
+			).toEqual(failed(codexSaveFailed));
+			expect(readFileSync(codexPath(home.home), "utf8")).toBe("[otel");
+			// keyは手順5でkeychainに保存済みで、失われていない。
+			expect(items.get("ws1:ingest-key")).toBe(issued.ingest_key);
+			expect(home.read()).toContain("HARNESSFORCE_WORKSPACE_ID");
+		});
+
+		it("fails with the Codex message when the directory cannot be written", async () => {
+			if (process.platform === "win32" || process.getuid?.() === 0) return;
+			const server = await startCredentialsServer();
+			const home = makeHome();
+			mkdirSync(join(home.home, ".codex"));
+			chmodSync(join(home.home, ".codex"), 0o500);
+			const result = await runInit([], {
+				homeDir: home.home,
+				defaultUrl: server.base,
+				openBrowser: fakeBrowser().open,
+			});
+			chmodSync(join(home.home, ".codex"), 0o700);
+			expect(result).toEqual(failed(codexSaveFailed));
 		});
 	});
 });

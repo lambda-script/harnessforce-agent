@@ -56,7 +56,7 @@ describe("ci workflow", () => {
 		);
 	});
 
-	// correlation.md「実行環境」: hookは端末のNode.js 18以上で動き、hfも同じNode.jsで起動される。
+	// correlation.md「実行環境」: hookは端末のNode.js 18以上で動き、harnessforceも同じNode.jsで起動される。
 	describe("Node.js 18 runtime smoke", () => {
 		const smoke = ci.jobs["node18-runtime"] as Job;
 		const commands = () => runs(smoke).join("\n");
@@ -73,7 +73,7 @@ describe("ci workflow", () => {
 			);
 		});
 
-		it("starts the built hf", () =>
+		it("starts the built harnessforce", () =>
 			expect(commands()).toContain("node packages/cli/dist/bin.js --version"));
 
 		it("runs the hook entry on empty and invalid stdin", () => {

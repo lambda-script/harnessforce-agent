@@ -20,7 +20,7 @@ const RUNTIME_VARIABLES = [
 	"SSL_CERT_FILE",
 	"SSL_CERT_DIR",
 ];
-// 取り除いた値を、起動し直したhfへ渡す変数。agentとブラウザの環境へ戻すためだけに使う。
+// 取り除いた値を、起動し直したharnessforceへ渡す変数。agentとブラウザの環境へ戻すためだけに使う。
 const STASH = "HARNESSFORCE_RUNTIME_ENV";
 // 端末からのCtrl-Cは起動し直したprocessも受け取る。そちらが扱うため、元のprocessは終わらずに待つ。
 const IGNORED_WHILE_WAITING = ["SIGINT", "SIGQUIT"] as const;
@@ -63,7 +63,7 @@ export const spawnSelf: SpawnSelf = (env) =>
 type RelaunchOptions = {
 	platform: NodeJS.Platform;
 	env: Env;
-	// hfだけが、取り除いた値をagentとブラウザの環境へ戻すために受け渡す。
+	// harnessforceだけが、取り除いた値をagentとブラウザの環境へ戻すために受け渡す。
 	stash: boolean;
 	spawnSelf: SpawnSelf;
 };
@@ -107,7 +107,7 @@ export function relaunchWithoutRuntimeVariables({
 	});
 }
 
-// 起動し直したhfが受け取った値。processの環境から取り除き、実行時の変数の名前の文字列だけを返す。
+// 起動し直したharnessforceが受け取った値。processの環境から取り除き、実行時の変数の名前の文字列だけを返す。
 export function takeStashedRuntimeEnv(
 	env: NodeJS.ProcessEnv,
 	platform: NodeJS.Platform,

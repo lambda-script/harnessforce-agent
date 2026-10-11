@@ -10,18 +10,21 @@ const exitingWith =
 		return spawn(process.execPath, ["-e", `process.exit(${code})`], { env });
 	};
 
-describe("relaunching hf without Node runtime variables", () => {
+describe("relaunching harnessforce without Node runtime variables", () => {
 	it.each([
 		"init",
 		"run",
 		"import",
-	])("relaunches hf %s and ends with the relaunched exit code", async (command) => {
+		"hook",
+	])("relaunches harnessforce %s and ends with the relaunched exit code", async (command) => {
 		const seen: Record<string, string>[] = [];
 		const err: string[] = [];
+		const out: string[] = [];
 		const code = await relaunchHf([command], {
 			platform: "linux",
 			env: { HTTPS_PROXY: "http://p", PATH: "/usr/bin" },
 			spawnSelf: exitingWith(7, seen),
+			stdout: (text) => out.push(text),
 			stderr: (text) => err.push(text),
 		});
 		expect(code).toBe(7);
@@ -33,7 +36,23 @@ describe("relaunching hf without Node runtime variables", () => {
 	});
 
 	it.each([
+		["usage-limits", "send"],
+		["usage-limits", "on"],
+	])("relaunches harnessforce %j", async (...argv) => {
+		const code = await relaunchHf(argv, {
+			platform: "linux",
+			env: { NODE_OPTIONS: "--x" },
+			spawnSelf: exitingWith(0, []),
+			stdout: () => {},
+			stderr: () => {},
+		});
+		expect(code).toBe(0);
+	});
+
+	// 元のstatusLineのcommandへ利用者の環境をそのまま渡すため、statuslineは起動し直さない。
+	it.each([
 		["otel-headers"],
+		["usage-limits", "statusline"],
 		["--version"],
 		[],
 	])("does not relaunch %j", async (...argv) => {
@@ -44,6 +63,7 @@ describe("relaunching hf without Node runtime variables", () => {
 				spawnSelf: () => {
 					throw new Error("must not relaunch");
 				},
+				stdout: () => {},
 				stderr: () => {},
 			}),
 		).toBeUndefined();
@@ -57,6 +77,7 @@ describe("relaunching hf without Node runtime variables", () => {
 				spawnSelf: () => {
 					throw new Error("must not relaunch");
 				},
+				stdout: () => {},
 				stderr: () => {},
 			}),
 		).toBeUndefined();
@@ -64,15 +85,38 @@ describe("relaunching hf without Node runtime variables", () => {
 
 	it("ends with the restart message when the relaunch fails", async () => {
 		const err: string[] = [];
+		const out: string[] = [];
 		const code = await relaunchHf(["import"], {
 			platform: "linux",
 			env: { NODE_EXTRA_CA_CERTS: "/x.pem" },
 			spawnSelf: () => {
 				throw new Error("EAGAIN");
 			},
+			stdout: (text) => out.push(text),
 			stderr: (text) => err.push(text),
 		});
 		expect(code).toBe(1);
-		expect(err).toEqual(["hfを起動し直せませんでした\n"]);
+		expect(err).toEqual(["harnessforceを起動し直せませんでした\n"]);
+	});
+
+	// correlation.md「hook」: hookはどの失敗でもsessionを止めず、常にexit 0で終える。
+	it("lets the hook skip with exit 0 when the relaunch fails", async () => {
+		const err: string[] = [];
+		const out: string[] = [];
+		const code = await relaunchHf(["hook", "session-start"], {
+			platform: "linux",
+			env: { NODE_EXTRA_CA_CERTS: "/x.pem" },
+			spawnSelf: () => {
+				throw new Error("EAGAIN");
+			},
+			stdout: (text) => out.push(text),
+			stderr: (text) => err.push(text),
+		});
+		expect(code).toBe(0);
+		expect(err).toEqual([
+			"harnessforce: session registration skipped (restart failed)\n",
+		]);
+		// correlation.md「hookの警告」: Codexのhookは平文の警告1行だけを出す。
+		expect(out).toEqual(["Harnessforceのhookを起動し直せませんでした\n"]);
 	});
 });

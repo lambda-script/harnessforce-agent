@@ -1,6 +1,7 @@
 import type { Keychain, KeychainItem } from "../../src/credentials/keychain.js";
 import { startLoopback } from "../../src/init/loopback.js";
 import { type CliDeps, run } from "../../src/main.js";
+import { fakeTty } from "../top/support.js";
 
 type FakeKeychainOptions = {
 	available?: boolean;
@@ -90,8 +91,19 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}) {
 			throw new Error("the agent must not be launched");
 		},
 		importGit: async () => undefined,
+		hookGit: async () => undefined,
 		sleep: async () => {},
 		readStdin: async () => Buffer.alloc(0),
+		top: fakeTty({ isTty: false }).io,
+		runOriginal: async () => {
+			throw new Error("the original statusLine command must not be run");
+		},
+		ask: async () => {
+			throw new Error("the user must not be asked");
+		},
+		spawnSender: () => {
+			throw new Error("the usage limits must not be sent");
+		},
 		...deps,
 		stdout: (text) => out.push(text),
 		stderr: (text) => err.push(text),

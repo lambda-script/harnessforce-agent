@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { usingHarnessforceBody } from "@harnessforce/agent-core/using-harnessforce";
 import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { describe, expect, it } from "vitest";
 
@@ -24,7 +25,7 @@ const importedSpecifiers = (source: string) =>
 		([, specifier]) => specifier as string,
 	);
 
-describe("built hf", () => {
+describe("built harnessforce", () => {
 	it("ships only the bin bundle and the build input, without declarations", () =>
 		expect(readdirSync(dist, { recursive: true }).sort()).toEqual([
 			"bin.js",
@@ -33,6 +34,18 @@ describe("built hf", () => {
 
 	it("runs as an executable with node", () =>
 		expect(binSource().startsWith("#!/usr/bin/env node\n")).toBe(true));
+
+	// correlation.md「コマンド名」: `bin`を指定しない`npm exec`は先頭の`bin`を選ぶため、`harnessforce`を先頭に置く。
+	// `hf`は最初のnpm publishより前のbuildだけが持つ別名であり、publishを有効にする前に外す（docs/runbooks/releasing.md）。
+	it("exposes harnessforce first and hf as the alias for the same executable", () => {
+		const manifest = JSON.parse(
+			readFileSync(join(packageDir, "package.json"), "utf8"),
+		);
+		expect(Object.entries(manifest.bin)).toEqual([
+			["harnessforce", "./dist/bin.js"],
+			["hf", "./dist/bin.js"],
+		]);
+	});
 
 	it("imports only node builtins and the declared externals", () => {
 		const packages = importedSpecifiers(binSource()).filter(
@@ -79,5 +92,25 @@ describe("built hf", () => {
 				"--version",
 			]).toString(),
 		).toBe(`${version}\n`);
+	});
+
+	// correlation.md「using-harnessforce」: buildしたbundleが、実行時にfileを読まずに本文を注入する。
+	it("injects the using-harnessforce body from the bundle alone", () => {
+		const home = tempDir("hf-cli-hook-home-");
+		const out = execFileSync(
+			process.execPath,
+			[join(dist, "bin.js"), "hook", "session-start"],
+			{
+				input: JSON.stringify({
+					session_id: "s-1",
+					cwd: home,
+					source: "resume",
+				}),
+				env: { PATH: process.env.PATH, HOME: home, USERPROFILE: home },
+			},
+		).toString();
+		expect(JSON.parse(out).hookSpecificOutput.additionalContext).toBe(
+			`harnessforce session_id: s-1\n\n${usingHarnessforceBody}`,
+		);
 	});
 });

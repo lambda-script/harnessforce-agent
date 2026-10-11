@@ -53,7 +53,7 @@ export const serializeApiToken = (token: StoredApiToken) =>
 		refresh_token_expires_at: token.refreshTokenExpiresAt,
 	});
 
-// 形の違う値（以前のversionのhf initが保存した値を含む）は、ApiTokenが無いものとして扱う。
+// 形の違う値（以前のversionのharnessforce initが保存した値を含む）は、ApiTokenが無いものとして扱う。
 export function parseStoredApiToken(
 	secret: string | undefined,
 	workspaceId: string,

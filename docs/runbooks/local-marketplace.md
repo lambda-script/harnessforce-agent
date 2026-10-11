@@ -14,7 +14,7 @@ HARNESSFORCE_BUILD_URL=<apps/web base URL> pnpm build
 
 `HARNESSFORCE_BUILD_URL` must be `https:`, or `http:` for `localhost`, `127.0.0.1` and `[::1]`. The
 build fails without it and never falls back to a default. The same value becomes the default connection
-of `hf` and the plugin's MCP server URL, so the two never disagree; the plugin build fails if
+of `harnessforce` and the plugin's MCP server URL, so the two never disagree; the plugin build fails if
 `packages/cli` was built with a different value.
 
 Give the exact origin `apps/web` serves, not merely an equivalent one: `http://127.0.0.1:3000` and
@@ -52,7 +52,7 @@ In Claude Code:
 ```
 
 `/harnessforce:setup` checks for Node.js 18 or later, installs the CLI from the build output, runs
-`hf init` and `hf import`, and asks you to restart Claude Code. Run it again after the restart to
+`harnessforce init` and `harnessforce import`, and asks you to restart Claude Code. Run it again after the restart to
 confirm that the first event arrived.
 
 Claude Code reads a directory marketplace in place: the installed plugin keeps pointing at the build

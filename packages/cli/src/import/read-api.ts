@@ -2,7 +2,7 @@ import type { Fetch } from "@harnessforce/agent-core/types";
 import { underBase } from "@harnessforce/agent-core/url";
 import { REQUEST_TIMEOUT_MS, readJsonObjectBody } from "../shared/http.js";
 
-// correlation.md「session import」: 401は「`hf init`を実行してください」、それ以外の失敗は通信の失敗として終える。
+// correlation.md「session import」: 401は「`harnessforce init`を実行してください」、それ以外の失敗は通信の失敗として終える。
 export type ReadOutcome<T> =
 	| { kind: "ok"; value: T }
 	| { kind: "unauthorized" }

@@ -20,8 +20,8 @@ import {
 	REVIEW_RELAY_PATTERNS,
 } from "./vocabulary.js";
 
-// 分析の規則（このfile、vocabulary.ts、mcp-config.tsの対応）のversion。規則を変えたら上げる。
-export const ANALYZER_VERSION = "1.0.0";
+// 分析の規則（このfile、vocabulary.ts、mcp-config.ts、usage.tsの対応）のversion。規則を変えたら上げる。
+export const ANALYZER_VERSION = "1.1.0";
 
 type InterventionKind = (typeof INTERVENTION_KINDS)[number];
 type LoopKind = (typeof LOOP_KINDS)[number];
@@ -40,7 +40,7 @@ export const emptyProposalCounts = (): ProposalCounts =>
 	) as ProposalCounts;
 
 // semantic-conventions.md「Analysis report」: 件数が偶数なら中央の2つの平均。
-function median(values: readonly number[]): number | null {
+export function median(values: readonly number[]): number | null {
 	if (values.length === 0) return null;
 	const sorted = [...values].sort((a, b) => a - b);
 	const middle = Math.floor(sorted.length / 2);

@@ -31,7 +31,7 @@ export type CollectOptions = {
 	// 上限時間（COLLECT_BUDGET_MS）を過ぎたらtrue。
 	isExpired: () => boolean;
 };
-// correlation.md「構成の収集」: 収集の開始からの上限時間。hookとhf runで同じ値を使う。
+// correlation.md「構成の収集」: 収集の開始からの上限時間。hookとharnessforce runで同じ値を使う。
 export const COLLECT_BUDGET_MS = 1000;
 
 export type CollectResult =

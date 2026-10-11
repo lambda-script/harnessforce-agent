@@ -80,7 +80,7 @@ async function runHf(argv: string[], setup: Setup = {}) {
 
 const ISSUE_ARGS = ["--issue", "ENG-42", "--", "claude", "-p", "hi"];
 
-describe("hf run", () => {
+describe("harnessforce run", () => {
 	// correlation.md「Node.jsの実行時の変数」: agentには起動し直す前に取り除いた値を戻す。
 	it("gives the agent the Node runtime variables removed before the relaunch", async () => {
 		const r = await runHf(ISSUE_ARGS, {
@@ -201,17 +201,18 @@ describe("hf run", () => {
 	])("rejects %j with usage", async (argv) => {
 		const r = await runHf(argv);
 		expect(r.code).toBe(1);
-		expect(r.err).toContain("Usage: hf");
+		expect(r.err).toContain("Usage: harnessforce");
 		expect(r.launches).toEqual([]);
 	});
 
 	// correlation.md「CLI」の確かめる順1〜8。どれもRead APIとingestへ何も送らない。
 	describe("checks before the Issue is resolved", () => {
-		const INIT = "`hf init`を実行してください";
+		const INIT = "`harnessforce init`を実行してください";
 		const KEYCHAIN =
 			"OSのキーチェーンを利用できないため、送信キーを保存できません";
 		const INVALID_URL = "接続先のURLが不正です";
-		const NO_TOKEN = "Issueを解決できませんでした。`hf init`を実行してください";
+		const NO_TOKEN =
+			"Issueを解決できませんでした。`harnessforce init`を実行してください";
 		const cases: [string, Setup, string, string[]?][] = [
 			[
 				"1: keychain unavailable",
@@ -338,12 +339,12 @@ describe("hf run", () => {
 			[
 				"a 401 on resolution that persists after the refresh",
 				{ issue: () => ({ status: 401 }) },
-				"ログインの有効期限が切れました。`hf init`を実行してください",
+				"ログインの有効期限が切れました。`harnessforce init`を実行してください",
 			],
 			[
 				"a 401 on candidates that persists after the refresh",
 				{ issue: () => ({ status: 404 }), list: () => ({ status: 401 }) },
-				"ログインの有効期限が切れました。`hf init`を実行してください",
+				"ログインの有効期限が切れました。`harnessforce init`を実行してください",
 			],
 			[
 				"a rejected refresh after a 401",
@@ -351,7 +352,7 @@ describe("hf run", () => {
 					issue: () => ({ status: 401 }),
 					refresh: { status: 400, body: { error: "invalid_grant" } },
 				},
-				"ログインの有効期限が切れました。`hf init`を実行してください",
+				"ログインの有効期限が切れました。`harnessforce init`を実行してください",
 			],
 			[
 				"a 500 on resolution",

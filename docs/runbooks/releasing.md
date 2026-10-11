@@ -23,8 +23,15 @@ recorded, that spec keeps distributing the plugin and the CLI to the public out 
    to a default. Use the production `apps/web` base URL once it is recorded in the Harnessforce
    `docs/specs/infrastructure/environments.md` ("接続先"); staging builds must not be published:
    `gh variable set HARNESSFORCE_BUILD_URL --body https://<apps/web host> -R lambda-script/harnessforce-agent`
-7. `gh variable set NPM_PUBLISH_ENABLED --body true -R lambda-script/harnessforce-agent`
-8. Re-run the latest `Release` workflow on `main`. It publishes 0.1.0 with provenance and fails
+7. Remove the `hf` alias before the first publish. `packages/cli/package.json` lists `harnessforce` and
+   `hf` in `bin` only for builds before the first publish (Harnessforce `correlation.md`, "コマンド名"): the
+   Hugging Face CLI also uses `hf`. Delete the `hf` entry from `bin`, update the `bin` test in
+   `packages/cli/test/bundle.test.ts`, and drop the `hf` fallback in `plugins/harnessforce/src/user-key.ts`
+   with its tests, and delete the paragraph about the alias in `packages/cli/README.md`.
+   `scripts/check-first-release.mjs` fails the `Release` workflow while an unpublished
+   package still exposes `hf`.
+8. `gh variable set NPM_PUBLISH_ENABLED --body true -R lambda-script/harnessforce-agent`
+9. Re-run the latest `Release` workflow on `main`. It publishes 0.1.0 with provenance and fails
    unless `npm view @harnessforce/semconv@0.1.0 version` and `npm view @harnessforce/cli@0.1.0 version` resolve.
    The Harnessforce spec (`semantic-conventions.md`) makes 0.1.0 the first published version, and the
    Harnessforce service switches to `@harnessforce/semconv` once 0.1.0 is on npm.
@@ -33,7 +40,7 @@ recorded, that spec keeps distributing the plugin and the CLI to the public out 
    version in `package.json` instead of opening a version pull request.
    `scripts/check-first-release.mjs` runs before `changesets/action` and fails the workflow when a
    package without 0.1.0 on npm is not at 0.1.0 or has a pending changeset.
-9. Confirm the provenance badge on each package page on npmjs.com, then deprecate the placeholders:
+10. Confirm the provenance badge on each package page on npmjs.com, then deprecate the placeholders:
    `npm deprecate @harnessforce/<name>@0.0.0-bootstrap.0 "placeholder for trusted publishing setup"`
 
 ## Every release

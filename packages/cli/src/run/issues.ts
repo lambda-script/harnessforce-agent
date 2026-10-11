@@ -4,7 +4,7 @@ import { REQUEST_TIMEOUT_MS, readJsonObjectBody } from "../shared/http.js";
 
 export type IssueCandidate = { identifier: string; title: string };
 
-// correlation.md「CLI」の`hf run`の手順1の結果。
+// correlation.md「CLI」の`harnessforce run`の手順1の結果。
 export type IssueResolution =
 	| { kind: "resolved" }
 	| { kind: "candidates"; candidates: IssueCandidate[] }

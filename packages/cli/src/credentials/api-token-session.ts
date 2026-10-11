@@ -18,7 +18,7 @@ const CLIENT_ID = "harnessforce-cli";
 export type ApiTokenSessionDeps = {
 	keychain: Keychain;
 	workspaceId: string;
-	// Read APIのbase URL。hf initが使った接続先のoriginと一致することを呼び出し側が確かめておく。
+	// Read APIのbase URL。harnessforce initが使った接続先のoriginと一致することを呼び出し側が確かめておく。
 	readBase: URL;
 	fetch: Fetch;
 	now: () => number;

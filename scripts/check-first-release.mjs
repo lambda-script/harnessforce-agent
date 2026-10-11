@@ -31,11 +31,16 @@ export async function npmHasVersion(spec) {
  * semantic-conventions.mdは、最初の公開を0.1.0とし、本体はnpmに0.1.0が載ったことで依存を切り替える。
  * changesets/actionはchangesetが残っている間はpublishせずにversionを上げるため、0.1.0が未公開のpackageへの
  * changesetと、0.1.0以外のversionを拒否する。
+ * 互換の別名`hf`は最初のpublishより前のbuildだけが持つため（correlation.md「コマンド名」）、未公開のpackageの`bin`に残っていれば拒否する。
  */
 export async function checkFirstRelease({ packages, changesets, isPublished }) {
 	const problems = [];
-	for (const { name, version } of packages) {
+	for (const { name, version, bin } of packages) {
 		if (await isPublished(`${name}@${FIRST_VERSION}`)) continue;
+		if (bin !== undefined && typeof bin === "object" && "hf" in bin)
+			problems.push(
+				`${name} exposes the hf alias, which only builds before the first publish may have (correlation.md コマンド名)`,
+			);
 		if (version !== FIRST_VERSION)
 			problems.push(
 				`${name} is ${version}, but its first release must be ${FIRST_VERSION}`,
@@ -58,7 +63,7 @@ function readRepository() {
 			),
 		)
 		.filter((pkg) => !pkg.private)
-		.map(({ name, version }) => ({ name, version }));
+		.map(({ name, version, bin }) => ({ name, version, bin }));
 	const changesets = readdirSync(new URL(".changeset/", root))
 		.filter((file) => file.endsWith(".md") && file !== "README.md")
 		.map((file) => ({

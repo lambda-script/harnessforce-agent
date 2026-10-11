@@ -24,6 +24,8 @@ export type ProposalRecord = {
 	attribution: "pending" | "decided";
 	attributed_session_id: string | null;
 	applied_detected_at: string | null;
+	// 「前回の提案の前後」を後の期間の満了の後に出力した時刻。以後の実行で出力しない。
+	followup_output_at: string | null;
 };
 
 const isRecord = (value: unknown): value is ProposalRecord =>
@@ -37,7 +39,11 @@ const isRecord = (value: unknown): value is ProposalRecord =>
 export async function readProposals(path: string): Promise<ProposalRecord[]> {
 	const value = await readJsonFile(path);
 	if (!isObject(value) || !Array.isArray(value.proposals)) return [];
-	return value.proposals.filter(isRecord);
+	// この項目を持たない以前の記録は、まだ出力していないものとして読む。
+	return value.proposals.filter(isRecord).map((record) => ({
+		...record,
+		followup_output_at: record.followup_output_at ?? null,
+	}));
 }
 
 export const writeProposals = (

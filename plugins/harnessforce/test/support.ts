@@ -1,5 +1,6 @@
 import type { RunGit } from "@harnessforce/agent-core/process/git";
 import type { Env } from "@harnessforce/agent-core/types";
+import { usingHarnessforceBody } from "@harnessforce/agent-core/using-harnessforce";
 import {
 	ConfigSnapshotSchema,
 	SessionRegistrationSchema,
@@ -51,7 +52,7 @@ type HarnessOptions = {
 	fetchError?: Error;
 	// 応答を返さず、要求のsignalが中断したらその理由で失敗するfetch。
 	hang?: boolean;
-	// `hf otel-headers`でkeychainを読んだ結果。無ければ`hf`がPATHに無い場合とする。
+	// `harnessforce otel-headers`でkeychainを読んだ結果。無ければ`harnessforce`がPATHに無い場合とする。
 	userKey?: UserKeyRead;
 	// managed-settings.jsonのenv。既定のWorkspace用のkeyと送信先に重ね、undefinedの値は除く。nullならfileを置かない。
 	managed?: Env | null;
@@ -131,7 +132,7 @@ export const sessionContext = (
 ) => ({
 	hookSpecificOutput: {
 		hookEventName: "SessionStart",
-		additionalContext: `harnessforce session_id: ${sessionId}`,
+		additionalContext: `harnessforce session_id: ${sessionId}\n\n${usingHarnessforceBody}`,
 	},
 	...extra,
 });

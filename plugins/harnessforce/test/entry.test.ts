@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
+import { UNSUPPORTED_NODE_WARNING } from "@harnessforce/agent-core/hook-warning";
 import { parse } from "acorn";
 import { describe, expect, it } from "vitest";
 
@@ -37,7 +38,9 @@ describe("hook entry", () => {
 	])("skips without loading the main bundle on Node.js %s", (version) => {
 		const result = runEntry(version);
 		expect(result.required).toEqual([]);
-		expect(result.stdout).toBe("");
+		expect(JSON.parse(result.stdout)).toEqual({
+			systemMessage: UNSUPPORTED_NODE_WARNING,
+		});
 		expect(result.stderr).toBe(
 			"harnessforce: session registration skipped (unsupported node)\n",
 		);

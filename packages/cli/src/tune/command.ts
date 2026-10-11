@@ -25,6 +25,7 @@ import { ANALYZER_VERSION, analyzeSession } from "./analyze.js";
 import { detectApplied } from "./applied.js";
 import { collectMcpServers, type SnapshotDeps } from "./config-snapshot.js";
 import { localIso, renderAnalysis } from "./display.js";
+import { computeFollowups } from "./followups.js";
 import { acquireTuneLock } from "./lock.js";
 import { mcpConfigOf } from "./mcp-config.js";
 import { MINIMUM_SESSIONS, Notices, TUNE_MESSAGES } from "./messages.js";
@@ -226,7 +227,7 @@ async function sessionConfigsFor(
 	return { configs, servers };
 }
 
-// improvement-loop.md「送信」: 送る前に、Runの無いsessionをhf importと同じ規則で取り込む。
+// improvement-loop.md「送信」: 送る前に、Runの無いsessionをharnessforce importと同じ規則で取り込む。
 // 401を受けたらtrueを返し、分析結果を送らない。
 async function importBeforeSending(
 	sessions: readonly TuneSession[],
@@ -437,7 +438,7 @@ async function analyzeUnderLock(
 		env: trustedEnv,
 		now: deps.now,
 	};
-	const proposals = await detectApplied(
+	const detected = await detectApplied(
 		list
 			? resolvePendingAttributions(
 					await readProposals(paths.proposals),
@@ -460,9 +461,27 @@ async function analyzeUnderLock(
 			events: tune.events,
 			skippedLines: tune.skippedLines,
 			mcp: mcpConfigOf(servers.get(tune.session.sessionId) ?? []),
-			proposals: countProposals(proposals, tune.session.sessionId),
+			proposals: countProposals(detected, tune.session.sessionId),
 		}),
 	}));
+
+	const { followups, ended } = computeFollowups(
+		detected,
+		analyzed.map((a) => ({
+			startedAt: a.tune.session.startedAt,
+			report: a.report,
+			usage: a.tune.usage,
+		})),
+		nowMs,
+		isLimited ? rangeSinceMs : undefined,
+	);
+	// 「前回の提案の前後」: 後の期間が満了した要素を出力した`--json`の実行だけが、その時刻を記録する。
+	const outputEnded = new Set(options.json ? ended : []);
+	const proposals = detected.map((p) =>
+		outputEnded.has(p.proposal_id)
+			? { ...p, followup_output_at: new Date(nowMs).toISOString() }
+			: p,
+	);
 
 	const output = {
 		analyzer_version: ANALYZER_VERSION,
@@ -479,7 +498,9 @@ async function analyzeUnderLock(
 			repository: a.tune.repository,
 			sendable: a.sendable,
 			report: a.report,
+			usage: a.tune.usage,
 		})),
+		followups,
 	};
 	const isWritten = await Promise.all([
 		writeJsonFile(paths.analysis, { version: 1, sessions: output.sessions }),
@@ -496,6 +517,7 @@ async function analyzeUnderLock(
 		deps.stdout(
 			renderAnalysis(
 				analyzed.map((a) => a.report),
+				analyzed.map((a) => a.tune.usage),
 				{
 					sessionCount: analyzed.length,
 					analyzerVersion: ANALYZER_VERSION,
@@ -576,7 +598,7 @@ async function analyzeUnderLock(
 	return notices.flush(deps.stderr);
 }
 
-// improvement-loop.md「`hf tune`」の分析を行う呼び出し。
+// improvement-loop.md「`harnessforce tune`」の分析を行う呼び出し。
 export function analyzeCommand(
 	options: AnalyzeOptions,
 	deps: TuneDeps,

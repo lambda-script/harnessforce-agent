@@ -26,7 +26,7 @@ type Report = {
 	proposals: Record<string, { shown: number; applied_detected: number }>;
 };
 
-describe("hf tune record", () => {
+describe("harnessforce tune record", () => {
 	it("records a proposal once, attributes it to the newest sendable evidence session and counts it in one report", async () => {
 		const t = await setupTune();
 		await t.run();
@@ -97,6 +97,63 @@ describe("hf tune record", () => {
 		});
 	});
 
+	// improvement-loop.md「提案の記録」: 使い方のカテゴリと、その変更の種類の制限。
+	it("records a usage proposal whose change type is one of the five, with no follow-up output time yet", async () => {
+		const t = await setupTune({ sessions: 1 });
+		await t.run();
+		const result = await t.run(["record"], {
+			readStdin: stdin({
+				...skillProposal(t.home.home, ["s000"]),
+				category: "usage.kind=model_choice",
+				change_type: "agent",
+				path: join(t.home.home, ".claude", "agents", "explorer.md"),
+				component: { kind: "agent", source: "user", id: "explorer" },
+			}),
+		});
+		expect(result.code).toBe(0);
+		const [record] = JSON.parse(
+			readFileSync(join(t.tuneDir, "proposals.json"), "utf8"),
+		).proposals;
+		expect(record).toMatchObject({
+			category: "usage.kind=model_choice",
+			followup_output_at: null,
+		});
+	});
+
+	it.each([
+		["an unknown usage kind", { category: "usage.kind=slow" }, "category"],
+		[
+			"a usage proposal changing permissions",
+			{
+				category: "usage.kind=frequent_compaction",
+				change_type: "permissions",
+				component: { kind: "permissions", source: "user", id: "permissions" },
+				value: { allow: ["Bash(git status)"] },
+			},
+			"change_type",
+		],
+		[
+			"a usage proposal with a loop prompt",
+			{ category: "usage.kind=low_cache_reuse", change_type: "loop_prompt" },
+			"change_type",
+		],
+	])("rejects %s and records nothing", async (_, fields, field) => {
+		const t = await setupTune({ sessions: 1 });
+		await t.run();
+		const result = await t.run(["record"], {
+			readStdin: stdin({ ...skillProposal(t.home.home, ["s000"]), ...fields }),
+		});
+		expect(result).toEqual({
+			code: 2,
+			out: "",
+			err: `提案の記録の入力が不正です: ${field}\n`,
+		});
+		expect(
+			JSON.parse(readFileSync(join(t.tuneDir, "proposals.json"), "utf8"))
+				.proposals,
+		).toEqual([]);
+	});
+
 	it("rejects evidence sessions that are not in analysis.json and input over 1 MiB", async () => {
 		const t = await setupTune({ sessions: 1 });
 		await t.run();
@@ -132,7 +189,7 @@ describe("hf tune record", () => {
 	});
 });
 
-describe("hf tune --purge", () => {
+describe("harnessforce tune --purge", () => {
 	it("deletes the tune files but keeps the terminal setting and the import state", async () => {
 		const t = await setupTune({ sessions: 1 });
 		await t.run();
@@ -158,7 +215,7 @@ describe("hf tune --purge", () => {
 		).toBe(true);
 	});
 
-	it("does not run while another hf tune holds the lock", async () => {
+	it("does not run while another harnessforce tune holds the lock", async () => {
 		const t = await setupTune({ sessions: 1 });
 		writeFile(join(t.tuneDir, ".lock"), "");
 		let nowMs = Date.now();
@@ -171,7 +228,7 @@ describe("hf tune --purge", () => {
 		expect(result).toEqual({
 			code: 1,
 			out: "",
-			err: "別の`hf tune`が実行中のため、実行できません\n",
+			err: "別の`harnessforce tune`が実行中のため、実行できません\n",
 		});
 	});
 });

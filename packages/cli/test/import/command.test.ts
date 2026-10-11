@@ -17,12 +17,13 @@ import {
 	transcript,
 } from "./harness.js";
 
-const RUN_INIT = "`hf init`を実行してください\n";
-const EXPIRED = "ログインの有効期限が切れました。`hf init`を実行してください\n";
+const RUN_INIT = "`harnessforce init`を実行してください\n";
+const EXPIRED =
+	"ログインの有効期限が切れました。`harnessforce init`を実行してください\n";
 const READ_FAILED =
-	"Harnessforceとの通信に失敗しました。もう一度`hf import`を実行してください\n";
+	"Harnessforceとの通信に失敗しました。もう一度`harnessforce import`を実行してください\n";
 const SEND_FAILED =
-	"Harnessforceとの通信に失敗しました。もう一度`hf import`を実行すると続きから取り込みます\n";
+	"Harnessforceとの通信に失敗しました。もう一度`harnessforce import`を実行すると続きから取り込みます\n";
 
 async function setup(
 	options: Parameters<typeof startImportServer>[0] = {},
@@ -57,7 +58,7 @@ async function setup(
 
 // correlation.md「session import」: 記録の基点はmanaged settingsのfile、~/.claude/settings.jsonのenvの順に読み、
 // processの環境変数のCLAUDE_CONFIG_DIRは読まない。
-describe("hf import record base", () => {
+describe("harnessforce import record base", () => {
 	function configDirWith(sessionId: string, cwd: string): string {
 		const dir = tempDir("hf-config-");
 		mkdirSync(join(dir, "projects", "-work-web"), { recursive: true });
@@ -114,8 +115,8 @@ describe("hf import record base", () => {
 	});
 });
 
-describe("hf import", () => {
-	it("sends connected sessions with the user key to the destinations saved by hf init", async () => {
+describe("harnessforce import", () => {
+	it("sends connected sessions with the user key to the destinations saved by harnessforce init", async () => {
 		const { hf, home, run } = await setup();
 		expect(await run()).toEqual({
 			code: 0,
@@ -251,7 +252,7 @@ describe("hf import", () => {
 	});
 
 	describe("stops before sending and keeps the state file", () => {
-		it("when the keychain is unavailable, without suggesting hf init", async () => {
+		it("when the keychain is unavailable, without suggesting harnessforce init", async () => {
 			const { hf, home, run } = await setup();
 			expect(
 				await run({ keychain: fakeKeychain({ available: false }).keychain }),
@@ -264,7 +265,7 @@ describe("hf import", () => {
 			expect(home.readState()).toBeUndefined();
 		});
 
-		// hf runと同じく、使えるかを確かめられないkeychainも使えないものとして扱う。
+		// harnessforce runと同じく、使えるかを確かめられないkeychainも使えないものとして扱う。
 		it("when the keychain cannot tell whether it is available", async () => {
 			const { hf, home, run } = await setup();
 			expect(
@@ -293,7 +294,7 @@ describe("hf import", () => {
 			expect(home.readState()).toBeUndefined();
 		});
 
-		// hf runと同じく、空のkeyはkeyが無いものとする。
+		// harnessforce runと同じく、空のkeyはkeyが無いものとする。
 		it("when the user ingest key is empty", async () => {
 			const { hf, home, run, keychain } = await setup();
 			keychain.items.set("ws1:ingest-key", "");
@@ -318,7 +319,7 @@ describe("hf import", () => {
 			expect(hf.requests).toEqual([]);
 		});
 
-		// correlation.md「CLIの宛先の決め方」をhf runと同じ関数で決める。空のuser settingsの値は無いものとする。
+		// correlation.md「CLIの宛先の決め方」をharnessforce runと同じ関数で決める。空のuser settingsの値は無いものとする。
 		it("when the user settings hold an empty ingest endpoint", async () => {
 			const hf = await startImportServer();
 			const keychain = initializedKeychain(hf.origin);
@@ -333,7 +334,7 @@ describe("hf import", () => {
 			expect(hf.requests).toEqual([]);
 		});
 
-		it("when the ingest endpoint points to another origin than hf init pinned", async () => {
+		it("when the ingest endpoint points to another origin than harnessforce init pinned", async () => {
 			const { hf, home, run } = await setup();
 			expect(
 				await run({
@@ -345,7 +346,7 @@ describe("hf import", () => {
 		});
 
 		// repositoryのsettingsの`env`が書き換えたHARNESSFORCE_URLへApiTokenを送らない。
-		it("when the connection URL points to another origin than hf init pinned", async () => {
+		it("when the connection URL points to another origin than harnessforce init pinned", async () => {
 			const { home, run } = await setup();
 			await run();
 			const state = home.readState();
@@ -459,7 +460,7 @@ describe("hf import", () => {
 			expect(home.readState()).toBeUndefined();
 		});
 
-		it("treats an ApiToken stored by an older hf init as missing", async () => {
+		it("treats an ApiToken stored by an older harnessforce init as missing", async () => {
 			const { hf, keychain, run } = await setup();
 			keychain.items.set("ws1:api-token", "hf_at_ws1_plain");
 			expect(await run()).toEqual({ code: 1, out: "", err: RUN_INIT });
@@ -467,12 +468,12 @@ describe("hf import", () => {
 		});
 	});
 
-	it("tells to run hf init when the ingest key is revoked", async () => {
+	it("tells to run harnessforce init when the ingest key is revoked", async () => {
 		const { home, run } = await setup({ ingest: [{ status: 401 }] });
 		expect(await run()).toEqual({
 			code: 1,
 			out: "",
-			err: "送信キーが失効しています。`hf init`を実行してください\n",
+			err: "送信キーが失効しています。`harnessforce init`を実行してください\n",
 		});
 		expect(home.readState()).toBeUndefined();
 	});
@@ -545,7 +546,7 @@ describe("hf import", () => {
 		expect(await run()).toEqual({
 			code: 1,
 			out: "",
-			err: "月間イベント数の上限に達したため、52件のsessionを取り込めませんでした。上限が解除された後に`hf import`を再実行すると続きから取り込みます\n",
+			err: "月間イベント数の上限に達したため、52件のsessionを取り込めませんでした。上限が解除された後に`harnessforce import`を再実行すると続きから取り込みます\n",
 		});
 		expect(await run()).toMatchObject({
 			code: 0,
@@ -568,7 +569,7 @@ describe("hf import", () => {
 		});
 		expect(await run()).toMatchObject({
 			code: 1,
-			err: "Workspaceが閲覧のみのため、1件のsessionを取り込めませんでした。閲覧のみが解除された後に`hf import`を再実行すると続きから取り込みます\n",
+			err: "Workspaceが閲覧のみのため、1件のsessionを取り込めませんでした。閲覧のみが解除された後に`harnessforce import`を再実行すると続きから取り込みます\n",
 		});
 	});
 

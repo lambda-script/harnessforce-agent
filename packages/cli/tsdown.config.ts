@@ -1,13 +1,15 @@
+import { rawPlugin } from "@harnessforce/agent-core/raw-plugin";
 import { defineConfig } from "tsdown";
 
 export default defineConfig({
 	entry: { bin: "src/bin.ts" },
 	format: "esm",
 	platform: "node",
-	// correlation.md「実行環境」: hookは端末のNode.js 18以上でhfを起動する。
+	// correlation.md「実行環境」: hookは端末のNode.js 18以上でharnessforceを起動する。
 	target: "node18",
 	fixedExtension: false,
-	// hfはcommandとしてだけ公開し、型を公開しない。
+	plugins: [rawPlugin()],
+	// harnessforceはcommandとしてだけ公開し、型を公開しない。
 	dts: false,
 	deps: {
 		// native moduleはbundleできない。semconvは利用者が同じpackageを直接読むため共有する。

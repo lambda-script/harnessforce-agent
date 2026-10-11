@@ -19,7 +19,7 @@ export type UserSettingsRead =
 	| { kind: "invalid" };
 
 // correlation.md「CLI」の手順6。keychainからheaderを作るhelperで、keyを設定ファイルに書かない。
-const OTEL_HEADERS_HELPER = "hf otel-headers";
+const OTEL_HEADERS_HELPER = "harnessforce otel-headers";
 const PLUGIN_ID = "harnessforce@harnessforce-agent";
 // user settingsは他のsecret（apiKeyHelperなど）を持ちうるため、新しいfileは所有者だけが読めるようにする。
 const NEW_FILE_MODE = 0o600;

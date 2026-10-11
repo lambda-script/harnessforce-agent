@@ -1,6 +1,6 @@
 # @harnessforce/cli
 
-`hf`, the command line of [Harnessforce](https://github.com/lambda-script/harnessforce-agent). It
+`harnessforce`, the command line of [Harnessforce](https://github.com/lambda-script/harnessforce-agent). It
 connects a machine to a Harnessforce Workspace, supplies the ingest key to Claude Code's OpenTelemetry
 exporter, launches an agent linked to an Issue, and imports the metadata of past Claude Code sessions.
 
@@ -18,34 +18,95 @@ then, install it from the [local marketplace build](https://github.com/lambda-sc
 
 ```sh
 npm install -g @harnessforce/cli
-hf init
+harnessforce init
 ```
 
 ## Commands
 
 | Command | What it does |
 | --- | --- |
-| `hf init [--url <base URL>] [--port <port>] [--send-content]` | Logs in with the browser, stores a user ingest key and an API token in the keychain, and configures Claude Code |
-| `hf otel-headers` | Prints the `Authorization` header for Claude Code's `otelHeadersHelper` |
-| `hf run --issue <identifier> -- <agent> [args]` | Launches an agent with its session linked to an Issue |
-| `hf import` | Sends the metadata of past Claude Code sessions in connected repositories |
-| `hf tune [--all] [--no-send] [--show-report] [--json]` | Analyzes past sessions on this machine by public rules and sends the counts (analysis reports) |
-| `hf tune record` / `hf tune --purge` | Records a proposal from stdin / deletes everything under `~/.harnessforce/tune/` |
-| `hf --version` | Prints the version |
+| `harnessforce init [--url <base URL>] [--port <port>] [--send-content]` | Logs in with the browser, stores a user ingest key and an API token in the keychain, and configures Claude Code and Codex |
+| `harnessforce otel-headers` | Prints the `Authorization` header for Claude Code's `otelHeadersHelper` |
+| `harnessforce run --issue <identifier> -- <agent> [args]` | Launches an agent with its session linked to an Issue |
+| `harnessforce import` | Sends the metadata of past Claude Code sessions in connected repositories |
+| `harnessforce tune [--all] [--no-send] [--show-report] [--json]` | Analyzes past sessions on this machine by public rules and sends the counts (analysis reports) |
+| `harnessforce tune record` / `harnessforce tune --purge` | Records a proposal from stdin / deletes everything under `~/.harnessforce/tune/` |
+| `harnessforce top [--once] [--json] [--ascii] [--theme <auto\|light\|dark\|ansi>]` | Shows the Claude Code and Codex sessions on this machine in the terminal: state, tokens, context and tool failures. Reads only local files and never connects to Harnessforce |
+| `harnessforce hook session-start` | The entry of Codex's `SessionStart` hook: reads `session_id`, `cwd` and `source` from stdin, registers the session, and prints the session ID for the agent's context. Always exits 0 |
+| `harnessforce usage-limits on [--yes]` / `off` / `status` | Shares your usage limits with the workspace after you agree to the consent text (`on`), or withdraws the consent, deletes the stored values and restores your previous statusLine (`off`), or shows the consent, the workspace opt-in and whether the statusLine is wrapped (`status`). Not supported on Windows |
+| `harnessforce usage-limits statusline` | A statusLine command that wraps your existing one: it passes stdin to the original command, returns its output and exit code unchanged, then sends only the usage percentage and reset time of the 5-hour and 7-day windows. It sends nothing until you have consented |
+| `harnessforce --version` | Prints the version |
+
+Builds made before the first npm publish also install `hf` as an alias of `harnessforce`, so settings written
+by `hf init` keep working until you run `harnessforce init` again. The alias is removed from the first published
+version, because the Hugging Face CLI also uses the name `hf`.
+
+## Watching your sessions (`harnessforce top`)
+
+`harnessforce top` reads the Claude Code transcripts on this machine (the same place as `harnessforce import`) and the
+Codex rollouts (`sessions/YYYY/MM/DD/rollout-*.jsonl` under `$CODEX_HOME` when it is an absolute path, otherwise
+`~/.codex`) and shows one row per session whose last event is within 24 hours. It needs no `harnessforce init`, makes no network
+connection, never reads the keychain and writes nothing to disk. It shows counts, times, ids, the repository and
+branch, model and tool names only: no prompt, response, tool input or output, path, command or error text, no cost and
+no context percentage.
+
+- The `agent` column says `claude` or `codex`; `--json` uses `claude_code` or `codex`. For Codex, the tool failure
+  count is blank (`tool_failures` is `null`) because Codex does not save whether a call succeeded; the tool column
+  shows the call count only. Rollouts compressed to `.jsonl.zst` (Codex does this after 7 days) and
+  `archived_sessions` are not read.
+- A session is `active` when its last event is within 60 seconds, otherwise `idle`.
+- Keys: `q` quit, `?` help, `↑` `↓` / `j` `k` select, `Enter` detail, `Esc` back, `/` filter, `s` order, `p` pause, `r` refresh.
+- `--once` prints one plain-text table (no escapes). `--json` prints `{"sessions": [...]}`. A pipe or redirect behaves like `--once`.
+- `--ascii` draws with ASCII characters only.
+- The terminal background is never painted. Colors are foreground only, so a symbol and its label always carry the
+  meaning. `--theme auto` asks the terminal for its background once (100 ms limit); when it answers, the colors of the
+  Harnessforce web design system are used, and any color with less than 3:1 contrast on that background is left out.
+  Without an answer, or with `--theme ansi`, the terminal's own 16 colors are used. `NO_COLOR` turns colors off.
+- The screen restores the alternate screen and the cursor on `q`, Ctrl-C, SIGTERM, SIGHUP and a normal exit. A console that does not understand VT escape sequences is not detected: use `--once` or `--ascii` there.
+- `~/.harnessforce/config.json` may set `{"top": {"ambiguous_width": 2, "braille": true}}`. An unreadable file or a
+  value out of range falls back to the defaults and says so; the file is never written.
+
+## Codex `SessionStart` hook (`harnessforce hook session-start`)
+
+Codex runs this command through the `[[hooks.SessionStart]]` entry that `harnessforce init` writes into Codex's
+`config.toml`. It uses only `session_id`, `cwd` and `source` from the JSON on stdin, and:
+
+- sends the session registration (`agent` is `codex`) only when `source` is `startup`, `clear` or missing, and
+  only to the ingest origin that `harnessforce init` pinned, with the user ingest key from the keychain. The
+  Workspace and the endpoint come from `HARNESSFORCE_WORKSPACE_ID` and `HARNESSFORCE_ENDPOINT`, or from the
+  Claude Code user settings that `harnessforce init` wrote. When `HARNESSFORCE_ISSUE` is a valid identifier
+  (`harnessforce run --issue` sets it), the registration claims `source=cli` with that Issue.
+- prints `{"hookSpecificOutput": {...}}` carrying `harnessforce session_id: <id>` so the agent knows its session
+  ID. When the key was revoked (401) it prints that line and the message as plain text instead, and writes the
+  message to stderr.
+- never fails the session: any error ends with exit code 0, and nothing is sent outside a git repository.
+
+## Usage limits in the statusLine (`harnessforce usage-limits statusline`)
+
+Claude Code passes the plan limits (`rate_limits`) only to the statusLine command, not to hooks. `harnessforce usage-limits statusline` is meant to sit in front of the statusLine you already use (for example claude-hud):
+
+- It reads all of stdin and, if `~/.harnessforce/usage-limits.json` has an `original` command, runs it with `sh -c`, hands it the same stdin and the same environment, and returns its stdout, stderr and exit code as they are. No time limit is added.
+- After that, only if `usage-limits.json` records your consent for the current text version, it takes `rate_limits.five_hour` and `rate_limits.seven_day` (`used_percentage` and `resets_at`) and sends them to `POST <ingest endpoint>/v1/usage-limits` with the user ingest key from the keychain. Nothing else in the JSON (`cwd`, `transcript_path`, `cost`, and so on) is read or sent.
+- The send runs in a detached child process with stdin, stdout and stderr closed, so the statusLine is never delayed. A failure does not change the output or the exit code.
+- It sends at most once every 5 minutes, unless the reset time of a window changed. The time and the reset times of the last send are kept in `~/.harnessforce/usage-limits-state.json` (owner-only).
+
+### Turning it on and off
+
+`harnessforce usage-limits on` shows the consent text, asks `y` (skipped with `--yes`), records the consent (`PUT /api/v1/cli/usage-limits/consent`), and then wraps the `statusLine` in your Claude Code user settings: only `command` is replaced with `harnessforce usage-limits statusline`, so `type`, `padding`, `refreshInterval` and the other keys stay. The statusLine you had (for example claude-hud) is saved as-is in `~/.harnessforce/usage-limits.json`. If the statusLine is not `type: "command"`, or the settings cannot be read, nothing is recorded or changed. If writing the mark or the settings fails, the consent is withdrawn again. `harnessforce usage-limits off` withdraws the consent first and then puts the saved statusLine back (or removes it if there was none); a statusLine that another tool has changed since is left alone.
 
 ## What is never sent
 
-Harnessforce never turns on prompt or body logging by itself. `hf run` never turns it on, and `hf init`
+Harnessforce never turns on prompt or body logging by itself. `harnessforce run` never turns it on, and `harnessforce init`
 adds `OTEL_LOG_USER_PROMPTS=1` to the Claude Code user settings only with `--send-content`, and only
 when the credentials response says the Workspace has opted in to content. Without that, prompts,
 responses, tool inputs and outputs, and file contents are not sent. For a Workspace that has not opted
-in, `hf init --send-content` leaves the setting alone, prints the reason, and still exits 0. `hf run`
+in, `harnessforce init --send-content` leaves the setting alone, prints the reason, and still exits 0. `harnessforce run`
 never puts the user key or the API token in the agent's environment, arguments or settings. Keys and
-tokens are sent only to the origins pinned by `hf init`.
+tokens are sent only to the origins pinned by `harnessforce init`.
 
-## CLI credentials (`hf init`, `hf otel-headers`)
+## CLI credentials (`harnessforce init`, `harnessforce otel-headers`)
 
-`hf init [--url <base URL>] [--port <port>] [--send-content]` connects this machine to a Harnessforce Workspace:
+`harnessforce init [--url <base URL>] [--port <port>] [--send-content]` connects this machine to a Harnessforce Workspace:
 
 1. It checks the OS keychain first: macOS Keychain, the Secret Service on Linux, or the Windows
    Credential Manager (through [`@napi-rs/keyring`](https://github.com/Brooooooklyn/keyring-node)).
@@ -69,10 +130,24 @@ tokens are sent only to the origins pinned by `hf init`.
    - `env`: the OTel exporter variables, `HARNESSFORCE_URL`, `HARNESSFORCE_ENDPOINT` and
      `HARNESSFORCE_WORKSPACE_ID`, but no key. With `--send-content` and a Workspace that has opted in
      to content it also adds `OTEL_LOG_USER_PROMPTS=1`
-   - `otelHeadersHelper`: `hf otel-headers`
+   - `otelHeadersHelper`: `harnessforce otel-headers`
    - `enabledPlugins["harnessforce@harnessforce-agent"]`
+6. It updates the Codex `config.toml` (`$CODEX_HOME` when it is an absolute path, otherwise `~/.codex`),
+   changing only these three items and keeping every other key and comment:
+   - `[otel].exporter`: OTLP/HTTP (`protocol = "binary"`) to the ingest endpoint with
+     `Authorization = "Bearer <user ingest key>"`. Codex cannot take the header from a command or expand
+     `${VAR}`, so this is the one place a key is written to a plain file. It is the user ingest key only
+     (never the API token), and you can revoke it on the Workspace's send keys page. With `--send-content`
+     and a Workspace that has opted in to content it also sets `log_user_prompt = true`
+   - `[[hooks.SessionStart]]`: a handler that runs `harnessforce hook session-start`
+   - `[mcp_servers.harnessforce]`: `url = "<base URL>/mcp"`
 
-`hf otel-headers` prints `{"Authorization":"Bearer <key>"}`. The key is `HARNESSFORCE_INGEST_KEY` from
+   The file is written through a temporary file in the same directory and renamed into place, with mode
+   `0600`. Running `harnessforce init` again replaces only these three items. Restart Codex afterwards,
+   trust the hook with `/hooks` (Codex runs an untrusted hook only after you review it), and run
+   `codex mcp login harnessforce` to use the MCP server.
+
+`harnessforce otel-headers` prints `{"Authorization":"Bearer <key>"}`. The key is `HARNESSFORCE_INGEST_KEY` from
 the managed settings file when that is set, and otherwise the user key for
 `HARNESSFORCE_WORKSPACE_ID` from the keychain. If
 there is no key, it prints nothing and exits 1. The user key is printed only when every destination
@@ -80,18 +155,18 @@ variable that is set (`HARNESSFORCE_ENDPOINT`, `OTEL_EXPORTER_OTLP_ENDPOINT` and
 `OTEL_EXPORTER_OTLP_*_ENDPOINT`) has the pinned origin. This stops a repository's
 `.claude/settings.json` `env` from pointing the hook at another host to collect the key. Otherwise it
 writes `harnessforce: user key withheld (destination not verified)` to stderr and exits 1. Run
-`hf init` again to re-pin.
+`harnessforce init` again to re-pin.
 
 ### Refreshing the API token
 
-`hf import` and `hf run --issue` call the Read API with the access token. When it has expired, or the
+`harnessforce import` and `harnessforce run --issue` call the Read API with the access token. When it has expired, or the
 Read API answers 401 once, they take `~/.harnessforce/token.lock`, read the keychain again (another
 process may have refreshed already), and exchange the refresh token at the `token_endpoint` from the
 authorization server metadata of the base URL, only when that endpoint is on the pinned base URL
 origin. The new pair replaces `<workspace_id>:api-token`. A lock older than 60 seconds is treated as
 abandoned, and waiting more than 30 seconds for it counts as a failed refresh. If the refresh fails, or
 the refreshed token is also answered with 401, they stop with
-「ログインの有効期限が切れました。`hf init`を実行してください」.
+「ログインの有効期限が切れました。`harnessforce init`を実行してください」.
 
 ### Default connection
 
@@ -100,16 +175,16 @@ The build fails without it. The value must be `https:`, or `http:` for localhost
 uses the same value for its MCP server URL. See
 [Building the local marketplace](https://github.com/lambda-script/harnessforce-agent/blob/main/docs/runbooks/local-marketplace.md).
 
-## Launching an agent for an Issue (`hf run`)
+## Launching an agent for an Issue (`harnessforce run`)
 
-`hf run --issue <identifier> -- <agent> [args]` links the session to an Issue before it starts:
+`harnessforce run --issue <identifier> -- <agent> [args]` links the session to an Issue before it starts:
 
 1. It reads the Read API base URL (`HARNESSFORCE_URL`, then `env.HARNESSFORCE_URL` in the Claude Code user
    settings, then the build default), the ingest endpoint (`HARNESSFORCE_ENDPOINT`, then the user
    settings) and the Workspace (`HARNESSFORCE_WORKSPACE_ID`, then the user settings). Before sending
    anything it checks, in order: the keychain, the Workspace, its user key, the ingest endpoint and its
-   scheme, the ingest origin pinned by `hf init`, the API token, the Read API scheme, and the Read API
-   origin pinned by `hf init`. The first failed check stops it, usually asking you to run `hf init`.
+   scheme, the ingest origin pinned by `harnessforce init`, the API token, the Read API scheme, and the Read API
+   origin pinned by `harnessforce init`. The first failed check stops it, usually asking you to run `harnessforce init`.
 2. It resolves the Issue with `GET /api/v1/issues/{identifier}` and the stored API token. If the Issue
    does not exist, it prints up to 10 candidates from `GET /api/v1/issues?query=<identifier>` and stops.
 3. It computes the config snapshot ID locally with the same collection as the SessionStart hook.
@@ -119,11 +194,17 @@ uses the same value for its MCP server URL. See
    `hf.vcs.repository`, `hf.vcs.branch`, `hf.vcs.commit` and `hf.agent.config_version`. It removes
    `OTEL_EXPORTER_OTLP_HEADERS` and the per-signal `*_HEADERS`, `*_ENDPOINT` and `*_PROTOCOL` variables
    inherited from the shell. The user key and the API token are never put in the agent's environment,
-   arguments or settings: Claude Code gets the key only through `otelHeadersHelper` (`hf otel-headers`).
+   arguments or settings: Claude Code gets the key only through `otelHeadersHelper` (`harnessforce otel-headers`).
 5. For Claude Code (`claude`), the same values also go in a settings file passed as
    `--settings <absolute path>` before your arguments, because settings files can override the shell.
    The file is created with mode 0600 in the temp directory and deleted when the agent exits.
    `HARNESSFORCE_ISSUE` tells the plugin hook to register the session with `source=cli`.
+   For Codex (`codex`, `codex.exe`, `codex.cmd`), only `HARNESSFORCE_WORKSPACE_ID`, `HARNESSFORCE_ENDPOINT` and
+   `HARNESSFORCE_ISSUE` are set, and no settings file is passed. Codex does not read `CLAUDE_CODE_*` or
+   `OTEL_RESOURCE_ATTRIBUTES`, and an `OTEL_EXPORTER_OTLP_ENDPOINT` would replace the endpoint of the `[otel]`
+   exporter that `harnessforce init` writes into Codex's `config.toml`, so the request could go out without its
+   header. The Issue is linked by the Codex `SessionStart` hook, which reads `HARNESSFORCE_ISSUE`. The variables
+   of your own shell are left as they are for Codex.
 6. The agent is found on `PATH` (with `PATHEXT` on Windows), or used as given when the command contains a
    path separator. On Windows, `.cmd` and `.bat` files (such as npm's `claude.cmd`) are started through
    `%ComSpec% /d /s /c` with every argument quoted; arguments containing `"`, `%`, `!` or a newline are
@@ -131,10 +212,10 @@ uses the same value for its MCP server URL. See
 
 It exits with the agent's exit code. Prompt and body logging are never turned on.
 
-## Importing past sessions (`hf import`)
+## Importing past sessions (`harnessforce import`)
 
-`hf import` sends metadata of past Claude Code sessions on this machine to Harnessforce, so that
-work done before the plugin was installed can be linked to issues too. Run `hf init` first.
+`harnessforce import` sends metadata of past Claude Code sessions on this machine to Harnessforce, so that
+work done before the plugin was installed can be linked to issues too. Run `harnessforce init` first.
 
 - It reads the transcripts in `~/.claude/projects/<project>/<session>.jsonl` (or
   `$CLAUDE_CONFIG_DIR/projects`). Their format is not documented, so the parser is versioned
@@ -146,9 +227,9 @@ work done before the plugin was installed can be linked to issues too. Run `hf i
   repositories come from `GET <HARNESSFORCE_URL>/api/v1/repositories` (all pages) and the import
   window from `session_import_days` (`GET <HARNESSFORCE_URL>/api/v1/workspace`), both with the API
   token. The API token is sent only when the origin of `HARNESSFORCE_URL` matches the one pinned by
-  `hf init`; otherwise nothing is sent and it asks you to run `hf init`.
+  `harnessforce init`; otherwise nothing is sent and it asks you to run `harnessforce init`.
 - Sessions are sent 100 at a time to `POST <HARNESSFORCE_ENDPOINT>/v1/imports/sessions` with the user
-  ingest key, only when the endpoint origin matches the one pinned by `hf init`. `429` and `503` are
+  ingest key, only when the endpoint origin matches the one pinned by `harnessforce init`. `429` and `503` are
   retried up to 3 times after `Retry-After` (at most 60 seconds).
 - Sent sessions are recorded in `~/.harnessforce/import-state.json` per Workspace and ingest endpoint,
   so running it again continues where it stopped and never sends a session twice to the same place.
@@ -157,12 +238,12 @@ work done before the plugin was installed can be linked to issues too. Run `hf i
 
 The Workspace, the connection URL and the ingest endpoint come from `HARNESSFORCE_WORKSPACE_ID`,
 `HARNESSFORCE_URL` and `HARNESSFORCE_ENDPOINT` in the environment, and otherwise from the `env` that
-`hf init` wrote to the Claude Code user settings.
+`harnessforce init` wrote to the Claude Code user settings.
 
-## Analyzing past sessions (`hf tune`)
+## Analyzing past sessions (`harnessforce tune`)
 
-`hf tune` reads the same transcripts as `hf import` and turns each session into an analysis report:
-interventions, loops that could be automated, and MCP server calls. Run `hf init` first. The Viewer
+`harnessforce tune` reads the same transcripts as `harnessforce import` and turns each session into an analysis report:
+interventions, loops that could be automated, and MCP server calls. Run `harnessforce init` first. The Viewer
 role cannot use it.
 
 - The categories come from public rules and a public vocabulary (`src/tune/analyze.ts`,
@@ -173,13 +254,19 @@ role cannot use it.
   commands, paths and error text never leave the machine.
 - By default it analyzes sessions started in the last 30 days in connected repositories. `--all`
   analyzes every session, but still sends only sessions in connected repositories that started within
-  `session_import_days`. Sessions without a Run are imported first, like `hf import`.
+  `session_import_days`. Sessions without a Run are imported first, like `harnessforce import`.
 - Sending is fail-open: when Harnessforce cannot be reached, the reports stay in
   `~/.harnessforce/tune/unsent.json` and are sent by the next run. `401` and `403` delete the unsent
-  reports and ask you to run `hf init`.
+  reports and ask you to run `harnessforce init`.
 - `--no-send`, or `{"tune": {"send_report": false}}` in `~/.harnessforce/config.json`, sends nothing.
   A config file it cannot read also sends nothing.
-- Everything it keeps is under `~/.harnessforce/tune/`; `hf tune --purge` deletes it.
+- It also counts usage per session (auto and manual context compactions, responses, cache reuse
+  ratio, output tokens per model in the main and subagent transcripts). These values are shown and
+  written to `--json` and `~/.harnessforce/tune/analysis.json` only; they are never sent.
+- `--json` also lists, for each recorded proposal whose application was detected, the value of its
+  category in the 14 days before and after the detection time (`followups`). The difference is not
+  a cause. Once a `--json` run outputs a follow-up whose after period has ended, later runs omit it.
+- Everything it keeps is under `~/.harnessforce/tune/`; `harnessforce tune --purge` deletes it.
 
 ## License
 

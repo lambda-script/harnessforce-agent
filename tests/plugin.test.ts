@@ -120,6 +120,85 @@ describe("run recording skill", () => {
 
 	it("tells the agent that its records stay proposed until a person approves them", () =>
 		expect(body).toMatch(/`proposed`[^\n]*承認/));
+
+	// correlation.md「agentによるIssueの作成」
+	describe("creating an issue for unassigned work", () => {
+		it("treats an issue identifier in the branch name as given once get_issue resolves it", () =>
+			expect(body).toMatch(/branch名[^\n]*`get_issue`で[^\n]*解決/));
+
+		it("asks once per session id and not again after a refusal", () => {
+			expect(body).toMatch(/同じ値で尋ねるのは1回だけ/);
+			expect(body).toMatch(/断ったら[^\n]*再び尋ねない/);
+		});
+
+		it("asks only for work that commits changes", () =>
+			expect(body).toMatch(
+				/調べもの、質問への回答、計画だけの会話では尋ねない/,
+			));
+
+		it("treats an unresolved branch identifier as no identifier", () =>
+			expect(body).toMatch(/`not_found`なら識別子が無い場合と同じに扱う/));
+
+		it("shows existing candidates from list_issues before proposing a new issue", () => {
+			const steps = body.slice(body.indexOf("既存のIssueを先に示す"));
+			expect(steps).toMatch(/`-status:done,canceled \{語\}`/);
+			expect(steps.indexOf("`list_issues`")).toBeLessThan(
+				steps.indexOf("`create_issue`"),
+			);
+		});
+
+		it("keeps the prompt body, paths, commands and secrets out of the title and description", () =>
+			expect(body).toMatch(
+				/titleと説明には、promptの本文、file path、command、secretを写さない/,
+			));
+
+		it("calls create_issue only after the user explicitly agrees", () => {
+			expect(body).toMatch(/承諾した場合だけ[^\n]*`create_issue`/);
+			expect(body).toMatch(/非対話[^\n]*作らない/);
+		});
+
+		it("does not create an issue without an active project", () =>
+			expect(body).toMatch(/0件ならIssueを作らず/));
+
+		it("tells teams that the issue is created only in Harnessforce", () =>
+			expect(body).toContain("Harnessforceにだけ作られ"));
+
+		it("never retries create_issue and recovers by an exact title match", () => {
+			expect(body).toContain("`create_issue`を再試行しない");
+			expect(body).toMatch(/titleが完全に一致し、作成時刻が呼び出しの後/);
+			expect(body).toMatch(/`start_run`だけが失敗したら[^\n]*作り直さない/);
+		});
+
+		it("stops asking when the token cannot create issues", () =>
+			expect(body).toMatch(/`forbidden`[^\n]*再び尋ねない/));
+
+		it("leaves planning objects to the user", () =>
+			expect(body).toMatch(
+				/`create_project`、`create_milestone`、`create_cycle`、`create_objective`を[^\n]*呼ばない/,
+			));
+	});
+
+	// correlation.md「agentによる状態の更新」
+	describe("updating the status of a native issue", () => {
+		it("tells native issues apart by a null external", () =>
+			expect(body).toContain("`external`が`null`"));
+
+		it("asks before moving a native issue to started or done", () => {
+			expect(body).toMatch(
+				/承諾した場合だけ[^\n]*`update_issue`で状態を`started`/,
+			);
+			expect(body).toMatch(/承諾した場合だけ状態を`done`/);
+		});
+
+		it("does not ask to complete an issue whose pull request is only opened", () =>
+			expect(body).toMatch(/mergeされていない場合は尋ねない/));
+
+		it("never changes the status of an issue from an external provider", () =>
+			expect(body).toContain("外部由来のIssueの状態は変えない"));
+
+		it("asks again only once after a conflict", () =>
+			expect(body).toMatch(/`conflict`[^\n]*1回だけ尋ね直す/));
+	});
 });
 
 // onboarding.md「チェックリスト」の手順4「自分の端末で設定する」。
@@ -146,8 +225,8 @@ describe("setup command", () => {
 	it("installs the published CLI from npm in the repository copy", () =>
 		expect(body).toContain("npm install -g @harnessforce/cli"));
 
-	it("runs hf init and hf import, then asks for a restart before confirming the first event", () => {
-		// `hf init`は手順2にも現れるため、語の位置だけでは手順を特定できない。見出しの順序に、本文が実行する`hf import`の位置を加えて確かめる。
+	it("runs harnessforce init and harnessforce import, then asks for a restart before confirming the first event", () => {
+		// `harnessforce init`は手順2にも現れるため、語の位置だけでは手順を特定できない。見出しの順序に、本文が実行する`harnessforce import`の位置を加えて確かめる。
 		const positions = indexesOf(body, [
 			"Node.jsを確かめる",
 			"再起動後の実行かを確かめる",
@@ -155,7 +234,7 @@ describe("setup command", () => {
 			"本文データを送るかを選ぶ",
 			"Harnessforceに接続する",
 			"過去のsessionを取り込む",
-			"`hf import`",
+			"`harnessforce import`",
 			"再起動を案内する",
 			"最初のイベントを確認する",
 		]);
@@ -163,11 +242,11 @@ describe("setup command", () => {
 		expect(positions).toEqual([...positions].sort((a, b) => a - b));
 	});
 
-	// onboarding.md「チェックリスト」の手順4「自分の端末で設定する」: hf initの前に、本文データを送る設定の選択肢を、既定では選ばれない状態で示す。
-	it("shows the content choice before hf init, unselected by default", () => {
+	// onboarding.md「チェックリスト」の手順4「自分の端末で設定する」: harnessforce initの前に、本文データを送る設定の選択肢を、既定では選ばれない状態で示す。
+	it("shows the content choice before harnessforce init, unselected by default", () => {
 		const choice = "本文データを送って分析に使えます";
 		expect(body).toMatch(
-			/`hf init`の前に[^\n]*選択肢を[^\n]*既定では選ばれない/,
+			/`harnessforce init`の前に[^\n]*選択肢を[^\n]*既定では選ばれない/,
 		);
 		expect(body).toContain(choice);
 		expect(body).toContain(
@@ -184,7 +263,7 @@ describe("setup command", () => {
 		expect(body).toMatch(/読めるのはOwnerとAdminだけ/);
 		expect(body).toMatch(/端末のこの設定とWorkspaceのopt-inの2つ/);
 		expect(body).toMatch(/opt-inを解除すると[^\n]*本文は受信時に破棄され/);
-		expect(body).toContain("`hf init --send-content`");
+		expect(body).toContain("`harnessforce init --send-content`");
 		expect(body).toMatch(
 			/Claude Codeのuser settingsの`env`に書き[^\n]*project[^\n]*local[^\n]*`env`には書かない/,
 		);
@@ -192,8 +271,10 @@ describe("setup command", () => {
 		expect(body).toMatch(/projectとlocalの`env`でも効く/);
 	});
 
-	it("relays what hf init prints when the workspace has not opted in", () => {
-		expect(body).toMatch(/`hf init --send-content`は本文の設定を書かず/);
+	it("relays what harnessforce init prints when the workspace has not opted in", () => {
+		expect(body).toMatch(
+			/`harnessforce init --send-content`は本文の設定を書かず/,
+		);
 		expect(body).toContain("Workspaceの設定のデータの保持");
 		expect(body).toMatch(/終了コード0/);
 	});
@@ -219,7 +300,7 @@ describe("tune command", () => {
 		expect(body.indexOf(DISCLOSURE)).toBeLessThan(body.indexOf("```sh"));
 	});
 
-	it("runs hf tune --json through the shipped summary script with the user's arguments", () => {
+	it("runs harnessforce tune --json through the shipped summary script with the user's arguments", () => {
 		const pluginRoot = ["$", "{CLAUDE_PLUGIN_ROOT}"].join("");
 		expect(body).toContain(`node "${pluginRoot}/${SUMMARIZE}" $ARGUMENTS`);
 		expect(
@@ -230,7 +311,7 @@ describe("tune command", () => {
 		expect(frontmatter["argument-hint"]).toBe("[--all] [--no-send]");
 	});
 
-	it("shows hf tune's messages as they are and keeps not measured apart from zero", () => {
+	it("shows harnessforce tune's messages as they are and keeps not measured apart from zero", () => {
 		expect(body).toMatch(/stderr[^\n]*すべてそのまま表示/);
 		expect(body).toMatch(/「未計測」を0と言い換えない/);
 	});
@@ -249,12 +330,21 @@ describe("tune command", () => {
 
 	it("hands the eligible targets to the skill, which records before showing", () => {
 		expect(body).toContain("`propose-improvements`のskill");
-		expect(body).toMatch(/`hf tune record`で記録してから表示/);
+		expect(body).toMatch(/`harnessforce tune record`で記録してから表示/);
 		expect(body).toMatch(/終了コード0で終わらなかった提案は表示しない/);
 	});
 
+	// 「前回の提案の前後」: 新しい提案の前に表示し、前後の差が因果を示さないことを添える。
+	it("shows the before and after of earlier proposals before new proposals", () => {
+		expect(body).toContain("「前回の提案の前後」");
+		expect(body).toContain("「前後の差（因果を示しません）」");
+		expect(body.indexOf("「前回の提案の前後」")).toBeLessThan(
+			body.indexOf("## 3. 提案を作る"),
+		);
+	});
+
 	// 「適用」: `/harnessforce:tune`はファイルを書き換えない（`~/.harnessforce/tune/`を除く）。
-	it("writes nothing but hf tune's own files and leaves applying to the user", () => {
+	it("writes nothing but harnessforce tune's own files and leaves applying to the user", () => {
 		expect(body).toMatch(/managed settingsを書き換えない/);
 		expect(body).toContain("`~/.harnessforce/tune/`へ書くものだけ");
 		expect(body).toMatch(/適用は利用者が行う/);
@@ -279,6 +369,8 @@ describe("propose improvements skill", () => {
 			"| 人の介入 | その`intervention.kind`が、3 session以上で合計10回以上ある |",
 			"| ループにできる繰り返し | その`loop.kind`が、合計3回以上ある |",
 			"| MCP server | `configured`のsessionが10以上ある |",
+			"| 使い方の`frequent_compaction`、`low_cache_reuse` | その`usage.kind`に当たるsessionが3以上ある |",
+			"| 使い方の`model_choice` | `models`を持つsessionが10以上あり、分析した範囲の`models`の合計で、1つの`message.model`の値が`output_tokens`の合計の90%以上を占める |",
 		])
 			expect(body).toContain(row);
 		expect(body).toMatch(/未計測（`not_measured`）の値を根拠にしない/);
@@ -328,16 +420,34 @@ describe("propose improvements skill", () => {
 			expect(body).toContain(broad);
 	});
 
+	// 「作る条件」: 使い方の提案の変更の種類は5つに限り、claude_mdは前後に現れない。
+	it("limits usage proposals to five change types and says claude_md has no follow-up", () => {
+		expect(body).toContain(
+			"使い方の提案の変更の種類は、`claude_md`、`rule`、`skill`、`agent`、`command`に限る",
+		);
+		expect(body).toMatch(
+			/`claude_md`の変更は適用を検出しないため、前回の提案の前後にも現れない/,
+		);
+	});
+
+	// 「前回の提案の前後」: 良くなった向きへ動いていない提案は、同じ対象の新しい提案の根拠に示し、同じ差分を繰り返さない。
+	it("uses earlier proposals that did not improve as evidence and does not repeat their diff", () =>
+		expect(body).toMatch(
+			/良くなった向きへ動いていません[^\n]*根拠[^\n]*同じ差分を繰り返さない/,
+		));
+
 	it("always gives a loop proposal its stop conditions", () =>
 		expect(body).toMatch(
 			/止める条件を必ず含める。止める条件は、最大の繰り返し回数と、人が確認する時点/,
 		));
 
-	// 「提案の記録」: 表示の前に`hf tune record`で記録し、成功した提案だけを表示する。
-	it("records each proposal with hf tune record before showing it", () => {
-		expect(body).toMatch(/表示する前に、提案ごとに`hf tune record`を実行/);
+	// 「提案の記録」: 表示の前に`harnessforce tune record`で記録し、成功した提案だけを表示する。
+	it("records each proposal with harnessforce tune record before showing it", () => {
 		expect(body).toMatch(
-			/`hf tune record`が終了コード0で終わった提案だけを表示/,
+			/表示する前に、提案ごとに`harnessforce tune record`を実行/,
+		);
+		expect(body).toMatch(
+			/`harnessforce tune record`が終了コード0で終わった提案だけを表示/,
 		);
 		for (const field of [
 			"category",

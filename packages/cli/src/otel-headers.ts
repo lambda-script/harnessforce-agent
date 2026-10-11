@@ -23,7 +23,7 @@ type KeySelection =
 	| { kind: "none" }
 	| { kind: "withheld" };
 
-// correlation.md「CLI」の`hf otel-headers`。Claude Codeの`otelHeadersHelper`とpluginのhookが起動する。
+// correlation.md「CLI」の`harnessforce otel-headers`。Claude Codeの`otelHeadersHelper`とpluginのhookが起動する。
 // keyが得られない場合はstdoutへ何も出力せず失敗し、Claude Codeが利用者へ通知する。
 export async function otelHeaders(
 	env: Env,

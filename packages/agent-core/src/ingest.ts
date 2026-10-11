@@ -1,27 +1,39 @@
-import type { Fetch } from "@harnessforce/agent-core/types";
-import { parseAllowedUrl, underBase } from "@harnessforce/agent-core/url";
 import type {
 	ConfigSnapshot,
 	SessionRegistration,
 	SessionUsageSummary,
 } from "@harnessforce/semconv";
+import type { Fetch } from "./types.js";
+import { parseAllowedUrl, underBase } from "./url.js";
 
+// usage-limits.md「送信」。窓の消費率とresetの時刻だけを持つ。
+export type UsageLimitSummary = {
+	agent: "claude_code";
+	observed_at: string;
+	windows: {
+		window_minutes: number;
+		used_percent: number;
+		resets_at: string;
+	}[];
+};
 export type IngestItem =
 	| SessionRegistration
 	| ConfigSnapshot
+	| UsageLimitSummary
 	| SessionUsageSummary;
 export type KeyKind = "user" | "workspace";
 export type Destination = { ingestBase: URL; key: string; keyKind: KeyKind };
 export type IngestPath =
 	| "v1/sessions"
 	| "v1/config-snapshots"
+	| "v1/usage-limits"
 	| "v1/session-usage";
 export type SendOutcome =
 	| { kind: "accepted" }
 	| { kind: "unauthorized" }
 	| { kind: "failed"; reason: string };
 
-// correlation.md「hook」の共通の規則: 送信の上限時間。
+// pluginのhookとCLIのhookが共有する、ingestへの送信。correlation.md「hook」の共通の規則: 送信の上限時間。
 const SEND_TIMEOUT_MS = 2000;
 // control-plane.md「IngestKey と ApiToken」: `hf_ik_<workspace_id>_<secret>`。Workspaceのidは`_`を含まない。
 const INGEST_KEY_WORKSPACE = /^hf_ik_([A-Za-z0-9-]{1,128})_/;
@@ -45,7 +57,7 @@ export async function postItems(
 	path: IngestPath,
 	items: readonly IngestItem[],
 	fetchImpl: Fetch,
-	timeoutMs = SEND_TIMEOUT_MS,
+	timeoutMs: number = SEND_TIMEOUT_MS,
 ): Promise<SendOutcome> {
 	try {
 		const response = await fetchImpl(underBase(destination.ingestBase, path), {

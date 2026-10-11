@@ -43,8 +43,16 @@ const STRIPPED_FROM_SHELL = new Set([
 // `--settings`を解釈するagent。basenameで判定する（Windowsのnpmが入れる`claude.cmd`を含む）。
 const CLAUDE_CODE_BINARIES = new Set(["claude", "claude.exe", "claude.cmd"]);
 
+const basenameOf = (agent: string) =>
+	agent.split(/[\\/]/).pop()?.toLowerCase() ?? "";
+
 export const isClaudeCode = (agent: string) =>
-	CLAUDE_CODE_BINARIES.has(agent.split(/[\\/]/).pop()?.toLowerCase() ?? "");
+	CLAUDE_CODE_BINARIES.has(basenameOf(agent));
+
+// correlation.md「`harnessforce run -- codex`」手順4: basenameが`codex`、`codex.exe`、`codex.cmd`のagent。
+const CODEX_BINARIES = new Set(["codex", "codex.exe", "codex.cmd"]);
+
+export const isCodex = (agent: string) => CODEX_BINARIES.has(basenameOf(agent));
 
 // agent-telemetry.md: OTEL_RESOURCE_ATTRIBUTESはカンマ区切りのk=vで、値の空白、カンマなどはpercent-encodeする。
 export function resourceAttributes(
@@ -60,7 +68,7 @@ export function resourceAttributes(
 	].flatMap(([name, value]) =>
 		value === undefined ? [] : [`${name}=${encodeURIComponent(value)}`],
 	);
-	// 利用者がshellで付けた属性は残す。hf.*はhf runが決めた値だけにする。
+	// 利用者がshellで付けた属性は残す。hf.*はharnessforce runが決めた値だけにする。
 	const kept = (shellValue ?? "")
 		.split(",")
 		.map((entry) => entry.trim())
@@ -68,25 +76,37 @@ export function resourceAttributes(
 	return [...kept, ...ours].join(",");
 }
 
-// correlation.md「CLI」の`hf run`の手順3から5。利用者用のkeyとApiTokenはどこにも置かない。
+// correlation.md「CLI」の`harnessforce run`の手順3から5。利用者用のkeyとApiTokenはどこにも置かない。
 export function buildLaunch(request: LaunchRequest): Launch {
-	const injectedEnv: Record<string, string> = {
+	const harnessforceEnv: Record<string, string> = {
 		HARNESSFORCE_WORKSPACE_ID: request.workspaceId,
 		HARNESSFORCE_ENDPOINT: request.ingestEndpoint,
-		OTEL_EXPORTER_OTLP_ENDPOINT: request.ingestEndpoint,
-		// helperのheaderはHTTPのprotocolでだけ使われる。
-		OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf",
-		CLAUDE_CODE_ENABLE_TELEMETRY: "1",
-		CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: "1",
-		OTEL_RESOURCE_ATTRIBUTES: request.resourceAttributes,
 		// 手順5: pluginのhookがsession registrationに`issue_identifier`と`source=cli`を付ける。
 		HARNESSFORCE_ISSUE: request.issueIdentifier,
 	};
+	// Codexは`CLAUDE_CODE_*`と`OTEL_RESOURCE_ATTRIBUTES`を読まず、`OTEL_EXPORTER_OTLP_ENDPOINT`を設定すると
+	// `[otel]`のexporterのendpointの代わりに使われ、headerが付かないおそれがある。送信先は`harnessforce init`が書いた
+	// `config.toml`に任せ、環境にはHARNESSFORCE_*の3つだけを置く。
+	const injectedEnv: Record<string, string> = isCodex(request.agent)
+		? harnessforceEnv
+		: {
+				...harnessforceEnv,
+				OTEL_EXPORTER_OTLP_ENDPOINT: request.ingestEndpoint,
+				// helperのheaderはHTTPのprotocolでだけ使われる。
+				OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf",
+				CLAUDE_CODE_ENABLE_TELEMETRY: "1",
+				CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: "1",
+				// 既定では送られない`app.entrypoint`を送らせ、人が応じた許可の確認を対話のRunだけで数える（`harnessforce init`と同じ）。
+				OTEL_METRICS_INCLUDE_ENTRYPOINT: "true",
+				OTEL_RESOURCE_ATTRIBUTES: request.resourceAttributes,
+			};
 	// Windowsの環境変数の名前は大文字と小文字を区別しないため、別の綴りの同じ変数も除く。
 	const normalize = (name: string) =>
 		request.platform === "win32" ? name.toUpperCase() : name;
+	// Codexには送信先と資格情報の変数を設定しないため、利用者のshellの値は除かない。
+	const stripped = isCodex(request.agent) ? [] : [...STRIPPED_FROM_SHELL];
 	const replaced = new Set(
-		[...STRIPPED_FROM_SHELL, ...Object.keys(injectedEnv)].map(normalize),
+		[...stripped, ...Object.keys(injectedEnv)].map(normalize),
 	);
 	const shellEnv = Object.fromEntries(
 		Object.entries(request.shellEnv).filter(

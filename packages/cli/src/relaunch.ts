@@ -1,17 +1,25 @@
+import { RESTART_FAILED_WARNING } from "@harnessforce/agent-core/hook-warning";
 import {
 	relaunchWithoutRuntimeVariables,
 	type SpawnSelf,
 } from "@harnessforce/agent-core/process/runtime-env";
 import type { Env } from "@harnessforce/agent-core/types";
 
-// keyやtokenを送るsubcommand。`hf otel-headers`は通信を行わないため起動し直さない（correlation.md「Node.jsの実行時の変数」）。
-const SENDING_COMMANDS = new Set(["init", "run", "import"]);
-const RESTART_FAILED = "hfを起動し直せませんでした";
+// keyやtokenを送るsubcommand。`harnessforce otel-headers`は通信を行わないため起動し直さない（correlation.md「Node.jsの実行時の変数」）。
+// `harnessforce usage-limits statusline`は元のstatusLineのcommandへ環境を受け継ぐため起動し直さず、送信は切り離した子processが起動し直して行う。
+const SENDING_COMMANDS = new Set(["init", "run", "import", "hook"]);
+const isSending = (argv: readonly string[]) =>
+	SENDING_COMMANDS.has(argv[0] ?? "") ||
+	(argv[0] === "usage-limits" && argv[1] !== "statusline");
+const HOOK_RESTART_FAILED =
+	"harnessforce: session registration skipped (restart failed)";
+const RESTART_FAILED = "harnessforceを起動し直せませんでした";
 
 type RelaunchDeps = {
 	platform: NodeJS.Platform;
 	env: Env;
 	spawnSelf: SpawnSelf;
+	stdout: (text: string) => void;
 	stderr: (text: string) => void;
 };
 
@@ -20,7 +28,7 @@ export async function relaunchHf(
 	argv: readonly string[],
 	deps: RelaunchDeps,
 ): Promise<number | undefined> {
-	if (!SENDING_COMMANDS.has(argv[0] ?? "")) return undefined;
+	if (!isSending(argv)) return undefined;
 	const outcome = await relaunchWithoutRuntimeVariables({
 		platform: deps.platform,
 		env: deps.env,
@@ -29,6 +37,13 @@ export async function relaunchHf(
 	});
 	if (outcome.kind === "not-needed") return undefined;
 	if (outcome.kind === "exited") return outcome.code;
+	// hookはどの失敗でもsessionを止めず、常にexit 0で終える（correlation.md「hook」）。
+	if (argv[0] === "hook") {
+		deps.stderr(`${HOOK_RESTART_FAILED}\n`);
+		// correlation.md「hookの警告」: Codexのhookは平文の警告1行だけを出す。
+		deps.stdout(`${RESTART_FAILED_WARNING}\n`);
+		return 0;
+	}
 	deps.stderr(`${RESTART_FAILED}\n`);
 	return 1;
 }

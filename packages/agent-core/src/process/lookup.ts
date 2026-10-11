@@ -270,7 +270,7 @@ function cmdExe(
 }
 
 // 解決したfileを起動するcommand line。起動できなければundefined。
-// quoteArgsがfalseなら（hookの`hf otel-headers`）、引数を引用符で囲まない。
+// quoteArgsがfalseなら（hookの`harnessforce otel-headers`）、引数を引用符で囲まない。
 export async function commandLineFor(
 	file: string,
 	args: readonly string[],

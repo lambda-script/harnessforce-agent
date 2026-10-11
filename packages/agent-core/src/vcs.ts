@@ -16,7 +16,7 @@ async function selectRemote(
 	return remotes.includes("origin") ? "origin" : remotes[0];
 }
 
-// hookのsession registrationとhf runの`hf.*`の値。repositoryの外とremoteの無いrepositoryはundefined（付けない）。
+// hookのsession registrationとharnessforce runの`hf.*`の値。repositoryの外とremoteの無いrepositoryはundefined（付けない）。
 export async function resolveVcs(
 	cwd: string,
 	git: RunGit,

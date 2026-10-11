@@ -43,7 +43,7 @@ directly in `plugins/harnessforce`, run `pnpm build` first.
 - **Comments explain why.** Code should say what it does; comments give the reason, the constraint or
   the spec section behind it. Do not leave change-history comments or commented-out code.
 - **Respect package boundaries.** Import another workspace package by its name, never by a relative
-  path across package roots (Biome enforces this). Logic shared by `hf` and the plugin hook belongs in
+  path across package roots (Biome enforces this). Logic shared by `harnessforce` and the plugin hook belongs in
   `packages/agent-core`.
 - **Node.js 18.** `@harnessforce/cli`, `@harnessforce/semconv` and the plugin hook run on Node.js 18,
   so do not use APIs added later.

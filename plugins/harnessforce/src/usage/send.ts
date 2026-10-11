@@ -1,11 +1,11 @@
-import type { Fetch } from "@harnessforce/agent-core/types";
-import type { SessionUsageSummary } from "@harnessforce/semconv";
 import {
 	type Destination,
 	postItems,
 	type SendOutcome,
 	workspaceIdOf,
-} from "../destination.js";
+} from "@harnessforce/agent-core/ingest";
+import type { Fetch } from "@harnessforce/agent-core/types";
+import type { SessionUsageSummary } from "@harnessforce/semconv";
 import {
 	listSessions,
 	readRecord,

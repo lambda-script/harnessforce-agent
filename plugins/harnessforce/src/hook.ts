@@ -3,15 +3,11 @@ import {
 	collectConfig,
 } from "@harnessforce/agent-core/config/collect";
 import type { ConfigComponent } from "@harnessforce/agent-core/config/component";
-import { isIssueIdentifier } from "@harnessforce/agent-core/issue";
-import { readManagedEnv } from "@harnessforce/agent-core/managed";
-import type { RunGit } from "@harnessforce/agent-core/process/git";
-import type { Env, Fetch } from "@harnessforce/agent-core/types";
-import { resolveProjectRoot, resolveVcs } from "@harnessforce/agent-core/vcs";
-import type {
-	ConfigSnapshot,
-	SessionRegistration,
-} from "@harnessforce/semconv";
+import {
+	INVALID_ENDPOINT_WARNING,
+	notConfiguredWarning,
+	REGISTRATION_FAILED_WARNING,
+} from "@harnessforce/agent-core/hook-warning";
 import {
 	type Destination,
 	type IngestItem,
@@ -21,7 +17,17 @@ import {
 	postItems,
 	type SendOutcome,
 	workspaceIdOf,
-} from "./destination.js";
+} from "@harnessforce/agent-core/ingest";
+import { isIssueIdentifier } from "@harnessforce/agent-core/issue";
+import { readManagedEnv } from "@harnessforce/agent-core/managed";
+import type { RunGit } from "@harnessforce/agent-core/process/git";
+import { sessionContext } from "@harnessforce/agent-core/session-context";
+import type { Env, Fetch } from "@harnessforce/agent-core/types";
+import { resolveProjectRoot, resolveVcs } from "@harnessforce/agent-core/vcs";
+import type {
+	ConfigSnapshot,
+	SessionRegistration,
+} from "@harnessforce/semconv";
 import { type HookInput, parseHookInput } from "./input.js";
 import {
 	claimFirstPrompt,
@@ -57,13 +63,13 @@ export type HookDeps = {
 	stderr: (text: string) => void;
 	homeDir: string;
 	managedDir: string;
-	// `hf otel-headers`を起動してkeychainの利用者用IngestKeyを読む。
+	// `harnessforce otel-headers`を起動してkeychainの利用者用IngestKeyを読む。
 	readUserKey: (cwd: string) => Promise<UserKeyRead>;
 };
 
 // correlation.md「hook」の共通の規則が、選んだkeyの種類ごとに定める文言。
 const REVOKED_KEY_MESSAGES: Record<KeyKind, string> = {
-	user: "送信キーが失効しています。`hf init`を実行してください",
+	user: "送信キーが失効しています。`harnessforce init`を実行してください",
 	workspace:
 		"組織の送信キーが失効しています。Workspaceの管理者に連絡してください",
 };
@@ -80,7 +86,7 @@ type Subject = "session registration" | "config snapshot" | "session usage";
 const report = (deps: HookDeps, subject: Subject, detail: string) =>
 	deps.stderr(`harnessforce: ${subject} ${detail}\n`);
 
-// 利用者用のkeyは、`hf otel-headers`が送信先の固定を確かめたうえで返す。
+// 利用者用のkeyは、`harnessforce otel-headers`が送信先の固定を確かめたうえで返す。
 async function selectUserKey(
 	deps: HookDeps,
 	cwd: string,
@@ -92,38 +98,51 @@ async function selectUserKey(
 	return read.kind === "found" ? read.key : undefined;
 }
 
+// 送れない理由が利用者の設定にあるときだけwarningを返す（correlation.md「hookの警告」）。
+type Resolved = { destination?: Destination; warning?: string };
+
 // Workspace用のkeyとその送信先はmanaged settingsのfileからだけ読む。processの環境変数はrepositoryのsettingsが書けるためである。
 // Workspace用のkeyが無ければ、processの環境変数の送信先と利用者用のkeyを使う。
-// 送信先の判定をkeyの判定より先に行い、両方が無ければ送信先の終端だけを書く。
+// 送信先の判定をkeyの判定より先に行い、両方が無ければ送信先の終端だけを書く。警告は、未設定を送信先の不正より先に判定する。
 // withUserKeyが偽なら、Workspace用のkeyが無いときは何も書かずに送らない。
 async function resolveDestination(
 	deps: HookDeps,
 	cwd: string,
 	withUserKey = true,
-): Promise<Destination | undefined> {
+): Promise<Resolved> {
 	const managed = await readManagedEnv(deps.managedDir, [
 		"HARNESSFORCE_INGEST_KEY",
 		"HARNESSFORCE_ENDPOINT",
 	]);
 	const workspaceKey = managed.HARNESSFORCE_INGEST_KEY;
-	if (!workspaceKey && !withUserKey) return undefined;
-	const ingestBase = ingestBaseFrom(
-		workspaceKey
-			? managed.HARNESSFORCE_ENDPOINT
-			: deps.env.HARNESSFORCE_ENDPOINT,
-	);
+	if (!workspaceKey && !withUserKey) return {};
+	const endpoint = workspaceKey
+		? managed.HARNESSFORCE_ENDPOINT
+		: deps.env.HARNESSFORCE_ENDPOINT;
+	const notConfigured =
+		!endpoint || !(workspaceKey || deps.env.HARNESSFORCE_WORKSPACE_ID);
+	const ingestBase = ingestBaseFrom(endpoint);
 	if (!ingestBase) {
 		report(deps, "session registration", "skipped (invalid endpoint)");
-		return undefined;
+		return {
+			warning: notConfigured
+				? notConfiguredWarning("claude_code")
+				: INVALID_ENDPOINT_WARNING,
+		};
 	}
 	if (workspaceKey)
-		return { ingestBase, key: workspaceKey, keyKind: "workspace" };
+		return {
+			destination: { ingestBase, key: workspaceKey, keyKind: "workspace" },
+		};
 	const userKey = await selectUserKey(deps, cwd);
 	if (!userKey) {
 		report(deps, "session registration", "skipped (no ingest key)");
-		return undefined;
+		// WORKSPACE_IDがあるのにkeyが無い端末は、otelHeadersHelperの通知と重ねない。
+		return notConfigured
+			? { warning: notConfiguredWarning("claude_code") }
+			: {};
 	}
-	return { ingestBase, key: userKey, keyKind: "user" };
+	return { destination: { ingestBase, key: userKey, keyKind: "user" } };
 }
 
 // Workspace用のkeyではsource=cliを名乗らない（control-plane.md「認証の種類と信頼」）。
@@ -166,14 +185,6 @@ async function reportRevokedKey(
 // stdoutはJSONのobject1つだけとする（correlation.md「hook」）。JSONの出力はstdoutがそのobjectだけのときに解釈される。
 const writeJson = (deps: HookDeps, output: object) =>
 	deps.stdout(`${JSON.stringify(output)}\n`);
-
-// correlation.md「session context」: skillがstart_runへ渡すsession IDを、session registrationと同じ値でcontextへ加える。
-const sessionContext = (sessionId: string) => ({
-	hookSpecificOutput: {
-		hookEventName: "SessionStart",
-		additionalContext: `harnessforce session_id: ${sessionId}`,
-	},
-});
 
 async function registerSession(
 	input: HookInput,
@@ -296,27 +307,25 @@ async function startUsage(
 	return unsent ?? undefined;
 }
 
-type RevokedKeyMessage = string;
-
-// 401を受けたら、失効したkeyの文言を返す。
+// 利用者へ表示する1行。401のkeyの文言を、送信の失敗と設定の警告より優先する。
 async function sendSessionStart(
 	input: HookInput,
 	usage: UsageStore | undefined,
 	deps: HookDeps,
-): Promise<RevokedKeyMessage | undefined> {
+): Promise<string | undefined> {
 	const registers =
 		input.source === undefined || REGISTERING_SOURCES.has(input.source);
 	if (!registers && !usage) return undefined;
 	if (input.scratchpad && (await isMarkedUnauthorized(input.scratchpad)))
 		return undefined;
-	const destination = await resolveDestination(deps, input.cwd);
-	if (!destination) return undefined;
+	const { destination, warning } = await resolveDestination(deps, input.cwd);
+	if (!destination) return warning;
 	// resumeとcompactはsnapshotを送らないが、状態のfileを作るなら識別子のために構成を集める。
 	const collects = registers || (usage && !(await readState(usage)));
 	const collected = collects
 		? collectComponents(input, deps)
 		: Promise.resolve(undefined);
-	const outcomes = await Promise.all([
+	const [registration, snapshot, unsent] = await Promise.all([
 		registers
 			? registerSession(input, destination, deps).catch(logError(deps))
 			: undefined,
@@ -331,9 +340,15 @@ async function sendSessionStart(
 			: undefined,
 		usage ? startUsage(usage, destination, collected, deps) : undefined,
 	]);
-	if (!outcomes.some((outcome) => outcome?.kind === "unauthorized"))
-		return undefined;
-	return reportRevokedKey(destination, input.scratchpad, deps);
+	if (
+		[registration, snapshot, unsent].some(
+			(outcome) => outcome?.kind === "unauthorized",
+		)
+	)
+		return reportRevokedKey(destination, input.scratchpad, deps);
+	return registration?.kind === "failed"
+		? REGISTRATION_FAILED_WARNING
+		: undefined;
 }
 
 // sourceや送信の結果によらず、session contextを必ず1回出す。resumeとcompactの後のcontextにもsession IDを残すためである。
@@ -341,7 +356,7 @@ async function onSessionStart(input: HookInput, deps: HookDeps): Promise<void> {
 	const usage = usageStoreOf(input.sessionId, deps.env);
 	const startedAt = deps.now();
 	if (usage) await removeExpiredFiles(usage, startedAt).catch(logError(deps));
-	const revoked = await sendSessionStart(input, usage, deps).catch((error) => {
+	const message = await sendSessionStart(input, usage, deps).catch((error) => {
 		logError(deps)(error);
 		return undefined;
 	});
@@ -353,7 +368,7 @@ async function onSessionStart(input: HookInput, deps: HookDeps): Promise<void> {
 		}).catch(logError(deps));
 	writeJson(deps, {
 		...sessionContext(input.sessionId),
-		...(revoked === undefined ? {} : { systemMessage: revoked }),
+		...(message === undefined ? {} : { systemMessage: message }),
 	});
 }
 
@@ -373,7 +388,7 @@ async function onUserPromptSubmit(
 	if (!input.promptId || !pad || (await isMarkedUnauthorized(pad))) return;
 	const saved = await loadRegistration(pad);
 	if (!saved || (await isFirstPromptSent(pad))) return;
-	const destination = await resolveDestination(deps, input.cwd);
+	const { destination } = await resolveDestination(deps, input.cwd);
 	if (!destination || !(await claimFirstPrompt(pad))) return;
 	const outcome = await send(
 		destination,
@@ -391,13 +406,13 @@ async function onUserPromptSubmit(
 // correlation.md「送る契機」: SessionEndのhook全体の1.5秒の予算のうち、processの開始から使う時間。残りは余裕とする。
 const SESSION_END_BUDGET_MS = 1000;
 
-// SessionEndは`hf otel-headers`を起動せず、Workspace用のkeyを選ぶ場合だけ送る。JSONの出力は捨てられるためstdoutへ書かない。
+// SessionEndは`harnessforce otel-headers`を起動せず、Workspace用のkeyを選ぶ場合だけ送る。JSONの出力は捨てられるためstdoutへ書かない。
 async function onSessionEnd(input: HookInput, deps: HookDeps): Promise<void> {
 	const usage = usageStoreOf(input.sessionId, deps.env);
 	if (!usage) return;
 	if (input.scratchpad && (await isMarkedUnauthorized(input.scratchpad)))
 		return;
-	const destination = await resolveDestination(deps, input.cwd, false);
+	const { destination } = await resolveDestination(deps, input.cwd, false);
 	if (!destination) return;
 	const outcome = await sendSessionUsage(
 		usage,

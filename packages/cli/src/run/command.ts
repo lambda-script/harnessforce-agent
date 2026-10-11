@@ -8,7 +8,7 @@ import {
 } from "@harnessforce/agent-core/process/lookup";
 import type { Env } from "@harnessforce/agent-core/types";
 
-// correlation.md「CLI」の`hf run`の手順7と「commandの解決」。agentのfileを解決し、起動するcommand lineを作る。
+// correlation.md「CLI」の`harnessforce run`の手順7と「commandの解決」。agentのfileを解決し、起動するcommand lineを作る。
 export type ResolveOptions = {
 	platform: NodeJS.Platform;
 	env: Env;

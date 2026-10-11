@@ -43,41 +43,45 @@ const reader = (
 	processCwd = "/claude-cwd",
 ) => createUserKeyReader({ processCwd, ...options });
 
-describe("resolving hf on PATH", () => {
-	it("starts npm's hf with the hook's node instead of env searching PATH", async () => {
+describe("resolving harnessforce on PATH", () => {
+	it("starts npm's harnessforce with the hook's node instead of env searching PATH", async () => {
 		const { exec, calls } = fakeExec({ ok: true, stdout: header("k") });
 		const read = reader({
 			platform: "linux",
 			env: { PATH: ":/usr/local/bin" },
-			fs: memoryFs({ "/usr/local/bin/hf": "#!/usr/bin/env node\n" }),
+			fs: memoryFs({ "/usr/local/bin/harnessforce": "#!/usr/bin/env node\n" }),
 			exec,
 		});
 		expect(await read("/work/web")).toEqual({ kind: "found", key: "k" });
 		expect(calls).toEqual([
 			{
 				file: process.execPath,
-				args: ["/usr/local/bin/hf", "otel-headers"],
+				args: ["/usr/local/bin/harnessforce", "otel-headers"],
 				verbatim: false,
 			},
 		]);
 	});
 
-	it("runs hf from the first absolute PATH directory that has it", async () => {
+	it("runs harnessforce from the first absolute PATH directory that has it", async () => {
 		const { exec, calls } = fakeExec({ ok: true, stdout: header("k") });
 		const read = reader({
 			platform: "darwin",
 			env: { PATH: "/usr/bin:relative/bin:/opt/hf/bin:/other/bin" },
 			fs: memoryFs({
-				"relative/bin/hf": "",
-				"/opt/hf/bin/hf": "",
-				"/other/bin/hf": "",
+				"relative/bin/harnessforce": "",
+				"/opt/hf/bin/harnessforce": "",
+				"/other/bin/harnessforce": "",
 			}),
 			exec,
 		});
 		expect(await read("/work/web")).toEqual({ kind: "found", key: "k" });
 		// 相対pathのdirectoryはcwdで解決されるため探さない。
 		expect(calls).toEqual([
-			{ file: "/opt/hf/bin/hf", args: ["otel-headers"], verbatim: false },
+			{
+				file: "/opt/hf/bin/harnessforce",
+				args: ["otel-headers"],
+				verbatim: false,
+			},
 		]);
 	});
 
@@ -89,9 +93,9 @@ describe("resolving hf on PATH", () => {
 				env: { PATH: "/work/web/bin:/claude-cwd:/usr/local/bin" },
 				fs: memoryFs(
 					{
-						"/work/web/bin/hf": "",
-						"/claude-cwd/hf": "",
-						"/usr/local/bin/hf": "",
+						"/work/web/bin/harnessforce": "",
+						"/claude-cwd/harnessforce": "",
+						"/usr/local/bin/harnessforce": "",
 					},
 					["/work/web/.git"],
 				),
@@ -100,10 +104,12 @@ describe("resolving hf on PATH", () => {
 			"/claude-cwd",
 		);
 		await read("/work/web/packages/app");
-		expect(calls.map((call) => call.file)).toEqual(["/usr/local/bin/hf"]);
+		expect(calls.map((call) => call.file)).toEqual([
+			"/usr/local/bin/harnessforce",
+		]);
 	});
 
-	it("treats hf missing from PATH as missing without starting anything", async () => {
+	it("treats harnessforce missing from PATH as missing without starting anything", async () => {
 		const { exec, calls } = fakeExec({ ok: true, stdout: header("k") });
 		const read = reader({
 			platform: "linux",
@@ -113,6 +119,61 @@ describe("resolving hf on PATH", () => {
 		});
 		expect(await read("/work/web")).toEqual({ kind: "missing" });
 		expect(calls).toEqual([]);
+	});
+
+	// correlation.md「コマンド名」: `hf`を`bin`に持つbuildのhookは、`harnessforce`が無ければ`hf`を解決する。
+	describe("the hf alias", () => {
+		const nodeScript = "#!/usr/bin/env node\n";
+
+		it("falls back to hf when harnessforce is not on PATH", async () => {
+			const { exec, calls } = fakeExec({ ok: true, stdout: header("k") });
+			const read = reader({
+				platform: "linux",
+				env: { PATH: "/usr/local/bin" },
+				fs: memoryFs({ "/usr/local/bin/hf": nodeScript }),
+				exec,
+			});
+			expect(await read("/work/web")).toEqual({ kind: "found", key: "k" });
+			expect(calls).toEqual([
+				{
+					file: process.execPath,
+					args: ["/usr/local/bin/hf", "otel-headers"],
+					verbatim: false,
+				},
+			]);
+		});
+
+		it("prefers harnessforce when both are on PATH", async () => {
+			const { exec, calls } = fakeExec({ ok: true, stdout: header("k") });
+			const read = reader({
+				platform: "linux",
+				env: { PATH: "/a/bin:/b/bin" },
+				fs: memoryFs({
+					"/a/bin/hf": nodeScript,
+					"/b/bin/harnessforce": nodeScript,
+				}),
+				exec,
+			});
+			await read("/work/web");
+			expect(calls.map((call) => call.args[0])).toEqual([
+				"/b/bin/harnessforce",
+			]);
+		});
+
+		it("does not fall back to hf when harnessforce fails to read the key", async () => {
+			const { exec, calls } = fakeExec({ ok: false, stdout: "" });
+			const read = reader({
+				platform: "linux",
+				env: { PATH: "/a/bin" },
+				fs: memoryFs({
+					"/a/bin/harnessforce": nodeScript,
+					"/a/bin/hf": nodeScript,
+				}),
+				exec,
+			});
+			expect(await read("/work/web")).toEqual({ kind: "failed" });
+			expect(calls).toHaveLength(1);
+		});
 	});
 
 	describe("on Windows", () => {
@@ -138,23 +199,30 @@ describe("resolving hf on PATH", () => {
 			const read = reader({
 				platform: "win32",
 				env,
-				fs: memoryFs({ [`${npmDir}\\hf.exe`]: "", [`${npmDir}\\hf.cmd`]: "" }),
+				fs: memoryFs({
+					[`${npmDir}\\harnessforce.exe`]: "",
+					[`${npmDir}\\harnessforce.cmd`]: "",
+				}),
 				exec,
 			});
 			expect(await read("C:\\work")).toEqual({ kind: "found", key: "k" });
 			expect(calls).toEqual([
-				{ file: `${npmDir}\\hf.EXE`, args: ["otel-headers"], verbatim: false },
+				{
+					file: `${npmDir}\\harnessforce.EXE`,
+					args: ["otel-headers"],
+					verbatim: false,
+				},
 			]);
 		});
 
-		it("starts npm's hf.cmd with the hook's node instead of cmd.exe or node on PATH", async () => {
+		it("starts npm's harnessforce.cmd with the hook's node instead of cmd.exe or node on PATH", async () => {
 			const { exec, calls } = fakeExec({ ok: true, stdout: header("k") });
 			const read = reader({
 				platform: "win32",
 				env: { ...env, PATH: `C:\\repo;C:\\nodejs;${npmDir}` },
 				fs: memoryFs(
 					{
-						[`${npmDir}\\hf.cmd`]: shim,
+						[`${npmDir}\\harnessforce.cmd`]: shim,
 						"C:\\repo\\node.exe": "",
 						"C:\\nodejs\\node.exe": "",
 					},
@@ -175,13 +243,13 @@ describe("resolving hf on PATH", () => {
 			]);
 		});
 
-		it("starts another hf.cmd through cmd.exe with the path quoted twice", async () => {
+		it("starts another harnessforce.cmd through cmd.exe with the path quoted twice", async () => {
 			const { exec, calls } = fakeExec({ ok: true, stdout: header("k") });
 			const read = reader({
 				platform: "win32",
 				env,
 				fs: memoryFs({
-					[`${npmDir}\\hf.cmd`]: "@echo off\r\nnode x.js %*\r\n",
+					[`${npmDir}\\harnessforce.cmd`]: "@echo off\r\nnode x.js %*\r\n",
 				}),
 				exec,
 			});
@@ -189,7 +257,12 @@ describe("resolving hf on PATH", () => {
 			expect(calls).toEqual([
 				{
 					file: "C:\\Windows\\system32\\cmd.exe",
-					args: ["/d", "/s", "/c", `""${npmDir}\\hf.CMD" otel-headers"`],
+					args: [
+						"/d",
+						"/s",
+						"/c",
+						`""${npmDir}\\harnessforce.CMD" otel-headers"`,
+					],
 					verbatim: true,
 				},
 			]);
@@ -206,13 +279,13 @@ describe("resolving hf on PATH", () => {
 						SystemRoot: "C:\\Windows",
 						...comSpec,
 					},
-					fs: memoryFs({ "C:\\tools\\hf.bat": "" }),
+					fs: memoryFs({ "C:\\tools\\harnessforce.bat": "" }),
 					exec,
 				});
 				await read("C:\\work");
 				expect(calls[0]?.file).toBe("C:\\Windows\\System32\\cmd.exe");
 				expect(calls[0]?.args.at(-1)).toBe(
-					'""C:\\tools\\hf.BAT" otel-headers"',
+					'""C:\\tools\\harnessforce.BAT" otel-headers"',
 				);
 			}
 		});
@@ -226,7 +299,7 @@ describe("resolving hf on PATH", () => {
 			const read = reader({
 				platform: "win32",
 				env: { PATH: dir, PATHEXT: ".CMD", SystemRoot: "C:\\Windows" },
-				fs: memoryFs({ [`${dir}\\hf.cmd`]: "" }),
+				fs: memoryFs({ [`${dir}\\harnessforce.cmd`]: "" }),
 				exec,
 			});
 			expect(await read("C:\\work")).toEqual({ kind: "missing" });
@@ -235,12 +308,12 @@ describe("resolving hf on PATH", () => {
 	});
 });
 
-describe("reading the hf otel-headers output", () => {
+describe("reading the harnessforce otel-headers output", () => {
 	const readWith = (result: { ok: boolean; stdout: string }) =>
 		reader({
 			platform: "linux",
 			env: { PATH: "/bin" },
-			fs: memoryFs({ "/bin/hf": "" }),
+			fs: memoryFs({ "/bin/harnessforce": "" }),
 			exec: fakeExec(result).exec,
 		})("/work/web");
 
@@ -255,53 +328,56 @@ describe("reading the hf otel-headers output", () => {
 		expect(await readWith(result)).toEqual({ kind: "failed" }));
 });
 
-describe.skipIf(process.platform === "win32")("starting a real hf", () => {
-	function writeHf(body: string): string {
-		const dir = tempDir("hf-bin-");
-		const hf = join(dir, "hf");
-		writeFileSync(hf, `#!/bin/sh\n${body}\n`);
-		chmodSync(hf, 0o755);
-		return dir;
-	}
+describe.skipIf(process.platform === "win32")(
+	"starting a real harnessforce",
+	() => {
+		function writeHf(body: string): string {
+			const dir = tempDir("hf-bin-");
+			const hf = join(dir, "harnessforce");
+			writeFileSync(hf, `#!/bin/sh\n${body}\n`);
+			chmodSync(hf, 0o755);
+			return dir;
+		}
 
-	const realReader = (dir: string) => {
-		const read = createUserKeyReader({
-			platform: process.platform,
-			env: { PATH: dir, HARNESSFORCE_WORKSPACE_ID: "ws1" },
-			exec: execHf,
-			processCwd: "/nonexistent-cwd",
+		const realReader = (dir: string) => {
+			const read = createUserKeyReader({
+				platform: process.platform,
+				env: { PATH: dir, HARNESSFORCE_WORKSPACE_ID: "ws1" },
+				exec: execHf,
+				processCwd: "/nonexistent-cwd",
+			});
+			return () => read("/nonexistent-session");
+		};
+
+		it("passes the environment and reads the key", async () => {
+			const dir = writeHf(
+				'[ "$1" = otel-headers ] && printf \'{"Authorization":"Bearer hf_ik_%s_user"}\' "$HARNESSFORCE_WORKSPACE_ID"',
+			);
+			expect(await realReader(dir)()).toEqual({
+				kind: "found",
+				key: "hf_ik_ws1_user",
+			});
 		});
-		return () => read("/nonexistent-session");
-	};
 
-	it("passes the environment and reads the key", async () => {
-		const dir = writeHf(
-			'[ "$1" = otel-headers ] && printf \'{"Authorization":"Bearer hf_ik_%s_user"}\' "$HARNESSFORCE_WORKSPACE_ID"',
-		);
-		expect(await realReader(dir)()).toEqual({
-			kind: "found",
-			key: "hf_ik_ws1_user",
+		it("gives up after 1 second", async () => {
+			const dir = writeHf("sleep 5");
+			const began = Date.now();
+			expect(await realReader(dir)()).toEqual({ kind: "failed" });
+			expect(Date.now() - began).toBeLessThan(3000);
 		});
-	});
 
-	it("gives up after 1 second", async () => {
-		const dir = writeHf("sleep 5");
-		const began = Date.now();
-		expect(await realReader(dir)()).toEqual({ kind: "failed" });
-		expect(Date.now() - began).toBeLessThan(3000);
-	});
+		// Windowsのcmd.exe経由と同じく、止めたprocessの子がstdoutを持ったまま残っても待たない。
+		it("does not wait for a child that keeps stdout open after the limit", async () => {
+			const dir = writeHf("sleep 5 &\nsleep 5");
+			const began = Date.now();
+			expect(await realReader(dir)()).toEqual({ kind: "failed" });
+			expect(Date.now() - began).toBeLessThan(3000);
+		});
 
-	// Windowsのcmd.exe経由と同じく、止めたprocessの子がstdoutを持ったまま残っても待たない。
-	it("does not wait for a child that keeps stdout open after the limit", async () => {
-		const dir = writeHf("sleep 5 &\nsleep 5");
-		const began = Date.now();
-		expect(await realReader(dir)()).toEqual({ kind: "failed" });
-		expect(Date.now() - began).toBeLessThan(3000);
-	});
-
-	it("ignores a non-executable hf", async () => {
-		const dir = tempDir("hf-bin-");
-		writeFileSync(join(dir, "hf"), "#!/bin/sh\n");
-		expect(await realReader(dir)()).toEqual({ kind: "missing" });
-	});
-});
+		it("ignores a non-executable harnessforce", async () => {
+			const dir = tempDir("hf-bin-");
+			writeFileSync(join(dir, "harnessforce"), "#!/bin/sh\n");
+			expect(await realReader(dir)()).toEqual({ kind: "missing" });
+		});
+	},
+);
