@@ -24,6 +24,16 @@ const STATE_VERSION = 1;
 const DIR_MODE = 0o700;
 const FILE_MODE = 0o600;
 
+// 送り終えたsessionの記録の鍵。Claude Codeのsessionは従来どおりsession ID、Codexはagentを前置して区別する
+// （同じIDでもagentが違えば別のsessionである）。
+export const sessionStateKey = (session: {
+	agent: string;
+	session_id: string;
+}) =>
+	session.agent === "claude_code"
+		? session.session_id
+		: `${session.agent}:${session.session_id}`;
+
 export const importStatePath = (homeDir: string) =>
 	join(homeDir, ".harnessforce", "import-state.json");
 

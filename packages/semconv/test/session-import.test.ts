@@ -24,6 +24,15 @@ describe("session import", () => {
 	])("rejects %s", (_, patch) =>
 		expect(check({ ...sessionImport, ...patch })).toBe(false));
 
+	it("accepts a codex tool call without failures", () =>
+		expect(
+			check({
+				...sessionImport,
+				agent: "codex",
+				tool_calls: [{ tool: "apply_patch", calls: 2 }],
+			}),
+		).toBe(true));
+
 	it("requires parser_version", () => {
 		const { parser_version, ...rest } = sessionImport;
 		expect(check(rest)).toBe(false);
