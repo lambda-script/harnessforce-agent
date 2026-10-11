@@ -51,6 +51,16 @@ export function ingestBaseFrom(endpoint: string | undefined): URL | undefined {
 	return ingestBase;
 }
 
+// bodyは要素1つの配列として送る（ingest-api.md「汎用ingest API」）。
+export const postItem = (
+	destination: Destination,
+	path: IngestPath,
+	item: IngestItem,
+	fetchImpl: Fetch,
+	timeoutMs: number = SEND_TIMEOUT_MS,
+): Promise<SendOutcome> =>
+	postItems(destination, path, [item], fetchImpl, timeoutMs);
+
 // bodyは要素の配列とする（ingest-api.md「汎用ingest API」）。
 export async function postItems(
 	destination: Destination,
