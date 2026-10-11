@@ -2,6 +2,7 @@ import type { Fetch } from "@harnessforce/agent-core/types";
 import { underBase } from "@harnessforce/agent-core/url";
 import type { SessionImport } from "@harnessforce/semconv";
 import { REQUEST_TIMEOUT_MS, readJsonObjectBody } from "../shared/http.js";
+import { sessionStateKey } from "./state.js";
 
 // ingest-api.md: `/v1/imports/sessions`は1 requestあたり最大100 session。
 const BATCH_SIZE = 100;
@@ -138,7 +139,7 @@ export async function sendSessions(options: SendOptions): Promise<SendResult> {
 		await options.record(
 			batch
 				.filter((_, index) => !limitedIndexes.has(index))
-				.map((session) => session.session_id),
+				.map(sessionStateKey),
 		);
 		const [firstLimited] = limited;
 		if (firstLimited) {

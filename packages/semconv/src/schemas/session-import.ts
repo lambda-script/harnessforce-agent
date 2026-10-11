@@ -3,7 +3,7 @@ import { Count, closed, Instant, SemVer, schemaId, Token } from "./common.js";
 import { registrationProperties } from "./session-registration.js";
 
 const ToolCallSummary = Type.Object(
-	{ tool: Token(128), calls: Count, failures: Count },
+	{ tool: Token(128), calls: Count, failures: Type.Optional(Count) },
 	closed,
 );
 
