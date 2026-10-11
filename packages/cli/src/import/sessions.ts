@@ -178,7 +178,7 @@ const localDayKey = (ms: number) => {
 	);
 };
 
-export function toCodexSessionImport(
+function toCodexSessionImport(
 	session: RolloutSession,
 	repository: string,
 ): SessionImport {
