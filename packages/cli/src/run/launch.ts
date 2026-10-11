@@ -96,6 +96,8 @@ export function buildLaunch(request: LaunchRequest): Launch {
 				OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf",
 				CLAUDE_CODE_ENABLE_TELEMETRY: "1",
 				CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: "1",
+				// 既定では送られない`app.entrypoint`を送らせ、人が応じた許可の確認を対話のRunだけで数える（`harnessforce init`と同じ）。
+				OTEL_METRICS_INCLUDE_ENTRYPOINT: "true",
 				OTEL_RESOURCE_ATTRIBUTES: request.resourceAttributes,
 			};
 	// Windowsの環境変数の名前は大文字と小文字を区別しないため、別の綴りの同じ変数も除く。

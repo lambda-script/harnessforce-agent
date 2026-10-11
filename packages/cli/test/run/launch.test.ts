@@ -85,6 +85,7 @@ describe("buildLaunch", () => {
 		OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf",
 		CLAUDE_CODE_ENABLE_TELEMETRY: "1",
 		CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: "1",
+		OTEL_METRICS_INCLUDE_ENTRYPOINT: "true",
 		OTEL_RESOURCE_ATTRIBUTES: attributes,
 		HARNESSFORCE_ISSUE: "ENG-1",
 	};
@@ -238,6 +239,7 @@ describe("buildLaunch for Codex", () => {
 			"OTEL_RESOURCE_ATTRIBUTES",
 			"CLAUDE_CODE_ENABLE_TELEMETRY",
 			"CLAUDE_CODE_ENHANCED_TELEMETRY_BETA",
+			"OTEL_METRICS_INCLUDE_ENTRYPOINT",
 		])
 			expect(launch.env).not.toHaveProperty(name);
 	});
