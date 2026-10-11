@@ -14,12 +14,13 @@ import {
 } from "./read-api.js";
 import { recordBase } from "./record-base.js";
 import { type SendResult, sendSessions } from "./send.js";
-import { scanSessions } from "./sessions.js";
+import { scanCodexSessions, scanSessions } from "./sessions.js";
 import {
 	type Destination,
 	importStatePath,
 	readSentSessions,
 	recordSentSessions,
+	sessionStateKey,
 } from "./state.js";
 
 export type ImportDeps = {
@@ -129,22 +130,41 @@ async function runImport(deps: ImportDeps): Promise<number> {
 			readFetch,
 		),
 	);
-	const scan = await scanSessions({
+	const sinceMs = deps.now() - days * DAY_MS;
+	const claude = await scanSessions({
 		projectsDir: join(await recordBase(deps), "projects"),
-		sinceMs: deps.now() - days * DAY_MS,
+		sinceMs,
 		connected,
 		git: deps.git,
 	});
-	if (scan.skippedLines > 0 || scan.skippedFiles > 0)
+	// Codexの記録の基点は`~/.codex`に固定する。processの環境変数のCODEX_HOMEは、repositoryのsettingsが書き換えられるため読まない。
+	const codex = await scanCodexSessions({
+		codexDir: join(deps.homeDir, ".codex"),
+		sinceMs,
+		connected,
+		git: deps.git,
+	});
+	const skippedLines = claude.skippedLines + codex.skippedLines;
+	const skippedFiles = claude.skippedFiles + codex.skippedFiles;
+	if (skippedLines > 0 || skippedFiles > 0)
 		deps.stdout(
-			`読めなかった${scan.skippedLines}行と${scan.skippedFiles}個のfileを読み飛ばしました\n`,
+			`読めなかった${skippedLines}行と${skippedFiles}個のfileを読み飛ばしました\n`,
 		);
+	if (codex.unextractable > 0)
+		deps.stdout(
+			`modelまたはtoken数を読めないCodexのセッション${codex.unextractable}個は取り込みませんでした\n`,
+		);
+	if (codex.compressed > 0)
+		deps.stdout(
+			`圧縮されたCodexのセッションの記録${codex.compressed}個は読めないため取り込みませんでした\n`,
+		);
+	const scanned = [...claude.sessions, ...codex.sessions];
 	const statePath = importStatePath(deps.homeDir);
 	const sent = await readSentSessions(statePath, destination);
 	const result = await sendSessions({
 		endpoint: access.ingest,
 		ingestKey: access.ingestKey,
-		sessions: scan.sessions.filter((s) => !sent.has(s.session_id)),
+		sessions: scanned.filter((s) => !sent.has(sessionStateKey(s))),
 		fetch: deps.fetch,
 		sleep: deps.sleep,
 		record: (ids) =>

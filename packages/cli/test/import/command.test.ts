@@ -147,6 +147,118 @@ describe("harnessforce import", () => {
 		expect(home.readState()).toContain("s000");
 	});
 
+	describe("Codex rollouts", () => {
+		const rolloutLine = (value: unknown) => `${JSON.stringify(value)}\n`;
+		const rollout = (id: string, cwd: string, withTokens = true) =>
+			rolloutLine({
+				timestamp: "2026-09-20T00:00:00.000Z",
+				type: "session_meta",
+				payload: { id, cwd, git: { branch: "eng-42-login" } },
+			}) +
+			rolloutLine({
+				timestamp: "2026-09-20T00:00:01.000Z",
+				type: "turn_context",
+				payload: { model: "gpt-5-codex" },
+			}) +
+			rolloutLine({
+				timestamp: "2026-09-20T00:00:02.000Z",
+				type: "response_item",
+				payload: {
+					type: "function_call",
+					name: "apply_patch",
+					arguments: "SECRET",
+				},
+			}) +
+			(withTokens
+				? rolloutLine({
+						timestamp: "2026-09-20T01:00:00.000Z",
+						type: "event_msg",
+						payload: {
+							type: "token_count",
+							info: {
+								total_token_usage: {
+									input_tokens: 10,
+									cached_input_tokens: 4,
+									output_tokens: 2,
+								},
+							},
+						},
+					})
+				: "");
+		const writeCodex = (home: string, files: Record<string, string>) => {
+			for (const [path, content] of Object.entries(files)) {
+				const file = join(home, ".codex", "sessions", path);
+				mkdirSync(join(file, ".."), { recursive: true });
+				writeFileSync(file, content);
+			}
+		};
+
+		it("sends the codex rollouts of connected repositories without failures or bodies and remembers them by agent", async () => {
+			const { hf, home, cwd, run } = await setup();
+			writeCodex(home.home, {
+				"2026/09/20/rollout-c1.jsonl": rollout("c1", cwd),
+			});
+			expect(await run()).toEqual({
+				code: 0,
+				out: "2件のsessionを取り込みました\n",
+				err: "",
+			});
+			const codex = (hf.requests.at(-1)?.body as { agent: string }[]).filter(
+				(item) => item.agent === "codex",
+			);
+			expect(codex).toEqual([
+				expect.objectContaining({
+					agent: "codex",
+					source: "import",
+					session_id: "c1",
+					repository: "github.com/acme/web",
+					branch: "eng-42-login",
+					model: "gpt-5-codex",
+					input_tokens: 6,
+					output_tokens: 2,
+					tool_calls: [{ tool: "apply_patch", calls: 1 }],
+				}),
+			]);
+			expect(JSON.stringify(hf.requests)).not.toContain("SECRET");
+			expect(home.readState()).toContain("codex:c1");
+			expect(await run()).toMatchObject({
+				out: "0件のsessionを取り込みました\n",
+			});
+		});
+
+		it("reads only ~/.codex and ignores CODEX_HOME from the process environment", async () => {
+			const { home, cwd, run } = await setup();
+			const other = tempDir("hf-other-codex-");
+			mkdirSync(join(other, "sessions", "2026", "09", "20"), {
+				recursive: true,
+			});
+			writeFileSync(
+				join(other, "sessions", "2026", "09", "20", "rollout-x.jsonl"),
+				rollout("x", cwd),
+			);
+			writeCodex(home.home, {});
+			expect(await run({ env: { CODEX_HOME: other } })).toMatchObject({
+				out: "1件のsessionを取り込みました\n",
+			});
+		});
+
+		it("reports the sessions whose model or token usage cannot be read and the compressed rollouts, without changing the exit code", async () => {
+			const { home, cwd, run } = await setup();
+			writeCodex(home.home, {
+				"2026/09/20/rollout-bad.jsonl": rollout("bad", cwd, false),
+				"2026/09/20/rollout-z.jsonl.zst": "binary",
+			});
+			expect(await run()).toEqual({
+				code: 0,
+				out:
+					"modelまたはtoken数を読めないCodexのセッション1個は取り込みませんでした\n" +
+					"圧縮されたCodexのセッションの記録1個は読めないため取り込みませんでした\n" +
+					"1件のsessionを取り込みました\n",
+				err: "",
+			});
+		});
+	});
+
 	it("does not send the same sessions twice", async () => {
 		const { hf, run } = await setup();
 		await run();
