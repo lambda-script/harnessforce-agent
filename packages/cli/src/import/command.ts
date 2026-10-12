@@ -56,9 +56,9 @@ const MESSAGES = {
 
 const limitMessage = {
 	monthly_event_limit: (count: number) =>
-		`月間イベント数の上限に達したため、${count}件のsessionを取り込めませんでした。上限が解除された後に\`harnessforce import\`を再実行すると続きから取り込みます`,
+		`月間イベント数の上限に達したため、${count}件のセッションを取り込めませんでした。上限が解除された後に\`harnessforce import\`を再実行すると続きから取り込みます`,
 	workspace_read_only: (count: number) =>
-		`Workspaceが閲覧のみのため、${count}件のsessionを取り込めませんでした。閲覧のみが解除された後に\`harnessforce import\`を再実行すると続きから取り込みます`,
+		`Workspaceが閲覧のみのため、${count}件のセッションを取り込めませんでした。閲覧のみが解除された後に\`harnessforce import\`を再実行すると続きから取り込みます`,
 };
 
 const ACCESS_MESSAGES: AccessMessages = {
@@ -81,10 +81,10 @@ function unwrap<T>(outcome: ReadOutcome<T>): T {
 function report(result: SendResult, deps: ImportDeps): number {
 	switch (result.kind) {
 		case "done":
-			deps.stdout(`${result.imported}件のsessionを取り込みました\n`);
+			deps.stdout(`${result.imported}件のセッションを取り込みました\n`);
 			if (result.invalid > 0)
 				deps.stdout(
-					`形式が不正なため${result.invalid}件のsessionを取り込めませんでした\n`,
+					`形式が不正なため${result.invalid}件のセッションを取り込めませんでした\n`,
 				);
 			return 0;
 		case "limited":
@@ -148,7 +148,7 @@ async function runImport(deps: ImportDeps): Promise<number> {
 	const skippedFiles = claude.skippedFiles + codex.skippedFiles;
 	if (skippedLines > 0 || skippedFiles > 0)
 		deps.stdout(
-			`読めなかった${skippedLines}行と${skippedFiles}個のfileを読み飛ばしました\n`,
+			`読めなかった${skippedLines}行と${skippedFiles}個のファイルを読み飛ばしました\n`,
 		);
 	if (codex.unextractable > 0)
 		deps.stdout(

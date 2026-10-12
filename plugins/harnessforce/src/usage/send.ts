@@ -43,7 +43,8 @@ export async function sendSessionUsage(
 		"v1/session-usage",
 		[summary],
 		deps.fetch,
-		remainingMs,
+		// AbortSignal.timeoutは整数だけを受け付け、deadlineはperformance.timeOriginの小数を含みうる。
+		Math.ceil(remainingMs),
 	);
 	if (outcome.kind === "accepted")
 		await writeSentLength(store, store.sessionId, state, record.length);

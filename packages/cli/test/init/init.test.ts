@@ -65,6 +65,9 @@ const codexNotes = (home: string) =>
 	].join("\n");
 const finished = (home: string) => `${M.success}\n${codexNotes(home)}\n`;
 
+const contentEnabled =
+	"入力した指示の本文を送る設定を有効にしました。パターンに一致した秘密値と個人情報を伏せ字にしますが、すべてを検出できるとは限りません。保存した本文は、Workspaceのメンバーの中ではあなただけが読め、本文データの保持期間（最大30日）が過ぎると削除されます";
+
 const codexSaveFailed =
 	"Codexの設定を書き込めませんでした。もう一度`harnessforce init`を実行してください";
 
@@ -72,7 +75,7 @@ const failed = (message: string) => ({ code: 1, out: "", err: `${message}\n` });
 
 // portを確保できなかったときの文言。使えなかったportと`--port`の逃げ道を示す（correlation.md「CLI」）。
 const listenFailed = (port: number) =>
-	`${M.listen}。port ${port}を使っているprocessを終えるか、\`harnessforce init --port\`で別のportを指定してください`;
+	`${M.listen}。ポート ${port}を使っているプロセスを終えるか、\`harnessforce init --port\`で別のポートを指定してください`;
 
 const EXISTING = {
 	"ws1:ingest-key": "hf_ik_ws1_old",
@@ -683,7 +686,11 @@ describe("harnessforce init", () => {
 				defaultUrl: server.base,
 				openBrowser: fakeBrowser().open,
 			});
-			expect(result).toEqual({ code: 0, out: finished(home.home), err: "" });
+			expect(result).toEqual({
+				code: 0,
+				out: `${contentEnabled}\n${finished(home.home)}`,
+				err: "",
+			});
 			expect(JSON.parse(home.read() ?? "").env.OTEL_LOG_USER_PROMPTS).toBe("1");
 		});
 

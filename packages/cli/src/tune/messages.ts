@@ -33,23 +33,23 @@ export const TUNE_MESSAGES = {
 	invalidUrl: "接続先のURLが不正です",
 	locked: "別の`harnessforce tune`が実行中のため、実行できません",
 	insufficient: (count: number) =>
-		`データ不足: 分析したsessionは${count}件です。提案には${MINIMUM_SESSIONS}件以上が必要です（あと${MINIMUM_SESSIONS - count}件）`,
+		`データ不足: 分析したセッションは${count}件です。提案には${MINIMUM_SESSIONS}件以上が必要です（あと${MINIMUM_SESSIONS - count}件）`,
 	outOfRange: (days: number, count: number) =>
-		`送信の範囲外: 開始が${days}日より前の${count}件のsessionは送信しません`,
+		`送信の範囲外: 開始が${days}日より前の${count}件のセッションは送信しません`,
 	notConnected: (count: number) =>
-		`接続済みでないrepositoryの${count}件のsessionは送信しません`,
+		`接続済みでないリポジトリの${count}件のセッションは送信しません`,
 	partlyUnreadable: (lines: number, skipped: number) =>
 		`記録の一部を読めていない: 読んだ${lines}行のうち${skipped}行を読み飛ばしました`,
 	savedList: (fetchedAt: string) =>
-		`接続済みのrepositoryの一覧を取得できないため、${fetchedAt}に保存した一覧を使います`,
-	noList: "接続済みのrepositoryを確認できないため送信しません",
+		`接続済みのリポジトリの一覧を取得できないため、${fetchedAt}に保存した一覧を使います`,
+	noList: "接続済みのリポジトリを確認できないため送信しません",
 	noSend: "送信しない設定のため、分析結果を送信しません",
 	settingUnreadable:
 		"端末の設定（`~/.harnessforce/config.json`）を読めないため、分析結果を送信しません",
 	importLimited: (count: number) =>
-		`月間イベント数の上限または閲覧のみのため、${count}件のsessionを取り込めませんでした。分析結果は送信し、取り込みは解除の後の実行でやり直します`,
+		`月間イベント数の上限または閲覧のみのため、${count}件のセッションを取り込めませんでした。分析結果は送信し、取り込みは解除の後の実行でやり直します`,
 	importFailed:
-		"送信の前のsessionの取り込みに失敗しました。分析結果は送信し、取り込みは次の実行でやり直します",
+		"送信の前のセッションの取り込みに失敗しました。分析結果は送信し、取り込みは次の実行でやり直します",
 	sent: (count: number) => `${count}件の分析結果を送信しました`,
 	unreachable: (count: number) =>
 		`Harnessforceへ送信できませんでした。${count}件の分析結果は次の実行で送ります`,
@@ -73,7 +73,7 @@ export const TUNE_MESSAGES = {
 		"使い方: harnessforce tune [--all] [--no-send] [--show-report] [--json] ｜ harnessforce tune record ｜ harnessforce tune --purge",
 	purged:
 		"`~/.harnessforce/tune/`の分析結果、提案、未送信の分析結果を削除しました",
-	purgeFailed: "`~/.harnessforce/tune/`の一部のfileを削除できませんでした",
+	purgeFailed: "`~/.harnessforce/tune/`の一部のファイルを削除できませんでした",
 } as const;
 
 // 1回の実行で当たった行。同じ行に複数回当たったら、後の値で置き換える（件数は呼び出し側が合計する）。

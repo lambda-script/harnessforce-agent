@@ -207,7 +207,7 @@ describe("setup command", () => {
 		readText("plugins/harnessforce/commands/setup.md"),
 	);
 	const NODE_REQUIRED =
-		"pluginのhookにはNode.js 18以上が必要です。Node.jsを導入してからClaude Codeを再起動し、もう一度`/harnessforce:setup`を実行してください";
+		"プラグインのフックにはNode.js 18以上が必要です。Node.jsを導入してからClaude Codeを再起動し、もう一度`/harnessforce:setup`を実行してください";
 
 	it("describes itself for the command list", () =>
 		expect(frontmatter.description).toEqual(expect.any(String)));
@@ -244,7 +244,7 @@ describe("setup command", () => {
 
 	// onboarding.md「チェックリスト」の手順4「自分の端末で設定する」: harnessforce initの前に、本文データを送る設定の選択肢を、既定では選ばれない状態で示す。
 	it("shows the content choice before harnessforce init, unselected by default", () => {
-		const choice = "本文データを送って分析に使えます";
+		const choice = "入力した指示の本文を送って分析に使えます";
 		expect(body).toMatch(
 			/`harnessforce init`の前に[^\n]*選択肢を[^\n]*既定では選ばれない/,
 		);
@@ -260,7 +260,12 @@ describe("setup command", () => {
 	it("shows what opting in stores, the two conditions, and how to stop", () => {
 		expect(body).toContain("`[REDACTED:種類]`");
 		expect(body).toContain("本文データの保持期間");
-		expect(body).toMatch(/読めるのはOwnerとAdminだけ/);
+		expect(body).toContain("本文データの保持期間（最大30日）");
+		expect(body).toContain("すべてを検出できるとは限りません");
+		expect(body).toMatch(/送った本人だけが読め、OwnerとAdminも読めない/);
+		expect(body).toContain("読めるのは送ったあなただけです");
+		expect(body).not.toMatch(/OwnerとAdminだけ/);
+		expect(body).not.toContain("応答の本文");
 		expect(body).toMatch(/端末のこの設定とWorkspaceのopt-inの2つ/);
 		expect(body).toMatch(/opt-inを解除すると[^\n]*本文は受信時に破棄され/);
 		expect(body).toContain("`harnessforce init --send-content`");
@@ -269,6 +274,14 @@ describe("setup command", () => {
 		);
 		expect(body).toMatch(/`OTEL_LOG_USER_PROMPTS`を`0`にする/);
 		expect(body).toMatch(/projectとlocalの`env`でも効く/);
+	});
+
+	// onboarding.md「チェックリスト」の手順4: 利用枠の同意は利用者自身が文面に答える。agentは`--yes`で代行しない。
+	it("shows the usage limits choice only when the workspace opted in, and never answers the consent with --yes", () => {
+		expect(body).not.toContain("usage-limits on --yes");
+		expect(body).toContain("`harnessforce usage-limits status`");
+		expect(body).toMatch(/opt-inが「有効」でなければ[^\n]*示さず/);
+		expect(body).toMatch(/利用者自身が[^\n]*文面に答え/);
 	});
 
 	it("relays what harnessforce init prints when the workspace has not opted in", () => {
