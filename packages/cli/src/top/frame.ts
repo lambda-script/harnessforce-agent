@@ -392,6 +392,6 @@ export function renderDetail(row: TopRow, options: FrameOptions): string[] {
 export const skippedNotice = (snapshot: TopSnapshot): string[] =>
 	snapshot.skippedLines > 0 || snapshot.skippedFiles > 0
 		? [
-				`読めなかった${snapshot.skippedLines}行と${snapshot.skippedFiles}個のfileを読み飛ばしました`,
+				`読めなかった${snapshot.skippedLines}行と${snapshot.skippedFiles}個のファイルを読み飛ばしました`,
 			]
 		: [];
