@@ -319,7 +319,8 @@ async function sendSessionStart(
 	if (input.scratchpad && (await isMarkedUnauthorized(input.scratchpad)))
 		return undefined;
 	const { destination, warning } = await resolveDestination(deps, input.cwd);
-	if (!destination) return warning;
+	// 警告は登録を送るsourceだけに出す（correlation.md「hookの警告」）。
+	if (!destination) return registers ? warning : undefined;
 	// resumeとcompactはsnapshotを送らないが、状態のfileを作るなら識別子のために構成を集める。
 	const collects = registers || (usage && !(await readState(usage)));
 	const collected = collects

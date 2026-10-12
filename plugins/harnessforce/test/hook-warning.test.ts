@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { runHook } from "../src/hook.js";
-import { type Harness, harness, REPO, sessionContext } from "./support.js";
+import {
+	type Harness,
+	harness,
+	pluginData,
+	REPO,
+	sessionContext,
+} from "./support.js";
 
 // correlation.md「hookの警告」の文言。
 const NOT_CONFIGURED =
@@ -94,6 +100,29 @@ describe("SessionStart hook warning", () => {
 		"compact",
 	])("does not warn on source %s even when sending is not configured", async (source) => {
 		const h = harness({ managed: null, env: {} });
+		await start(h, { source });
+		expect(warned(h)).toEqual(sessionContext());
+	});
+
+	// Claude Codeはpluginのhookへ常にCLAUDE_PLUGIN_DATAを渡し、利用の要約のためにresumeとcompactでも送信先を選ぶ。
+	it.each([
+		["resume", "not configured", {}],
+		["compact", "not configured", {}],
+		[
+			"resume",
+			"an endpoint that is not allowed",
+			{ HARNESSFORCE_ENDPOINT: "http://ingest.example.test" },
+		],
+		[
+			"compact",
+			"an endpoint that is not allowed",
+			{ HARNESSFORCE_ENDPOINT: "http://ingest.example.test" },
+		],
+	])("does not warn on source %s with plugin data and %s", async (source, _, env) => {
+		const h = harness({
+			managed: null,
+			env: { ...env, CLAUDE_PLUGIN_DATA: pluginData() },
+		});
 		await start(h, { source });
 		expect(warned(h)).toEqual(sessionContext());
 	});
