@@ -127,9 +127,11 @@ async function runInit(args: InitArgs, deps: InitDeps): Promise<string> {
 	await saveCodexConfig(issued, recordedUrl, codexPath, args.sendContent).catch(
 		() => stop("codexSaveFailed"),
 	);
-	// 発行と保存は済んでいるため、本文のopt-inが無いことを失敗とせず、opt-inの場所を示す。
-	if (args.sendContent && !issued.contentOptIn)
-		deps.stdout(`${INIT_MESSAGES.contentNotOptedIn}\n`);
+	// 発行と保存は済んでいるため、本文のopt-inが無いことを失敗とせず、opt-inの場所を示す。opt-in済みなら有効にした旨を示す。
+	if (args.sendContent)
+		deps.stdout(
+			`${issued.contentOptIn ? INIT_MESSAGES.contentEnabled : INIT_MESSAGES.contentNotOptedIn}\n`,
+		);
 	return codexPath;
 }
 

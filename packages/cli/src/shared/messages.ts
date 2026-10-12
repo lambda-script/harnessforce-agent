@@ -34,6 +34,8 @@ export const INIT_MESSAGES = {
 		"送信キーを保存できませんでした。もう一度`harnessforce init`を実行してください",
 	codexSaveFailed:
 		"Codexの設定を書き込めませんでした。もう一度`harnessforce init`を実行してください",
+	contentEnabled:
+		"入力した指示の本文を送る設定を有効にしました。パターンに一致した秘密値と個人情報を伏せ字にしますが、すべてを検出できるとは限りません。保存した本文は、Workspaceのメンバーの中ではあなただけが読め、本文データの保持期間（最大30日）が過ぎると削除されます",
 	contentNotOptedIn:
 		"このWorkspaceは本文データをopt-inしていないため、本文を送る設定は有効にしませんでした。Workspaceの設定のデータの保持でopt-inしてから、もう一度`harnessforce init --send-content`を実行してください",
 } as const;
@@ -51,4 +53,4 @@ export type InitMessage = keyof typeof INIT_MESSAGES;
 // portを確保できなかったときの文言。既定の8080は一般的なHTTPのportで衝突しやすいため、
 // 使えなかったportと`harnessforce init --port`の逃げ道を示す（correlation.md「CLI」）。
 export const listenFailedMessage = (port: number) =>
-	`${INIT_MESSAGES.listenFailed}。port ${port}を使っているprocessを終えるか、\`harnessforce init --port\`で別のportを指定してください`;
+	`${INIT_MESSAGES.listenFailed}。ポート ${port}を使っているプロセスを終えるか、\`harnessforce init --port\`で別のポートを指定してください`;

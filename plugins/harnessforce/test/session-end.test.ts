@@ -268,6 +268,19 @@ describe("session usage summary at SessionEnd", () => {
 		);
 	});
 
+	it("sends the summary when the process start is a fractional millisecond", async () => {
+		const data = await startedSession();
+		const end = at(
+			harness({ env: { CLAUDE_PLUGIN_DATA: data } }),
+			"2026-09-26T00:05:00Z",
+		);
+		// performance.timeOriginは小数ミリ秒で、AbortSignal.timeoutは整数だけを受け付ける。
+		end.deps.processStartMs -= 100.4;
+		await run(end, "session-end");
+		expect(end.requests).toHaveLength(1);
+		expect(end.err()).toBe("");
+	});
+
 	it("does not send once the budget is used up", async () => {
 		const data = await startedSession();
 		const end = at(

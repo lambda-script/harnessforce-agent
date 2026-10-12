@@ -120,7 +120,7 @@ describe("harnessforce import", () => {
 		const { hf, home, run } = await setup();
 		expect(await run()).toEqual({
 			code: 0,
-			out: "1件のsessionを取り込みました\n",
+			out: "1件のセッションを取り込みました\n",
 			err: "",
 		});
 		expect(hf.requests.map((r) => r.path)).toEqual([
@@ -200,7 +200,7 @@ describe("harnessforce import", () => {
 			});
 			expect(await run()).toEqual({
 				code: 0,
-				out: "2件のsessionを取り込みました\n",
+				out: "2件のセッションを取り込みました\n",
 				err: "",
 			});
 			const codex = (hf.requests.at(-1)?.body as { agent: string }[]).filter(
@@ -222,7 +222,7 @@ describe("harnessforce import", () => {
 			expect(JSON.stringify(hf.requests)).not.toContain("SECRET");
 			expect(home.readState()).toContain("codex:c1");
 			expect(await run()).toMatchObject({
-				out: "0件のsessionを取り込みました\n",
+				out: "0件のセッションを取り込みました\n",
 			});
 		});
 
@@ -238,7 +238,7 @@ describe("harnessforce import", () => {
 			);
 			writeCodex(home.home, {});
 			expect(await run({ env: { CODEX_HOME: other } })).toMatchObject({
-				out: "1件のsessionを取り込みました\n",
+				out: "1件のセッションを取り込みました\n",
 			});
 		});
 
@@ -253,7 +253,7 @@ describe("harnessforce import", () => {
 				out:
 					"modelまたはtoken数を読めないCodexのセッション1個は取り込みませんでした\n" +
 					"圧縮されたCodexのセッションの記録1個は読めないため取り込みませんでした\n" +
-					"1件のsessionを取り込みました\n",
+					"1件のセッションを取り込みました\n",
 				err: "",
 			});
 		});
@@ -264,7 +264,7 @@ describe("harnessforce import", () => {
 		await run();
 		expect(await run()).toMatchObject({
 			code: 0,
-			out: "0件のsessionを取り込みました\n",
+			out: "0件のセッションを取り込みました\n",
 		});
 		expect(hf.sessionBodies()).toEqual([["s000"]]);
 	});
@@ -278,7 +278,7 @@ describe("harnessforce import", () => {
 				keychain: other.keychain,
 				env: { HARNESSFORCE_WORKSPACE_ID: "ws2" },
 			}),
-		).toMatchObject({ code: 0, out: "1件のsessionを取り込みました\n" });
+		).toMatchObject({ code: 0, out: "1件のセッションを取り込みました\n" });
 		expect(hf.requests.at(-1)?.headers.authorization).toBe(
 			"Bearer hf_ik_ws2_user",
 		);
@@ -615,7 +615,7 @@ describe("harnessforce import", () => {
 		expect(sleeps).toEqual([2000, 2000, 2000]);
 		expect(await run()).toMatchObject({
 			code: 0,
-			out: "50件のsessionを取り込みました\n",
+			out: "50件のセッションを取り込みました\n",
 		});
 		expect(hf.sessionBodies().map((b) => b.length)).toEqual([
 			100, 50, 50, 50, 50, 50,
@@ -658,11 +658,11 @@ describe("harnessforce import", () => {
 		expect(await run()).toEqual({
 			code: 1,
 			out: "",
-			err: "月間イベント数の上限に達したため、52件のsessionを取り込めませんでした。上限が解除された後に`harnessforce import`を再実行すると続きから取り込みます\n",
+			err: "月間イベント数の上限に達したため、52件のセッションを取り込めませんでした。上限が解除された後に`harnessforce import`を再実行すると続きから取り込みます\n",
 		});
 		expect(await run()).toMatchObject({
 			code: 0,
-			out: "52件のsessionを取り込みました\n",
+			out: "52件のセッションを取り込みました\n",
 		});
 		expect(hf.sessionBodies()[1]?.slice(0, 2)).toEqual(["s003", "s004"]);
 	});
@@ -681,7 +681,7 @@ describe("harnessforce import", () => {
 		});
 		expect(await run()).toMatchObject({
 			code: 1,
-			err: "Workspaceが閲覧のみのため、1件のsessionを取り込めませんでした。閲覧のみが解除された後に`harnessforce import`を再実行すると続きから取り込みます\n",
+			err: "Workspaceが閲覧のみのため、1件のセッションを取り込めませんでした。閲覧のみが解除された後に`harnessforce import`を再実行すると続きから取り込みます\n",
 		});
 	});
 
@@ -704,7 +704,7 @@ describe("harnessforce import", () => {
 		);
 		expect(await run()).toEqual({
 			code: 0,
-			out: "読めなかった1行と0個のfileを読み飛ばしました\n0件のsessionを取り込みました\n形式が不正なため1件のsessionを取り込めませんでした\n",
+			out: "読めなかった1行と0個のファイルを読み飛ばしました\n0件のセッションを取り込みました\n形式が不正なため1件のセッションを取り込めませんでした\n",
 			err: "",
 		});
 		await run();

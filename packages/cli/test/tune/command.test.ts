@@ -70,7 +70,7 @@ describe("harnessforce tune", () => {
 		const result = await t.run();
 		expect(result.code).toBe(0);
 		expect(result.err).toContain(
-			"データ不足: 分析したsessionは7件です。提案には10件以上が必要です（あと3件）\n",
+			"データ不足: 分析したセッションは7件です。提案には10件以上が必要です（あと3件）\n",
 		);
 	});
 
@@ -182,7 +182,7 @@ describe("harnessforce tune", () => {
 		});
 		const result = await t.run();
 		expect(result.err).toContain(
-			"送信の範囲外: 開始が14日より前の3件のsessionは送信しません\n",
+			"送信の範囲外: 開始が14日より前の3件のセッションは送信しません\n",
 		);
 		expect(t.reportBodies()[0]).toHaveLength(7);
 	});
@@ -192,7 +192,7 @@ describe("harnessforce tune", () => {
 		const result = await t.run(["--all"]);
 		expect(result.code).toBe(0);
 		expect(result.err).toContain(
-			"接続済みでないrepositoryの10件のsessionは送信しません\n",
+			"接続済みでないリポジトリの10件のセッションは送信しません\n",
 		);
 		expect(t.reportBodies()).toEqual([]);
 		// --allを付けなければ、未接続のsessionは分析しない。
@@ -205,7 +205,7 @@ describe("harnessforce tune", () => {
 		expect(result.code).toBe(0);
 		expect(result.out).toContain("分析したsession: 10件");
 		expect(result.err).toContain(
-			"接続済みのrepositoryを確認できないため送信しません\n",
+			"接続済みのリポジトリを確認できないため送信しません\n",
 		);
 		expect(
 			t.hf.requests.filter((r) => r.path.startsWith("POST /ingest/")),
@@ -232,7 +232,7 @@ describe("harnessforce tune", () => {
 		rmSync(join(t.home.home, ".harnessforce", "import-state.json"));
 		const result = await t.run();
 		expect(result.err).toMatch(
-			/接続済みのrepositoryの一覧を取得できないため、\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}に保存した一覧を使います\n/,
+			/接続済みのリポジトリの一覧を取得できないため、\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}に保存した一覧を使います\n/,
 		);
 		expect(t.reportBodies()).toHaveLength(2);
 		expect(t.hf.sessionBodies()).toHaveLength(1);

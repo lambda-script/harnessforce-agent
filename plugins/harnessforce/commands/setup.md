@@ -11,7 +11,7 @@ disable-model-invocation: true
 
 最初に`node --version`を実行する。commandが見つからない、またはversionが18未満なら、CLIの導入へ進まずに次の文言をそのまま表示して終わる。
 
-> pluginのhookにはNode.js 18以上が必要です。Node.jsを導入してからClaude Codeを再起動し、もう一度`/harnessforce:setup`を実行してください
+> プラグインのフックにはNode.js 18以上が必要です。Node.jsを導入してからClaude Codeを再起動し、もう一度`/harnessforce:setup`を実行してください
 
 ## 2. 再起動後の実行かを確かめる
 
@@ -31,16 +31,16 @@ npm install -g @harnessforce/cli
 
 選択肢には次を併せて示す。
 
-- 選ぶと、promptと応答の本文がこのWorkspaceへ届き、secretのパターンとメールアドレス・電話番号を`[REDACTED:種類]`に置き換えたうえで保存され、本文データの保持期間で削除される。保存した本文を読めるのはOwnerとAdminだけ。
-- 本文が保存されるのは、端末のこの設定とWorkspaceのopt-inの2つがそろう場合だけ。Workspaceのopt-inを解除すると、それ以降の本文は受信時に破棄され、既存の本文データも読めなくなる。
+- 選ぶと、agentに入力した指示（prompt）の本文がこのWorkspaceへ届き、secretのパターンとメールアドレス・電話番号を`[REDACTED:種類]`に置き換えたうえで保存され、本文データの保持期間（最大30日）で削除される。パターンに一致しない秘密値と個人情報は伏せ字にならず、すべてを検出できるとは限らない。保存した本文は、Workspaceのメンバーの中では送った本人だけが読め、OwnerとAdminも読めない。本人は「自分のやり方」でいつでも自分の本文を削除できる。
+- 本文が保存されるのは、端末のこの設定とWorkspaceのopt-inの2つがそろう場合だけ。Workspaceのopt-inを解除すると、それ以降の本文は受信時に破棄され、既存の本文データも読めなくなる。この設定はモデルの応答やツールの入出力を送る設定を有効にしない。
 - 選んだ場合は`harnessforce init --send-content`、選ばない場合は`harnessforce init`を実行する（手順5）。この設定はClaude Codeのuser settingsの`env`に書き、project（`.claude/settings.json`）とlocal（`.claude/settings.local.json`）の`env`には書かない。その2つのfileの`env`では本文の変数が無視されるため。
 - 選んだ後で止めるときは、user settingsの`env`の`OTEL_LOG_USER_PROMPTS`を`0`にする。止める値はprojectとlocalの`env`でも効く。
 
 選択肢の文言は次をそのまま使う。
 
-> 本文データを送って分析に使えます（既定では無効。Workspaceが本文データをopt-inしている場合だけ有効になります）。有効にすると、promptや応答の本文がこのWorkspaceへ届き、保存されます。秘密情報とメールアドレス・電話番号は`[REDACTED:種類]`に置き換え、本文データの保持期間で削除します。読めるのはOwnerとAdminだけです。有効にしますか？
+> 入力した指示の本文を送って分析に使えます（既定では無効。Workspaceが指示本文をオプトインしている場合だけ有効になります）。有効にすると、エージェントに入力した指示の本文がこのWorkspaceへ届き、保存されます。パターンに一致した秘密値と個人情報は`[REDACTED:種類]`に置き換えますが、すべてを検出できるとは限りません。本文データの保持期間（最大30日）で削除し、Workspaceのメンバーの中では、読めるのは送ったあなただけです。自分のやり方の画面からいつでも削除できます。有効にしますか？
 >
-> You can send content for analysis (off by default; it takes effect only if the workspace has opted in to content). If enabled, prompt and response content is delivered to this workspace and stored. Secrets, email addresses, and phone numbers are replaced with `[REDACTED:kind]`, and content is deleted after the content retention period. Only owners and admins can read it. Enable this?
+> You can send the prompts you type for analysis (off by default; it takes effect only if the workspace has opted in to prompts you typed). If enabled, the prompts you type to the agent are delivered to this workspace and stored. Values that match known patterns for secrets and personal information are replaced with `[REDACTED:kind]`, but not everything can be detected. Content is deleted after the content retention period (at most 30 days), and within the workspace only you can read it. You can delete it at any time from My practices. Enable this?
 >
 > 本文を送りません（既定）。後から設定できます
 >
@@ -58,7 +58,7 @@ opt-inしていないWorkspaceでは`harnessforce init --send-content`は本文�
 
 ## 7. 利用枠を共有するかを選ぶ
 
-`harnessforce init`の後に、利用枠（Claude Codeの5時間と7日の枠の使用率とリセット時刻）をこのWorkspaceのメンバーと共有する選択肢を、既定では選ばれない状態で利用者に示す。選ばれなければ、何も実行せず手順8へ進む。
+`harnessforce init`の後に、`harnessforce usage-limits status`を実行する。表示のWorkspaceのopt-inが「有効」でなければ（「無効」「確認できません」を含む）、利用枠の選択肢を示さず手順8へ進む。「有効」なら、利用枠（Claude Codeの5時間と7日の枠の使用率とリセット時刻）をこのWorkspaceのメンバーと共有する選択肢を、既定では選ばれない状態で利用者に示す。選ばれなければ、何も実行せず手順8へ進む。
 
 選択肢の文言は次をそのまま使う。
 
@@ -70,7 +70,7 @@ opt-inしていないWorkspaceでは`harnessforce init --send-content`は本文�
 >
 > Not shared (by default). You can set it up later with `harnessforce usage-limits on`.
 
-共有を選んだ場合だけ、文面への同意として`harnessforce usage-limits on --yes`を実行する。既にstatusLineを使っている場合（claude-hudなど）は、そのcommandを包んで表示と終了コードを変えずに残す。Windowsや、組み込めないstatusLineでは、このcommandは何も変えずに理由を表示して0以外で終わる。その表示を利用者へそのまま示し、他の手順は続ける。やめるときは`harnessforce usage-limits off`を案内する。
+共有を選んだ場合だけ、利用者自身が同意の文面に答えるため、`!harnessforce usage-limits on`を利用者に入力してもらう。`--yes`は付けず、agentが同意を代行しない。同意の文面に`y`と答えると、既にstatusLineを使っている場合（claude-hudなど）は、そのcommandを包んで表示と終了コードを変えずに残す。Windowsや、組み込めないstatusLineでは、このcommandは何も変えずに理由を表示して0以外で終わる。その表示を利用者へそのまま示し、他の手順は続ける。やめるときは`harnessforce usage-limits off`を案内する。
 
 ## 8. 再起動を案内する
 
