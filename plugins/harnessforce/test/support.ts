@@ -4,6 +4,7 @@ import { usingHarnessforceBody } from "@harnessforce/agent-core/using-harnessfor
 import {
 	ConfigSnapshotSchema,
 	SessionRegistrationSchema,
+	SessionUsageSummarySchema,
 } from "@harnessforce/semconv";
 import { managedDir } from "@harnessforce/test-support/managed-dir";
 import { tempDir } from "@harnessforce/test-support/temp-dir";
@@ -14,6 +15,7 @@ import type { UserKeyRead } from "../src/user-key.js";
 // 送信内容を、本体が検証に使う公開schemaで確かめる。
 export const isRegistration = compileSchema(SessionRegistrationSchema);
 export const isConfigSnapshot = compileSchema(ConfigSnapshotSchema);
+export const isUsageSummary = compileSchema(SessionUsageSummarySchema);
 
 export const REPO = {
 	cwd: "/work/web",
@@ -48,6 +50,8 @@ type HarnessOptions = {
 	env?: Env;
 	git?: RunGit;
 	fetchError?: Error;
+	// 応答を返さず、要求のsignalが中断したらその理由で失敗するfetch。
+	hang?: boolean;
 	// `harnessforce otel-headers`でkeychainを読んだ結果。無ければ`harnessforce`がPATHに無い場合とする。
 	userKey?: UserKeyRead;
 	// managed-settings.jsonのenv。既定のWorkspace用のkeyと送信先に重ね、undefinedの値は除く。nullならfileを置かない。
@@ -72,6 +76,7 @@ export function harness(options: HarnessOptions = {}) {
 		// processの環境変数。repositoryのsettingsが書けるため、Workspace用のkeyには使われない。
 		env: { ...options.env },
 		now: () => new Date("2026-09-26T00:00:00Z"),
+		processStartMs: Date.parse("2026-09-26T00:00:00Z"),
 		// 既定では存在しないdirectoryを指し、構成が0件（snapshotを送らない）になる。
 		homeDir: options.homeDir ?? "/nonexistent/hf-home",
 		managedDir: managedDir(
@@ -83,6 +88,12 @@ export function harness(options: HarnessOptions = {}) {
 		fetch: async (url, init) => {
 			requests.push({ url: url.href, init });
 			if (options.fetchError) throw options.fetchError;
+			if (options.hang)
+				return new Promise((_, reject) =>
+					init.signal?.addEventListener("abort", () =>
+						reject(init.signal?.reason),
+					),
+				);
 			const status = options.statusFor?.(url.href) ?? options.status ?? 200;
 			return new Response(null, { status });
 		},
@@ -111,6 +122,8 @@ export function harness(options: HarnessOptions = {}) {
 export type Harness = ReturnType<typeof harness>;
 
 export const scratchpad = () => tempDir("hf-scratch-");
+// hookへ環境変数CLAUDE_PLUGIN_DATAで渡されるpluginのdata directory。
+export const pluginData = () => tempDir("hf-data-");
 
 // correlation.md「session context」: SessionStartのstdoutへ出す唯一のJSONのobject。401ではsystemMessageを加える。
 export const sessionContext = (

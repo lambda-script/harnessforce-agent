@@ -130,6 +130,27 @@ export const analysisReport = {
 	records_skipped: 2,
 };
 
+export const sessionUsageSummary = {
+	agent: "claude_code",
+	session_id: sessionRegistration.session_id,
+	first_prompt_id: sessionRegistration.first_prompt_id,
+	started_at: "2026-09-26T00:00:00Z",
+	last_event_at: "2026-09-26T10:30:00+09:00",
+	collector_version: "0.1.0",
+	skills: {
+		items: [{ name: "fix-ci", calls: 2, failures: 0 }],
+		other: { calls: 1, failures: 0 },
+	},
+	commands: { items: [{ name: "deploy", calls: 1 }], other: { calls: 0 } },
+	subagents: { items: [], other: { calls: 0, failures: 0 } },
+	mcp_servers: {
+		items: [{ name: "github", calls: 3, failures: 1 }],
+		other: { calls: 0, failures: 0 },
+	},
+	permission_requests: 4,
+	compactions: { auto: 1, manual: 0 },
+};
+
 export const ingestIssue = {
 	external_id: "sheet-row-42",
 	project_key: "OPS",

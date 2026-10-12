@@ -9,6 +9,7 @@ const examples: Record<keyof typeof semconv.SCHEMAS, unknown> = {
 	"session-import": fx.sessionImport,
 	"config-snapshot": fx.configSnapshot,
 	"analysis-report": fx.analysisReport,
+	"session-usage-summary": fx.sessionUsageSummary,
 	"ingest-issue": fx.ingestIssue,
 	"ingest-event": fx.ingestEvent,
 };

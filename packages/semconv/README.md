@@ -42,6 +42,7 @@ Each schema is a plain JSON Schema object (built with TypeBox) with a static Typ
 | `session-import` | `SessionImportSchema` | `SessionImport` |
 | `config-snapshot` | `ConfigSnapshotSchema` | `ConfigSnapshot` |
 | `analysis-report` | `AnalysisReportSchema` | `AnalysisReport` |
+| `session-usage-summary` | `SessionUsageSummarySchema` | `SessionUsageSummary` |
 | `ingest-issue` | `IngestIssueSchema` | `IngestIssue` |
 | `ingest-event` | `IngestEventSchema` | `IngestEvent` |
 

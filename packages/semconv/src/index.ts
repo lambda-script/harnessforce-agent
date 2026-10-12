@@ -6,6 +6,7 @@ import {
 } from "./schemas/ingest-items.js";
 import { SessionImportSchema } from "./schemas/session-import.js";
 import { SessionRegistrationSchema } from "./schemas/session-registration.js";
+import { SessionUsageSummarySchema } from "./schemas/session-usage-summary.js";
 
 export * from "./attributes.js";
 export {
@@ -28,6 +29,7 @@ export {
 	type SessionRegistration,
 	SessionRegistrationSchema,
 } from "./schemas/session-registration.js";
+export * from "./schemas/session-usage-summary.js";
 export { isInstant, isToken } from "./values.js";
 
 // 利用側はこの一覧から、自分のvalidatorでschemaをcompileする。Workers上ではコード生成を伴わないvalidatorを選ぶ。
@@ -36,6 +38,7 @@ export const SCHEMAS = {
 	"session-import": SessionImportSchema,
 	"config-snapshot": ConfigSnapshotSchema,
 	"analysis-report": AnalysisReportSchema,
+	"session-usage-summary": SessionUsageSummarySchema,
 	"ingest-issue": IngestIssueSchema,
 	"ingest-event": IngestEventSchema,
 } as const;
