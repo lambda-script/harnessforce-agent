@@ -74,8 +74,8 @@ contents are never sent.
   configuration, on errors, or after 2 seconds it gives up quietly and writes the reason to stderr
   (Claude Code's debug log). Without Node.js, Claude Code shows a non-blocking `hook error`.
 - If the key is revoked, Claude Code shows once per session:
-  組織の送信キーが失効しています。Workspaceの管理者に連絡してください (Workspace key) or
-  送信キーが失効しています。`harnessforce init`を実行してください (user key)
+  "The organization's ingest key has been revoked. Contact a Workspace administrator" (Workspace key) or
+  "Your ingest key has been revoked. Run `harnessforce init`" (user key)
 
 ## Config snapshot
 

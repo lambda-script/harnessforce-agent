@@ -69,9 +69,9 @@ export type HookDeps = {
 
 // correlation.md「hook」の共通の規則が、選んだkeyの種類ごとに定める文言。
 const REVOKED_KEY_MESSAGES: Record<KeyKind, string> = {
-	user: "送信キーが失効しています。`harnessforce init`を実行してください",
+	user: "Your ingest key has been revoked. Run `harnessforce init`",
 	workspace:
-		"組織の送信キーが失効しています。Workspaceの管理者に連絡してください",
+		"The organization's ingest key has been revoked. Contact a Workspace administrator",
 };
 
 // resumeとcompactは同じsessionの継続なので送らない。未知のsourceも送らない。

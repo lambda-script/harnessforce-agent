@@ -10,13 +10,13 @@ import {
 
 // correlation.md「hookの警告」の文言。
 const NOT_CONFIGURED =
-	"Harnessforceの送信が設定されていません。`/harnessforce:setup`を実行してください";
+	"Harnessforce sending is not configured. Run `/harnessforce:setup`";
 const INVALID_ENDPOINT =
-	"Harnessforceの送信先が不正です。`harnessforce init`を実行し直してください";
+	"The Harnessforce destination is invalid. Run `harnessforce init` again";
 const REGISTRATION_FAILED =
-	"Harnessforceへのsession登録に失敗しました。通信を確かめてください";
+	"Harnessforce session registration failed. Check your network connection";
 const USER_KEY_REVOKED =
-	"送信キーが失効しています。`harnessforce init`を実行してください";
+	"Your ingest key has been revoked. Run `harnessforce init`";
 
 const start = (h: Harness, input: Record<string, unknown> = {}) =>
 	runHook(
@@ -91,7 +91,7 @@ describe("SessionStart hook warning", () => {
 	it("shows only the revoked-key message when the key is also rejected", async () => {
 		const h = harness({ status: 401 });
 		await start(h);
-		expect(warned(h).systemMessage).toContain("失効");
+		expect(warned(h).systemMessage).toContain("revoked");
 		expect(h.out().match(/systemMessage/g)).toHaveLength(1);
 	});
 

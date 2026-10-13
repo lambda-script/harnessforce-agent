@@ -105,18 +105,20 @@ describe("run recording skill", () => {
 		expect(body).toContain("`harnessforce session_id: <session_id>`"));
 
 	it("uses the last session id in the context", () =>
-		expect(body).toMatch(/複数あれば[^\n]*最後/));
+		expect(body).toMatch(/several[^\n]*last/));
 
 	it("calls start_run again when the latest session id changes", () =>
 		expect(body).toMatch(
-			/異なる[^\n]*`start_run`をもう1度呼び[^\n]*`complete_run`/,
+			/differs[^\n]*call `start_run` once more[^\n]*`complete_run`/,
 		));
 
 	it("does not guess a session id missing from the context", () =>
-		expect(body).toMatch(/推測[^\n]*`start_run`と`complete_run`を呼ばない/));
+		expect(body).toMatch(
+			/do not guess[^\n]*do not call `start_run` or `complete_run`/,
+		));
 
 	it("records a plan only when neither a current nor a proposed plan exists", () =>
-		expect(body).toMatch(/現行のPlanも`proposed`のPlanも無/));
+		expect(body).toMatch(/neither a current Plan nor a `proposed` Plan/));
 
 	it("reports each Definition of Done item as met or unmet", () => {
 		expect(body).toContain("`met`");
@@ -124,29 +126,31 @@ describe("run recording skill", () => {
 	});
 
 	it("tells the agent that its records stay proposed until a person approves them", () =>
-		expect(body).toMatch(/`proposed`[^\n]*承認/));
+		expect(body).toMatch(/`proposed`[^\n]*until a person approves/));
 
 	// correlation.md「agentによるIssueの作成」
 	describe("creating an issue for unassigned work", () => {
 		it("treats an issue identifier in the branch name as given once get_issue resolves it", () =>
-			expect(body).toMatch(/branch名[^\n]*`get_issue`で[^\n]*解決/));
+			expect(body).toMatch(/branch name[^\n]*`get_issue` can resolve/));
 
 		it("asks once per session id and not again after a refusal", () => {
-			expect(body).toMatch(/同じ値で尋ねるのは1回だけ/);
-			expect(body).toMatch(/断ったら[^\n]*再び尋ねない/);
+			expect(body).toMatch(/Ask only once for the same value/);
+			expect(body).toMatch(/declines, do not ask again/);
 		});
 
 		it("asks only for work that commits changes", () =>
 			expect(body).toMatch(
-				/調べもの、質問への回答、計画だけの会話では尋ねない/,
+				/Do not ask for research, answers to questions, or conversations that only plan/,
 			));
 
 		it("treats an unresolved branch identifier as no identifier", () =>
-			expect(body).toMatch(/`not_found`なら識別子が無い場合と同じに扱う/));
+			expect(body).toMatch(
+				/If it is `not_found`, treat it the same as when there is no identifier/,
+			));
 
 		it("shows existing candidates from list_issues before proposing a new issue", () => {
-			const steps = body.slice(body.indexOf("既存のIssueを先に示す"));
-			expect(steps).toMatch(/`-status:done,canceled \{語\}`/);
+			const steps = body.slice(body.indexOf("Show existing Issues first"));
+			expect(steps).toMatch(/`-status:done,canceled \{word\}`/);
 			expect(steps.indexOf("`list_issues`")).toBeLessThan(
 				steps.indexOf("`create_issue`"),
 			);
@@ -154,55 +158,65 @@ describe("run recording skill", () => {
 
 		it("keeps the prompt body, paths, commands and secrets out of the title and description", () =>
 			expect(body).toMatch(
-				/titleと説明には、promptの本文、file path、command、secretを写さない/,
+				/Do not copy the prompt text, file paths, commands, or secrets into the title or the description/,
 			));
 
 		it("calls create_issue only after the user explicitly agrees", () => {
-			expect(body).toMatch(/承諾した場合だけ[^\n]*`create_issue`/);
-			expect(body).toMatch(/非対話[^\n]*作らない/);
+			expect(body).toMatch(/Only if the user accepts[^\n]*`create_issue`/);
+			expect(body).toMatch(/non-interactive[^\n]*do not create it/);
 		});
 
 		it("does not create an issue without an active project", () =>
-			expect(body).toMatch(/0件ならIssueを作らず/));
+			expect(body).toMatch(/If there are 0, do not create the Issue/));
 
 		it("tells teams that the issue is created only in Harnessforce", () =>
-			expect(body).toContain("Harnessforceにだけ作られ"));
+			expect(body).toContain("Created in Harnessforce only"));
 
 		it("never retries create_issue and recovers by an exact title match", () => {
-			expect(body).toContain("`create_issue`を再試行しない");
-			expect(body).toMatch(/titleが完全に一致し、作成時刻が呼び出しの後/);
-			expect(body).toMatch(/`start_run`だけが失敗したら[^\n]*作り直さない/);
+			expect(body).toContain("Do not retry `create_issue`");
+			expect(body).toMatch(
+				/title matches exactly and whose creation time is after the call/,
+			);
+			expect(body).toMatch(
+				/only `start_run` fails[^\n]*do not recreate the Issue/,
+			);
 		});
 
 		it("stops asking when the token cannot create issues", () =>
-			expect(body).toMatch(/`forbidden`[^\n]*再び尋ねない/));
+			expect(body).toMatch(/`forbidden`[^\n]*do not ask again/));
 
 		it("leaves planning objects to the user", () =>
 			expect(body).toMatch(
-				/`create_project`、`create_milestone`、`create_cycle`、`create_objective`を[^\n]*呼ばない/,
+				/Do not call `create_project`, `create_milestone`, `create_cycle`, or `create_objective`/,
 			));
 	});
 
 	// correlation.md「agentによる状態の更新」
 	describe("updating the status of a native issue", () => {
 		it("tells native issues apart by a null external", () =>
-			expect(body).toContain("`external`が`null`"));
+			expect(body).toContain("`external` in `get_issue` is `null`"));
 
 		it("asks before moving a native issue to started or done", () => {
 			expect(body).toMatch(
-				/承諾した場合だけ[^\n]*`update_issue`で状態を`started`/,
+				/only if the user agrees change the status to `started` with `update_issue`/,
 			);
-			expect(body).toMatch(/承諾した場合だけ状態を`done`/);
+			expect(body).toMatch(
+				/only if the user agrees change the status to `done`/,
+			);
 		});
 
 		it("does not ask to complete an issue whose pull request is only opened", () =>
-			expect(body).toMatch(/mergeされていない場合は尋ねない/));
+			expect(body).toMatch(
+				/Do not ask when you only opened a Pull Request and it has not been merged/,
+			));
 
 		it("never changes the status of an issue from an external provider", () =>
-			expect(body).toContain("外部由来のIssueの状態は変えない"));
+			expect(body).toContain(
+				"Do not change the status of an externally sourced Issue",
+			));
 
 		it("asks again only once after a conflict", () =>
-			expect(body).toMatch(/`conflict`[^\n]*1回だけ尋ね直す/));
+			expect(body).toMatch(/`conflict`[^\n]*ask once more/));
 	});
 });
 
@@ -212,14 +226,14 @@ describe("setup command", () => {
 		readText("plugins/harnessforce/commands/setup.md"),
 	);
 	const NODE_REQUIRED =
-		"プラグインのフックにはNode.js 18以上が必要です。Node.jsを導入してからClaude Codeを再起動し、もう一度`/harnessforce:setup`を実行してください";
+		"Harnessforce hooks require Node.js 18 or later. Install Node.js, restart Claude Code, then run `/harnessforce:setup` again.";
 
 	it("describes itself for the command list", () =>
 		expect(frontmatter.description).toEqual(expect.any(String)));
 
 	it("checks Node.js 18 first and stops with the onboarding message", () => {
 		expect(body).toContain("`node --version`");
-		expect(body).toContain("18未満");
+		expect(body).toContain("below 18");
 		expect(body).toContain(NODE_REQUIRED);
 		expect(body.indexOf("`node --version`")).toBeLessThan(
 			body.indexOf("npm install -g"),
@@ -233,15 +247,15 @@ describe("setup command", () => {
 	it("runs harnessforce init and harnessforce import, then asks for a restart before confirming the first event", () => {
 		// `harnessforce init`は手順2にも現れるため、語の位置だけでは手順を特定できない。見出しの順序に、本文が実行する`harnessforce import`の位置を加えて確かめる。
 		const positions = indexesOf(body, [
-			"Node.jsを確かめる",
-			"再起動後の実行かを確かめる",
-			"CLIを導入する",
-			"本文データを送るかを選ぶ",
-			"Harnessforceに接続する",
-			"過去のsessionを取り込む",
+			"Check Node.js",
+			"Check whether this run is after the restart",
+			"Install the CLI",
+			"Choose whether to send prompt content",
+			"Connect to Harnessforce",
+			"Import past sessions",
 			"`harnessforce import`",
-			"再起動を案内する",
-			"最初のイベントを確認する",
+			"Ask for a restart",
+			"Confirm the first event",
 		]);
 		expect(positions.every((position) => position >= 0)).toBe(true);
 		expect(positions).toEqual([...positions].sort((a, b) => a - b));
@@ -249,52 +263,64 @@ describe("setup command", () => {
 
 	// onboarding.md「チェックリスト」の手順4「自分の端末で設定する」: harnessforce initの前に、本文データを送る設定の選択肢を、既定では選ばれない状態で示す。
 	it("shows the content choice before harnessforce init, unselected by default", () => {
-		const choice = "入力した指示の本文を送って分析に使えます";
+		const choice = "You can send the prompts you type for analysis";
 		expect(body).toMatch(
-			/`harnessforce init`の前に[^\n]*選択肢を[^\n]*既定では選ばれない/,
+			/Before `harnessforce init`, present the option[^\n]*not selected by default/,
 		);
 		expect(body).toContain(choice);
 		expect(body).toContain(
 			"Content is not sent (by default). You can enable it later.",
 		);
 		expect(body.indexOf(choice)).toBeLessThan(
-			body.indexOf("ブラウザでHarnessforceにログインし"),
+			body.indexOf("Tell the user to log in to Harnessforce"),
 		);
 	});
 
 	it("shows what opting in stores, the two conditions, and how to stop", () => {
-		expect(body).toContain("`[REDACTED:種類]`");
-		expect(body).toContain("本文データの保持期間");
-		expect(body).toContain("本文データの保持期間（最大30日）");
-		expect(body).toContain("すべてを検出できるとは限りません");
-		expect(body).toMatch(/送った本人だけが読め、OwnerとAdminも読めない/);
-		expect(body).toContain("読めるのは送ったあなただけです");
-		expect(body).not.toMatch(/OwnerとAdminだけ/);
-		expect(body).not.toContain("応答の本文");
-		expect(body).toMatch(/端末のこの設定とWorkspaceのopt-inの2つ/);
-		expect(body).toMatch(/opt-inを解除すると[^\n]*本文は受信時に破棄され/);
+		expect(body).toContain("`[REDACTED:kind]`");
+		expect(body).toContain("content retention period");
+		expect(body).toContain("content retention period (at most 30 days)");
+		expect(body).toContain("not everything can be detected");
+		expect(body).toMatch(
+			/only the person who sent the stored content can read it; Owners and Admins cannot read it either/,
+		);
+		expect(body).toContain("only you can read it");
+		expect(body).not.toMatch(/only Owners and Admins/);
+		expect(body).not.toMatch(/body of (the )?(model )?responses/i);
+		expect(body).toMatch(
+			/both this setting on the device and the Workspace opt-in/,
+		);
+		expect(body).toMatch(
+			/opt-in is withdrawn, later content is discarded on receipt/,
+		);
 		expect(body).toContain("`harnessforce init --send-content`");
 		expect(body).toMatch(
-			/Claude Codeのuser settingsの`env`に書き[^\n]*project[^\n]*local[^\n]*`env`には書かない/,
+			/Write this setting to the `env` of the Claude Code user settings, and do not write it to the `env` of the project[^\n]*local/,
 		);
-		expect(body).toMatch(/`OTEL_LOG_USER_PROMPTS`を`0`にする/);
-		expect(body).toMatch(/projectとlocalの`env`でも効く/);
+		expect(body).toMatch(
+			/set `OTEL_LOG_USER_PROMPTS` in the `env` of the user settings to `0`/,
+		);
+		expect(body).toMatch(/also takes effect in the project and local `env`/);
 	});
 
 	// onboarding.md「チェックリスト」の手順4: 利用枠の同意は利用者自身が文面に答える。agentは`--yes`で代行しない。
 	it("shows the usage limits choice only when the workspace opted in, and never answers the consent with --yes", () => {
 		expect(body).not.toContain("usage-limits on --yes");
 		expect(body).toContain("`harnessforce usage-limits status`");
-		expect(body).toMatch(/opt-inが「有効」でなければ[^\n]*示さず/);
-		expect(body).toMatch(/利用者自身が[^\n]*文面に答え/);
+		expect(body).toMatch(
+			/is not "enabled"[^\n]*do not present the usage-limits option/,
+		);
+		expect(body).toMatch(
+			/so that the user answers the consent text themselves/,
+		);
 	});
 
 	it("relays what harnessforce init prints when the workspace has not opted in", () => {
 		expect(body).toMatch(
-			/`harnessforce init --send-content`は本文の設定を書かず/,
+			/`harnessforce init --send-content` does not write the content setting/,
 		);
-		expect(body).toContain("Workspaceの設定のデータの保持");
-		expect(body).toMatch(/終了コード0/);
+		expect(body).toContain("Data retention page of the Workspace settings");
+		expect(body).toMatch(/exits with code 0/);
 	});
 });
 
@@ -305,7 +331,7 @@ describe("tune command", () => {
 	);
 	const SUMMARIZE = "skills/propose-improvements/scripts/summarize.mjs";
 	const DISCLOSURE =
-		"この実行では、提案を作るために、この端末のsessionの記録の一部をagentが読みます。読んだ内容は、ふだんこのagentに使っているmodelのproviderへ、通常のsessionと同じ経路で渡ります。Harnessforceへは渡りません。";
+		"To make suggestions, the agent reads part of the session records on this device in this run. What it reads goes to the provider of the model you normally use with this agent, through the same path as a normal session. It does not go to Harnessforce.";
 
 	it("is run only by the user and describes itself", () => {
 		expect(frontmatter["disable-model-invocation"]).toBe(true);
@@ -330,42 +356,50 @@ describe("tune command", () => {
 	});
 
 	it("shows harnessforce tune's messages as they are and keeps not measured apart from zero", () => {
-		expect(body).toMatch(/stderr[^\n]*すべてそのまま表示/);
-		expect(body).toMatch(/「未計測」を0と言い換えない/);
+		expect(body).toMatch(/stderr[^\n]*Show all of them as they are/);
+		expect(body).toMatch(/Do not rephrase "not measured" as 0/);
 	});
 
 	it("makes no proposal on exit codes other than 0 and 3 or when data is insufficient", () => {
-		expect(body).toMatch(/終了コードが0と3以外なら、提案を作らず/);
 		expect(body).toMatch(
-			/データ不足のため提案を作りません[^\n]*提案を作らずに終わる/,
+			/If the exit code is anything other than 0 or 3, finish without making suggestions/,
+		);
+		expect(body).toMatch(
+			/"Not enough data, so no suggestions are made" line[^\n]*finish without making suggestions/,
 		);
 	});
 
 	it("shows what each insufficient target still needs", () =>
 		expect(body).toMatch(
-			/「データ不足」[^\n]*あと何が必要か[^\n]*提案を作らない/,
+			/"Not enough data"[^\n]*what is still needed[^\n]*make no suggestion/,
 		));
 
 	it("hands the eligible targets to the skill, which records before showing", () => {
-		expect(body).toContain("`propose-improvements`のskill");
-		expect(body).toMatch(/`harnessforce tune record`で記録してから表示/);
-		expect(body).toMatch(/終了コード0で終わらなかった提案は表示しない/);
+		expect(body).toContain("the `propose-improvements` skill");
+		expect(body).toMatch(
+			/record them with `harnessforce tune record`, and then show them/,
+		);
+		expect(body).toMatch(
+			/Do not show a suggestion whose recording did not end with exit code 0/,
+		);
 	});
 
 	// 「前回の提案の前後」: 新しい提案の前に表示し、前後の差が因果を示さないことを添える。
 	it("shows the before and after of earlier proposals before new proposals", () => {
-		expect(body).toContain("「前回の提案の前後」");
-		expect(body).toContain("「前後の差（因果を示しません）」");
-		expect(body.indexOf("「前回の提案の前後」")).toBeLessThan(
-			body.indexOf("## 3. 提案を作る"),
+		expect(body).toContain('"Before and after the previous suggestion"');
+		expect(body).toContain(
+			'"Before/after difference (does not show causation)"',
 		);
+		expect(
+			body.indexOf('"Before and after the previous suggestion"'),
+		).toBeLessThan(body.indexOf("## 3. Make suggestions"));
 	});
 
 	// 「適用」: `/harnessforce:tune`はファイルを書き換えない（`~/.harnessforce/tune/`を除く）。
 	it("writes nothing but harnessforce tune's own files and leaves applying to the user", () => {
-		expect(body).toMatch(/managed settingsを書き換えない/);
-		expect(body).toContain("`~/.harnessforce/tune/`へ書くものだけ");
-		expect(body).toMatch(/適用は利用者が行う/);
+		expect(body).toMatch(/repository, or managed settings/);
+		expect(body).toContain("write to `~/.harnessforce/tune/`");
+		expect(body).toMatch(/applying the suggestions is up to the user/);
 	});
 });
 
@@ -383,26 +417,28 @@ describe("propose improvements skill", () => {
 
 	it("keeps the minimum condition of each target", () => {
 		for (const row of [
-			"| すべて | 分析した範囲に10 session以上ある |",
-			"| 人の介入 | その`intervention.kind`が、3 session以上で合計10回以上ある |",
-			"| ループにできる繰り返し | その`loop.kind`が、合計3回以上ある |",
-			"| MCP server | `configured`のsessionが10以上ある |",
-			"| 使い方の`frequent_compaction`、`low_cache_reuse` | その`usage.kind`に当たるsessionが3以上ある |",
-			"| 使い方の`model_choice` | `models`を持つsessionが10以上あり、分析した範囲の`models`の合計で、1つの`message.model`の値が`output_tokens`の合計の90%以上を占める |",
+			"| All | The analyzed range has at least 10 sessions |",
+			"| Human interventions | That `intervention.kind` appears in at least 3 sessions and at least 10 times in total |",
+			"| Repeatable loops | That `loop.kind` appears at least 3 times in total |",
+			"| MCP servers | At least 10 sessions have `configured` |",
+			"| `frequent_compaction` and `low_cache_reuse` of usage | At least 3 sessions match that `usage.kind` |",
+			"| `model_choice` of usage | At least 10 sessions have `models`, and in the total of `models` over the analyzed range, one `message.model` value accounts for at least 90% of the total `output_tokens` |",
 		])
 			expect(body).toContain(row);
-		expect(body).toMatch(/未計測（`not_measured`）の値を根拠にしない/);
+		expect(body).toMatch(
+			/Do not use a value that was not measured \(`not_measured`\) as evidence/,
+		);
 	});
 
 	it("gives each proposal the evidence, an applicable change, the expected effect and how to measure it", () => {
 		const positions = indexesOf(body, [
-			"| 対象のカテゴリ |",
-			"| 根拠 |",
-			"| 変更の種類 |",
-			"| 適用先 |",
-			"| 変更 | そのまま適用できるunified diff。repositoryのscopeなら、branch名、title、本文、diffからなるPull Requestの下書き。",
-			"| 期待する効果 |",
-			"| 測り方 |",
+			"| Target category |",
+			"| Evidence |",
+			"| Change type |",
+			"| Apply to |",
+			"| Change | A unified diff that can be applied as it is. For the repository scope, a Pull Request draft made of the branch name, the title, the body, and the diff.",
+			"| Expected effect |",
+			"| How to measure |",
 		]);
 		expect(positions.every((position) => position >= 0)).toBe(true);
 		expect(positions).toEqual([...positions].sort((a, b) => a - b));
@@ -425,8 +461,8 @@ describe("propose improvements skill", () => {
 
 	// 「形式」: 許可は最小の範囲に限り、すべてのコマンドの許可を提案しない。
 	it("limits permissions to the smallest scope and never allows every command", () => {
-		expect(body).toMatch(/最小の範囲だけ/);
-		expect(body).toContain("すべてのコマンドを許可する規則を提案しない");
+		expect(body).toMatch(/smallest range of tools and commands/);
+		expect(body).toContain("Do not suggest a rule that allows all commands");
 		for (const broad of [
 			"`Bash`",
 			"`Bash(*)`",
@@ -441,31 +477,31 @@ describe("propose improvements skill", () => {
 	// 「作る条件」: 使い方の提案の変更の種類は5つに限り、claude_mdは前後に現れない。
 	it("limits usage proposals to five change types and says claude_md has no follow-up", () => {
 		expect(body).toContain(
-			"使い方の提案の変更の種類は、`claude_md`、`rule`、`skill`、`agent`、`command`に限る",
+			"The change type of a usage suggestion is limited to `claude_md`, `rule`, `skill`, `agent`, and `command`",
 		);
 		expect(body).toMatch(
-			/`claude_md`の変更は適用を検出しないため、前回の提案の前後にも現れない/,
+			/A change to `claude_md` is not detected when applied, so it does not appear in the before and after of the previous suggestion either/,
 		);
 	});
 
 	// 「前回の提案の前後」: 良くなった向きへ動いていない提案は、同じ対象の新しい提案の根拠に示し、同じ差分を繰り返さない。
 	it("uses earlier proposals that did not improve as evidence and does not repeat their diff", () =>
 		expect(body).toMatch(
-			/良くなった向きへ動いていません[^\n]*根拠[^\n]*同じ差分を繰り返さない/,
+			/Did not move in the improving direction[^\n]*evidence[^\n]*do not repeat the same diff/,
 		));
 
 	it("always gives a loop proposal its stop conditions", () =>
 		expect(body).toMatch(
-			/止める条件を必ず含める。止める条件は、最大の繰り返し回数と、人が確認する時点/,
+			/must include stopping conditions. The stopping conditions are both the maximum number of repetitions and the points where a person checks/,
 		));
 
 	// 「提案の記録」: 表示の前に`harnessforce tune record`で記録し、成功した提案だけを表示する。
 	it("records each proposal with harnessforce tune record before showing it", () => {
 		expect(body).toMatch(
-			/表示する前に、提案ごとに`harnessforce tune record`を実行/,
+			/Before showing a suggestion, run `harnessforce tune record` for each suggestion/,
 		);
 		expect(body).toMatch(
-			/`harnessforce tune record`が終了コード0で終わった提案だけを表示/,
+			/Show only the suggestions for which `harnessforce tune record` ended with exit code 0/,
 		);
 		for (const field of [
 			"category",
@@ -483,13 +519,17 @@ describe("propose improvements skill", () => {
 	});
 
 	it("records the same proposal with the same input so it counts once", () =>
-		expect(body).toMatch(/同じ提案は同じ入力で記録する/));
+		expect(body).toMatch(/Record the same suggestion with the same input/));
 
 	// 「適用」: ファイルを書き換えない。
 	it("never writes the user's files", () => {
-		expect(body).toMatch(/managed settingsを書き換えない/);
-		for (const writer of ["Edit、Writeのtool", "`git apply`", "`gh pr create`"])
+		expect(body).toMatch(/repository, or managed settings/);
+		for (const writer of [
+			"the Edit or Write tools",
+			"`git apply`",
+			"`gh pr create`",
+		])
 			expect(body).toContain(writer);
-		expect(body).toMatch(/fileに書かない/);
+		expect(body).toMatch(/do not write it to a file/);
 	});
 });

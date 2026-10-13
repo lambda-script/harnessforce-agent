@@ -203,13 +203,13 @@ describe.skipIf(process.platform === "win32")("tune summary script", () => {
 	it("runs harnessforce tune --json with the allowed flags and passes harnessforce's exit code and notices through", () => {
 		const result = summarize(["--all", "--no-send"], {
 			stdout: JSON.stringify(output(sufficientSessions())),
-			stderr: "送信しない設定のため、分析結果を送信しません",
+			stderr: "Sending is turned off, so the analysis results are not sent",
 			code: 3,
 		});
 		expect(result.hfArgs).toEqual(["tune", "--json", "--all", "--no-send"]);
 		expect(result.code).toBe(3);
 		expect(result.stderr).toBe(
-			"送信しない設定のため、分析結果を送信しません\n",
+			"Sending is turned off, so the analysis results are not sent\n",
 		);
 	});
 
@@ -218,7 +218,7 @@ describe.skipIf(process.platform === "win32")("tune summary script", () => {
 		expect(result).toMatchObject({
 			code: 2,
 			stdout: "",
-			stderr: "使い方: /harnessforce:tune [--all] [--no-send]\n",
+			stderr: "Usage: /harnessforce:tune [--all] [--no-send]\n",
 			hfArgs: undefined,
 		});
 	});
@@ -230,7 +230,7 @@ describe.skipIf(process.platform === "win32")("tune summary script", () => {
 		});
 		expect(result.status).toBe(1);
 		expect(result.stderr).toBe(
-			"`harnessforce`が見つかりません。`/harnessforce:setup`でCLIを導入してください\n",
+			"`harnessforce` was not found. Install the CLI with `/harnessforce:setup`\n",
 		);
 	});
 
@@ -238,7 +238,7 @@ describe.skipIf(process.platform === "win32")("tune summary script", () => {
 		const result = summarize([], {
 			stdout: "",
 			stderr:
-				"`harnessforce init`を実行してください。Viewerのロールでは`harnessforce tune`を利用できません",
+				"Run `harnessforce init`. The Viewer role cannot use `harnessforce tune`",
 			code: 1,
 		});
 		expect(result).toMatchObject({ code: 1, stdout: "" });
@@ -250,15 +250,17 @@ describe.skipIf(process.platform === "win32")("tune summary script", () => {
 			stdout: JSON.stringify(output(sufficientSessions())),
 		});
 		expect(stdout).toContain(
-			"分析したsession: 10件（analyzer 1.0.0、parser 1.1.0）",
+			"Sessions analyzed: 10 (analyzer 1.0.0, parser 1.1.0)",
 		);
-		expect(stdout).toContain("  approval: 未計測\n");
-		expect(stdout).toContain("  answer: 未計測\n");
-		expect(stdout).toContain("  continue: 12回、5 session、30.0秒\n");
-		expect(stdout).toContain("  review_relay: 0回、0 session、—\n");
-		expect(stdout).toContain("  ci_fix: 2回、介入4回、150.0秒\n");
+		expect(stdout).toContain("  approval: not measured\n");
+		expect(stdout).toContain("  answer: not measured\n");
+		expect(stdout).toContain("  continue: 12 time(s), 5 session(s), 30.0s\n");
+		expect(stdout).toContain("  review_relay: 0 time(s), 0 session(s), —\n");
 		expect(stdout).toContain(
-			"  github: 設定されていたsession 10件、呼び出し3回、失敗0回\n",
+			"  ci_fix: 2 time(s), 4 intervention(s), 150.0s\n",
+		);
+		expect(stdout).toContain(
+			"  github: configured in 10 session(s), 3 call(s), 0 failure(s)\n",
 		);
 	});
 
@@ -268,19 +270,19 @@ describe.skipIf(process.platform === "win32")("tune summary script", () => {
 			stdout: JSON.stringify(output(sufficientSessions())),
 		});
 		expect(stdout).toContain(
-			"- intervention.kind=approval: 未計測のため提案しません\n",
+			"- intervention.kind=approval: not measured, so no suggestion is made\n",
 		);
 		expect(stdout).toContain(
-			"- intervention.kind=continue: 提案を作れます（5 session、12回）\n",
+			"- intervention.kind=continue: a suggestion can be made (5 session(s), 12 time(s))\n",
 		);
 		expect(stdout).toContain(
-			"- intervention.kind=ci_relay: データ不足: 3 session以上で合計10回以上が必要です（あと2 session、7回）\n",
+			"- intervention.kind=ci_relay: Not enough data: needs at least 3 sessions and at least 10 times in total (2 session(s), 7 time(s) more needed)\n",
 		);
 		expect(stdout).toContain(
-			"- loop.kind=ci_fix: データ不足: 合計3回以上が必要です（あと1回）\n",
+			"- loop.kind=ci_fix: Not enough data: needs at least 3 times in total (1 more needed)\n",
 		);
 		expect(stdout).toContain(
-			"- mcp_server=github: 提案を作れます（設定されていたsession 10件）\n",
+			"- mcp_server=github: a suggestion can be made (configured in 10 session(s))\n",
 		);
 	});
 
@@ -293,12 +295,12 @@ describe.skipIf(process.platform === "win32")("tune summary script", () => {
 			.split("\n")
 			.slice(1, 7);
 		expect(evidence).toEqual([
-			"    根拠のsession（新しい順）:",
-			"      s05 2026-09-05T00:00:00.000Z github.com/acme/web sendable=true 4回 /home/u/.claude/projects/p/s05.jsonl",
-			"      s04 2026-09-04T00:00:00.000Z github.com/acme/web sendable=true 2回 /home/u/.claude/projects/p/s04.jsonl",
-			"      s03 2026-09-03T00:00:00.000Z github.com/acme/web sendable=true 2回 /home/u/.claude/projects/p/s03.jsonl",
-			"      s02 2026-09-02T00:00:00.000Z github.com/acme/web sendable=true 2回 /home/u/.claude/projects/p/s02.jsonl",
-			"      s01 2026-09-01T00:00:00.000Z github.com/acme/web sendable=true 2回 /home/u/.claude/projects/p/s01.jsonl",
+			"    Evidence sessions (newest first):",
+			"      s05 2026-09-05T00:00:00.000Z github.com/acme/web sendable=true 4 time(s) /home/u/.claude/projects/p/s05.jsonl",
+			"      s04 2026-09-04T00:00:00.000Z github.com/acme/web sendable=true 2 time(s) /home/u/.claude/projects/p/s04.jsonl",
+			"      s03 2026-09-03T00:00:00.000Z github.com/acme/web sendable=true 2 time(s) /home/u/.claude/projects/p/s03.jsonl",
+			"      s02 2026-09-02T00:00:00.000Z github.com/acme/web sendable=true 2 time(s) /home/u/.claude/projects/p/s02.jsonl",
+			"      s01 2026-09-01T00:00:00.000Z github.com/acme/web sendable=true 2 time(s) /home/u/.claude/projects/p/s01.jsonl",
 		]);
 	});
 
@@ -317,7 +319,9 @@ describe.skipIf(process.platform === "win32")("tune summary script", () => {
 		const { stdout } = summarize([], {
 			stdout: JSON.stringify(output(sessions)),
 		});
-		expect(stdout).toContain("- loop.kind=ci_fix: 提案を作れます（合計3回）\n");
+		expect(stdout).toContain(
+			"- loop.kind=ci_fix: a suggestion can be made (3 time(s) in total)\n",
+		);
 	});
 
 	it("does not treat an MCP server whose calls and failures are not measured as a target", () => {
@@ -343,9 +347,11 @@ describe.skipIf(process.platform === "win32")("tune summary script", () => {
 			stdout: JSON.stringify(output(sessions)),
 		});
 		expect(stdout).toContain(
-			"  github: 設定されていたsession 10件、呼び出し: 未計測、失敗: 未計測\n",
+			"  github: configured in 10 session(s), calls: not measured, failures: not measured\n",
 		);
-		expect(stdout).toContain("- mcp_server=github: 未計測のため提案しません\n");
+		expect(stdout).toContain(
+			"- mcp_server=github: not measured, so no suggestion is made\n",
+		);
 	});
 
 	// improvement-loop.md「作る条件」: 使い方のfrequent_compactionとlow_cache_reuseは、当たるsessionが3以上。
@@ -362,13 +368,13 @@ describe.skipIf(process.platform === "win32")("tune summary script", () => {
 			stdout: JSON.stringify(output(sessions)),
 		});
 		expect(stdout).toContain(
-			"使い方（当たるsession）:\n  frequent_compaction: 3 session\n  low_cache_reuse: 2 session\n",
+			"Usage (matching sessions):\n  frequent_compaction: 3 session(s)\n  low_cache_reuse: 2 session(s)\n",
 		);
 		expect(stdout).toContain(
-			"- usage.kind=frequent_compaction: 提案を作れます（3 session）\n    根拠のsession（新しい順）:\n      s03 ",
+			"- usage.kind=frequent_compaction: a suggestion can be made (3 session(s))\n    Evidence sessions (newest first):\n      s03 ",
 		);
 		expect(stdout).toContain(
-			"- usage.kind=low_cache_reuse: データ不足: 当たるsessionが3以上必要です（あと1 session）\n",
+			"- usage.kind=low_cache_reuse: Not enough data: needs at least 3 matching sessions (1 more session(s) needed)\n",
 		);
 	});
 
@@ -395,16 +401,16 @@ describe.skipIf(process.platform === "win32")("tune summary script", () => {
 			stdout: JSON.stringify(output(withModels([95, 5]))),
 		}).stdout;
 		expect(dominant).toContain(
-			"- usage.kind=model_choice: 提案を作れます（10 session、claude-opus-5-5 95.0%）\n",
+			"- usage.kind=model_choice: a suggestion can be made (10 session(s), claude-opus-5-5 95.0%)\n",
 		);
 		expect(dominant).toContain(
-			"  model（output_tokensの割合）: 本体 claude-opus-5-5 95.0%、本体 claude-sonnet-5 5.0%\n",
+			"  model (share of output_tokens): main claude-opus-5-5 95.0%, main claude-sonnet-5 5.0%\n",
 		);
 		expect(
 			summarize([], { stdout: JSON.stringify(output(withModels([60, 40]))) })
 				.stdout,
 		).toContain(
-			"- usage.kind=model_choice: 提案しません: 1つのmodelが本体のoutput_tokensの90%以上を占めていません（最大 claude-opus-5-5 60.0%）\n",
+			"- usage.kind=model_choice: not suggested: no single model accounts for 90% or more of the main output_tokens (largest: claude-opus-5-5 60.0%)\n",
 		);
 		const fewer = withModels([95, 5]).map((s, i) =>
 			i < 2 ? { ...s, usage: { ...s.usage, models: [] } } : s,
@@ -412,7 +418,7 @@ describe.skipIf(process.platform === "win32")("tune summary script", () => {
 		expect(
 			summarize([], { stdout: JSON.stringify(output(fewer)) }).stdout,
 		).toContain(
-			"- usage.kind=model_choice: データ不足: modelsを持つsessionが10以上必要です（あと2 session）\n",
+			"- usage.kind=model_choice: Not enough data: needs at least 10 sessions with models (2 more session(s) needed)\n",
 		);
 	});
 
@@ -476,28 +482,34 @@ describe.skipIf(process.platform === "win32")("tune summary script", () => {
 				]),
 			),
 		});
-		const section = stdout.slice(stdout.indexOf("前回の提案の前後"));
-		expect(stdout.indexOf("前回の提案の前後")).toBeLessThan(
-			stdout.indexOf("提案の対象:"),
+		const section = stdout.slice(
+			stdout.indexOf("Before and after the previous suggestion"),
 		);
+		expect(
+			stdout.indexOf("Before and after the previous suggestion"),
+		).toBeLessThan(stdout.indexOf("Targets for suggestions:"));
 		expect(section).toContain(
-			"前回の提案の前後（前後の差（因果を示しません）。起点は適用を検出した時刻です）:\n- intervention.kind=continue（skill /home/u/.claude/skills/x/SKILL.md）起点 2026-09-15T00:00:00.000Z\n    前 2026-09-01T00:00:00.000Z〜2026-09-15T00:00:00.000Z: 6 session、3\n    後 2026-09-15T00:00:00.000Z〜2026-09-29T00:00:00.000Z: 5 session、1\n",
+			"Before and after the previous suggestion (Before/after difference (does not show causation). The starting point is the time the application was detected):\n- intervention.kind=continue (skill /home/u/.claude/skills/x/SKILL.md) starting point 2026-09-15T00:00:00.000Z\n    Before 2026-09-01T00:00:00.000Z to 2026-09-15T00:00:00.000Z: 6 session(s), 3\n    After 2026-09-15T00:00:00.000Z to 2026-09-29T00:00:00.000Z: 5 session(s), 1\n",
 		);
 		const block = (category: string) =>
 			`${section.slice(section.indexOf(`- ${category}`)).split("\n- ")[0]}\n`;
-		expect(block("intervention.kind=continue")).not.toContain("良くなった向き");
+		expect(block("intervention.kind=continue")).not.toContain(
+			"improving direction",
+		);
 		expect(block("usage.kind=low_cache_reuse")).toContain(
-			"    良くなった向きへ動いていません。同じ対象の提案を作るときの根拠にします",
+			"    Did not move in the improving direction. Use this as the basis when making a suggestion for the same target",
 		);
-		expect(block("loop.kind=ci_fix")).toContain("    比較データなし\n");
+		expect(block("loop.kind=ci_fix")).toContain("    No comparison data\n");
 		expect(block("loop.kind=ci_fix")).toContain(
-			"    前の期間の一部が分析の範囲の外です\n",
+			"    Part of the earlier period is outside the analysis range\n",
 		);
-		expect(block("loop.kind=ci_fix")).not.toContain("良くなった向き");
+		expect(block("loop.kind=ci_fix")).not.toContain("improving direction");
 		expect(block("usage.kind=model_choice")).toContain(
-			"    後 2026-09-15T00:00:00.000Z〜2026-09-29T00:00:00.000Z: 5 session、本体 claude-opus-5-5 60.0%、subagent claude-haiku-4-5 40.0%\n",
+			"    After 2026-09-15T00:00:00.000Z to 2026-09-29T00:00:00.000Z: 5 session(s), main claude-opus-5-5 60.0%, subagent claude-haiku-4-5 40.0%\n",
 		);
-		expect(block("usage.kind=model_choice")).not.toContain("良くなった向き");
+		expect(block("usage.kind=model_choice")).not.toContain(
+			"improving direction",
+		);
 	});
 
 	// improvement-loop.md「Fidelity」: 10 sessionに満たなければ提案を作らず、必要なsession数を出す。
@@ -507,8 +519,8 @@ describe.skipIf(process.platform === "win32")("tune summary script", () => {
 		});
 		expect(code).toBe(0);
 		expect(stdout).toContain(
-			"データ不足のため提案を作りません: 分析したsessionは7件です。提案には10件以上が必要です（あと3件）\n",
+			"Not enough data, so no suggestions are made: 7 session(s) analyzed. Suggestions need at least 10 (3 more needed)\n",
 		);
-		expect(stdout).not.toContain("提案を作れます");
+		expect(stdout).not.toContain("a suggestion can be made");
 	});
 });

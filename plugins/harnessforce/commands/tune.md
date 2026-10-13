@@ -1,39 +1,39 @@
 ---
-description: 自分の過去のsessionを分析し、分析結果、前回の提案の前後と、人の介入、ループにできる繰り返し、MCP server、使い方の改善の提案を表示する。ファイルは書き換えない
+description: Analyze your past sessions and show the analysis results, the before and after of the previous suggestion, and suggested improvements for human interventions, repeatable loops, MCP servers, and usage. Does not modify files
 argument-hint: "[--all] [--no-send]"
 disable-model-invocation: true
 ---
 
-# 過去のsessionの分析と改善の提案
+# Analyze past sessions and suggest improvements
 
-次の手順を順に進める。この実行では、利用者のファイル、設定、repository、managed settingsを書き換えない。書き込むのは`harnessforce tune`と`harnessforce tune record`が`~/.harnessforce/tune/`へ書くものだけである。
+Go through the steps below in order. This run does not modify the user's files, settings, repository, or managed settings. The only things written are what `harnessforce tune` and `harnessforce tune record` write to `~/.harnessforce/tune/`.
 
-## 1. modelのproviderへ渡ることを伝える
+## 1. Say that content goes to the model provider
 
-何かを実行する前に、次の文言をそのまま表示する。
+Before running anything, show the following text as it is.
 
-> この実行では、提案を作るために、この端末のsessionの記録の一部をagentが読みます。読んだ内容は、ふだんこのagentに使っているmodelのproviderへ、通常のsessionと同じ経路で渡ります。Harnessforceへは渡りません。Harnessforceへ送るのは、公開の規則で数えた分析結果の値だけです。
+> To make suggestions, the agent reads part of the session records on this device in this run. What it reads goes to the provider of the model you normally use with this agent, through the same path as a normal session. It does not go to Harnessforce. Harnessforce receives only the analysis result values counted by the public rules.
 
-## 2. 分析する
+## 2. Analyze
 
-次を実行する。`harnessforce tune --json`を起動し、分析結果と、提案を作る条件を対象ごとに判定した結果を表示する。送信と未送信の分の再送を含むため、Bashのtimeoutを10分にする。
+Run the following. It starts `harnessforce tune --json` and shows the analysis results and, for each target, the result of checking the conditions for making a suggestion. It includes sending and resending unsent results, so set the Bash timeout to 10 minutes.
 
 ```sh
 node "${CLAUDE_PLUGIN_ROOT}/skills/propose-improvements/scripts/summarize.mjs" $ARGUMENTS
 ```
 
-- stderrの行は`harnessforce tune`の文言である。省略も言い換えもせずに、すべてそのまま表示する。
-- stdoutの分析結果（人の介入、ループにできる繰り返し、MCP server、使い方）をそのまま表示する。「未計測」を0と言い換えない。使い方は端末だけの値であり、Harnessforceへ送られない。
-- 「前回の提案の前後」の行があれば、新しい提案の前に「前回の提案の前後」としてそのまま表示し、「前後の差（因果を示しません）」と「起点は適用を検出した時刻です」を省略しない。「比較データなし」を差0と言い換えない。
-- 終了コードが0と3以外なら、提案を作らずに終わる。`harnessforce`が見つからない旨の文言が出た場合も同じである。
-- 「データ不足のため提案を作りません」の行があれば、その行を表示し、提案を作らずに終わる。
+- The lines on stderr are the messages of `harnessforce tune`. Show all of them as they are, without omitting or rephrasing them.
+- Show the analysis results on stdout (human interventions, repeatable loops, MCP servers, usage) as they are. Do not rephrase "not measured" as 0. Usage values stay on this device and are not sent to Harnessforce.
+- If there is a "Before and after the previous suggestion" section, show it as it is before the new suggestions, and do not omit "Before/after difference (does not show causation)" or "The starting point is the time the application was detected". Do not rephrase "No comparison data" as a difference of 0.
+- If the exit code is anything other than 0 or 3, finish without making suggestions. The same applies when the message says `harnessforce` was not found.
+- If there is a "Not enough data, so no suggestions are made" line, show that line and finish without making suggestions.
 
-## 3. 提案を作る
+## 3. Make suggestions
 
-「提案の対象」の行をすべて表示する。「データ不足」と「未計測のため提案しません」の行は、あと何が必要かを含めてそのまま表示し、その対象の提案を作らない。
+Show all the "Targets for suggestions" lines. Show the "Not enough data" and "not measured, so no suggestion is made" lines as they are, including what is still needed, and make no suggestion for those targets.
 
-「提案を作れます」の対象について、このpluginの`propose-improvements`のskillの手順に従って提案を作り、`harnessforce tune record`で記録してから表示する。記録が終了コード0で終わらなかった提案は表示しない。
+For the targets marked "a suggestion can be made", make suggestions by following the `propose-improvements` skill of this plugin, record them with `harnessforce tune record`, and then show them. Do not show a suggestion whose recording did not end with exit code 0.
 
-## 4. 適用の仕方を伝える
+## 4. Explain how to apply
 
-最後に、提案の適用は利用者が行うことを伝える。手で編集する、`git apply`する、自分のsessionでagentに適用を指示する、のいずれかで適用する。このcommandは適用しない。適用した提案は、次の`/harnessforce:tune`の実行で検出され、件数だけがHarnessforceへ送られる。
+Finally, tell the user that applying the suggestions is up to the user. They apply them by editing by hand, running `git apply`, or telling the agent in their own session to apply them. This command does not apply them. A suggestion that was applied is detected in the next run of `/harnessforce:tune`, and only counts are sent to Harnessforce.

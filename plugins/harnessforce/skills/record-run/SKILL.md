@@ -1,66 +1,66 @@
 ---
 name: record-run
-description: HarnessforceのIssue（ENG-42のような識別子）に取り組む作業で、HarnessforceのMCP serverのtoolを使い、このsessionをRunとして登録し、Plan、Decision、Definition of Doneの充足を記録する。Issueに取り組み始めるとき、Issueを指定されずに変更をcommitする作業を始めるとき、方針を変えるとき、作業を終えるときに使う。
+description: For work on a Harnessforce Issue (an identifier such as ENG-42), use the tools of the Harnessforce MCP server to register this session as a Run and record the Plan, the Decision, and whether the Definition of Done is met. Use it when you start work on an Issue, when you start work that commits changes without an Issue being specified, when you change course, and when you finish the work.
 ---
 
-# HarnessforceのIssueの作業を記録する
+# Record work on a Harnessforce Issue
 
-HarnessforceのMCP serverのtoolで、作業をIssueに結び付けて記録する。toolを初めて使うときは、ブラウザでのログインとWorkspaceの選択を求められる。
+Use the tools of the Harnessforce MCP server to link the work to the Issue and record it. The first time you use a tool, you are asked to log in in the browser and choose a Workspace.
 
-## 作業の開始時
+## At the start of the work
 
-利用者がIssueを示していなければ、先に下の「Issueを指定されていない場合」に従う。
+If the user has not given an Issue, follow "When no Issue is specified" below first.
 
-1. contextにある`harnessforce session_id: <session_id>`の値を`session_id`として渡し、`start_run`でRunを登録する。この行はHarnessforceのpluginがsessionの開始時にcontextへ加える。複数あれば、最後に加えられたものを使う。入力は、Issueの識別子（`issue_identifier`）、`agent`（`claude_code`）、`session_id`とする。作業しているrepository、branch、commitが分かれば併せて渡す。返された`run_id`を終了時まで控えておく。contextにこの行が無い場合は、下の「session IDが無い場合」に従う。
-2. `get_issue`で、Issue、Plan、Definition of Doneを確認する。nativeのIssueなら、下の「nativeのIssueの状態」に従う。Planは状態（現行か`proposed`か）で区別されている。
-3. 現行のPlanも`proposed`のPlanも無ければ、作業の方針を`record_plan`で記録する。本文はmarkdownで書く。
+1. Pass the value of `harnessforce session_id: <session_id>` in the context as `session_id`, and register the Run with `start_run`. The Harnessforce plugin adds this line to the context at session start. If there are several, use the last one added. The input is the Issue identifier (`issue_identifier`), `agent` (`claude_code`), and `session_id`. If you know the repository, branch, and commit you are working on, pass them too. Keep the returned `run_id` until the end. If the line is missing from the context, follow "When the session ID is missing" below.
+2. Check the Issue, the Plan, and the Definition of Done with `get_issue`. For a native Issue, follow "Status of a native Issue" below. A Plan is distinguished by its status (current or `proposed`).
+3. If there is neither a current Plan nor a `proposed` Plan, record the approach to the work with `record_plan`. Write the body in markdown.
 
-## 作業の途中
+## During the work
 
-- 方針を変えたとき、または選択肢から選んだときは、`record_decision`で記録する。題（`title`）、決めたこと（`decision`）、理由（`rationale`）を必ず書き、検討した選択肢があれば`alternatives`に書く。
+- When you change course or choose from several options, record it with `record_decision`. Always write the title (`title`), what you decided (`decision`), and the reason (`rationale`), and write the options you considered in `alternatives`.
 
-## session IDが変わったとき
+## When the session ID changes
 
-- contextの最後の`harnessforce session_id:`の値が、直前の`start_run`に渡した値と異なる（会話をforkしたとき、`/clear`したときなど）場合は、作業を続ける前に新しい値で`start_run`をもう1度呼び、返された`run_id`を以後の`complete_run`に使う。
+- If the value of the last `harnessforce session_id:` in the context differs from the value you passed to the previous `start_run` (for example after forking the conversation or running `/clear`), call `start_run` once more with the new value before continuing, and use the returned `run_id` for later `complete_run` calls.
 
-## 作業の終了時
+## At the end of the work
 
-- `complete_run`に`run_id`と、`get_issue`が返したDefinition of Doneの項目ごとの充足（`item_id`と、満たしたなら`met`、満たしていないなら`unmet`）を渡す。Definition of Doneの項目が無い場合は、項目を渡さない。
+- Pass `complete_run` the `run_id` and, for each Definition of Done item returned by `get_issue`, whether it is met (`item_id`, and `met` if satisfied or `unmet` if not). If there are no Definition of Done items, pass no items.
 
-## Issueを指定されていない場合
+## When no Issue is specified
 
-利用者がIssueを示さずに作業を始めたら、Issueを作るかを利用者に尋ねる。Issueを作るのは、利用者が承諾した後だけとする。
+If the user starts work without giving an Issue, ask whether to create one. Create an Issue only after the user agrees.
 
-1. 次のすべてに当たる場合だけ尋ねる。
-   - 利用者がIssueの識別子を示していない。現在のbranch名が`ENG-42`、`eng-42-login`、`gh-45-fix`のような識別子を含み、`get_issue`でそのIssueを解決できたら（`gh-<番号>`は、そのrepositoryの`<owner>/<repo>#<番号>`として渡す）、そのIssueを示されたものとして「作業の開始時」に進み、尋ねない。`not_found`なら識別子が無い場合と同じに扱う。
-   - 作業が変更をcommitするものである。調べもの、質問への回答、計画だけの会話では尋ねない。
-   - contextに`harnessforce session_id:`の行がある。
-   - contextの最後の`harnessforce session_id:`の値ごとに、同じ値で尋ねるのは1回だけとする。利用者が断ったら、同じ値の間は再び尋ねない。forkや`/clear`で値が変わったら、改めて尋ねてよい。
-2. 既存のIssueを先に示す。作業の要約から、Issueのtitleに現れそうな語を最大3つ選び、語ごとに`list_issues`を、`q`を`-status:done,canceled {語}`、`sort`を`updated`として1回ずつ呼ぶ。自由文は複数の語ではそのすべてを含むIssueにだけ一致するため、語を分けて呼ぶ。結果を合わせて重複を除き、更新の新しい順に最大5件を候補として示す。利用者が候補を選んだら、Issueを作らずにそのIssueで「作業の開始時」に進む。
-3. 候補に当たるものが無ければ、作る案を示す。
-   - title: 作業の要約。80文字以内。
-   - 説明: 目的と完了の条件の箇条書き。
-   - Project: `list_projects`を`q`を`status:active`として呼び、1件ならそれを、2件以上なら利用者に選ばせる。0件ならIssueを作らず、その旨を伝える。
-   - titleと説明には、promptの本文、file path、command、secretを写さない。titleは一覧とURLに現れ、説明より広く読まれる。
-   - 外部のIssue管理ツールを使うチームには、「Harnessforceにだけ作られ、外部のツールには書き戻されません」と伝える。
-4. 利用者が案を承諾した場合だけ、`create_issue`でIssueを作り、返されたidentifierで「作業の開始時」の`start_run`を呼ぶ。利用者が案を直したら、直した値で作る。承諾は会話の中の利用者の明示の返答とする。非対話の実行や利用者のいない自動の実行では、返答を得られないため作らない。
-5. 作れない場合と失敗した場合:
-   - `create_issue`か、候補を選んだ後の`start_run`が`forbidden`（Viewerのtoken、閲覧のみのWorkspaceの`workspace_read_only`を含む）を返したら、作れない理由をそのまま伝え、同じsession IDでは再び尋ねない。
-   - `create_issue`を再試行しない。再試行するとIssueが2件作られうる。timeoutなどで結果が分からなければ、`list_issues`で案のtitleを自由文に検索し、titleが完全に一致し、作成時刻が呼び出しの後のIssueが見つかればそれを使う。見つからなければ、作れなかったことを伝える。
-   - `create_issue`が成功して`start_run`だけが失敗したら、作ったIssueのidentifierを伝え、Issueを作り直さない。
-6. `create_project`、`create_milestone`、`create_cycle`、`create_objective`を自らの判断で呼ばない。目標日、所属、Priority、Assigneeも自ら変えない。これらは計画の変更であり、利用者が会話の中で明示に指示した場合だけ、指示どおりに呼ぶ。
+1. Ask only when all of the following hold.
+   - The user has not given an Issue identifier. If the current branch name contains an identifier such as `ENG-42`, `eng-42-login`, or `gh-45-fix` and `get_issue` can resolve that Issue (pass `gh-<number>` as `<owner>/<repo>#<number>` of that repository), treat it as the Issue the user gave, go to "At the start of the work", and do not ask. If it is `not_found`, treat it the same as when there is no identifier.
+   - The work commits changes. Do not ask for research, answers to questions, or conversations that only plan.
+   - The context has a `harnessforce session_id:` line.
+   - Ask only once for the same value of the last `harnessforce session_id:` in the context. If the user declines, do not ask again while the value stays the same. If the value changes through a fork or `/clear`, you may ask again.
+2. Show existing Issues first. From the summary of the work, pick up to 3 words likely to appear in an Issue title, and call `list_issues` once per word with `q` set to `-status:done,canceled {word}` and `sort` set to `updated`. Free text with several words matches only Issues that contain all of them, so call it per word. Merge the results, remove duplicates, and show up to 5 candidates, most recently updated first. If the user picks a candidate, do not create an Issue and go to "At the start of the work" with that Issue.
+3. If no candidate fits, show a proposal to create one.
+   - title: a summary of the work, at most 80 characters.
+   - description: a bulleted list of the goal and the completion conditions.
+   - Project: call `list_projects` with `q` set to `status:active`; use the single result, or let the user choose if there are 2 or more. If there are 0, do not create the Issue and say so.
+   - Do not copy the prompt text, file paths, commands, or secrets into the title or the description. The title appears in lists and URLs and is read more widely than the description.
+   - For a team that uses an external issue tracker, say "Created in Harnessforce only", and that it is not written back to the external tool.
+4. Only if the user accepts the proposal, create the Issue with `create_issue` and call `start_run` from "At the start of the work" with the returned identifier. If the user edits the proposal, create it with the edited values. Acceptance is an explicit reply from the user in the conversation. In a non-interactive run or an automated run with no user, no reply can be obtained, so do not create it.
+5. When it cannot be created and when it fails:
+   - If `create_issue`, or `start_run` after the user picked a candidate, returns `forbidden` (including a Viewer token and `workspace_read_only` of a view-only Workspace), tell the user the reason it cannot be created as it is, and do not ask again for the same session ID.
+   - Do not retry `create_issue`. Retrying can create two Issues. If the result is unknown, for example after a timeout, search the title of the proposal as free text with `list_issues`; if an Issue whose title matches exactly and whose creation time is after the call is found, use it. If none is found, tell the user it could not be created.
+   - If `create_issue` succeeds and only `start_run` fails, tell the user the identifier of the created Issue and do not recreate the Issue.
+6. Do not call `create_project`, `create_milestone`, `create_cycle`, or `create_objective` on your own judgment. Do not change the target date, the parent, the Priority, or the Assignee on your own either. These are changes to the plan, and you call them as instructed only when the user explicitly instructs it in the conversation.
 
-## nativeのIssueの状態
+## Status of a native Issue
 
-- nativeのIssue（`get_issue`の`external`が`null`のIssue）で、作業を始めた時点の状態が`backlog`か`unstarted`なら、`start_run`の後に「状態を『進行中』にしますか」と尋ね、承諾した場合だけ`update_issue`で状態を`started`に変える。`update_issue`には、`get_issue`が返したIssueの`version`（`definition_of_done.version`ではない）と、変えない他の属性の現在の値を併せて渡す。
-- 作業を終える時点で、利用者が仕事の完了を示していれば、`complete_run`の後に「状態を『完了』にしますか」と尋ね、承諾した場合だけ状態を`done`に変える。Pull Requestを開いただけで、mergeされていない場合は尋ねない。
-- 外部由来のIssueの状態は変えない。状態の正本は外部のツールである。GitHub IssuesのIssueでは、利用者がPull Requestの本文を書く際の文面として`Closes #<番号>`を提案してよい。agentがPull RequestとIssueを自ら結び付ける操作の代わりにはしない。
-- `update_issue`が`conflict`を返したら、`get_issue`で読み直して伝え、1回だけ尋ね直す。再び`conflict`なら、そのことを伝えて終える。
+- For a native Issue (an Issue whose `external` in `get_issue` is `null`) whose status when you start work is `backlog` or `unstarted`, ask "Set the status to 'In progress'?" after `start_run`, and only if the user agrees change the status to `started` with `update_issue`. Pass `update_issue` the `version` of the Issue returned by `get_issue` (not `definition_of_done.version`) together with the current values of the other attributes that stay unchanged.
+- At the end of the work, if the user indicates the task is complete, ask "Set the status to 'Done'?" after `complete_run`, and only if the user agrees change the status to `done`. Do not ask when you only opened a Pull Request and it has not been merged.
+- Do not change the status of an externally sourced Issue. The external tool is the source of truth for the status. For a GitHub Issues Issue, you may suggest `Closes #<number>` as text for the user to put in the Pull Request body. Do not use it as a substitute for linking the Pull Request and the Issue yourself.
+- If `update_issue` returns `conflict`, reread with `get_issue`, tell the user, and ask once more. If it returns `conflict` again, say so and finish.
 
-## session IDが無い場合
+## When the session ID is missing
 
-- contextに`harnessforce session_id:`の行が無ければ、session IDを推測して渡さず、`start_run`と`complete_run`を呼ばない。`get_issue`、`record_plan`、`record_decision`はRunに依らないため続ける。利用者には「Harnessforceのhookが動いていないため、Runを記録できません。`/harnessforce:setup`を実行してください」と1回だけ伝える。
+- If the context has no `harnessforce session_id:` line, do not guess and pass a session ID, and do not call `start_run` or `complete_run`. `get_issue`, `record_plan`, and `record_decision` do not depend on the Run, so continue with them. Tell the user once: "The Harnessforce hook is not running, so the Run cannot be recorded. Run `/harnessforce:setup`".
 
-## 記録の扱い
+## How records are treated
 
-- agentが記録したPlan、Decision、充足は`proposed`として保存され、人が承認するまで確定しない。記録したことを、確定したこととして利用者へ伝えない。
+- The Plan, the Decision, and the Definition of Done status recorded by the agent are stored as `proposed` and are not final until a person approves them. Do not tell the user that what you recorded is final.

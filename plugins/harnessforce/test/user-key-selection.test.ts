@@ -14,9 +14,9 @@ import {
 
 // correlation.md「hook」の共通の規則が、選んだkeyの種類ごとに定める文言。
 const USER_KEY_REVOKED =
-	"送信キーが失効しています。`harnessforce init`を実行してください";
+	"Your ingest key has been revoked. Run `harnessforce init`";
 const WORKSPACE_KEY_REVOKED =
-	"組織の送信キーが失効しています。Workspaceの管理者に連絡してください";
+	"The organization's ingest key has been revoked. Contact a Workspace administrator";
 
 // managed settingsのfileを持たず、harnessforce initで設定した端末。
 const userEnv = {
