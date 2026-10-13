@@ -20,12 +20,10 @@ function buildWith(input: Record<string, string>) {
 }
 
 describe("plugin build input", () => {
-	// correlation.md「接続先」: 値を与えないbuildは失敗し、既定値で補わない。
+	// 与えた値が許可されない形なら、既定値へ黙って戻さず失敗する。
 	it.each([
-		[{}],
-		[{ HARNESSFORCE_BUILD_URL: "" }],
 		[{ HARNESSFORCE_BUILD_URL: "http://app.example.test" }],
-	])("fails without an allowed HARNESSFORCE_BUILD_URL: %j", (input) => {
+	])("fails with a disallowed HARNESSFORCE_BUILD_URL: %j", (input) => {
 		const result = buildWith(input);
 		expect(result.status).not.toBe(0);
 		expect(result.stderr).toContain("HARNESSFORCE_BUILD_URL");

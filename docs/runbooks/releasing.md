@@ -17,12 +17,10 @@ recorded, that spec keeps distributing the plugin and the CLI to the public out 
 4. Attach the trusted publisher to each package (npm 11.15.0 or later, 2FA required):
    `npm trust github @harnessforce/<name> --repository lambda-script/harnessforce-agent --file release.yml --allow-publish`
 5. In repository Settings → Actions → General, allow GitHub Actions to create pull requests.
-6. Set the CLI's default connection URL as a repository variable. The `Release` workflow passes
-   `vars.HARNESSFORCE_BUILD_URL` to the build, which bakes it into `@harnessforce/cli`
-   (`packages/cli/scripts/build-config.mjs`) and fails when it is missing, so a release never falls back
-   to a default. Use the production `apps/web` base URL once it is recorded in the Harnessforce
-   `docs/specs/infrastructure/environments.md` ("接続先"); staging builds must not be published:
-   `gh variable set HARNESSFORCE_BUILD_URL --body https://<apps/web host> -R lambda-script/harnessforce-agent`
+6. Leave the repository variable `HARNESSFORCE_BUILD_URL` unset. The build then bakes the production
+   default `https://harnessforce.dev` into `@harnessforce/cli` and the plugin
+   (`packages/cli/scripts/build-config.mjs`); a staging or local URL is for development builds only and
+   must not be published.
 7. Remove the `hf` alias before the first publish. `packages/cli/package.json` lists `harnessforce` and
    `hf` in `bin` only for builds before the first publish (Harnessforce `correlation.md`, "コマンド名"): the
    Hugging Face CLI also uses `hf`. Delete the `hf` entry from `bin`, update the `bin` test in

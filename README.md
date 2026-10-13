@@ -122,8 +122,10 @@ flowchart LR
   past sessions.
 - The **MCP server** is hosted by Harnessforce at `<connection URL>/mcp`; the plugin only declares it.
 - **`@harnessforce/semconv`** defines what both sides send and accept.
-- The connection URL is a single build input, `HARNESSFORCE_BUILD_URL`, shared by the CLI default and
-  the MCP server URL.
+- The connection URL is a single optional build input, `HARNESSFORCE_BUILD_URL` (default
+  `https://harnessforce.dev`), shared by the CLI default and the MCP server URL. A built plugin and CLI can
+  be pointed elsewhere at run time with the environment variable `HARNESSFORCE_URL` or
+  `harnessforce init --url <base URL>`, without a rebuild.
 
 ## Development
 
@@ -136,8 +138,8 @@ HARNESSFORCE_BUILD_URL=http://localhost:3000 pnpm check
 ```
 
 `pnpm check` runs lint (Biome), knip, typecheck, tests (Vitest) and build through Turborepo, as CI does.
-The build needs `HARNESSFORCE_BUILD_URL`, the `apps/web` base URL baked into the CLI and the plugin, and
-fails without it; `http://localhost:3000` is the value CI uses. CI also runs the tests on macOS,
+`HARNESSFORCE_BUILD_URL` is the optional `apps/web` base URL baked into the CLI and the plugin as their
+default; without it the build uses `https://harnessforce.dev`. `http://localhost:3000` is the value CI uses. CI also runs the tests on macOS,
 Windows and Node.js 24, and runs the built CLI and hook on Node.js 18.
 
 | Path | Contents |

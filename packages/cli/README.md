@@ -170,8 +170,10 @@ the refreshed token is also answered with 401, they stop with
 
 ### Default connection
 
-The default base URL is a build input: `HARNESSFORCE_BUILD_URL=<apps/web base URL> pnpm build`.
-The build fails without it. The value must be `https:`, or `http:` for localhost. The plugin build
+The default base URL is an optional build input: `HARNESSFORCE_BUILD_URL=<apps/web base URL> pnpm build`.
+Without it the default is `https://harnessforce.dev`. The value must be `https:`, or `http:` for localhost.
+At run time the base URL is the environment variable `HARNESSFORCE_URL`, then `env.HARNESSFORCE_URL` in the
+user settings (`harnessforce init --url` writes it), then the build default. The plugin build
 uses the same value for its MCP server URL. See
 [Building the local marketplace](https://github.com/lambda-script/harnessforce-agent/blob/main/docs/runbooks/local-marketplace.md).
 

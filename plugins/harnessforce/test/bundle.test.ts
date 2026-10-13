@@ -34,6 +34,10 @@ const SESSION_CONTEXT = `${JSON.stringify({
 		additionalContext: `harnessforce session_id: s-1\n\n${usingHarnessforceBody}`,
 	},
 })}\n`;
+// Claude Codeが展開する`${HARNESSFORCE_URL:-<既定の接続先>}`の形。
+const mcpUrl = (base: string) =>
+	// biome-ignore lint/suspicious/noTemplateCurlyInString: JSのtemplateではなくClaude Codeの環境変数の展開である。
+	`\${HARNESSFORCE_URL:-${base.replace(/\/+$/, "")}}/mcp`;
 // buildの出力をnode_modulesの無い場所へ写し、bundleが依存packageを実行時に解決しないことも確かめる。
 let marketplace: string;
 let hookScript: string;
@@ -242,8 +246,8 @@ describe("built marketplace", () => {
 		]);
 	});
 
-	// correlation.md「接続先」: MCP serverのURLはCLIの既定の接続先と同じbuildの入力から作る。
-	it("declares the MCP server at <connection>/mcp over HTTP, from the CLI's build input", () => {
+	// correlation.md「接続先」: MCP serverのURLはCLIの既定の接続先と同じbuildの入力を既定値とし、実行時に環境変数HARNESSFORCE_URLで上書きできる。
+	it("declares the MCP server at ${HARNESSFORCE_URL:-<connection>}/mcp over HTTP, from the CLI's build input", () => {
 		const { url } = readJson(
 			fileURLToPath(
 				new URL(
@@ -256,7 +260,10 @@ describe("built marketplace", () => {
 			readJson(join(marketplace, "plugins/harnessforce/.mcp.json")),
 		).toEqual({
 			mcpServers: {
-				harnessforce: { type: "http", url: `${url.replace(/\/+$/, "")}/mcp` },
+				harnessforce: {
+					type: "http",
+					url: mcpUrl(url),
+				},
 			},
 		});
 	});
@@ -349,7 +356,7 @@ describe("built marketplace", () => {
 			expect(
 				readJson(join(marketplace, "plugins/harnessforce/.mcp.json")).mcpServers
 					.harnessforce.url,
-			).toBe(`${url.replace(/\/+$/, "")}/mcp`);
+			).toBe(mcpUrl(url));
 		});
 	});
 
