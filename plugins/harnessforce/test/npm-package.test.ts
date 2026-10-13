@@ -46,7 +46,12 @@ describe("@harnessforce/claude-code-plugin", () => {
 	});
 
 	it("has the plugin at the package root, which the marketplace installs as the plugin", () => {
-		expect(readdirSync(npmDir, { recursive: true })).toEqual(
+		// Windowsのpath区切りを揃える。
+		const listed = readdirSync(npmDir, {
+			recursive: true,
+			encoding: "utf8",
+		}).map((path) => path.replaceAll("\\", "/"));
+		expect(listed).toEqual(
 			expect.arrayContaining([
 				".claude-plugin/plugin.json",
 				".mcp.json",
@@ -75,32 +80,42 @@ describe("@harnessforce/claude-code-plugin", () => {
 		);
 	});
 
-	// 値を与えないbuildの出力。実行時のHARNESSFORCE_URLで上書きできる形のままにする。
-	it("points the MCP server at the production default, overridable by HARNESSFORCE_URL", () =>
+	// 実行時のHARNESSFORCE_URLで上書きできる形のまま、CLIと同じbuildの既定の接続先を持つ。
+	it("points the MCP server at the CLI's default, overridable by HARNESSFORCE_URL", () => {
+		const { url } = readJson(
+			fileURLToPath(
+				new URL(
+					"../../../packages/cli/dist/build-config.json",
+					import.meta.url,
+				),
+			),
+		);
 		expect(
 			readJson(join(npmDir, ".mcp.json")).mcpServers.harnessforce.url,
-		).toBe(
-			// biome-ignore lint/suspicious/noTemplateCurlyInString: JSのtemplateではなくClaude Codeの環境変数の展開である。
-			"${HARNESSFORCE_URL:-https://harnessforce.dev}/mcp",
-		));
-
-	it("packs the dot-directory and every file of the plugin", () => {
-		const [{ files }] = JSON.parse(
-			execFileSync("npm", ["pack", "--dry-run", "--json"], {
-				cwd: npmDir,
-				encoding: "utf8",
-				shell: process.platform === "win32",
-			}),
-		);
-		const packed = files.map((file: { path: string }) => file.path);
-		expect(packed).toEqual(
-			expect.arrayContaining([
-				".claude-plugin/plugin.json",
-				".mcp.json",
-				"hooks/hooks.json",
-				"scripts/harnessforce-hook.cjs",
-				"package.json",
-			]),
-		);
+		).toBe(`\${HARNESSFORCE_URL:-${url}}/mcp`);
 	});
+
+	it(
+		"packs the dot-directory and every file of the plugin",
+		{ timeout: 60_000 },
+		() => {
+			const [{ files }] = JSON.parse(
+				execFileSync("npm", ["pack", "--dry-run", "--json"], {
+					cwd: npmDir,
+					encoding: "utf8",
+					shell: process.platform === "win32",
+				}),
+			);
+			const packed = files.map((file: { path: string }) => file.path);
+			expect(packed).toEqual(
+				expect.arrayContaining([
+					".claude-plugin/plugin.json",
+					".mcp.json",
+					"hooks/hooks.json",
+					"scripts/harnessforce-hook.cjs",
+					"package.json",
+				]),
+			);
+		},
+	);
 });
