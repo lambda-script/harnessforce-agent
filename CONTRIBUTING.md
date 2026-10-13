@@ -22,8 +22,9 @@ HARNESSFORCE_BUILD_URL=http://localhost:3000 pnpm check
 ```
 
 `pnpm check` runs lint (Biome), knip, typecheck, tests and build through Turborepo, the same gate as
-CI. The build needs `HARNESSFORCE_BUILD_URL`, the `apps/web` base URL baked into the CLI and the
-plugin; any `https:` URL, or `http:` for localhost, works for development. Useful narrower commands:
+CI. `HARNESSFORCE_BUILD_URL` is the optional `apps/web` base URL baked into the CLI and the plugin as
+their default (`https://harnessforce.dev` when unset); any `https:` URL, or `http:` for localhost, works for
+development. Useful narrower commands:
 
 ```sh
 pnpm format                                   # format with Biome

@@ -10,7 +10,7 @@ import {
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { rawPlugin } from "@harnessforce/agent-core/raw-plugin";
-import { parseAllowedUrl, underBase } from "@harnessforce/agent-core/url";
+import { parseAllowedUrl, withoutExtras } from "@harnessforce/agent-core/url";
 import { buildConfigFrom } from "@harnessforce/cli/scripts/build-config.mjs";
 import { build } from "tsdown";
 
@@ -65,7 +65,7 @@ const hooksJson = () => ({
 });
 
 /**
- * correlation.md「接続先」: MCP serverのURLとCLIの既定の接続先は、同じbuildの入力から作る。
+ * correlation.md「接続先」: MCP serverのURLの既定値とCLIの既定の接続先は、同じbuildの入力から作る。
  * 同梱するCLIが別の値でbuildされていれば、2つが食い違うため失敗させる。
  */
 function connectionUrl() {
@@ -80,9 +80,16 @@ function connectionUrl() {
 	return parseAllowedUrl(url);
 }
 
+// correlation.md「接続先」: buildし直さずに、環境変数HARNESSFORCE_URL（user settingsのenvを含む）で宛先を上書きできる形にする。
+// biome-ignore lint/suspicious/noTemplateCurlyInString: JSのtemplateではなくClaude Codeの環境変数の展開である。
+const MCP_URL_OVERRIDE = "${HARNESSFORCE_URL:-";
+
 const mcpJson = (connection) => ({
 	mcpServers: {
-		harnessforce: { type: "http", url: underBase(connection, "mcp").href },
+		harnessforce: {
+			type: "http",
+			url: `${MCP_URL_OVERRIDE}${withoutExtras(connection)}}/mcp`,
+		},
 	},
 });
 

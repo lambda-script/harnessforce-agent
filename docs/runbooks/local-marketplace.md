@@ -12,8 +12,9 @@ pnpm install
 HARNESSFORCE_BUILD_URL=<apps/web base URL> pnpm build
 ```
 
-`HARNESSFORCE_BUILD_URL` must be `https:`, or `http:` for `localhost`, `127.0.0.1` and `[::1]`. The
-build fails without it and never falls back to a default. The same value becomes the default connection
+`HARNESSFORCE_BUILD_URL` must be `https:`, or `http:` for `localhost`, `127.0.0.1` and `[::1]`. Without
+it the build uses the production default `https://harnessforce.dev`; a value that is not allowed fails the
+build instead of falling back. The same value becomes the default connection
 of `harnessforce` and the plugin's MCP server URL, so the two never disagree; the plugin build fails if
 `packages/cli` was built with a different value.
 
@@ -28,7 +29,9 @@ contains:
 
 - `hooks/hooks.json` and `scripts/`: the session registration hooks (see the
   [plugin README](../../plugins/harnessforce/README.md)).
-- `.mcp.json`: the Harnessforce MCP server `harnessforce` at `<HARNESSFORCE_BUILD_URL>/mcp` over HTTP.
+- `.mcp.json`: the Harnessforce MCP server `harnessforce` at `${HARNESSFORCE_URL:-<HARNESSFORCE_BUILD_URL>}/mcp`
+  over HTTP. Claude Code expands it from the environment variable `HARNESSFORCE_URL` or the user settings
+  `env` (`harnessforce init --url` writes it), so a build can be pointed elsewhere without rebuilding.
   Claude Code asks you to log in with the browser and pick a Workspace the first time a tool is used.
 - `skills/record-run/SKILL.md`: the skill that records a run through the MCP tools.
 - `skills/propose-improvements/`: the skill and script that `/harnessforce:tune` uses to judge and
