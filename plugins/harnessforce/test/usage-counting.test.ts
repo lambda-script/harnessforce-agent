@@ -330,10 +330,12 @@ describe("counting the session usage", () => {
 		await s.event("post-tool-use-failure", skill("s201"));
 		for (let i = 0; i < 201; i++)
 			await s.event("post-tool-use", skill(`s${String(i).padStart(3, "0")}`));
-		const { items, other } = (await s.summary())?.skills as {
+		const latest = await s.summary();
+		const skillCounts = latest?.skills as {
 			items: { name: string; calls: number }[];
 			other: unknown;
 		};
+		const { items, other } = skillCounts;
 		expect(items).toHaveLength(200);
 		expect(items[0]).toEqual({ name: "s201", calls: 2, failures: 1 });
 		expect(items.slice(1, 3).map((i) => i.name)).toEqual(["s000", "s001"]);

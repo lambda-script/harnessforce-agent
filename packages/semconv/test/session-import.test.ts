@@ -22,7 +22,8 @@ describe("session import", () => {
 			{ tool_calls: [{ tool: "Bash", calls: 1, failures: 0, output: "..." }] },
 		],
 	])("rejects %s", (_, patch) =>
-		expect(check({ ...sessionImport, ...patch })).toBe(false));
+		expect(check({ ...sessionImport, ...patch })).toBe(false),
+	);
 
 	it("accepts a codex tool call without failures", () =>
 		expect(

@@ -72,12 +72,13 @@ const sessions = [
 
 // terminal-view.md「本人の表示」「行」「端末への適応」。
 describe("the session list", () => {
-	it.each([
-		40, 41, 59, 60, 80, 89, 90, 120,
-	])("does not wrap at %i columns, with Japanese branch names too", (width) => {
-		const lines = renderList(sessions, options(width));
-		expect(widest(lines)).toBeLessThanOrEqual(width);
-	});
+	it.each([40, 41, 59, 60, 80, 89, 90, 120])(
+		"does not wrap at %i columns, with Japanese branch names too",
+		(width) => {
+			const lines = renderList(sessions, options(width));
+			expect(widest(lines)).toBeLessThanOrEqual(width);
+		},
+	);
 
 	it("keeps the width with ambiguous width characters counted as 2", () => {
 		const lines = renderList(sessions, options(80, { ambiguousWide: true }));
@@ -249,23 +250,24 @@ describe("a colored frame at every width", () => {
 		}),
 	];
 
-	it.each([
-		40, 45, 59, 62, 70, 89, 100, 140,
-	])("keeps %i columns and balanced escapes", (width) => {
-		const lines = [
-			...renderList(many, options(width, { painter })),
-			...renderDetail(many[0] as TopRow, options(width, { painter })),
-		];
-		for (const l of lines) {
-			expect(displayWidth(l, false)).toBeLessThanOrEqual(width);
-			// 完結したSGRを除いた後に、escapeの断片が残らない。
-			expect(stripSgr(l)).not.toContain("\x1b");
-			// 最後の指定は、色、太さ、薄さのいずれも閉じている。
-			// biome-ignore lint/suspicious/noControlCharactersInRegex: 端末の制御文字を扱うtest。
-			const last = [...l.matchAll(/\x1b\[([0-9;]*)m/g)].at(-1)?.[1];
-			if (last !== undefined) expect(["0", "22", "39"]).toContain(last);
-		}
-	});
+	it.each([40, 45, 59, 62, 70, 89, 100, 140])(
+		"keeps %i columns and balanced escapes",
+		(width) => {
+			const lines = [
+				...renderList(many, options(width, { painter })),
+				...renderDetail(many[0] as TopRow, options(width, { painter })),
+			];
+			for (const l of lines) {
+				expect(displayWidth(l, false)).toBeLessThanOrEqual(width);
+				// 完結したSGRを除いた後に、escapeの断片が残らない。
+				expect(stripSgr(l)).not.toContain("\x1b");
+				// 最後の指定は、色、太さ、薄さのいずれも閉じている。
+				// biome-ignore lint/suspicious/noControlCharactersInRegex: 端末の制御文字を扱うtest。
+				const last = [...l.matchAll(/\x1b\[([0-9;]*)m/g)].at(-1)?.[1];
+				if (last !== undefined) expect(["0", "22", "39"]).toContain(last);
+			}
+		},
+	);
 });
 
 const codexRow = (overrides: Partial<TopRow> = {}) =>
@@ -281,15 +283,16 @@ const codexRow = (overrides: Partial<TopRow> = {}) =>
 
 // terminal-view.md「行」: agentは文字で示し、Codexのtoolの失敗は空欄にする。
 describe("Codex rows", () => {
-	it.each([
-		40, 59, 60, 89, 90, 120,
-	])("shows the agent as text and does not wrap at %i columns", (width) => {
-		const lines = renderList([row(), codexRow()], options(width));
-		const text = lines.join("\n");
-		expect(text).toContain("claude");
-		expect(text).toContain("codex");
-		expect(widest(lines)).toBeLessThanOrEqual(width);
-	});
+	it.each([40, 59, 60, 89, 90, 120])(
+		"shows the agent as text and does not wrap at %i columns",
+		(width) => {
+			const lines = renderList([row(), codexRow()], options(width));
+			const text = lines.join("\n");
+			expect(text).toContain("claude");
+			expect(text).toContain("codex");
+			expect(widest(lines)).toBeLessThanOrEqual(width);
+		},
+	);
 
 	it("puts the agent first in the short form", () => {
 		const lines = renderList([codexRow()], options(50));

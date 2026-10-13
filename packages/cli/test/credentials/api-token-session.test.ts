@@ -197,18 +197,21 @@ describe("an ApiToken session", () => {
 			"a token of another workspace",
 			{ ...token("x"), access_token: "hf_at_ws2_x" },
 		],
-	])("reports %s as missing without calling the Read API", async (_name, stored) => {
-		const server = await startAuthorizationServer();
-		const used: string[] = [];
+	])(
+		"reports %s as missing without calling the Read API",
+		async (_name, stored) => {
+			const server = await startAuthorizationServer();
+			const used: string[] = [];
 
-		expect(
-			await session(server.base, stored).tokens.withToken(
-				readApi([], used),
-				isUnauthorized,
-			),
-		).toEqual({ kind: "missing" });
-		expect(used).toEqual([]);
-	});
+			expect(
+				await session(server.base, stored).tokens.withToken(
+					readApi([], used),
+					isUnauthorized,
+				),
+			).toEqual({ kind: "missing" });
+			expect(used).toEqual([]);
+		},
+	);
 });
 
 describe("refresh failures", () => {
@@ -272,15 +275,18 @@ describe("refresh failures", () => {
 				body: { ...token("n"), access_token_expires_at: "2026-09-28T01:00:00" },
 			},
 		],
-	])("ends as expired on %s and keeps the stored token", async (_name, reply) => {
-		const server = await startAuthorizationServer({ refresh: () => reply });
-		const { tokens, stored } = session(server.base, token("old", NOW));
+	])(
+		"ends as expired on %s and keeps the stored token",
+		async (_name, reply) => {
+			const server = await startAuthorizationServer({ refresh: () => reply });
+			const { tokens, stored } = session(server.base, token("old", NOW));
 
-		expect(await tokens.withToken(readApi(), isUnauthorized)).toEqual({
-			kind: "expired",
-		});
-		expect(stored()).toEqual(token("old", NOW));
-	});
+			expect(await tokens.withToken(readApi(), isUnauthorized)).toEqual({
+				kind: "expired",
+			});
+			expect(stored()).toEqual(token("old", NOW));
+		},
+	);
 
 	it("does not send the refresh token to a token endpoint on another origin", async () => {
 		const server = await startAuthorizationServer({

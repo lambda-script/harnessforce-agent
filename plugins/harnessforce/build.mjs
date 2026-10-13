@@ -81,7 +81,6 @@ function connectionUrl() {
 }
 
 // correlation.md「接続先」: buildし直さずに、環境変数HARNESSFORCE_URL（user settingsのenvを含む）で宛先を上書きできる形にする。
-// biome-ignore lint/suspicious/noTemplateCurlyInString: JSのtemplateではなくClaude Codeの環境変数の展開である。
 const MCP_URL_OVERRIDE = "${HARNESSFORCE_URL:-";
 
 const mcpJson = (connection) => ({

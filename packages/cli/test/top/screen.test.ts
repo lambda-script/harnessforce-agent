@@ -60,24 +60,27 @@ describe("the interactive screen", () => {
 	it.each([
 		["q", "q"],
 		["Ctrl-C", "\x03"],
-	])("restores the alternate screen, the cursor and the input when %s quits", async (_name, key) => {
-		const { tty, done } = start(["--theme", "ansi"]);
-		await ready(tty);
-		expect(tty.text()).toContain(ENTER_ALT);
-		expect(tty.state().raw).toBe(true);
-		tty.key(key);
-		const result = await done;
-		expect(result.code).toBe(0);
-		expect(tty.text().endsWith(RESTORE)).toBe(true);
-		expect(tty.state()).toEqual({
-			raw: false,
-			paused: true,
-			listeners: 0,
-			resizeListeners: 0,
-			exitListeners: 0,
-		});
-		expect(tty.activeTimers()).toBe(0);
-	});
+	])(
+		"restores the alternate screen, the cursor and the input when %s quits",
+		async (_name, key) => {
+			const { tty, done } = start(["--theme", "ansi"]);
+			await ready(tty);
+			expect(tty.text()).toContain(ENTER_ALT);
+			expect(tty.state().raw).toBe(true);
+			tty.key(key);
+			const result = await done;
+			expect(result.code).toBe(0);
+			expect(tty.text().endsWith(RESTORE)).toBe(true);
+			expect(tty.state()).toEqual({
+				raw: false,
+				paused: true,
+				listeners: 0,
+				resizeListeners: 0,
+				exitListeners: 0,
+			});
+			expect(tty.activeTimers()).toBe(0);
+		},
+	);
 
 	it("restores the terminal when the process exits abnormally", async () => {
 		const { tty, done } = start(["--theme", "ansi"]);

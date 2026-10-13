@@ -41,7 +41,8 @@ describe("normalizeRepository", () => {
 		"https://github.com/acme",
 		"https://[::1]/acme/web.git",
 	])("returns undefined for %j", (remote) =>
-		expect(normalizeRepository(remote)).toBeUndefined());
+		expect(normalizeRepository(remote)).toBeUndefined(),
+	);
 
 	it("is exported from the public entry", () =>
 		expect(semconv.normalizeRepository).toBe(normalizeRepository));

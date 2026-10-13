@@ -202,9 +202,8 @@ describe("harnessforce import", () => {
 				out: "Sessions imported: 2\n",
 				err: "",
 			});
-			const codex = (hf.requests.at(-1)?.body as { agent: string }[]).filter(
-				(item) => item.agent === "codex",
-			);
+			const lastBody = hf.requests.at(-1)?.body as { agent: string }[];
+			const codex = lastBody.filter((item) => item.agent === "codex");
 			expect(codex).toEqual([
 				expect.objectContaining({
 					agent: "codex",

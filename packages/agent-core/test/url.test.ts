@@ -9,7 +9,8 @@ describe("parseAllowedUrl", () => {
 		"http://127.0.0.1:8787/ingest",
 		"http://[::1]:3000",
 	])("accepts %s", (value) =>
-		expect(parseAllowedUrl(value)?.href).toBe(new URL(value).href));
+		expect(parseAllowedUrl(value)?.href).toBe(new URL(value).href),
+	);
 
 	it.each([
 		undefined,

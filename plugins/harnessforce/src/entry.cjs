@@ -14,6 +14,7 @@ if (major >= 18) {
 	// 繰り返し表示しないよう、session開始のhookだけが出す。
 	if (process.argv[2] === "session-start") {
 		process.stdout.write(
+			// biome-ignore lint/style/useTemplate: 古いNode.jsがES5として解析できる形を保つ。templateリテラルはES2015である。
 			JSON.stringify({
 				systemMessage: "Harnessforce hooks require Node.js 18 or later",
 			}) + "\n"

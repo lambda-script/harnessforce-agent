@@ -15,17 +15,18 @@ const examples: Record<keyof typeof semconv.SCHEMAS, unknown> = {
 };
 
 describe("public entry", () => {
-	it.each(
-		Object.entries(semconv.SCHEMAS),
-	)("%s works as plain JSON Schema with a major-scoped $id", (name, schema) => {
-		const json = JSON.parse(JSON.stringify(schema));
-		expect(json.$id).toBe(
-			`urn:harnessforce:semconv:${semconv.SEMCONV_MAJOR}:${name}`,
-		);
-		expect(compileSchema(json)(examples[name as keyof typeof examples])).toBe(
-			true,
-		);
-	});
+	it.each(Object.entries(semconv.SCHEMAS))(
+		"%s works as plain JSON Schema with a major-scoped $id",
+		(name, schema) => {
+			const json = JSON.parse(JSON.stringify(schema));
+			expect(json.$id).toBe(
+				`urn:harnessforce:semconv:${semconv.SEMCONV_MAJOR}:${name}`,
+			);
+			expect(compileSchema(json)(examples[name as keyof typeof examples])).toBe(
+				true,
+			);
+		},
+	);
 
 	it("keeps SEMCONV_MAJOR in sync with the package major", () => {
 		const pkg = JSON.parse(

@@ -37,7 +37,8 @@ describe("turborepo workspace", () => {
 	});
 
 	it.each(tasks)("root %s runs through turbo", (task) =>
-		expect(root.scripts[task]).toMatch(new RegExp(`^turbo run ${task}\\b`)));
+		expect(root.scripts[task]).toMatch(new RegExp(`^turbo run ${task}\\b`)),
+	);
 
 	it("caches build output so a cache hit restores dist", () => {
 		expect(existsSync(new URL("../turbo.json", import.meta.url))).toBe(true);

@@ -19,7 +19,8 @@ describe("ingest issue", () => {
 		"http://tracker.example.test/OPS-7",
 		"HTTPS://tracker.example.test/OPS-7",
 	])("accepts the url %s", (url) =>
-		expect(issue({ ...ingestIssue, url })).toBe(true));
+		expect(issue({ ...ingestIssue, url })).toBe(true),
+	);
 	it.each([
 		["a 301-character identifier", { identifier: "x".repeat(301) }],
 		// 画面にlinkとして出すため、http/https以外のschemeを受け付けない。
@@ -35,7 +36,8 @@ describe("ingest issue", () => {
 		],
 		["unknown field", { origin: "native" }],
 	])("rejects %s", (_, patch) =>
-		expect(issue({ ...ingestIssue, ...patch })).toBe(false));
+		expect(issue({ ...ingestIssue, ...patch })).toBe(false),
+	);
 	it("requires external_id", () => {
 		const { external_id, ...rest } = ingestIssue;
 		expect(issue(rest)).toBe(false);
@@ -54,5 +56,6 @@ describe("ingest event", () => {
 		["unknown entity type", { entity: { type: "ticket", id: "1" } }],
 		["offset-less occurred_at", { occurred_at: "2026-09-26T04:00:00" }],
 	])("rejects %s", (_, patch) =>
-		expect(event({ ...ingestEvent, ...patch })).toBe(false));
+		expect(event({ ...ingestEvent, ...patch })).toBe(false),
+	);
 });

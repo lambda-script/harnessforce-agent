@@ -382,16 +382,19 @@ describe("building the command line on Windows", () => {
 		["a relative SystemRoot", { SystemRoot: "Windows" }],
 		["a SystemRoot inside the repository", { SystemRoot: "C:\\repo\\win" }],
 		["a SystemRoot equal to the current directory", { SystemRoot: "C:\\repo" }],
-	])("cannot start cmd.exe with %s and no usable ComSpec", async (_name, root) => {
-		const file = "C:\\tools\\agent.cmd";
-		expect(
-			await commandLineFor(
-				file,
-				[],
-				context({ [file]: "" }, { PATH: "", ...root }),
-			),
-		).toBeUndefined();
-	});
+	])(
+		"cannot start cmd.exe with %s and no usable ComSpec",
+		async (_name, root) => {
+			const file = "C:\\tools\\agent.cmd";
+			expect(
+				await commandLineFor(
+					file,
+					[],
+					context({ [file]: "" }, { PATH: "", ...root }),
+				),
+			).toBeUndefined();
+		},
+	);
 
 	it.each([
 		['"', 'a"b'],
@@ -439,20 +442,23 @@ describe("building the command line elsewhere", () => {
 		["npm's env shebang", "#!/usr/bin/env node\nrequire('./cli');\n"],
 		["a CRLF line", "#!/usr/bin/env node\r\nrequire('./cli');\r\n"],
 		["another env path and tabs", "#!\t/bin/env\tnode \n"],
-	])("starts a Node.js script with %s on the running node", async (_name, text) => {
-		const file = "/usr/local/bin/claude";
-		expect(
-			await commandLineFor(
-				file,
-				["--settings", "/t/s.json"],
-				posix({ [file]: text }),
-			),
-		).toEqual({
-			file: runningNode,
-			args: [file, "--settings", "/t/s.json"],
-			verbatim: false,
-		});
-	});
+	])(
+		"starts a Node.js script with %s on the running node",
+		async (_name, text) => {
+			const file = "/usr/local/bin/claude";
+			expect(
+				await commandLineFor(
+					file,
+					["--settings", "/t/s.json"],
+					posix({ [file]: text }),
+				),
+			).toEqual({
+				file: runningNode,
+				args: [file, "--settings", "/t/s.json"],
+				verbatim: false,
+			});
+		},
+	);
 
 	it.each([
 		["a shell script", "#!/bin/sh\nexec node x.js\n"],

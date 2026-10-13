@@ -7,7 +7,8 @@ it.each([
 	["linux", "/etc/claude-code"],
 	["win32", "C:\\Program Files\\ClaudeCode"],
 ] as const)("uses the documented managed directory on %s", (platform, dir) =>
-	expect(managedDirFor(platform)).toBe(dir));
+	expect(managedDirFor(platform)).toBe(dir),
+);
 
 it("reads each variable from the last managed file that sets it", async () => {
 	const dir = managedDir(

@@ -157,7 +157,8 @@ describe("harnessforce otel-headers", () => {
 	])("withholds the user key when %s", async (_, env) =>
 		expect(await runCli(["otel-headers"], { env, keychain: pinned() })).toEqual(
 			{ code: 1, out: "", err: WITHHELD },
-		));
+		),
+	);
 
 	it("withholds the user key when no origin was pinned", async () => {
 		const { keychain } = fakeKeychain({
@@ -199,5 +200,6 @@ describe("harnessforce otel-headers", () => {
 			code: 1,
 			out: "",
 			err: "",
-		}));
+		}),
+	);
 });

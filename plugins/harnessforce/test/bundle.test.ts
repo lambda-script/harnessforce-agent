@@ -36,7 +36,6 @@ const SESSION_CONTEXT = `${JSON.stringify({
 })}\n`;
 // Claude Codeが展開する`${HARNESSFORCE_URL:-<既定の接続先>}`の形。
 const mcpUrl = (base: string) =>
-	// biome-ignore lint/suspicious/noTemplateCurlyInString: JSのtemplateではなくClaude Codeの環境変数の展開である。
 	`\${HARNESSFORCE_URL:-${base.replace(/\/+$/, "")}}/mcp`;
 // buildの出力をnode_modulesの無い場所へ写し、bundleが依存packageを実行時に解決しないことも確かめる。
 let marketplace: string;
@@ -247,6 +246,7 @@ describe("built marketplace", () => {
 	});
 
 	// correlation.md「接続先」: MCP serverのURLはCLIの既定の接続先と同じbuildの入力を既定値とし、実行時に環境変数HARNESSFORCE_URLで上書きできる。
+	// biome-ignore lint/suspicious/noTemplateCurlyInString: 題名に書くのはClaude Codeの環境変数の展開であり、JSのtemplateではない。
 	it("declares the MCP server at ${HARNESSFORCE_URL:-<connection>}/mcp over HTTP, from the CLI's build input", () => {
 		const { url } = readJson(
 			fileURLToPath(
@@ -289,7 +289,8 @@ describe("built marketplace", () => {
 	])("bundles %s unchanged", (path) =>
 		expect(
 			readFileSync(join(marketplace, "plugins/harnessforce", path), "utf8"),
-		).toBe(readFileSync(new URL(`../${path}`, import.meta.url), "utf8")));
+		).toBe(readFileSync(new URL(`../${path}`, import.meta.url), "utf8")),
+	);
 
 	// environments.md「接続先」: stagingのbuildでは、CLIも同じbuildの出力から導入する。
 	describe("CLI packages", () => {
@@ -690,9 +691,10 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 			);
 			expect(snapshot?.url).toBe("/base/v1/config-snapshots");
 			// managedのdirectoryはtestを実行する端末の実pathなので、比較から外す。
-			const [item] = snapshot?.body as {
+			const items = snapshot?.body as {
 				components: { source: string }[];
 			}[];
+			const [item] = items;
 			expect([
 				{
 					...item,

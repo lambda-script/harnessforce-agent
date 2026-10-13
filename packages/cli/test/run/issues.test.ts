@@ -56,15 +56,16 @@ describe("resolveIssue", () => {
 		).toEqual({ kind: "unauthorized" });
 	});
 
-	it.each([
-		500, 403, 302,
-	])("does not fetch candidates when resolution answers %i", async (status) => {
-		const api = await startReadApi({ issue: () => ({ status }) });
-		expect(
-			await resolveIssue(new URL(api.base), "ENG-1", TOKEN, realFetch),
-		).toEqual({ kind: "failed" });
-		expect(api.requests).toHaveLength(1);
-	});
+	it.each([500, 403, 302])(
+		"does not fetch candidates when resolution answers %i",
+		async (status) => {
+			const api = await startReadApi({ issue: () => ({ status }) });
+			expect(
+				await resolveIssue(new URL(api.base), "ENG-1", TOKEN, realFetch),
+			).toEqual({ kind: "failed" });
+			expect(api.requests).toHaveLength(1);
+		},
+	);
 
 	it("fails without candidates when the connection fails", async () => {
 		const failing = async () => {
@@ -118,16 +119,16 @@ describe("resolveIssue", () => {
 		).toEqual({ kind: "failed" });
 	});
 
-	it.each([
-		".",
-		"..",
-	])("lists candidates for %j without a path that the URL parser would collapse", async (identifier) => {
-		const api = await startReadApi({ issue: () => ({ status: 200 }) });
-		expect(
-			await resolveIssue(new URL(api.base), identifier, TOKEN, realFetch),
-		).toEqual({ kind: "candidates", candidates: [] });
-		expect(api.requests.map((q) => q.url)).toEqual([
-			`/api/v1/issues?query=${identifier}`,
-		]);
-	});
+	it.each([".", ".."])(
+		"lists candidates for %j without a path that the URL parser would collapse",
+		async (identifier) => {
+			const api = await startReadApi({ issue: () => ({ status: 200 }) });
+			expect(
+				await resolveIssue(new URL(api.base), identifier, TOKEN, realFetch),
+			).toEqual({ kind: "candidates", candidates: [] });
+			expect(api.requests.map((q) => q.url)).toEqual([
+				`/api/v1/issues?query=${identifier}`,
+			]);
+		},
+	);
 });

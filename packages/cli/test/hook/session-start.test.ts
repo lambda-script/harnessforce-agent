@@ -117,7 +117,8 @@ describe("harnessforce hook session-start", () => {
 		expect(sent[0]?.url).toBe(`${ENDPOINT}/v1/sessions`);
 		expect(sent[0]?.headers.authorization).toBe(`Bearer ${KEY}`);
 		expect(sent[0]?.redirect).toBe("error");
-		const [registration] = sent[0]?.body as unknown[];
+		const body = sent[0]?.body as unknown[];
+		const [registration] = body;
 		expect(registration).toEqual({
 			agent: "codex",
 			session_id: "sess-1",
@@ -135,17 +136,18 @@ describe("harnessforce hook session-start", () => {
 	it("claims source=cli with the issue only when HARNESSFORCE_ISSUE is a valid identifier", async () => {
 		const valid = setup({ env: { HARNESSFORCE_ISSUE: "ENG-42" } });
 		await valid.run();
-		expect(
-			(
-				valid.sent[0]?.body as { source: string; issue_identifier: string }[]
-			)[0],
-		).toMatchObject({
+		const validBody = valid.sent[0]?.body as {
+			source: string;
+			issue_identifier: string;
+		}[];
+		expect(validBody[0]).toMatchObject({
 			source: "cli",
 			issue_identifier: "ENG-42",
 		});
 		const invalid = setup({ env: { HARNESSFORCE_ISSUE: "not an issue" } });
 		await invalid.run();
-		const [registration] = invalid.sent[0]?.body as Record<string, unknown>[];
+		const invalidBody = invalid.sent[0]?.body as Record<string, unknown>[];
+		const [registration] = invalidBody;
 		expect(registration).toMatchObject({ source: "hook" });
 		expect(registration).not.toHaveProperty("issue_identifier");
 	});
@@ -156,18 +158,21 @@ describe("harnessforce hook session-start", () => {
 		[undefined, true],
 		["resume", false],
 		["compact", false],
-	])("source %s sends=%s, and always prints the context", async (source, sends) => {
-		const { run, sent } = setup({
-			input: {
-				session_id: "sess-1",
-				cwd: "/work/web",
-				...(source ? { source } : {}),
-			},
-		});
-		const result = await run();
-		expect(sent).toHaveLength(sends ? 1 : 0);
-		expect(JSON.parse(result.out)).toEqual(context("sess-1"));
-	});
+	])(
+		"source %s sends=%s, and always prints the context",
+		async (source, sends) => {
+			const { run, sent } = setup({
+				input: {
+					session_id: "sess-1",
+					cwd: "/work/web",
+					...(source ? { source } : {}),
+				},
+			});
+			const result = await run();
+			expect(sent).toHaveLength(sends ? 1 : 0);
+			expect(JSON.parse(result.out)).toEqual(context("sess-1"));
+		},
+	);
 
 	it("reads the workspace and the endpoint from the Claude Code user settings when the environment has none", async () => {
 		const { run, sent } = setup({
@@ -217,17 +222,17 @@ describe("harnessforce hook session-start", () => {
 		expect(result.out).toBe(plain(INVALID_ENDPOINT));
 	});
 
-	it.each([
-		"resume",
-		"compact",
-	])("does not warn on source %s even when sending is not configured", async (source) => {
-		const { run } = setup({
-			env: { HARNESSFORCE_WORKSPACE_ID: "", HARNESSFORCE_ENDPOINT: "" },
-			input: { session_id: "sess-1", cwd: "/work/web", source },
-		});
-		const result = await run();
-		expect(JSON.parse(result.out)).toEqual(context("sess-1"));
-	});
+	it.each(["resume", "compact"])(
+		"does not warn on source %s even when sending is not configured",
+		async (source) => {
+			const { run } = setup({
+				env: { HARNESSFORCE_WORKSPACE_ID: "", HARNESSFORCE_ENDPOINT: "" },
+				input: { session_id: "sess-1", cwd: "/work/web", source },
+			});
+			const result = await run();
+			expect(JSON.parse(result.out)).toEqual(context("sess-1"));
+		},
+	);
 
 	it("never sends the key to a destination other than the origin pinned by init", async () => {
 		const { run, sent } = setup({
@@ -326,14 +331,15 @@ describe("harnessforce hook session-start", () => {
 		expect(result.out).toBe(plain(REGISTRATION_FAILED));
 	});
 
-	it.each([
-		400, 500, 503,
-	])("warns about the failed registration on HTTP %i", async (status) => {
-		const { run } = setup({ status });
-		const result = await run();
-		expect(result.code).toBe(0);
-		expect(result.out).toBe(plain(REGISTRATION_FAILED));
-	});
+	it.each([400, 500, 503])(
+		"warns about the failed registration on HTTP %i",
+		async (status) => {
+			const { run } = setup({ status });
+			const result = await run();
+			expect(result.code).toBe(0);
+			expect(result.out).toBe(plain(REGISTRATION_FAILED));
+		},
+	);
 
 	it("exits 0 with no output for an input it cannot use", async () => {
 		for (const input of [

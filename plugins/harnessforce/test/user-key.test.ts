@@ -248,21 +248,21 @@ describe("resolving harnessforce on PATH", () => {
 			}
 		});
 
-		it.each([
-			"%",
-			"!",
-		])("does not start a .cmd whose path contains %s", async (mark) => {
-			const { exec, calls } = fakeExec({ ok: true, stdout: header("k") });
-			const dir = `C:\\a${mark}b\\npm`;
-			const read = reader({
-				platform: "win32",
-				env: { PATH: dir, PATHEXT: ".CMD", SystemRoot: "C:\\Windows" },
-				fs: memoryFs({ [`${dir}\\harnessforce.cmd`]: "" }),
-				exec,
-			});
-			expect(await read("C:\\work")).toEqual({ kind: "missing" });
-			expect(calls).toEqual([]);
-		});
+		it.each(["%", "!"])(
+			"does not start a .cmd whose path contains %s",
+			async (mark) => {
+				const { exec, calls } = fakeExec({ ok: true, stdout: header("k") });
+				const dir = `C:\\a${mark}b\\npm`;
+				const read = reader({
+					platform: "win32",
+					env: { PATH: dir, PATHEXT: ".CMD", SystemRoot: "C:\\Windows" },
+					fs: memoryFs({ [`${dir}\\harnessforce.cmd`]: "" }),
+					exec,
+				});
+				expect(await read("C:\\work")).toEqual({ kind: "missing" });
+				expect(calls).toEqual([]);
+			},
+		);
 	});
 });
 
@@ -283,7 +283,8 @@ describe("reading the harnessforce otel-headers output", () => {
 		["a non-Bearer value", { ok: true, stdout: '{"Authorization":"Basic k"}' }],
 		["an empty key", { ok: true, stdout: '{"Authorization":"Bearer "}' }],
 	])("reports %s as a failed read", async (_, result) =>
-		expect(await readWith(result)).toEqual({ kind: "failed" }));
+		expect(await readWith(result)).toEqual({ kind: "failed" }),
+	);
 });
 
 describe.skipIf(process.platform === "win32")(

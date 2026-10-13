@@ -40,30 +40,27 @@ describe("collection safety", () => {
 		]);
 	});
 
-	it.each([
-		"x@../../../outside",
-		"../../outside@m",
-		"x@.",
-		"..@m",
-		"x@a/b",
-	])("does not resolve the plugin id %s outside the plugins root", async (id) => {
-		const f = fixture();
-		f.project({
-			".claude/settings.json": JSON.stringify({
-				enabledPlugins: { [id]: true },
-			}),
-		});
-		// idがそのままpathに連結されたときに届く場所へ、集められうるfileを置く。
-		writeTree(f.options.homeDir, {
-			"outside/x/1.0.0/commands/leak.md": "leak",
-			".claude/plugins/outside/1.0.0/commands/leak.md": "leak",
-			".claude/plugins/cache/x/1.0.0/commands/leak.md": "leak",
-		});
-		writeTree(f.options.homeDir, {
-			".claude/plugins/cache/m/x/1.0.0/commands/c.md": "c",
-		});
-		expect(await components(f.options)).toEqual([]);
-	});
+	it.each(["x@../../../outside", "../../outside@m", "x@.", "..@m", "x@a/b"])(
+		"does not resolve the plugin id %s outside the plugins root",
+		async (id) => {
+			const f = fixture();
+			f.project({
+				".claude/settings.json": JSON.stringify({
+					enabledPlugins: { [id]: true },
+				}),
+			});
+			// idがそのままpathに連結されたときに届く場所へ、集められうるfileを置く。
+			writeTree(f.options.homeDir, {
+				"outside/x/1.0.0/commands/leak.md": "leak",
+				".claude/plugins/outside/1.0.0/commands/leak.md": "leak",
+				".claude/plugins/cache/x/1.0.0/commands/leak.md": "leak",
+			});
+			writeTree(f.options.homeDir, {
+				".claude/plugins/cache/m/x/1.0.0/commands/c.md": "c",
+			});
+			expect(await components(f.options)).toEqual([]);
+		},
+	);
 
 	it("treats an unreadable .orphaned_at as present", async () => {
 		const f = fixture();

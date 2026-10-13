@@ -158,19 +158,22 @@ describe("session usage summary at SessionEnd", () => {
 	it.each([
 		["a failed send", { status: 503 }, 0],
 		["a send cut off by the budget", {}, 1000],
-	])("is sent from the next session start after %s", async (_, options, usedMs) => {
-		const data = await startedSession();
-		const end = at(
-			harness({ ...options, env: { CLAUDE_PLUGIN_DATA: data } }),
-			"2026-09-26T00:05:00Z",
-		);
-		end.deps.processStartMs -= usedMs;
-		await run(end, "session-end");
-		const next = await nextSessionStart(data);
-		expect(next.bodiesTo("/v1/session-usage")).toEqual([
-			[expect.objectContaining({ session_id: "s-1" })],
-		]);
-	});
+	])(
+		"is sent from the next session start after %s",
+		async (_, options, usedMs) => {
+			const data = await startedSession();
+			const end = at(
+				harness({ ...options, env: { CLAUDE_PLUGIN_DATA: data } }),
+				"2026-09-26T00:05:00Z",
+			);
+			end.deps.processStartMs -= usedMs;
+			await run(end, "session-end");
+			const next = await nextSessionStart(data);
+			expect(next.bodiesTo("/v1/session-usage")).toEqual([
+				[expect.objectContaining({ session_id: "s-1" })],
+			]);
+		},
+	);
 
 	// SessionEndの1.5秒の予算にkeychainの読み出しを収められないため、利用者用のkeyでは次のsessionの開始で送る。
 	it("sends nothing and does not read the keychain with a user key", async () => {

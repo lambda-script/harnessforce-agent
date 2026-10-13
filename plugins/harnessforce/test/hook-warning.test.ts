@@ -66,13 +66,14 @@ describe("SessionStart hook warning", () => {
 		expect(h.err()).toContain("skipped (no ingest key)");
 	});
 
-	it.each([
-		500, 404,
-	])("warns once when the session registration fails with %i", async (status) => {
-		const h = harness({ status });
-		await start(h);
-		expect(warned(h)).toEqual(warning(REGISTRATION_FAILED));
-	});
+	it.each([500, 404])(
+		"warns once when the session registration fails with %i",
+		async (status) => {
+			const h = harness({ status });
+			await start(h);
+			expect(warned(h)).toEqual(warning(REGISTRATION_FAILED));
+		},
+	);
 
 	it("warns when the connection fails", async () => {
 		const h = harness({ fetchError: new Error("down") });
@@ -95,14 +96,14 @@ describe("SessionStart hook warning", () => {
 		expect(h.out().match(/systemMessage/g)).toHaveLength(1);
 	});
 
-	it.each([
-		"resume",
-		"compact",
-	])("does not warn on source %s even when sending is not configured", async (source) => {
-		const h = harness({ managed: null, env: {} });
-		await start(h, { source });
-		expect(warned(h)).toEqual(sessionContext());
-	});
+	it.each(["resume", "compact"])(
+		"does not warn on source %s even when sending is not configured",
+		async (source) => {
+			const h = harness({ managed: null, env: {} });
+			await start(h, { source });
+			expect(warned(h)).toEqual(sessionContext());
+		},
+	);
 
 	// Claude Codeはpluginのhookへ常にCLAUDE_PLUGIN_DATAを渡し、利用の要約のためにresumeとcompactでも送信先を選ぶ。
 	it.each([
@@ -118,14 +119,17 @@ describe("SessionStart hook warning", () => {
 			"an endpoint that is not allowed",
 			{ HARNESSFORCE_ENDPOINT: "http://ingest.example.test" },
 		],
-	])("does not warn on source %s with plugin data and %s", async (source, _, env) => {
-		const h = harness({
-			managed: null,
-			env: { ...env, CLAUDE_PLUGIN_DATA: pluginData() },
-		});
-		await start(h, { source });
-		expect(warned(h)).toEqual(sessionContext());
-	});
+	])(
+		"does not warn on source %s with plugin data and %s",
+		async (source, _, env) => {
+			const h = harness({
+				managed: null,
+				env: { ...env, CLAUDE_PLUGIN_DATA: pluginData() },
+			});
+			await start(h, { source });
+			expect(warned(h)).toEqual(sessionContext());
+		},
+	);
 
 	it("does not warn outside a git repository, which is not a misconfiguration", async () => {
 		const h = harness({

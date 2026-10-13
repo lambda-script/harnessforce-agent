@@ -8,7 +8,6 @@ import {
 	MANAGED_ENV,
 	REPO,
 	scratchpad,
-	sessionContext,
 	sessionContextLine,
 } from "./support.js";
 
@@ -254,19 +253,18 @@ describe("hook key selection", () => {
 			expect(h.bodies()[0]?.[0]).not.toHaveProperty("issue_identifier");
 		});
 
-		it.each([
-			"",
-			"ENG 42",
-			"x".repeat(301),
-		])("ignores the invalid identifier %j", async (issue) => {
-			const h = harness({
-				...noManaged,
-				env: { ...userEnv, HARNESSFORCE_ISSUE: issue },
-				userKey,
-			});
-			await start(h);
-			expect(h.bodies()[0]?.[0]).toMatchObject({ source: "hook" });
-			expect(h.bodies()[0]?.[0]).not.toHaveProperty("issue_identifier");
-		});
+		it.each(["", "ENG 42", "x".repeat(301)])(
+			"ignores the invalid identifier %j",
+			async (issue) => {
+				const h = harness({
+					...noManaged,
+					env: { ...userEnv, HARNESSFORCE_ISSUE: issue },
+					userKey,
+				});
+				await start(h);
+				expect(h.bodies()[0]?.[0]).toMatchObject({ source: "hook" });
+				expect(h.bodies()[0]?.[0]).not.toHaveProperty("issue_identifier");
+			},
+		);
 	});
 });

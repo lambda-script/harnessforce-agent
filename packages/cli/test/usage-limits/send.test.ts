@@ -69,10 +69,10 @@ function setup(
 			keychain,
 			fetch: async (url, init) => {
 				if (options.fetchFails) throw new Error("network down");
+				const headers = init?.headers as Record<string, string>;
 				sent.push({
 					url: String(url),
-					authorization: (init?.headers as Record<string, string>)
-						.authorization as string,
+					authorization: headers.authorization as string,
 					body: JSON.parse(String(init?.body)),
 				});
 				return new Response(null, { status: options.status ?? 200 });

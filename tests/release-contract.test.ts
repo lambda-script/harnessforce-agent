@@ -17,40 +17,39 @@ const atLeast = (version: string, minimum: string) => {
 
 describe("release contract", () => {
 	it.each(packages)("$dir uses the @harnessforce npm scope", ({ dir, pkg }) =>
-		expect(pkg.name).toBe(`@harnessforce/${dir}`));
+		expect(pkg.name).toBe(`@harnessforce/${dir}`),
+	);
 
-	it.each(
-		packages,
-	)("$dir declares repository with directory and public provenance", ({
-		dir,
-		pkg,
-	}) => {
-		expect(pkg.repository).toEqual({
-			type: "git",
-			url: "git+https://github.com/lambda-script/harnessforce-agent.git",
-			directory: `packages/${dir}`,
-		});
-		expect(pkg.publishConfig).toEqual({ access: "public", provenance: true });
-		expect(pkg.license).toBe("Apache-2.0");
-		expect(pkg.files).toEqual(["dist"]);
-	});
+	it.each(packages)(
+		"$dir declares repository with directory and public provenance",
+		({ dir, pkg }) => {
+			expect(pkg.repository).toEqual({
+				type: "git",
+				url: "git+https://github.com/lambda-script/harnessforce-agent.git",
+				directory: `packages/${dir}`,
+			});
+			expect(pkg.publishConfig).toEqual({ access: "public", provenance: true });
+			expect(pkg.license).toBe("Apache-2.0");
+			expect(pkg.files).toEqual(["dist"]);
+		},
+	);
 
 	// npmはfilesに関係なくpackageのREADMEを同梱し、package pageに表示する。
-	it.each(packages)("$dir links its npm page to the repository", ({
-		dir,
-		pkg,
-	}) => {
-		expect(pkg.homepage).toBe(
-			`https://github.com/lambda-script/harnessforce-agent/tree/main/packages/${dir}#readme`,
-		);
-		expect(pkg.bugs).toEqual({
-			url: "https://github.com/lambda-script/harnessforce-agent/issues",
-		});
-		expect(pkg.keywords).toEqual(expect.arrayContaining(["harnessforce"]));
-		expect(
-			existsSync(new URL(`../packages/${dir}/README.md`, import.meta.url)),
-		).toBe(true);
-	});
+	it.each(packages)(
+		"$dir links its npm page to the repository",
+		({ dir, pkg }) => {
+			expect(pkg.homepage).toBe(
+				`https://github.com/lambda-script/harnessforce-agent/tree/main/packages/${dir}#readme`,
+			);
+			expect(pkg.bugs).toEqual({
+				url: "https://github.com/lambda-script/harnessforce-agent/issues",
+			});
+			expect(pkg.keywords).toEqual(expect.arrayContaining(["harnessforce"]));
+			expect(
+				existsSync(new URL(`../packages/${dir}/README.md`, import.meta.url)),
+			).toBe(true);
+		},
+	);
 
 	// npmはpackageのdirectoryにあるLICENSEだけを同梱し、rootのLICENSEは同梱しない。
 	it.each(packages)("$dir ships the repository license", ({ dir }) =>
@@ -59,11 +58,13 @@ describe("release contract", () => {
 				new URL(`../packages/${dir}/LICENSE`, import.meta.url),
 				"utf8",
 			),
-		).toBe(readFileSync(new URL("../LICENSE", import.meta.url), "utf8")));
+		).toBe(readFileSync(new URL("../LICENSE", import.meta.url), "utf8")),
+	);
 
 	// correlation.md「実行環境」: hookが使う端末のNode.js 18以上でharnessforceを起動し、harnessforceはsemconvを実行時に読む。
 	it.each(packages)("$dir runs on Node.js 18 and later", ({ pkg }) =>
-		expect(pkg.engines).toEqual({ node: ">=18" }));
+		expect(pkg.engines).toEqual({ node: ">=18" }),
+	);
 });
 
 // 公開の手順はrunbookにだけ書き、release.ymlのcommentはそこを指す（document-classes）。

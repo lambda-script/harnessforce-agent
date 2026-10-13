@@ -104,38 +104,38 @@ describe("OS keychain", () => {
 		expect(apiTokenAccount("ws1")).toBe("ws1:api-token");
 	});
 
-	it.each([
-		"darwin",
-		"win32",
-	] as const)("stores, reads and lists secrets on %s", async (platform) => {
-		const { keychain, keyring } = keychainOn(platform);
-		const store = await keychain.openForInit({
-			previousWorkspaceId: undefined,
-			onWaiting: () => {},
-		});
-		expect(store?.isKernelKeyring).toBe(false);
-		await store?.set("ws1:ingest-key", "hf_ik_ws1_secret");
-		expect(await keychain.get("ws1:ingest-key")).toBe("hf_ik_ws1_secret");
-		expect(await keychain.withTimeout(1_000).get("ws2:ingest-key")).toBe(
-			undefined,
-		);
-		expect(
-			(
-				await keychain.openForInit({
-					previousWorkspaceId: undefined,
-					onWaiting: () => {},
-				})
-			)?.items,
-		).toEqual([{ account: "ws1:ingest-key", secret: "hf_ik_ws1_secret" }]);
-		await keychain.delete("ws1:ingest-key");
-		await keychain.delete("ws1:ingest-key");
-		expect(await keychain.get("ws1:ingest-key")).toBeUndefined();
-		for (const entry of keyring.created) {
-			expect(entry.service).toBe("harnessforce");
-			expect(entry.options).toBeUndefined();
-		}
-		expect(keychain.unavailableHint).toBeUndefined();
-	});
+	it.each(["darwin", "win32"] as const)(
+		"stores, reads and lists secrets on %s",
+		async (platform) => {
+			const { keychain, keyring } = keychainOn(platform);
+			const store = await keychain.openForInit({
+				previousWorkspaceId: undefined,
+				onWaiting: () => {},
+			});
+			expect(store?.isKernelKeyring).toBe(false);
+			await store?.set("ws1:ingest-key", "hf_ik_ws1_secret");
+			expect(await keychain.get("ws1:ingest-key")).toBe("hf_ik_ws1_secret");
+			expect(await keychain.withTimeout(1_000).get("ws2:ingest-key")).toBe(
+				undefined,
+			);
+			expect(
+				(
+					await keychain.openForInit({
+						previousWorkspaceId: undefined,
+						onWaiting: () => {},
+					})
+				)?.items,
+			).toEqual([{ account: "ws1:ingest-key", secret: "hf_ik_ws1_secret" }]);
+			await keychain.delete("ws1:ingest-key");
+			await keychain.delete("ws1:ingest-key");
+			expect(await keychain.get("ws1:ingest-key")).toBeUndefined();
+			for (const entry of keyring.created) {
+				expect(entry.service).toBe("harnessforce");
+				expect(entry.options).toBeUndefined();
+			}
+			expect(keychain.unavailableHint).toBeUndefined();
+		},
+	);
 
 	it("stores to the kernel keyring on Linux without the Secret Service", async () => {
 		const { keychain, keyring } = keychainOn("linux");
@@ -157,72 +157,76 @@ describe("OS keychain", () => {
 	it.each([
 		["the native module cannot be loaded", undefined],
 		["the kernel keyring is forbidden", { failConstruct: true }],
-	])("is unavailable on Linux without the Secret Service when %s", async (_, failure) => {
-		const keychain = createOsKeychain({
-			platform: "linux",
-			load: async () => {
-				if (!failure) throw new Error("cannot find module");
-				return fakeKeyring(failure).module;
-			},
-			secretService: missingSecretService,
-		});
-		expect(await keychain.isAvailable()).toBe(false);
-		expect(
-			await keychain.openForInit({
-				previousWorkspaceId: undefined,
-				onWaiting: () => {},
-			}),
-		).toBeUndefined();
-		expect(keychain.unavailableHint).toBe(
-			"Neither the Secret Service (GNOME Keyring or KWallet) nor the kernel keyring is available. In containers and CI, ask an Owner or Admin to distribute a Workspace ingest key through managed settings",
-		);
-	});
+	])(
+		"is unavailable on Linux without the Secret Service when %s",
+		async (_, failure) => {
+			const keychain = createOsKeychain({
+				platform: "linux",
+				load: async () => {
+					if (!failure) throw new Error("cannot find module");
+					return fakeKeyring(failure).module;
+				},
+				secretService: missingSecretService,
+			});
+			expect(await keychain.isAvailable()).toBe(false);
+			expect(
+				await keychain.openForInit({
+					previousWorkspaceId: undefined,
+					onWaiting: () => {},
+				}),
+			).toBeUndefined();
+			expect(keychain.unavailableHint).toBe(
+				"Neither the Secret Service (GNOME Keyring or KWallet) nor the kernel keyring is available. In containers and CI, ask an Owner or Admin to distribute a Workspace ingest key through managed settings",
+			);
+		},
+	);
 
-	it.each([
-		"darwin",
-		"win32",
-	] as const)("gives up an operation on %s that exceeds the timeout", async (platform) => {
-		const keyring = fakeKeyring({ hangAsync: true });
-		const keychain = createOsKeychain({
-			platform,
-			load: async () => keyring.module,
-			secretService: missingSecretService,
-		});
-		await expect(
-			keychain.withTimeout(50).get("ws1:api-token"),
-		).rejects.toThrow();
-	});
+	it.each(["darwin", "win32"] as const)(
+		"gives up an operation on %s that exceeds the timeout",
+		async (platform) => {
+			const keyring = fakeKeyring({ hangAsync: true });
+			const keychain = createOsKeychain({
+				platform,
+				load: async () => keyring.module,
+				secretService: missingSecretService,
+			});
+			await expect(
+				keychain.withTimeout(50).get("ws1:api-token"),
+			).rejects.toThrow();
+		},
+	);
 
-	it.each([
-		"darwin",
-		"win32",
-	] as const)("is unavailable on %s when the store cannot be read", async (platform) => {
-		const { keychain } = keychainOn(platform, fakeKeyring({ failRead: true }));
-		expect(await keychain.isAvailable()).toBe(false);
-	});
+	it.each(["darwin", "win32"] as const)(
+		"is unavailable on %s when the store cannot be read",
+		async (platform) => {
+			const { keychain } = keychainOn(
+				platform,
+				fakeKeyring({ failRead: true }),
+			);
+			expect(await keychain.isAvailable()).toBe(false);
+		},
+	);
 
-	it.each([
-		"freebsd",
-		"openbsd",
-		"aix",
-		"sunos",
-	] as const)("is unavailable on %s without loading the native module", async (platform) => {
-		let loaded = false;
-		const keychain = createOsKeychain({
-			platform,
-			load: async () => {
-				loaded = true;
-				return fakeKeyring().module;
-			},
-			secretService: missingSecretService,
-		});
-		expect(await keychain.isAvailable()).toBe(false);
-		expect(
-			await keychain.openForInit({
-				previousWorkspaceId: undefined,
-				onWaiting: () => {},
-			}),
-		).toBeUndefined();
-		expect(loaded).toBe(false);
-	});
+	it.each(["freebsd", "openbsd", "aix", "sunos"] as const)(
+		"is unavailable on %s without loading the native module",
+		async (platform) => {
+			let loaded = false;
+			const keychain = createOsKeychain({
+				platform,
+				load: async () => {
+					loaded = true;
+					return fakeKeyring().module;
+				},
+				secretService: missingSecretService,
+			});
+			expect(await keychain.isAvailable()).toBe(false);
+			expect(
+				await keychain.openForInit({
+					previousWorkspaceId: undefined,
+					onWaiting: () => {},
+				}),
+			).toBeUndefined();
+			expect(loaded).toBe(false);
+		},
+	);
 });

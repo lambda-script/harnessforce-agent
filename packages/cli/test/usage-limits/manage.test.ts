@@ -12,8 +12,8 @@ const FAR = "2099-01-01T00:00:00Z";
 // docs/references/claude-hud-statusline.md が記録する、claude-hudが書いたstatusLineの形。
 const HUD = {
 	type: "command",
-	// biome-ignore lint/suspicious/noTemplateCurlyInString: shellの展開記号。claude-hudのcommandを写す。
 	command:
+		// biome-ignore lint/suspicious/noTemplateCurlyInString: shellの展開記号。claude-hudのcommandを写す。
 		"bash -c 'cols=${COLUMNS:-}; exec node \"${plugin_dir}dist/index.js\"'",
 	refreshInterval: 5,
 };

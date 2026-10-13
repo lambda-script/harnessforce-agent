@@ -58,7 +58,8 @@ describe("isClaudeCode", () => {
 		["codex", false],
 		["claude-dev", false],
 	])("%s → %s", (agent, expected) =>
-		expect(isClaudeCode(agent)).toBe(expected));
+		expect(isClaudeCode(agent)).toBe(expected),
+	);
 });
 
 // correlation.md「`harnessforce run -- codex`」手順4: basenameが`codex`、`codex.exe`、`codex.cmd`のagent。

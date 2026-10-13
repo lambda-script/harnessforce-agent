@@ -11,29 +11,27 @@ const exitingWith =
 	};
 
 describe("relaunching harnessforce without Node runtime variables", () => {
-	it.each([
-		"init",
-		"run",
-		"import",
-		"hook",
-	])("relaunches harnessforce %s and ends with the relaunched exit code", async (command) => {
-		const seen: Record<string, string>[] = [];
-		const err: string[] = [];
-		const out: string[] = [];
-		const code = await relaunchHf([command], {
-			platform: "linux",
-			env: { HTTPS_PROXY: "http://p", PATH: "/usr/bin" },
-			spawnSelf: exitingWith(7, seen),
-			stdout: (text) => out.push(text),
-			stderr: (text) => err.push(text),
-		});
-		expect(code).toBe(7);
-		expect(seen[0]?.HTTPS_PROXY).toBeUndefined();
-		expect(JSON.parse(seen[0]?.HARNESSFORCE_RUNTIME_ENV ?? "")).toEqual({
-			HTTPS_PROXY: "http://p",
-		});
-		expect(err).toEqual([]);
-	});
+	it.each(["init", "run", "import", "hook"])(
+		"relaunches harnessforce %s and ends with the relaunched exit code",
+		async (command) => {
+			const seen: Record<string, string>[] = [];
+			const err: string[] = [];
+			const out: string[] = [];
+			const code = await relaunchHf([command], {
+				platform: "linux",
+				env: { HTTPS_PROXY: "http://p", PATH: "/usr/bin" },
+				spawnSelf: exitingWith(7, seen),
+				stdout: (text) => out.push(text),
+				stderr: (text) => err.push(text),
+			});
+			expect(code).toBe(7);
+			expect(seen[0]?.HTTPS_PROXY).toBeUndefined();
+			expect(JSON.parse(seen[0]?.HARNESSFORCE_RUNTIME_ENV ?? "")).toEqual({
+				HTTPS_PROXY: "http://p",
+			});
+			expect(err).toEqual([]);
+		},
+	);
 
 	it.each([
 		["usage-limits", "send"],

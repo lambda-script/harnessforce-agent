@@ -13,19 +13,18 @@ const COMMANDS = [
 ] as const;
 
 describe("harnessforce --help", () => {
-	it.each([
-		[["--help"]],
-		[["-h"]],
-		[["help"]],
-	])("lists every command with a one-line description for %j", async (argv) => {
-		const r = await runCli(argv);
-		expect(r.code).toBe(0);
-		expect(r.err).toBe("");
-		expect(r.out).toContain("Usage: harnessforce <command> [options]");
-		for (const command of COMMANDS)
-			expect(r.out).toMatch(new RegExp(`^  ${command} {2,}\\S`, "m"));
-		expect(r.out).toContain("harnessforce <command> --help");
-	});
+	it.each([[["--help"]], [["-h"]], [["help"]]])(
+		"lists every command with a one-line description for %j",
+		async (argv) => {
+			const r = await runCli(argv);
+			expect(r.code).toBe(0);
+			expect(r.err).toBe("");
+			expect(r.out).toContain("Usage: harnessforce <command> [options]");
+			for (const command of COMMANDS)
+				expect(r.out).toMatch(new RegExp(`^  ${command} {2,}\\S`, "m"));
+			expect(r.out).toContain("harnessforce <command> --help");
+		},
+	);
 
 	it("keeps the overview short enough to scan", async () => {
 		const r = await runCli(["--help"]);
@@ -34,23 +33,24 @@ describe("harnessforce --help", () => {
 });
 
 describe("harnessforce <command> --help", () => {
-	it.each(
-		COMMANDS,
-	)("explains %s with the required sections", async (command) => {
-		const r = await runCli([command, "--help"]);
-		expect(r.code).toBe(0);
-		expect(r.err).toBe("");
-		expect(r.out).toContain(`Usage: harnessforce ${command}`);
-		for (const heading of [
-			"When to use",
-			"What it does",
-			"Sends",
-			"Does not send",
-			"Exit codes",
-			"Examples",
-		])
-			expect(r.out).toContain(`${heading}:`);
-	});
+	it.each(COMMANDS)(
+		"explains %s with the required sections",
+		async (command) => {
+			const r = await runCli([command, "--help"]);
+			expect(r.code).toBe(0);
+			expect(r.err).toBe("");
+			expect(r.out).toContain(`Usage: harnessforce ${command}`);
+			for (const heading of [
+				"When to use",
+				"What it does",
+				"Sends",
+				"Does not send",
+				"Exit codes",
+				"Examples",
+			])
+				expect(r.out).toContain(`${heading}:`);
+		},
+	);
 
 	it.each([
 		[["help", "tune"], "tune"],
