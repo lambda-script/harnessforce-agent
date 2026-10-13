@@ -68,8 +68,8 @@ the [plugin README](plugins/harnessforce/README.md#session-registration-hooks).
   commands, subagents and MCP servers listed in the session's config snapshot, permission requests
   and compactions. Command arguments, tool inputs and results, error messages and file paths are never
   sent, and names outside the config snapshot are only counted.
-- **Keys stay in the keychain:** `harnessforce init` stores keys and tokens only in the OS keychain, never in a
-  plain file, and `harnessforce run` never puts them in the agent's environment, arguments or settings.
+- **Keys stay in the keychain:** `harnessforce init` stores keys and tokens only in the OS keychain (on Linux,
+  the Secret Service or the in-memory kernel keyring), never in a plain file, and `harnessforce run` never puts them in the agent's environment, arguments or settings.
 - **Keys go only where you connected:** the user key and the API token are sent only to the origins
   pinned by `harnessforce init`, and the plugin reads a Workspace key only from the managed settings file, so a
   repository's `.claude/settings.json` cannot redirect them.

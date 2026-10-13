@@ -377,6 +377,23 @@ describe("harnessforce import", () => {
 			expect(home.readState()).toBeUndefined();
 		});
 
+		it("when neither Linux store can be used, adding the Linux guidance", async () => {
+			const { hf, run } = await setup();
+			expect(
+				await run({
+					keychain: fakeKeychain({
+						available: false,
+						unavailableHint: "linux hint",
+					}).keychain,
+				}),
+			).toEqual({
+				code: 1,
+				out: "",
+				err: "OSのキーチェーンを利用できないため、送信キーを保存できません。linux hint\n",
+			});
+			expect(hf.requests).toEqual([]);
+		});
+
 		// harnessforce runと同じく、使えるかを確かめられないkeychainも使えないものとして扱う。
 		it("when the keychain cannot tell whether it is available", async () => {
 			const { hf, home, run } = await setup();

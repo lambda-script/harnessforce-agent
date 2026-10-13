@@ -14,6 +14,8 @@ export { tokenLockPath } from "./token-lock.js";
 
 // apps/webがあらかじめ登録した固定のpublic client。
 const CLIENT_ID = "harnessforce-cli";
+// correlation.md「ApiTokenの失効」: lockの中のkeychainの各操作の上限。lockを取る前の読み出しで解錠の確認は済んでいる。
+const LOCKED_KEYCHAIN_TIMEOUT_MS = 10_000;
 
 export type ApiTokenSessionDeps = {
 	keychain: Keychain;
@@ -73,16 +75,16 @@ async function requestRefresh(
 }
 
 // keychainの`<workspace_id>:api-token`。読めない値と形の違う値は、ApiTokenが無いものとして扱う。
-function tokenStore(deps: ApiTokenSessionDeps) {
+function tokenStore(deps: ApiTokenSessionDeps, keychain: Keychain) {
 	const account = apiTokenAccount(deps.workspaceId);
 	return {
 		read: async () =>
 			parseStoredApiToken(
-				await deps.keychain.get(account).catch(() => undefined),
+				await keychain.get(account).catch(() => undefined),
 				deps.workspaceId,
 			),
 		save: (token: StoredApiToken) =>
-			deps.keychain
+			keychain
 				.set(account, serializeApiToken(token))
 				.then(() => true)
 				.catch(() => false),
@@ -119,8 +121,11 @@ async function exchange(
 async function refreshUnderLock(
 	used: StoredApiToken,
 	deps: ApiTokenSessionDeps,
-	store: TokenStore,
 ): Promise<StoredApiToken | undefined> {
+	const store = tokenStore(
+		deps,
+		deps.keychain.withTimeout(LOCKED_KEYCHAIN_TIMEOUT_MS),
+	);
 	const release = await acquireTokenLock(tokenLockPath(deps.homeDir), {
 		now: deps.now,
 		sleep: deps.sleep,
@@ -141,8 +146,8 @@ async function refreshUnderLock(
 // Read APIの呼び出しを、期限切れと401でrefreshして続ける（correlation.md「ApiTokenの失効」）。
 // refreshしたtokenは、同じprocessの後の呼び出しでも使う。
 export function createApiTokenSession(deps: ApiTokenSessionDeps) {
-	const store = tokenStore(deps);
-	const refresh = (used: StoredApiToken) => refreshUnderLock(used, deps, store);
+	const store = tokenStore(deps, deps.keychain);
+	const refresh = (used: StoredApiToken) => refreshUnderLock(used, deps);
 	let current: StoredApiToken | undefined;
 
 	async function withToken<T>(

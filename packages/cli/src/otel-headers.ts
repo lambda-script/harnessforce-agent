@@ -41,10 +41,12 @@ export async function otelHeaders(
 	return 0;
 }
 
+const HOOK_READ_TIMEOUT_MS = 1_000;
+
 async function selectKey(
 	env: Env,
 	managedDir: string,
-	keychain: Keychain,
+	unlimited: Keychain,
 ): Promise<KeySelection> {
 	// managed settingsのfileが配るWorkspace用のkeyを優先し、テレメトリとsession registrationのkeyを揃える。
 	// processの環境変数はrepositoryのsettingsが書けるため、Workspace用のkeyには使わない。
@@ -52,7 +54,10 @@ async function selectKey(
 	if (managed.HARNESSFORCE_INGEST_KEY)
 		return { kind: "key", key: managed.HARNESSFORCE_INGEST_KEY };
 	const workspaceId = env.HARNESSFORCE_WORKSPACE_ID;
-	if (!workspaceId || !(await keychain.isAvailable())) return { kind: "none" };
+	if (!workspaceId) return { kind: "none" };
+	// hookはこのprocessを1秒で打ち切る（correlation.md「実行環境」）。解錠の確認を待つ操作もその時間で止める。
+	const keychain = unlimited.withTimeout(HOOK_READ_TIMEOUT_MS);
+	if (!(await keychain.isAvailable())) return { kind: "none" };
 	const key = await keychain.get(ingestKeyAccount(workspaceId));
 	if (!key) return { kind: "none" };
 	const pinnedOrigin = await keychain.get(ingestOriginAccount(workspaceId));

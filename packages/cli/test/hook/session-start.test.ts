@@ -265,6 +265,44 @@ describe("harnessforce hook session-start", () => {
 		expect(JSON.parse(result.out)).toEqual(context("sess-1"));
 	});
 
+	it("bounds the keychain read by 1 second and treats a slower read as no key", async () => {
+		const { keychain, timeouts } = fakeKeychain();
+		const hanging = { ...keychain, get: () => new Promise<never>(() => {}) };
+		keychain.withTimeout = (ms) => {
+			timeouts.push(ms);
+			return hanging;
+		};
+		const sent: unknown[] = [];
+		const started = Date.now();
+		const result = await runCli(["hook", "session-start"], {
+			homeDir: tempDir("hf-hook-home-"),
+			env: {
+				HARNESSFORCE_WORKSPACE_ID: WORKSPACE,
+				HARNESSFORCE_ENDPOINT: ENDPOINT,
+			},
+			keychain,
+			now: () => NOW,
+			hookGit: gitRepo as never,
+			readStdin: async () =>
+				Buffer.from(
+					JSON.stringify({
+						session_id: "sess-1",
+						cwd: "/work/web",
+						source: "startup",
+					}),
+				),
+			fetch: async (url) => {
+				sent.push(url);
+				return new Response(null, { status: 202 });
+			},
+		});
+		expect(Date.now() - started).toBeLessThan(3_000);
+		expect(timeouts).toEqual([1_000]);
+		expect(sent).toEqual([]);
+		expect(result.code).toBe(0);
+		expect(JSON.parse(result.out)).toEqual(context("sess-1"));
+	});
+
 	it("sends nothing outside a git repository", async () => {
 		const { run, sent } = setup({ git: async () => undefined });
 		const result = await run();

@@ -8,12 +8,14 @@ import {
 import {
 	apiTokenAccount,
 	apiTokenWorkspaceId,
+	type InitKeychain,
 	ingestKeyAccount,
 	ingestOriginAccount,
 	isIngestKeyAccount,
 	type Keychain,
 	urlOriginAccount,
 } from "../credentials/keychain.js";
+import { readSettingsEnv } from "../destinations.js";
 import {
 	codexConfigPath,
 	mergeCodexConfig,
@@ -24,6 +26,7 @@ import {
 	codexNotes,
 	INIT_MESSAGES,
 	type InitMessage,
+	keychainUnavailableMessage,
 	listenFailedMessage,
 } from "../shared/messages.js";
 import { discoverAuthorizationEndpoint } from "../shared/metadata.js";
@@ -77,21 +80,34 @@ const sha256Hex = (value: string) =>
 
 export function init(args: InitArgs, deps: InitDeps): Promise<number> {
 	return runUntilStop(async () => {
-		const codexPath = await runInit(args, deps);
-		deps.stdout(`${INIT_MESSAGES.success}\n${codexNotes(codexPath)}\n`);
+		const { codexPath, isKernelKeyring } = await runInit(args, deps);
+		// 保存先がdiskに残らないことを知らないと、再起動の後にテレメトリが届かない理由を見つけられない。
+		const lines = [
+			INIT_MESSAGES.success,
+			...(isKernelKeyring ? [INIT_MESSAGES.savedToKernelKeyring] : []),
+			codexNotes(codexPath),
+		];
+		deps.stdout(`${lines.join("\n")}\n`);
 		return 0;
 	}, deps.stderr);
 }
 
-// 書いたCodexの`config.toml`のpathを返す。
-async function runInit(args: InitArgs, deps: InitDeps): Promise<string> {
+// 書いたCodexの`config.toml`のpathと、keyをkernelのkeyringへ保存したかを返す。
+async function runInit(
+	args: InitArgs,
+	deps: InitDeps,
+): Promise<{ codexPath: string; isKernelKeyring: boolean }> {
 	const port = args.port ?? DEFAULT_PORT;
 	const base =
 		parseAllowedUrl(args.url ?? deps.defaultUrl) ?? stop("invalidUrl");
 	// settingsへは送信先と同じくscheme、host、port、pathだけを書き、userinfoを残さない。
 	const recordedUrl = withoutExtras(base);
-	const revoke = await readRevokeHashes(deps.keychain);
 	const settingsPath = userSettingsPath(deps.env, deps.homeDir);
+	const store = await openKeychain(
+		deps,
+		(await readSettingsEnv(settingsPath)).HARNESSFORCE_WORKSPACE_ID,
+	);
+	const revoke = revokeHashes(store);
 	// 発行した後に保存で失敗し、再実行のたびにkeyを入れ替えることを避けるため、ログインの前に確かめる。
 	if ((await readUserSettings(settingsPath)).kind === "invalid")
 		stop("settingsUnreadable");
@@ -117,7 +133,7 @@ async function runInit(args: InitArgs, deps: InitDeps): Promise<string> {
 		deps.fetch,
 	);
 	const issued = issuedOrStop(outcome);
-	await save(issued, recordedUrl, settingsPath, args.sendContent, deps).catch(
+	await save(issued, recordedUrl, settingsPath, args.sendContent, store).catch(
 		(error: unknown) => {
 			if (isStop(error)) throw error;
 			return stop("saveFailed");
@@ -132,17 +148,30 @@ async function runInit(args: InitArgs, deps: InitDeps): Promise<string> {
 		deps.stdout(
 			`${issued.contentOptIn ? INIT_MESSAGES.contentEnabled : INIT_MESSAGES.contentNotOptedIn}\n`,
 		);
-	return codexPath;
+	return { codexPath, isKernelKeyring: store.isKernelKeyring };
 }
 
-// correlation.md「CLI」の手順1。keychainの利用者用IngestKeyすべてのhashと、ApiTokenすべてのrefresh tokenのhash。
-async function readRevokeHashes(
-	keychain: Keychain,
-): Promise<{ keyHashes: string[]; apiTokenHashes: string[] }> {
-	if (!(await keychain.isAvailable())) stop("keychainUnavailable");
-	const items =
-		(await keychain.list().catch(() => undefined)) ??
-		stop("keychainUnavailable");
+// correlation.md「CLI」の手順1と「実行環境」。保存先を選び、既存の項目を読む。
+// previousWorkspaceIdはuser settingsの前回のinitのWorkspaceで、項目を列挙できないkernelのkeyringから読む。
+async function openKeychain(
+	deps: InitDeps,
+	previousWorkspaceId: string | undefined,
+): Promise<InitKeychain> {
+	const store = await deps.keychain
+		.openForInit({
+			previousWorkspaceId,
+			onWaiting: () =>
+				deps.stderr(`${INIT_MESSAGES.waitingForSecretService}\n`),
+		})
+		.catch(() => stop("keychainUnavailable"));
+	return store ?? stopWith(keychainUnavailableMessage(deps.keychain));
+}
+
+// keychainの利用者用IngestKeyすべてのhashと、ApiTokenすべてのrefresh tokenのhash。
+function revokeHashes({ items }: InitKeychain): {
+	keyHashes: string[];
+	apiTokenHashes: string[];
+} {
 	const keyHashes = items
 		.filter((item) => isIngestKeyAccount(item.account))
 		.map((item) => sha256Hex(item.secret));
@@ -228,26 +257,25 @@ async function save(
 	connection: string,
 	settingsPath: string,
 	sendContent: boolean,
-	deps: InitDeps,
+	store: InitKeychain,
 ): Promise<void> {
-	await deps.keychain.delete(ingestOriginAccount(issued.workspaceId));
-	await deps.keychain.delete(urlOriginAccount(issued.workspaceId));
-	await deps.keychain.set(
-		ingestKeyAccount(issued.workspaceId),
-		issued.ingestKey,
-	);
-	await deps.keychain.set(
+	await store.delete(ingestOriginAccount(issued.workspaceId));
+	await store.delete(urlOriginAccount(issued.workspaceId));
+	await store.set(ingestKeyAccount(issued.workspaceId), issued.ingestKey);
+	await store.set(
 		apiTokenAccount(issued.workspaceId),
 		serializeApiToken(issued.apiToken),
 	);
-	await deps.keychain.set(
+	await store.set(
 		ingestOriginAccount(issued.workspaceId),
 		new URL(issued.ingestEndpoint).origin,
 	);
-	await deps.keychain.set(
+	await store.set(
 		urlOriginAccount(issued.workspaceId),
 		new URL(connection).origin,
 	);
+	// 読み出しはkernelのkeyringを先に選ぶため、Secret Serviceへ保存したら古いkernelのkeyringの項目を残さない。
+	await store.deleteElsewhere(issued.workspaceId);
 	const current = await readUserSettings(settingsPath);
 	if (current.kind === "invalid") return stop("saveFailed");
 	const env: Record<string, string> = {

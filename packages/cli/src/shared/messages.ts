@@ -5,6 +5,13 @@ export const INIT_MESSAGES = {
 	invalidUrl: "接続先のURLが不正です",
 	keychainUnavailable:
 		"OSのキーチェーンを利用できないため、送信キーを保存できません",
+	// Linuxで両方の保存先が使えなかったときだけ、keychainを使えない文言に続ける。
+	linuxKeychainUnavailable:
+		"Secret Service（GNOME KeyringまたはKWallet）とkernelのkeyringのどちらも使えません。コンテナやCIでは、Workspace用の送信キーをmanaged settingsで配るようOwnerかAdminに依頼してください",
+	waitingForSecretService:
+		"Secret Serviceの解錠の確認を待っています（最大60秒）",
+	savedToKernelKeyring:
+		"Secret Serviceを使えないため、送信キーをkernelのkeyringに保存しました。再起動するか、一定期間使わないと消えます。消えたら`harnessforce init`を再実行してください",
 	tooManyKeys:
 		"keychainにある送信キーが多すぎるため、`harnessforce init`を実行できません",
 	tooManyCredentials:
@@ -54,3 +61,12 @@ export type InitMessage = keyof typeof INIT_MESSAGES;
 // 使えなかったportと`harnessforce init --port`の逃げ道を示す（correlation.md「CLI」）。
 export const listenFailedMessage = (port: number) =>
 	`${INIT_MESSAGES.listenFailed}。ポート ${port}を使っているプロセスを終えるか、\`harnessforce init --port\`で別のポートを指定してください`;
+
+// keychainが使えるかを確かめて使えなかったときの文言。Linuxでは両方の保存先が使えない理由と逃げ道を続ける（correlation.md「実行環境」）。
+export const keychainUnavailableMessage = (
+	keychain: { unavailableHint?: string },
+	message: string = INIT_MESSAGES.keychainUnavailable,
+) =>
+	keychain.unavailableHint
+		? `${message}。${keychain.unavailableHint}`
+		: message;
