@@ -155,6 +155,33 @@ describe("scanSessions", () => {
 		expect(calls.some((call) => call.startsWith("work "))).toBe(false);
 	});
 
+	it("counts each unimported session once under its first reason: range, git, then connection", async () => {
+		const dir = projects({
+			// 開かずに範囲外と分かるfile。
+			"-a/old-mtime.jsonl": { content: "not json\n", mtimeMs: NOW - 40 * DAY },
+			// 範囲外かつ未接続は、範囲外にだけ数える。
+			"-a/old-other.jsonl": {
+				content: transcript("old-other", "/work/other", "2026-08-01T00:00:00Z"),
+			},
+			"-b/plain.jsonl": {
+				content: transcript("plain", "/work/plain", "2026-09-20T00:00:00Z"),
+			},
+			"-c/other.jsonl": {
+				content: transcript("other", "/work/other", "2026-09-20T00:00:00Z"),
+			},
+		});
+		const { git } = fakeGit({
+			"/work/other": "https://github.com/acme/other",
+		});
+		const result = await scan(dir, git, 14);
+		expect(result.sessions).toEqual([]);
+		expect(result.notImported).toEqual({
+			outOfRange: 2,
+			outsideGit: 1,
+			notConnected: 1,
+		});
+	});
+
 	it("counts skipped lines and ignores other files", async () => {
 		const dir = projects({
 			"-work-web/s1.jsonl": {

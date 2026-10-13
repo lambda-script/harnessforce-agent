@@ -257,6 +257,41 @@ describe("harnessforce import", () => {
 				err: "",
 			});
 		});
+
+		it("adds the Codex rollouts of unconnected repositories to the breakdown of Claude Code sessions", async () => {
+			const { home, cwd, run } = await setup({
+				repositories: () => ({
+					status: 200,
+					body: { items: [], next_cursor: null },
+				}),
+			});
+			writeCodex(home.home, {
+				"2026/09/20/rollout-c1.jsonl": rollout("c1", cwd),
+			});
+			expect(await run()).toEqual({
+				code: 0,
+				out:
+					"0件のセッションを取り込みました\n" +
+					"取り込まなかったセッション: Workspaceに接続されていないリポジトリ2件\n" +
+					"WorkspaceにGitHubのリポジトリが接続されていません。HarnessforceでGitHub Appを接続すると、`harnessforce import`で取り込めます\n",
+				err: "",
+			});
+		});
+
+		it("does not say no record was found when only an unreadable rollout exists", async () => {
+			const { home, cwd, run } = await setup();
+			rmSync(join(home.home, ".claude", "projects"), { recursive: true });
+			writeCodex(home.home, {
+				"2026/09/20/rollout-bad.jsonl": rollout("bad", cwd, false),
+			});
+			expect(await run()).toEqual({
+				code: 0,
+				out:
+					"modelまたはtoken数を読めないCodexのセッション1個は取り込みませんでした\n" +
+					"0件のセッションを取り込みました\n",
+				err: "",
+			});
+		});
 	});
 
 	it("does not send the same sessions twice", async () => {
