@@ -29,6 +29,9 @@ include:
 
 - A key or token (the Workspace ingest key, the user ingest key or the API token) leaking to a
   destination other than the one pinned by `harnessforce init`, to a plain file, or to the agent's environment.
+  The one intended exception is the user ingest key in Codex's `config.toml`, which `harnessforce init`
+  writes with mode `0600` because Codex cannot read a header from a command (see the
+  [CLI README](packages/cli/README.md)). Reading that file through another path, or a wider mode, is in scope.
 - Prompts, responses, tool inputs or outputs, or file contents being sent anywhere.
 - A repository's `.claude/settings.json` or other untrusted input changing where keys are sent, or
   making `harnessforce` or the plugin hook run unintended commands.
