@@ -169,7 +169,7 @@ authorization server metadata of the base URL, only when that endpoint is on the
 origin. The new pair replaces `<workspace_id>:api-token`. A lock older than 60 seconds is treated as
 abandoned, and waiting more than 30 seconds for it counts as a failed refresh. If the refresh fails, or
 the refreshed token is also answered with 401, they stop with
-「ログインの有効期限が切れました。`harnessforce init`を実行してください」.
+"Your login has expired. Run `harnessforce init`".
 
 ## Launching an agent for an Issue (`harnessforce run`)
 

@@ -207,12 +207,11 @@ describe("harnessforce run", () => {
 
 	// correlation.md「CLI」の確かめる順1〜8。どれもRead APIとingestへ何も送らない。
 	describe("checks before the Issue is resolved", () => {
-		const INIT = "`harnessforce init`を実行してください";
+		const INIT = "Run `harnessforce init`";
 		const KEYCHAIN =
-			"OSのキーチェーンを利用できないため、送信キーを保存できません";
-		const INVALID_URL = "接続先のURLが不正です";
-		const NO_TOKEN =
-			"Issueを解決できませんでした。`harnessforce init`を実行してください";
+			"The OS keychain is unavailable, so the ingest key cannot be saved";
+		const INVALID_URL = "The connection URL is invalid";
+		const NO_TOKEN = "Could not resolve the Issue. Run `harnessforce init`";
 		const cases: [string, Setup, string, string[]?][] = [
 			[
 				"1: keychain unavailable",
@@ -298,7 +297,7 @@ describe("harnessforce run", () => {
 			[
 				"an invalid identifier",
 				{},
-				"Issueの識別子が不正です",
+				"The Issue identifier is invalid",
 				["--issue", "ENG 42", "--", "claude"],
 			],
 		];
@@ -339,12 +338,12 @@ describe("harnessforce run", () => {
 			[
 				"a 401 on resolution that persists after the refresh",
 				{ issue: () => ({ status: 401 }) },
-				"ログインの有効期限が切れました。`harnessforce init`を実行してください",
+				"Your login has expired. Run `harnessforce init`",
 			],
 			[
 				"a 401 on candidates that persists after the refresh",
 				{ issue: () => ({ status: 404 }), list: () => ({ status: 401 }) },
-				"ログインの有効期限が切れました。`harnessforce init`を実行してください",
+				"Your login has expired. Run `harnessforce init`",
 			],
 			[
 				"a rejected refresh after a 401",
@@ -352,22 +351,22 @@ describe("harnessforce run", () => {
 					issue: () => ({ status: 401 }),
 					refresh: { status: 400, body: { error: "invalid_grant" } },
 				},
-				"ログインの有効期限が切れました。`harnessforce init`を実行してください",
+				"Your login has expired. Run `harnessforce init`",
 			],
 			[
 				"a 500 on resolution",
 				{ issue: () => ({ status: 500 }) },
-				"Issueを解決できず、候補も取得できませんでした",
+				"Could not resolve the Issue or fetch candidates",
 			],
 			[
 				"a 500 on candidates",
 				{ issue: () => ({ status: 404 }), list: () => ({ status: 500 }) },
-				"Issueを解決できず、候補も取得できませんでした",
+				"Could not resolve the Issue or fetch candidates",
 			],
 			[
 				"no candidates",
 				{ issue: () => ({ status: 404 }) },
-				"一致するIssueがありません",
+				"No matching Issue",
 			],
 		];
 
@@ -392,13 +391,13 @@ describe("harnessforce run", () => {
 
 	it("does not call the Read API with a 301-character identifier", async () => {
 		const r = await runHf(["--issue", "x".repeat(301), "--", "claude"]);
-		expect(r.err).toBe("Issueの識別子が不正です\n");
+		expect(r.err).toBe("The Issue identifier is invalid\n");
 		expect(r.api.requests).toEqual([]);
 	});
 
 	it("does not call the Read API with an invalid identifier", async () => {
 		const r = await runHf(["--issue", "", "--", "claude"]);
-		expect(r.err).toBe("Issueの識別子が不正です\n");
+		expect(r.err).toBe("The Issue identifier is invalid\n");
 		expect(r.api.requests).toEqual([]);
 	});
 
@@ -415,7 +414,7 @@ describe("harnessforce run", () => {
 		});
 		expect(r.code).toBe(1);
 		expect(r.err).toBe(
-			"Issueを解決できませんでした。候補:\nENG-420  Login\nENG-421  \n",
+			"Could not resolve the Issue. Candidates:\nENG-420  Login\nENG-421  \n",
 		);
 		expect(r.launches).toEqual([]);
 	});
@@ -434,7 +433,7 @@ describe("harnessforce run", () => {
 			}),
 		});
 		expect(r.err).toBe(
-			"Issueを解決できませんでした。候補:\nENG-[2J1  Log]0;xinbad\n",
+			"Could not resolve the Issue. Candidates:\nENG-[2J1  Log]0;xinbad\n",
 		);
 	});
 
@@ -457,6 +456,6 @@ describe("harnessforce run", () => {
 			launch: async () => ({ kind: "failed" }),
 		});
 		expect(r.code).toBe(1);
-		expect(r.err).toBe("claudeを起動できませんでした\n");
+		expect(r.err).toBe("Could not start claude\n");
 	});
 });

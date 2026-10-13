@@ -20,7 +20,7 @@ const median = (values: readonly number[]): number | null => {
 };
 
 const secondsText = (value: number | null) =>
-	value === null ? "—" : `${value.toFixed(1)}秒`;
+	value === null ? "—" : `${value.toFixed(1)}s`;
 
 // kindごとの合計。1つでも計測したsessionがあれば計測した値として合計し、無ければ「未計測」とする（0と区別する）。
 function summarize(
@@ -55,8 +55,8 @@ export function renderAnalysis(
 	},
 ): string {
 	const lines = [
-		`分析したsession: ${header.sessionCount}件（analyzer ${header.analyzerVersion}、parser ${header.parserVersion}）`,
-		"人の介入（回数、待ち時間のsessionごとの中央値の中央値）:",
+		`Sessions analyzed: ${header.sessionCount} (analyzer ${header.analyzerVersion}, parser ${header.parserVersion})`,
+		"Human interventions (count, median of per-session median wait time):",
 	];
 	for (const kind of INTERVENTION_KINDS) {
 		const s = summarize(
@@ -68,12 +68,12 @@ export function renderAnalysis(
 		);
 		lines.push(
 			s === undefined
-				? `  ${kind}: 未計測`
-				: `  ${kind}: ${s.total}回、${secondsText(s.median)}`,
+				? `  ${kind}: not measured`
+				: `  ${kind}: ${s.total} time(s), ${secondsText(s.median)}`,
 		);
 	}
 	lines.push(
-		"ループにできる繰り返し（回数、その間の介入、所要時間の中央値の中央値）:",
+		"Repeatable loops (count, interventions during them, median of median duration):",
 	);
 	for (const kind of LOOP_KINDS) {
 		const s = summarize(
@@ -90,8 +90,8 @@ export function renderAnalysis(
 			) ?? 0;
 		lines.push(
 			s === undefined
-				? `  ${kind}: 未計測`
-				: `  ${kind}: ${s.total}回、介入${interventions}回、${secondsText(s.median)}`,
+				? `  ${kind}: not measured`
+				: `  ${kind}: ${s.total} time(s), ${interventions} intervention(s), ${secondsText(s.median)}`,
 		);
 	}
 	const servers = new Map<
@@ -117,13 +117,13 @@ export function renderAnalysis(
 				configured: current.configured + (s.configured ? 1 : 0),
 			});
 		}
-	lines.push("MCP server（呼び出し、失敗、設定されていたsession）:");
-	if (servers.size === 0) lines.push("  なし");
+	lines.push("MCP servers (calls, failures, sessions where configured):");
+	if (servers.size === 0) lines.push("  none");
 	for (const [server, s] of [...servers].sort(([a], [b]) =>
 		a < b ? -1 : a > b ? 1 : 0,
 	))
 		lines.push(
-			`  ${server}: ${s.calls === null ? "未計測" : `${s.calls}回`}、${s.failures === null ? "未計測" : `${s.failures}回`}、${s.configured}件`,
+			`  ${server}: ${s.calls === null ? "not measured" : `${s.calls} call(s)`}, ${s.failures === null ? "not measured" : `${s.failures} failure(s)`}, ${s.configured} session(s)`,
 		);
 	lines.push(...renderUsage(usages));
 	return `${lines.join("\n")}\n`;
@@ -133,18 +133,18 @@ const percent = (share: number) => `${(share * 100).toFixed(1)}%`;
 
 // improvement-loop.md「端末だけの値」: usage.kindごとのsessionの数と、modelごとのoutput_tokensの割合。
 function renderUsage(usages: readonly SessionUsage[]): string[] {
-	const lines = ["使い方（端末だけの値。送信しません）:"];
+	const lines = ["Usage (this device only; not sent):"];
 	for (const kind of ["frequent_compaction", "low_cache_reuse"] as const)
 		lines.push(
 			`  ${kind}: ${usages.filter((u) => u.kinds.includes(kind)).length} session`,
 		);
 	const shares = modelShares(usages);
 	const parts = shares && [
-		...shares.main.map((m) => `本体 ${m.model} ${percent(m.share)}`),
+		...shares.main.map((m) => `main ${m.model} ${percent(m.share)}`),
 		...shares.subagent.map((m) => `subagent ${m.model} ${percent(m.share)}`),
 	];
 	lines.push(
-		`  model（output_tokensの割合）: ${parts ? parts.join("、") : "なし"}`,
+		`  model (share of output_tokens): ${parts ? parts.join(", ") : "none"}`,
 	);
 	return lines;
 }

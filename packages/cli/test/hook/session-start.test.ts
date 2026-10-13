@@ -17,8 +17,7 @@ const WORKSPACE = "019f0000-0000-7000-8000-000000000001";
 const ENDPOINT = "https://ingest.example.test/base";
 const KEY = "hf_ik_secretkeyvalue";
 const NOW = new Date("2026-10-09T12:00:00Z");
-const REVOKED =
-	"送信キーが失効しています。`harnessforce init`を実行してください";
+const REVOKED = "Your ingest key has been revoked. Run `harnessforce init`";
 
 const gitRepo = async (cwd: string, args: readonly string[]) => {
 	if (cwd !== "/work/web") return undefined;
@@ -187,11 +186,11 @@ describe("harnessforce hook session-start", () => {
 	const plain = (message: string) =>
 		`harnessforce session_id: sess-1\n${usingHarnessforceBody}\n${message}\n`;
 	const NOT_CONFIGURED =
-		"Harnessforceの送信が設定されていません。`harnessforce init`を実行してください";
+		"Harnessforce sending is not configured. Run `harnessforce init`";
 	const INVALID_ENDPOINT =
-		"Harnessforceの送信先が不正です。`harnessforce init`を実行し直してください";
+		"The Harnessforce destination is invalid. Run `harnessforce init` again";
 	const REGISTRATION_FAILED =
-		"Harnessforceへのsession登録に失敗しました。通信を確かめてください";
+		"Harnessforce session registration failed. Check your network connection";
 
 	it.each([
 		[

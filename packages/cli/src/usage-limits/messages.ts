@@ -1,58 +1,52 @@
 // usage-limits.md「同意」の文面と、`harnessforce usage-limits`の終端の文言。
-export const CONSENT_TEXT = {
-	ja: "あなたの名前とともに、あなたの利用枠（5時間・7日などの窓の使用率とリセット時刻だけ）を、このWorkspaceのメンバー全員が見られます。プロンプトなどの本文は送りません。いつでもやめられ、やめると保存済みの値も削除します。メンバーの順位づけには使いません。",
-	en: "Everyone in this workspace can see your usage limits together with your name (only the usage percentage and reset time of each window, such as 5 hours and 7 days). No prompt or other content is sent. You can stop at any time, and stopping deletes the stored values. They are not used to rank members.",
-} as const;
+export const CONSENT_TEXT =
+	"Everyone in this workspace can see your usage limits together with your name (only the usage percentage and reset time of each window, such as 5 hours and 7 days). No prompt or other content is sent. You can stop at any time, and stopping deletes the stored values. They are not used to rank members.";
 
-export const CONSENT_PROMPT = {
-	ja: "同意しますか? [y/N] ",
-	en: "Do you agree? [y/N] ",
-} as const;
+export const CONSENT_PROMPT = "Do you agree? [y/N] ";
 
 export const MESSAGES = {
-	windows: "この版のWindowsでは、利用枠の共有を設定できません",
-	settingsUnreadable: "Claude Codeのuser settingsを読めません",
-	statusLineUnsupported: "このstatusLineは組み込めません",
-	noUserKey:
-		"この端末には利用者用の送信キーがありません。`harnessforce init`を実行してください",
+	windows: "Sharing usage limits cannot be set up on Windows in this version",
+	settingsUnreadable: "Cannot read the Claude Code user settings",
+	statusLineUnsupported: "This statusLine cannot be embedded",
+	noUserKey: "This device has no user ingest key. Run `harnessforce init`",
 	keychainUnavailable:
-		"OSのキーチェーンを利用できないため、利用枠の共有を設定できません",
-	invalidUrl: "接続先のURLが不正です",
-	loginExpired:
-		"ログインの有効期限が切れました。`harnessforce init`をもう一度実行してください",
-	notAgreed: "同意されなかったため、何も変えませんでした",
+		"The OS keychain is unavailable, so sharing usage limits cannot be set up",
+	invalidUrl: "The connection URL is invalid",
+	loginExpired: "Your login has expired. Run `harnessforce init`",
+	notAgreed: "Consent was not given, so nothing was changed",
 	invalidTextVersion:
-		"このCLIの利用枠の文面が古いか新しすぎます。`harnessforce`を更新してください",
+		"The usage-limits consent text of this CLI is outdated or too new. Update `harnessforce`",
 	viewer:
-		"閲覧のみのロールでは、利用枠を共有できません。Workspaceの管理者に連絡してください",
-	readOnly: "このWorkspaceは閲覧のみのため、利用枠の共有を設定できません",
-	failed: "Harnessforceとの通信に失敗しました。もう一度お試しください",
+		"The view-only role cannot share usage limits. Contact a Workspace administrator",
+	readOnly:
+		"This Workspace is view-only, so sharing usage limits cannot be set up",
+	failed: "Communication with Harnessforce failed. Try again",
 	saveFailed:
-		"端末の設定を書き込めなかったため、同意を取り消しました。もう一度お試しください",
+		"Could not write the device settings, so the consent was revoked. Try again",
 	revokeFailedAfterSave:
-		"端末の設定を書き込めず、同意の取り消しにも失敗しました。`harnessforce usage-limits status`で状態を確かめ、`harnessforce usage-limits off`を実行してください",
+		"Could not write the device settings and failed to revoke the consent. Check the state with `harnessforce usage-limits status`, then run `harnessforce usage-limits off`",
 	notOptedIn:
-		"同意を記録しました。Workspaceが利用枠の記録をopt-inするまで、値は保存されません",
-	enabled:
-		"利用枠の共有を有効にしました。Claude Codeを再起動すると反映されます",
-	disabled: "利用枠の共有をやめ、保存済みの値の削除を依頼しました",
+		"Consent recorded. The values are not stored until the Workspace has opted in to recording usage limits",
+	enabled: "Sharing usage limits is enabled. Restart Claude Code to apply it",
+	disabled:
+		"Stopped sharing usage limits and requested deletion of the stored values",
 	revokedButNotRestored:
-		"同意は撤回しましたが、statusLineを元に戻せませんでした。`harnessforce usage-limits off`をもう一度実行してください",
+		"Consent was revoked, but the statusLine could not be restored. Run `harnessforce usage-limits off` again",
 	usage:
 		"Usage: harnessforce usage-limits on [--yes] | harnessforce usage-limits off | harnessforce usage-limits status | harnessforce usage-limits statusline\n",
 } as const;
 
 export const STATUS_LABELS = {
 	consent: {
-		shared: "同意している",
-		notShared: "同意していない",
-		outdated: "文面が古い",
-		unknown: "確認できません",
+		shared: "agreed",
+		notShared: "not agreed",
+		outdated: "outdated text",
+		unknown: "unknown",
 	},
-	optIn: { on: "有効", off: "無効", unknown: "確認できません" },
+	optIn: { on: "enabled", off: "disabled", unknown: "unknown" },
 	statusLine: {
-		embeddedWithOriginal: "組み込まれている（元のcommandあり）",
-		embeddedWithoutOriginal: "組み込まれている（元のcommandなし）",
-		notEmbedded: "組み込まれていない",
+		embeddedWithOriginal: "embedded (original command present)",
+		embeddedWithoutOriginal: "embedded (no original command)",
+		notEmbedded: "not embedded",
 	},
 } as const;

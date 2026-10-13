@@ -33,7 +33,7 @@ describe("loopback", () => {
 		expect(page).toMatchObject({
 			status: 200,
 			cacheControl: "no-store",
-			body: expect.stringContaining("ターミナルに戻ってください"),
+			body: expect.stringContaining("Return to the terminal"),
 		});
 		expect(page.contentType).toMatch(/^text\/html\b/);
 		expect(page.body).not.toContain("c-1");
@@ -63,9 +63,7 @@ describe("loopback", () => {
 		});
 		const page = await get(`${loopback.redirectUri}${query}`);
 		expect(page.status).toBe(200);
-		expect(page.body).toContain(
-			"ログインに失敗しました。ターミナルを確認してください",
-		);
+		expect(page.body).toContain("The login failed. Check the terminal");
 		expect(page.body).not.toContain("secret");
 		expect(page.body).not.toContain("c-1");
 		await loopback.callback;

@@ -8,7 +8,7 @@ import {
 import type { ProposalRecord } from "../../src/tune/proposals.js";
 import type { SessionUsage } from "../../src/tune/usage.js";
 
-// improvement-loop.md「前回の提案の前後」
+// improvement-loop.md「before and after the previous suggestion」
 const DAY_MS = 86_400_000;
 const ORIGIN = Date.parse("2026-09-20T00:00:00.000Z");
 const iso = (ms: number) => new Date(ms).toISOString();
@@ -119,7 +119,7 @@ const follow = (
 	rangeSinceMs: number | undefined = ORIGIN - 20 * DAY_MS,
 ) => computeFollowups(proposals, list, nowMs, rangeSinceMs);
 
-describe("前回の提案の前後", () => {
+describe("before and after the previous suggestion", () => {
 	it("compares interventions per session in the 14 days before and after the detection time", () => {
 		const list = sessions(6, 5, (isAfter) => ({
 			report: report({ approval: isAfter ? 1 : 3 }),

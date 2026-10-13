@@ -131,12 +131,14 @@ describe("harnessforce top --json and --once", () => {
 
 	it("reports the lines it could not read", async () => {
 		const { run } = setup({ a: `broken\n${transcript("a", -10)}` });
-		expect((await run(["--once"])).out).toContain("読めなかった1行");
+		expect((await run(["--once"])).out).toContain(
+			"Skipped 1 unreadable line(s)",
+		);
 	});
 
 	it("says there are no sessions in the last 24 hours", async () => {
 		const { run } = setup();
-		expect((await run(["--once"])).out).toContain("直近24時間");
+		expect((await run(["--once"])).out).toContain("last 24 hours");
 	});
 
 	it("rejects arguments it does not know", async () => {
@@ -163,8 +165,9 @@ describe("harnessforce top settings", () => {
 		writeFileSync(path, text);
 		return path;
 	}
+	// 80桁で切られるため、文言の前半で確かめる。
 	const NOTICE =
-		"端末の設定（~/.harnessforce/config.json）を読めないため、既定の表示にします";
+		"Cannot read the device settings (`~/.harnessforce/config.json`)";
 
 	it.each([
 		["broken JSON", "{"],
@@ -324,7 +327,7 @@ describe("harnessforce top with Codex rollouts", () => {
 		const { run, p } = setup();
 		p.writeCodex(rollout("a"), `not json\n${codexRollout("codex-a", -10)}`);
 		const out = (await run(["--once"])).out;
-		expect(out).toContain("読めなかった1行");
+		expect(out).toContain("Skipped 1 unreadable line(s)");
 	});
 
 	it("reads CODEX_HOME when it is absolute and ignores it when it is not", async () => {

@@ -18,7 +18,7 @@ const skillProposal = (home: string, evidence: string[]) => ({
 	component: { kind: "skill", source: "user", id: "fix-ci" },
 	content: "a\r\nb",
 	evidence_session_ids: evidence,
-	body: "## 根拠\n...",
+	body: "## Evidence\n...",
 });
 
 type Report = {
@@ -93,7 +93,7 @@ describe("harnessforce tune record", () => {
 		expect(await t.run(["record"], { readStdin: stdin(value) })).toEqual({
 			code: 2,
 			out: "",
-			err: `提案の記録の入力が不正です: ${field}\n`,
+			err: `The suggestion record input is invalid: ${field}\n`,
 		});
 	});
 
@@ -146,7 +146,7 @@ describe("harnessforce tune record", () => {
 		expect(result).toEqual({
 			code: 2,
 			out: "",
-			err: `提案の記録の入力が不正です: ${field}\n`,
+			err: `The suggestion record input is invalid: ${field}\n`,
 		});
 		expect(
 			JSON.parse(readFileSync(join(t.tuneDir, "proposals.json"), "utf8"))
@@ -159,7 +159,7 @@ describe("harnessforce tune record", () => {
 		await t.run();
 		const input = skillProposal(t.home.home, ["nope"]);
 		expect((await t.run(["record"], { readStdin: stdin(input) })).err).toBe(
-			"提案の記録の入力が不正です: evidence_session_ids\n",
+			"The suggestion record input is invalid: evidence_session_ids\n",
 		);
 		expect(
 			(
@@ -198,7 +198,7 @@ describe("harnessforce tune --purge", () => {
 		expect(result).toEqual({
 			code: 0,
 			out: "",
-			err: "`~/.harnessforce/tune/`の分析結果、提案、未送信の分析結果を削除しました\n",
+			err: "Deleted the analysis results, suggestions and unsent analysis results in `~/.harnessforce/tune/`\n",
 		});
 		for (const name of [
 			"analysis.json",
@@ -228,7 +228,7 @@ describe("harnessforce tune --purge", () => {
 		expect(result).toEqual({
 			code: 1,
 			out: "",
-			err: "別の`harnessforce tune`が実行中のため、実行できません\n",
+			err: "Another `harnessforce tune` is running, so this run cannot start\n",
 		});
 	});
 });

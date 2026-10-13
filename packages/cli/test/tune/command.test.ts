@@ -13,7 +13,7 @@ import {
 } from "./harness.js";
 
 const INIT =
-	"`harnessforce init`を実行してください。Viewerのロールでは`harnessforce tune`を利用できません\n";
+	"Run `harnessforce init`. The Viewer role cannot use `harnessforce tune`\n";
 const isValidReport = compileSchema(SCHEMAS["analysis-report"]);
 
 describe("harnessforce tune", () => {
@@ -22,11 +22,11 @@ describe("harnessforce tune", () => {
 		const result = await t.run();
 		expect(result).toMatchObject({
 			code: 0,
-			err: "10件の分析結果を送信しました\n",
+			err: "Sent 10 analysis result(s)\n",
 		});
-		expect(result.out).toContain("分析したsession: 10件");
-		expect(result.out).toContain("approval: 未計測");
-		expect(result.out).toContain("continue: 10回");
+		expect(result.out).toContain("Sessions analyzed: 10");
+		expect(result.out).toContain("approval: not measured");
+		expect(result.out).toContain("continue: 10 time(s)");
 		const paths = t.hf.requests.map((r) => r.path);
 		expect(paths.indexOf("POST /ingest/v1/imports/sessions")).toBeLessThan(
 			paths.indexOf("POST /ingest/v1/analysis-reports"),
@@ -70,7 +70,7 @@ describe("harnessforce tune", () => {
 		const result = await t.run();
 		expect(result.code).toBe(0);
 		expect(result.err).toContain(
-			"データ不足: 分析したセッションは7件です。提案には10件以上が必要です（あと3件）\n",
+			"Not enough data: 7 session(s) analyzed. Suggestions need at least 10 (3 more needed)\n",
 		);
 	});
 
@@ -78,15 +78,15 @@ describe("harnessforce tune", () => {
 		const t = await setupTune({ analysis: [{ status: 503 }] });
 		const first = await t.run();
 		expect(first.code).toBe(0);
-		expect(first.out).toContain("分析したsession: 10件");
+		expect(first.out).toContain("Sessions analyzed: 10");
 		expect(first.err).toContain(
-			"Harnessforceへ送信できませんでした。10件の分析結果は次の実行で送ります\n",
+			"Could not send to Harnessforce. 10 analysis result(s) will be sent in the next run\n",
 		);
 		expect(t.readTune("unsent.json").destinations).not.toEqual({});
 		// 記録のfileが消えても、未送信の分は次の実行で送る。
 		rmSync(join(t.home.home, ".claude", "projects"), { recursive: true });
 		const second = await t.run();
-		expect(second.err).toContain("10件の分析結果を送信しました\n");
+		expect(second.err).toContain("Sent 10 analysis result(s)\n");
 		expect(t.reportBodies()[1]).toEqual(t.reportBodies()[0]);
 		expect(t.readTune("unsent.json").destinations).toEqual({});
 	});
@@ -98,9 +98,9 @@ describe("harnessforce tune", () => {
 		await t.run();
 		const result = await t.run();
 		expect(result.code).toBe(3);
-		expect(result.out).toContain("分析したsession: 10件");
+		expect(result.out).toContain("Sessions analyzed: 10");
 		expect(result.err).toContain(
-			"送信キーを使えません。未送信の分析結果10件を削除しました。`harnessforce init`を実行してください\n",
+			"The ingest key cannot be used. Deleted 10 unsent analysis result(s). Run `harnessforce init`\n",
 		);
 		expect(t.readTune("unsent.json").destinations).toEqual({});
 	});
@@ -139,7 +139,7 @@ describe("harnessforce tune", () => {
 		const result = await t.run();
 		expect(result.code).toBe(3);
 		expect(result.err).toContain(
-			"送信キーを使えません。未送信の分析結果10件を削除しました。`harnessforce init`を実行してください\n",
+			"The ingest key cannot be used. Deleted 10 unsent analysis result(s). Run `harnessforce init`\n",
 		);
 		expect(t.reportBodies()).toHaveLength(1);
 		expect(t.readTune("unsent.json").destinations).toEqual({});
@@ -163,14 +163,14 @@ describe("harnessforce tune", () => {
 		});
 		const result = await t.run();
 		expect(result.err).toContain(
-			"Workspaceが閲覧のみのため、1件の分析結果を送信できませんでした。次の実行で送ります\n",
+			"Could not send 1 analysis result(s) because the Workspace is view-only. They will be sent in the next run\n",
 		);
 		expect(result.err).toContain(
-			"形式が不正なため1件の分析結果を送信せずに削除しました（invalid_element）\n",
+			"Deleted 1 analysis result(s) without sending because their format is invalid (invalid_element)\n",
 		);
 		const t2 = await setupTune({ sessions: 2, analysis: [{ status: 413 }] });
 		expect((await t2.run()).err).toContain(
-			"Harnessforceが送信を拒否しました（HTTP 413）。2件の分析結果を送信せずに削除しました\n",
+			"Harnessforce rejected the submission (HTTP 413). Deleted 2 analysis result(s) without sending\n",
 		);
 		expect(t2.readTune("unsent.json").destinations).toEqual({});
 	});
@@ -182,7 +182,7 @@ describe("harnessforce tune", () => {
 		});
 		const result = await t.run();
 		expect(result.err).toContain(
-			"送信の範囲外: 開始が14日より前の3件のセッションは送信しません\n",
+			"Outside the sending range: 3 session(s) that started more than 14 days ago will not be sent\n",
 		);
 		expect(t.reportBodies()[0]).toHaveLength(7);
 	});
@@ -192,20 +192,20 @@ describe("harnessforce tune", () => {
 		const result = await t.run(["--all"]);
 		expect(result.code).toBe(0);
 		expect(result.err).toContain(
-			"接続済みでないリポジトリの10件のセッションは送信しません\n",
+			"10 session(s) in repositories that are not connected will not be sent\n",
 		);
 		expect(t.reportBodies()).toEqual([]);
 		// --allを付けなければ、未接続のsessionは分析しない。
-		expect((await t.run()).out).toContain("分析したsession: 0件");
+		expect((await t.run()).out).toContain("Sessions analyzed: 0");
 	});
 
 	it("shows the analysis and sends nothing without a list or a saved list", async () => {
 		const t = await setupTune({ repositories: () => ({ status: 503 }) });
 		const result = await t.run();
 		expect(result.code).toBe(0);
-		expect(result.out).toContain("分析したsession: 10件");
+		expect(result.out).toContain("Sessions analyzed: 10");
 		expect(result.err).toContain(
-			"接続済みのリポジトリを確認できないため送信しません\n",
+			"Could not verify the connected repositories, so nothing is sent\n",
 		);
 		expect(
 			t.hf.requests.filter((r) => r.path.startsWith("POST /ingest/")),
@@ -232,7 +232,7 @@ describe("harnessforce tune", () => {
 		rmSync(join(t.home.home, ".harnessforce", "import-state.json"));
 		const result = await t.run();
 		expect(result.err).toMatch(
-			/接続済みのリポジトリの一覧を取得できないため、\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}に保存した一覧を使います\n/,
+			/Could not fetch the list of connected repositories, so the list saved at \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2} is used\n/,
 		);
 		expect(t.reportBodies()).toHaveLength(2);
 		expect(t.hf.sessionBodies()).toHaveLength(1);
@@ -241,7 +241,7 @@ describe("harnessforce tune", () => {
 	it("refreshes the api token on a 401 from the list and continues", async () => {
 		const t = await setupTune({ unauthorizedTokens: ["hf_at_ws1_current"] });
 		const result = await t.run();
-		expect(result.err).toContain("10件の分析結果を送信しました\n");
+		expect(result.err).toContain("Sent 10 analysis result(s)\n");
 		expect(t.hf.requests.some((r) => r.path === "POST /app/oauth/token")).toBe(
 			true,
 		);
@@ -267,9 +267,9 @@ describe("harnessforce tune", () => {
 		isRevoked = true;
 		const result = await t.run();
 		expect(result.code).toBe(3);
-		expect(result.out).toContain("分析したsession: 10件");
+		expect(result.out).toContain("Sessions analyzed: 10");
 		expect(result.err).toContain(
-			"ログインの有効期限が切れました。`harnessforce init`を実行してください\n",
+			"Your login has expired. Run `harnessforce init`\n",
 		);
 		expect(t.readTune("unsent.json").destinations).toEqual({});
 		expect(t.readTune("repositories.json").destinations).toEqual({});
@@ -279,18 +279,18 @@ describe("harnessforce tune", () => {
 	it.each([
 		[
 			'{"tune": {"send_report": false}}',
-			"送信しない設定のため、分析結果を送信しません\n",
+			"Sending is turned off, so the analysis results are not sent\n",
 		],
 		[
 			'{"tune": {"send_report": "no"}}',
-			"端末の設定（`~/.harnessforce/config.json`）を読めないため、分析結果を送信しません\n",
+			"Cannot read the device settings (`~/.harnessforce/config.json`), so the analysis results are not sent\n",
 		],
 	])("sends nothing with the terminal setting %s", async (config, message) => {
 		const t = await setupTune();
 		writeFile(join(t.home.home, ".harnessforce", "config.json"), config);
 		const result = await t.run();
 		expect(result).toMatchObject({ code: 0, err: message });
-		expect(result.out).toContain("分析したsession");
+		expect(result.out).toContain("Sessions analyzed");
 		expect(t.hf.requests).toEqual([]);
 	});
 
@@ -302,7 +302,9 @@ describe("harnessforce tune", () => {
 			'{"tune": {"send_report": true}}',
 		);
 		const result = await t.run(["--no-send", "--show-report"]);
-		expect(result.err).toBe("送信しない設定のため、分析結果を送信しません\n");
+		expect(result.err).toBe(
+			"Sending is turned off, so the analysis results are not sent\n",
+		);
 		expect(t.hf.requests).toEqual([]);
 	});
 
@@ -378,11 +380,11 @@ describe("harnessforce tune", () => {
 		const t = await setupTune();
 		const result = await t.run();
 		expect(result.out).toContain(
-			"使い方（端末だけの値。送信しません）:\n  frequent_compaction: 0 session\n  low_cache_reuse: 0 session\n  model（output_tokensの割合）: 本体 claude-opus-5-5 100.0%\n",
+			"Usage (this device only; not sent):\n  frequent_compaction: 0 session\n  low_cache_reuse: 0 session\n  model (share of output_tokens): main claude-opus-5-5 100.0%\n",
 		);
 	});
 
-	// improvement-loop.md「前回の提案の前後」: 後の期間が満了した前後は、--jsonで1回だけ出力する。
+	// improvement-loop.md「before and after the previous suggestion」: 後の期間が満了した前後は、--jsonで1回だけ出力する。
 	it("outputs the before and after of a detected proposal and stops after --json outputs its ended period", async () => {
 		const DAY_MS = 86_400_000;
 		const t = await setupTune({
@@ -452,7 +454,7 @@ describe("harnessforce tune", () => {
 		expect(await t.run(["--bogus"])).toEqual({
 			code: 2,
 			out: "",
-			err: "使い方: harnessforce tune [--all] [--no-send] [--show-report] [--json] ｜ harnessforce tune record ｜ harnessforce tune --purge\n",
+			err: "Usage: harnessforce tune [--all] [--no-send] [--show-report] [--json], harnessforce tune record, or harnessforce tune --purge\n",
 		});
 		expect((await t.run(["record", "--all"])).code).toBe(2);
 	});
