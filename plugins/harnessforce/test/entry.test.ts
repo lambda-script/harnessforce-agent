@@ -9,13 +9,14 @@ const source = readFileSync(
 	"utf8",
 );
 
-function runEntry(nodeVersion: string) {
+function runEntry(nodeVersion: string, event = "session-start") {
 	const required: string[] = [];
 	const stderr: string[] = [];
 	const stdout: string[] = [];
 	runInNewContext(source, {
 		process: {
 			versions: { node: nodeVersion },
+			argv: ["node", "entry.cjs", event],
 			stderr: { write: (text: string) => stderr.push(text) },
 			stdout: { write: (text: string) => stdout.push(text) },
 		},
@@ -41,6 +42,20 @@ describe("hook entry", () => {
 		expect(JSON.parse(result.stdout)).toEqual({
 			systemMessage: UNSUPPORTED_NODE_WARNING,
 		});
+		expect(result.stderr).toBe(
+			"harnessforce: session registration skipped (unsupported node)\n",
+		);
+	});
+
+	// 警告は1つのsessionの開始で多くて1行（correlation.md「hookの警告」）。SessionStart以外のhookは何も出力しない。
+	it.each([
+		"user-prompt-submit",
+		"post-tool-use",
+		"session-end",
+	])("does not print the warning for the %s hook on Node.js 16", (event) => {
+		const result = runEntry("16.20.2", event);
+		expect(result.required).toEqual([]);
+		expect(result.stdout).toBe("");
 		expect(result.stderr).toBe(
 			"harnessforce: session registration skipped (unsupported node)\n",
 		);
