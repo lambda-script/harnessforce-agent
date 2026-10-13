@@ -236,6 +236,10 @@ work done before the plugin was installed can be linked to issues too. Run `harn
 - Sessions are sent 100 at a time to `POST <HARNESSFORCE_ENDPOINT>/v1/imports/sessions` with the user
   ingest key, only when the endpoint origin matches the one pinned by `harnessforce init`. `429` and `503` are
   retried up to 3 times after `Retry-After` (at most 60 seconds).
+- Sessions that are not sent are counted by the first reason that applies (already sent, outside the
+  import window, outside a git repository, repository not connected to the Workspace) and printed on one line.
+  When nothing was imported because no repository is connected, it says to connect the repository
+  with the GitHub App in Harnessforce.
 - Sent sessions are recorded in `~/.harnessforce/import-state.json` per Workspace and ingest endpoint,
   so running it again continues where it stopped and never sends a session twice to the same place.
   Sessions dropped because of the monthly event limit or a read-only Workspace are not recorded and

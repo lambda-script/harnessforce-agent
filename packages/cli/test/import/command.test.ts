@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { storedToken } from "@harnessforce/test-support/api-token";
 import { managedDir } from "@harnessforce/test-support/managed-dir";
@@ -222,7 +222,7 @@ describe("harnessforce import", () => {
 			expect(JSON.stringify(hf.requests)).not.toContain("SECRET");
 			expect(home.readState()).toContain("codex:c1");
 			expect(await run()).toMatchObject({
-				out: "0件のセッションを取り込みました\n",
+				out: "0件のセッションを取り込みました\n取り込まなかったセッション: 送信済み2件\n",
 			});
 		});
 
@@ -257,6 +257,41 @@ describe("harnessforce import", () => {
 				err: "",
 			});
 		});
+
+		it("adds the Codex rollouts of unconnected repositories to the breakdown of Claude Code sessions", async () => {
+			const { home, cwd, run } = await setup({
+				repositories: () => ({
+					status: 200,
+					body: { items: [], next_cursor: null },
+				}),
+			});
+			writeCodex(home.home, {
+				"2026/09/20/rollout-c1.jsonl": rollout("c1", cwd),
+			});
+			expect(await run()).toEqual({
+				code: 0,
+				out:
+					"0件のセッションを取り込みました\n" +
+					"取り込まなかったセッション: Workspaceに接続されていないリポジトリ2件\n" +
+					"WorkspaceにGitHubのリポジトリが接続されていません。HarnessforceでGitHub Appを接続すると、`harnessforce import`で取り込めます\n",
+				err: "",
+			});
+		});
+
+		it("does not say no record was found when only an unreadable rollout exists", async () => {
+			const { home, cwd, run } = await setup();
+			rmSync(join(home.home, ".claude", "projects"), { recursive: true });
+			writeCodex(home.home, {
+				"2026/09/20/rollout-bad.jsonl": rollout("bad", cwd, false),
+			});
+			expect(await run()).toEqual({
+				code: 0,
+				out:
+					"modelまたはtoken数を読めないCodexのセッション1個は取り込みませんでした\n" +
+					"0件のセッションを取り込みました\n",
+				err: "",
+			});
+		});
 	});
 
 	it("does not send the same sessions twice", async () => {
@@ -264,7 +299,7 @@ describe("harnessforce import", () => {
 		await run();
 		expect(await run()).toMatchObject({
 			code: 0,
-			out: "0件のセッションを取り込みました\n",
+			out: "0件のセッションを取り込みました\n取り込まなかったセッション: 送信済み1件\n",
 		});
 		expect(hf.sessionBodies()).toEqual([["s000"]]);
 	});
@@ -361,6 +396,94 @@ describe("harnessforce import", () => {
 		});
 		expect(await narrow.run()).toMatchObject({ code: 0 });
 		expect([...hf.sessionBodies(), ...narrow.hf.sessionBodies()]).toEqual([]);
+	});
+
+	describe("explains the sessions it did not import", () => {
+		const NO_REPOSITORIES = {
+			repositories: () => ({
+				status: 200,
+				body: { items: [], next_cursor: null },
+			}),
+		};
+
+		it("names the missing GitHub App connection when the Workspace has no connected repository", async () => {
+			const { hf, run } = await setup(NO_REPOSITORIES);
+			expect(await run()).toEqual({
+				code: 0,
+				out:
+					"0件のセッションを取り込みました\n" +
+					"取り込まなかったセッション: Workspaceに接続されていないリポジトリ1件\n" +
+					"WorkspaceにGitHubのリポジトリが接続されていません。HarnessforceでGitHub Appを接続すると、`harnessforce import`で取り込めます\n",
+				err: "",
+			});
+			expect(hf.sessionBodies()).toEqual([]);
+		});
+
+		it("asks to connect the session's repository when other repositories are connected", async () => {
+			const { run } = await setup({
+				repositories: () => ({
+					status: 200,
+					body: {
+						items: [{ repository: "github.com/acme/other" }],
+						next_cursor: null,
+					},
+				}),
+			});
+			expect(await run()).toEqual({
+				code: 0,
+				out:
+					"0件のセッションを取り込みました\n" +
+					"取り込まなかったセッション: Workspaceに接続されていないリポジトリ1件\n" +
+					"セッションのリポジトリがWorkspaceに接続されていません。HarnessforceでそのリポジトリをGitHub Appに接続すると、`harnessforce import`で取り込めます\n",
+				err: "",
+			});
+		});
+
+		it("counts the sessions outside the window", async () => {
+			const { run } = await setup({
+				workspace: { status: 200, body: { session_import_days: 5 } },
+			});
+			expect(await run()).toEqual({
+				code: 0,
+				out: "0件のセッションを取り込みました\n取り込まなかったセッション: 期間外1件\n",
+				err: "",
+			});
+		});
+
+		it("counts the sessions that were already imported", async () => {
+			const { run } = await setup();
+			await run();
+			expect(await run()).toEqual({
+				code: 0,
+				out: "0件のセッションを取り込みました\n取り込まなかったセッション: 送信済み1件\n",
+				err: "",
+			});
+		});
+
+		it("counts the sessions outside a git repository and lists the reasons in a fixed order", async () => {
+			const { home, run } = await setup();
+			await run();
+			const plain = tempDir("hf-plain-");
+			writeFileSync(
+				join(home.home, ".claude", "projects", "-work-web", "plain.jsonl"),
+				transcript("plain", plain),
+			);
+			expect(await run()).toEqual({
+				code: 0,
+				out: "0件のセッションを取り込みました\n取り込まなかったセッション: 送信済み1件、gitのリポジトリの外1件\n",
+				err: "",
+			});
+		});
+
+		it("says there is nothing to import when no session record exists", async () => {
+			const { home, run } = await setup();
+			rmSync(join(home.home, ".claude", "projects"), { recursive: true });
+			expect(await run()).toEqual({
+				code: 0,
+				out: "0件のセッションを取り込みました\n取り込めるセッションの記録が見つかりませんでした\n",
+				err: "",
+			});
+		});
 	});
 
 	describe("stops before sending and keeps the state file", () => {
@@ -632,7 +755,7 @@ describe("harnessforce import", () => {
 		expect(sleeps).toEqual([2000, 2000, 2000]);
 		expect(await run()).toMatchObject({
 			code: 0,
-			out: "50件のセッションを取り込みました\n",
+			out: "50件のセッションを取り込みました\n取り込まなかったセッション: 送信済み100件\n",
 		});
 		expect(hf.sessionBodies().map((b) => b.length)).toEqual([
 			100, 50, 50, 50, 50, 50,
@@ -679,7 +802,7 @@ describe("harnessforce import", () => {
 		});
 		expect(await run()).toMatchObject({
 			code: 0,
-			out: "52件のセッションを取り込みました\n",
+			out: "52件のセッションを取り込みました\n取り込まなかったセッション: 送信済み98件\n",
 		});
 		expect(hf.sessionBodies()[1]?.slice(0, 2)).toEqual(["s003", "s004"]);
 	});

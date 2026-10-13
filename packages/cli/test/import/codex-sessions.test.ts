@@ -95,6 +95,7 @@ describe("scanCodexSessions", () => {
 			skippedFiles: 0,
 			unextractable: 0,
 			compressed: 0,
+			notImported: { outOfRange: 0, outsideGit: 0, notConnected: 0 },
 			sessions: [
 				{
 					agent: "codex",
@@ -179,6 +180,43 @@ describe("scanCodexSessions", () => {
 			}),
 		);
 		expect(result).toMatchObject({ sessions: [], unextractable: 1 });
+	});
+
+	it("counts each unimported rollout once under its first reason, including unreadable-model ones", async () => {
+		const dir = codexHome({
+			"2026/07/01/rollout-old.jsonl": rollout(
+				"old",
+				"/work/other",
+				"2026-07-01T00:00:00.000Z",
+			),
+			"2026/09/20/rollout-plain.jsonl": rollout(
+				"plain",
+				"/work/plain",
+				"2026-09-20T00:00:00.000Z",
+			),
+			"2026/09/20/rollout-other.jsonl": rollout(
+				"other",
+				"/work/other",
+				"2026-09-20T00:00:00.000Z",
+			),
+			// 読めないsessionでも、接続済みでなければ未接続に数え、読めない件数には入れない。
+			"2026/09/20/rollout-bad-other.jsonl": rollout(
+				"bad",
+				"/work/other",
+				"2026-09-20T00:00:00.000Z",
+				false,
+			),
+		});
+		const result = await scan(
+			dir,
+			fakeGit({ "/work/other": "git@github.com:Acme/Other.git" }),
+		);
+		expect(result).toMatchObject({ sessions: [], unextractable: 0 });
+		expect(result.notImported).toEqual({
+			outOfRange: 1,
+			outsideGit: 1,
+			notConnected: 2,
+		});
 	});
 
 	it("counts unreadable files and skipped lines, and the compressed rollouts in the range", async () => {

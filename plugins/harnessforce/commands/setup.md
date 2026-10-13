@@ -54,7 +54,7 @@ opt-inしていないWorkspaceでは`harnessforce init --send-content`は本文�
 
 ## 6. 過去のsessionを取り込む
 
-`harnessforce import`を実行し、送信した件数と読み飛ばした件数を利用者へ伝える。
+`harnessforce import`を実行し、表示された取り込んだ件数と、取り込まなかったセッションの内訳と案内を、そのまま利用者へ伝える。0件のときも、表示された理由と次の行動を省かない。
 
 ## 7. 利用枠を共有するかを選ぶ
 

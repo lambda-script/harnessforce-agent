@@ -15,11 +15,29 @@ import {
 	type TranscriptSession,
 } from "./transcript.js";
 
+// correlation.md「session import」: 取り込まなかったsessionの理由別の件数。1つのsessionは最初に当たる1つで数える。
+export type NotImported = {
+	outOfRange: number;
+	outsideGit: number;
+	notConnected: number;
+};
+
 export type SessionScan = {
 	sessions: SessionImport[];
 	skippedLines: number;
 	skippedFiles: number;
+	notImported: NotImported;
 };
+
+type Verdict =
+	| { kind: "import"; repository: string }
+	| { kind: keyof NotImported };
+
+const noneNotImported = (): NotImported => ({
+	outOfRange: 0,
+	outsideGit: 0,
+	notConnected: 0,
+});
 
 type ScanOptions = {
 	// Claude Codeのconfigの基点の`projects`。
@@ -81,38 +99,63 @@ const sortedSessions = (sessions: ReadonlyMap<string, SessionImport>) =>
 			(a.session_id < b.session_id ? -1 : a.session_id > b.session_id ? 1 : 0),
 	);
 
-// correlation.md「session import」: 範囲内に終わり、cwdのrepositoryが接続済みのsessionだけを返す。
-// gitのrepositoryの外のsessionと、一致しないsessionは返さない（端末から送らない）。
-export async function scanSessions(options: ScanOptions): Promise<SessionScan> {
+const cachedRepositoryOf = (git: RunGit) => {
 	const repositories = new Map<string, Promise<string | undefined>>();
-	const repositoryOf = (cwd: string) => {
-		const cached = repositories.get(cwd) ?? resolveRepository(cwd, options.git);
+	return (cwd: string) => {
+		const cached = repositories.get(cwd) ?? resolveRepository(cwd, git);
 		repositories.set(cwd, cached);
 		return cached;
 	};
+};
+
+// 範囲、gitのrepository、接続済みの順に確かめ、最初に当たる理由で取り込まない。
+async function judge(
+	session: { endedAt: string; cwd?: string },
+	options: { sinceMs: number; connected: ReadonlySet<string> },
+	repositoryOf: (cwd: string) => Promise<string | undefined>,
+): Promise<Verdict> {
+	if (Date.parse(session.endedAt) < options.sinceMs)
+		return { kind: "outOfRange" };
+	const repository = session.cwd ? await repositoryOf(session.cwd) : undefined;
+	if (repository === undefined) return { kind: "outsideGit" };
+	return options.connected.has(repository)
+		? { kind: "import", repository }
+		: { kind: "notConnected" };
+}
+
+// correlation.md「session import」: 範囲内に終わり、cwdのrepositoryが接続済みのsessionだけを返す。
+// gitのrepositoryの外のsessionと、一致しないsessionは返さない（端末から送らない）。
+export async function scanSessions(options: ScanOptions): Promise<SessionScan> {
+	const repositoryOf = cachedRepositoryOf(options.git);
 	const sessions = new Map<string, SessionImport>();
+	const notImported = noneNotImported();
 	let skippedLines = 0;
 	let skippedFiles = 0;
 	for (const file of await listTranscripts(options.projectsDir)) {
 		// 最後に書かれた時刻が範囲より前なら、最後の記録も範囲より前にある。
 		const modifiedMs = (await stat(file).catch(() => undefined))?.mtimeMs;
-		if (modifiedMs !== undefined && modifiedMs < options.sinceMs) continue;
+		if (modifiedMs !== undefined && modifiedMs < options.sinceMs) {
+			notImported.outOfRange += 1;
+			continue;
+		}
 		const result = await parseTranscript(file);
 		skippedLines += result.skippedLines;
 		if (result.kind === "unreadable") skippedFiles += 1;
 		if (result.kind !== "session") continue;
 		const { session } = result;
-		if (Date.parse(session.endedAt) < options.sinceMs || !session.cwd) continue;
-		const repository = await repositoryOf(session.cwd);
-		if (repository === undefined || !options.connected.has(repository))
-			continue;
-		if (!sessions.has(session.sessionId))
-			sessions.set(session.sessionId, toSessionImport(session, repository));
+		const verdict = await judge(session, options, repositoryOf);
+		if (verdict.kind !== "import") notImported[verdict.kind] += 1;
+		else if (!sessions.has(session.sessionId))
+			sessions.set(
+				session.sessionId,
+				toSessionImport(session, verdict.repository),
+			);
 	}
 	return {
 		sessions: sortedSessions(sessions),
 		skippedLines,
 		skippedFiles,
+		notImported,
 	};
 }
 
@@ -204,56 +247,46 @@ function toCodexSessionImport(
 export async function scanCodexSessions(
 	options: CodexScanOptions,
 ): Promise<CodexScan> {
-	const repositories = new Map<string, Promise<string | undefined>>();
-	const repositoryOf = (cwd: string) => {
-		const cached = repositories.get(cwd) ?? resolveRepository(cwd, options.git);
-		repositories.set(cwd, cached);
-		return cached;
-	};
-	const isSent = async (cwd: string | undefined) => {
-		if (!cwd) return undefined;
-		const repository = await repositoryOf(cwd);
-		return repository !== undefined && options.connected.has(repository)
-			? repository
-			: undefined;
-	};
+	const repositoryOf = cachedRepositoryOf(options.git);
 	const { files, compressed } = await listRollouts(
 		join(options.codexDir, "sessions"),
 		localDayKey(options.sinceMs),
 	);
 	const sessions = new Map<string, SessionImport>();
+	const notImported = noneNotImported();
 	let skippedLines = 0;
 	let skippedFiles = 0;
 	let unextractable = 0;
 	for (const file of files) {
 		const modifiedMs = (await stat(file).catch(() => undefined))?.mtimeMs;
-		if (modifiedMs !== undefined && modifiedMs < options.sinceMs) continue;
+		if (modifiedMs !== undefined && modifiedMs < options.sinceMs) {
+			notImported.outOfRange += 1;
+			continue;
+		}
 		const result = await parseRollout(file);
 		skippedLines += result.skippedLines;
 		if (result.kind === "unreadable") skippedFiles += 1;
 		if (result.kind === "unextractable") {
-			if (
-				Date.parse(result.endedAt) >= options.sinceMs &&
-				(await isSent(result.cwd))
-			)
-				unextractable += 1;
+			const verdict = await judge(result, options, repositoryOf);
+			if (verdict.kind === "import") unextractable += 1;
+			else notImported[verdict.kind] += 1;
 			continue;
 		}
 		if (result.kind !== "session") continue;
 		const { session } = result;
-		if (Date.parse(session.endedAt) < options.sinceMs) continue;
-		const repository = await isSent(session.cwd);
-		if (repository === undefined) continue;
-		if (!sessions.has(session.sessionId))
+		const verdict = await judge(session, options, repositoryOf);
+		if (verdict.kind !== "import") notImported[verdict.kind] += 1;
+		else if (!sessions.has(session.sessionId))
 			sessions.set(
 				session.sessionId,
-				toCodexSessionImport(session, repository),
+				toCodexSessionImport(session, verdict.repository),
 			);
 	}
 	return {
 		sessions: sortedSessions(sessions),
 		skippedLines,
 		skippedFiles,
+		notImported,
 		unextractable,
 		compressed,
 	};

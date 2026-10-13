@@ -14,7 +14,11 @@ import {
 } from "./read-api.js";
 import { recordBase } from "./record-base.js";
 import { type SendResult, sendSessions } from "./send.js";
-import { scanCodexSessions, scanSessions } from "./sessions.js";
+import {
+	type NotImported,
+	scanCodexSessions,
+	scanSessions,
+} from "./sessions.js";
 import {
 	type Destination,
 	importStatePath,
@@ -52,6 +56,11 @@ const MESSAGES = {
 	loginExpired:
 		"ログインの有効期限が切れました。`harnessforce init`を実行してください",
 	stateFailed: "取り込みの状態を保存できませんでした",
+	connectNone:
+		"WorkspaceにGitHubのリポジトリが接続されていません。HarnessforceでGitHub Appを接続すると、`harnessforce import`で取り込めます",
+	connectOther:
+		"セッションのリポジトリがWorkspaceに接続されていません。HarnessforceでそのリポジトリをGitHub Appに接続すると、`harnessforce import`で取り込めます",
+	nothingFound: "取り込めるセッションの記録が見つかりませんでした",
 } as const;
 
 const limitMessage = {
@@ -78,7 +87,49 @@ function unwrap<T>(outcome: ReadOutcome<T>): T {
 	);
 }
 
-function report(result: SendResult, deps: ImportDeps): number {
+// correlation.md「session import」の取り込まなかったsessionの内訳。1件以上の理由だけを、決まった順で示す。
+const NOT_IMPORTED_LABELS = [
+	["alreadySent", "送信済み"],
+	["outOfRange", "期間外"],
+	["outsideGit", "gitのリポジトリの外"],
+	["notConnected", "Workspaceに接続されていないリポジトリ"],
+] as const;
+
+type Breakdown = Record<(typeof NOT_IMPORTED_LABELS)[number][0], number>;
+
+function breakdownLine(breakdown: Breakdown): string | undefined {
+	const parts = NOT_IMPORTED_LABELS.filter(([key]) => breakdown[key] > 0).map(
+		([key, label]) => `${label}${breakdown[key]}件`,
+	);
+	return parts.length > 0
+		? `取り込まなかったセッション: ${parts.join("、")}`
+		: undefined;
+}
+
+type Notes = {
+	breakdown: Breakdown;
+	// 内訳とは別の専用の表示が出たか。
+	otherNoticeShown: boolean;
+	connectedCount: number;
+};
+
+function reportNotImported(
+	imported: number,
+	notes: Notes,
+	deps: ImportDeps,
+): void {
+	const line = breakdownLine(notes.breakdown);
+	if (line) deps.stdout(`${line}\n`);
+	if (imported > 0) return;
+	if (notes.breakdown.notConnected > 0)
+		deps.stdout(
+			`${notes.connectedCount === 0 ? MESSAGES.connectNone : MESSAGES.connectOther}\n`,
+		);
+	else if (!line && !notes.otherNoticeShown)
+		deps.stdout(`${MESSAGES.nothingFound}\n`);
+}
+
+function report(result: SendResult, notes: Notes, deps: ImportDeps): number {
 	switch (result.kind) {
 		case "done":
 			deps.stdout(`${result.imported}件のセッションを取り込みました\n`);
@@ -86,6 +137,14 @@ function report(result: SendResult, deps: ImportDeps): number {
 				deps.stdout(
 					`形式が不正なため${result.invalid}件のセッションを取り込めませんでした\n`,
 				);
+			reportNotImported(
+				result.imported,
+				{
+					...notes,
+					otherNoticeShown: notes.otherNoticeShown || result.invalid > 0,
+				},
+				deps,
+			);
 			return 0;
 		case "limited":
 			deps.stderr(`${limitMessage[result.reason](result.notImported)}\n`);
@@ -98,6 +157,12 @@ function report(result: SendResult, deps: ImportDeps): number {
 			return 1;
 	}
 }
+
+const sumNotImported = (a: NotImported, b: NotImported): NotImported => ({
+	outOfRange: a.outOfRange + b.outOfRange,
+	outsideGit: a.outsideGit + b.outsideGit,
+	notConnected: a.notConnected + b.notConnected,
+});
 
 async function runImport(deps: ImportDeps): Promise<number> {
 	const access = await verifyCliAccess(deps, ACCESS_MESSAGES);
@@ -161,10 +226,11 @@ async function runImport(deps: ImportDeps): Promise<number> {
 	const scanned = [...claude.sessions, ...codex.sessions];
 	const statePath = importStatePath(deps.homeDir);
 	const sent = await readSentSessions(statePath, destination);
+	const unsent = scanned.filter((s) => !sent.has(sessionStateKey(s)));
 	const result = await sendSessions({
 		endpoint: access.ingest,
 		ingestKey: access.ingestKey,
-		sessions: scanned.filter((s) => !sent.has(sessionStateKey(s))),
+		sessions: unsent,
 		fetch: deps.fetch,
 		sleep: deps.sleep,
 		record: (ids) =>
@@ -172,7 +238,22 @@ async function runImport(deps: ImportDeps): Promise<number> {
 				stopWith(MESSAGES.stateFailed),
 			),
 	});
-	return report(result, deps);
+	return report(
+		result,
+		{
+			breakdown: {
+				alreadySent: scanned.length - unsent.length,
+				...sumNotImported(claude.notImported, codex.notImported),
+			},
+			otherNoticeShown:
+				skippedLines > 0 ||
+				skippedFiles > 0 ||
+				codex.unextractable > 0 ||
+				codex.compressed > 0,
+			connectedCount: connected.size,
+		},
+		deps,
+	);
 }
 
 // correlation.md「session import」の`harnessforce import`。
