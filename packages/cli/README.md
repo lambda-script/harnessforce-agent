@@ -37,10 +37,6 @@ harnessforce init
 | `harnessforce usage-limits statusline` | A statusLine command that wraps your existing one: it passes stdin to the original command, returns its output and exit code unchanged, then sends only the usage percentage and reset time of the 5-hour and 7-day windows. It sends nothing until you have consented |
 | `harnessforce --version` | Prints the version |
 
-Builds made before the first npm publish also install `hf` as an alias of `harnessforce`, so settings written
-by `hf init` keep working until you run `harnessforce init` again. The alias is removed from the first published
-version, because the Hugging Face CLI also uses the name `hf`.
-
 ## Watching your sessions (`harnessforce top`)
 
 `harnessforce top` reads the Claude Code transcripts on this machine (the same place as `harnessforce import`) and the

@@ -24,13 +24,9 @@ recorded, that spec keeps distributing the plugin and the CLI to the public out 
    `pnpm run release` runs `scripts/check-publish-build.mjs` between the build and `changeset publish`; it
    fails unless `packages/cli/dist/build-config.json` has `isDefault: true` and the plugin's `.mcp.json`
    defaults to `https://harnessforce.dev`, so a build with another connection URL is never published.
-7. Remove the `hf` alias before the first publish. `packages/cli/package.json` lists `harnessforce` and
-   `hf` in `bin` only for builds before the first publish (Harnessforce `correlation.md`, "コマンド名"): the
-   Hugging Face CLI also uses `hf`. Delete the `hf` entry from `bin`, update the `bin` test in
-   `packages/cli/test/bundle.test.ts`, and drop the `hf` fallback in `plugins/harnessforce/src/user-key.ts`
-   with its tests, and delete the paragraph about the alias in `packages/cli/README.md`.
-   `scripts/check-first-release.mjs` fails the `Release` workflow while an unpublished
-   package still exposes `hf`.
+7. Confirm the packages do not expose `hf`. The Hugging Face CLI uses that name, so `packages/cli/package.json`
+   lists only `harnessforce` in `bin`. `scripts/check-first-release.mjs` fails the `Release` workflow while an
+   unpublished package still exposes `hf`.
 8. `gh variable set NPM_PUBLISH_ENABLED --body true -R lambda-script/harnessforce-agent`
 9. Re-run the latest `Release` workflow on `main`. It publishes 0.1.0 with provenance and fails
    unless `npm view @harnessforce/<name>@0.1.0 version` resolves for `semconv`, `cli` and `claude-code-plugin`.

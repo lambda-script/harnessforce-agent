@@ -62,10 +62,7 @@ export function createUserKeyReader({
 			bases: [processCwd, cwd],
 			...(fs ? { fs } : {}),
 		};
-		// correlation.md「コマンド名」: `hf`は最初のnpm publishより前のbuildだけが持つ別名。`harnessforce`が無い場合にだけ探す。
-		const file =
-			(await findCommand("harnessforce", context)) ??
-			(await findCommand("hf", context));
+		const file = await findCommand("harnessforce", context);
 		// 起動できない`.cmd`（pathが%や!を含む、nodeやcmd.exeが無い）は、harnessforceがPATHに無い場合と同じに扱う。
 		const command =
 			file === undefined

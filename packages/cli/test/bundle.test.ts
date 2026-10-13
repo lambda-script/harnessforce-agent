@@ -36,14 +36,12 @@ describe("built harnessforce", () => {
 		expect(binSource().startsWith("#!/usr/bin/env node\n")).toBe(true));
 
 	// correlation.md「コマンド名」: `bin`を指定しない`npm exec`は先頭の`bin`を選ぶため、`harnessforce`を先頭に置く。
-	// `hf`は最初のnpm publishより前のbuildだけが持つ別名であり、publishを有効にする前に外す（docs/runbooks/releasing.md）。
-	it("exposes harnessforce first and hf as the alias for the same executable", () => {
+	it("exposes only harnessforce, because the Hugging Face CLI uses hf", () => {
 		const manifest = JSON.parse(
 			readFileSync(join(packageDir, "package.json"), "utf8"),
 		);
 		expect(Object.entries(manifest.bin)).toEqual([
 			["harnessforce", "./dist/bin.js"],
-			["hf", "./dist/bin.js"],
 		]);
 	});
 
