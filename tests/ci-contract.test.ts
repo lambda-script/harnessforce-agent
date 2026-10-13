@@ -51,7 +51,7 @@ describe("ci workflow", () => {
 		);
 		expect(runs(test)).toContainEqual(
 			expect.stringMatching(
-				/^pnpm turbo run test --filter=@harnessforce\/agent-core --filter=@harnessforce\/cli --filter=harnessforce-plugin$/,
+				/^pnpm turbo run test --filter=@harnessforce\/agent-core --filter=@harnessforce\/cli --filter=@harnessforce\/claude-code-plugin$/,
 			),
 		);
 	});

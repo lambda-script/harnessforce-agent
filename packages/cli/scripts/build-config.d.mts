@@ -1,3 +1,3 @@
 export function buildConfigFrom(
 	env: Readonly<Record<string, string | undefined>>,
-): { url: string };
+): { url: string; isDefault: boolean };

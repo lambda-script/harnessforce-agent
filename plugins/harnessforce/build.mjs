@@ -133,29 +133,25 @@ function copy(from, to) {
 	copyFileSync(from, to);
 }
 
+const readJson = (path) => JSON.parse(readFileSync(path, "utf8"));
+
 /**
- * dist/marketplaceに、localのmarketplaceとして登録できるdirectoryを作る
- * （environments.md「接続先」: stagingの検証者はbuildの出力を`/plugin marketplace add`する）。
+ * pluginの本体（plugin.json、skill、command、`.mcp.json`、hook）を`plugin`に書く。
+ * npmへpublishするpackageのroot（dist/npm）と、localのmarketplaceの中のplugin（dist/marketplace）は、この内容を共有する。
  * repositoryのhooks/hooks.jsonは空のままにし、scriptを持つこの出力にだけhookを配線する。
  */
-async function buildMarketplace() {
-	const connection = connectionUrl();
-	const outDir = join(pluginDir, "dist/marketplace");
-	const plugin = join(outDir, "plugins/harnessforce");
-	rmSync(outDir, { recursive: true, force: true });
-	copy(
-		join(repoRoot, ".claude-plugin/marketplace.json"),
-		join(outDir, ".claude-plugin/marketplace.json"),
-	);
-	copy(
-		join(pluginDir, ".claude-plugin/plugin.json"),
+async function writePlugin(plugin, connection, version) {
+	rmSync(plugin, { recursive: true, force: true });
+	// changesetsが上げるのはpackage.jsonのversionだけであるため、配るpluginのversionをそれに合わせる。
+	mkdirSync(join(plugin, ".claude-plugin"), { recursive: true });
+	writeFileSync(
 		join(plugin, ".claude-plugin/plugin.json"),
+		`${JSON.stringify({ ...readJson(join(pluginDir, ".claude-plugin/plugin.json")), version }, null, 2)}\n`,
 	);
 	copy(join(repoRoot, "LICENSE"), join(plugin, "LICENSE"));
 	cpSync(join(pluginDir, "skills"), join(plugin, "skills"), {
 		recursive: true,
 	});
-	// setup以外のcommandはそのまま写す。setupは下で同梱のCLIを導入する内容に置き換える。
 	cpSync(join(pluginDir, "commands"), join(plugin, "commands"), {
 		recursive: true,
 	});
@@ -168,17 +164,13 @@ async function buildMarketplace() {
 		join(plugin, "hooks/hooks.json"),
 		`${JSON.stringify(hooksJson(), null, 2)}\n`,
 	);
-	writeSetupCommand(
-		join(plugin, "commands/setup.md"),
-		packCli(join(plugin, "cli")),
-	);
 	copy(join(pluginDir, "src/entry.cjs"), join(plugin, HOOK_ENTRY));
 	await build({
 		config: false,
 		cwd: pluginDir,
 		entry: { "harnessforce-hook-main": join(pluginDir, "src/main.ts") },
 		outDir: join(plugin, "scripts"),
-		// outDirには先に写したentryがある。出力全体の掃除は冒頭のrmSyncが担う。
+		// outDirには先に写したentryがある。
 		clean: false,
 		platform: "node",
 		format: "cjs",
@@ -190,4 +182,65 @@ async function buildMarketplace() {
 	});
 }
 
+/**
+ * environments.md「接続先」: npmへpublishする`@harnessforce/claude-code-plugin`。
+ * dist/npmがpackageのrootであり（package.jsonの`publishConfig.directory`）、CLIのtarballは同梱しない。
+ */
+async function buildNpmPackage(connection) {
+	const outDir = join(pluginDir, "dist/npm");
+	const manifest = readJson(join(pluginDir, "package.json"));
+	await writePlugin(outDir, connection, manifest.version);
+	copy(join(pluginDir, "README.md"), join(outDir, "README.md"));
+	// directoryはsource側がpublishするdirectoryを指す設定であり、publishされるpackageには含めない。
+	const publishConfig = Object.fromEntries(
+		Object.entries(manifest.publishConfig).filter(
+			([key]) => key !== "directory",
+		),
+	);
+	writeFileSync(
+		join(outDir, "package.json"),
+		`${JSON.stringify(
+			{
+				name: manifest.name,
+				version: manifest.version,
+				description: manifest.description,
+				keywords: manifest.keywords,
+				license: manifest.license,
+				homepage: manifest.homepage,
+				bugs: manifest.bugs,
+				repository: manifest.repository,
+				publishConfig,
+				engines: manifest.engines,
+			},
+			null,
+			"\t",
+		)}\n`,
+	);
+}
+
+/**
+ * dist/marketplaceに、localのmarketplaceとして登録できるdirectoryを作る
+ * （environments.md「接続先」: 開発者はbuildの出力を`/plugin marketplace add`する）。
+ * npmのpackageと同じpluginに、同じbuildのCLIとsemconvのtarballを足し、setupがそれを導入する形にする。
+ */
+async function buildMarketplace() {
+	const outDir = join(pluginDir, "dist/marketplace");
+	const plugin = join(outDir, "plugins/harnessforce");
+	rmSync(outDir, { recursive: true, force: true });
+	copy(
+		join(repoRoot, ".claude-plugin/marketplace.json"),
+		join(outDir, ".claude-plugin/marketplace.json"),
+	);
+	cpSync(join(pluginDir, "dist/npm"), plugin, {
+		recursive: true,
+		filter: (from) => !["package.json", "README.md"].includes(basename(from)),
+	});
+	writeSetupCommand(
+		join(plugin, "commands/setup.md"),
+		packCli(join(plugin, "cli")),
+	);
+}
+
+const connection = connectionUrl();
+await buildNpmPackage(connection);
 await buildMarketplace();

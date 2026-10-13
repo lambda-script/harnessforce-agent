@@ -18,7 +18,7 @@
 		"build": "turbo run build",
 		"check": "turbo run lint lint:root knip typecheck typecheck:root test test:root build",
 		"version-packages": "changeset version",
-		"release": "turbo run build && changeset publish"
+		"release": "turbo run build && node scripts/check-publish-build.mjs && changeset publish"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.3.14",

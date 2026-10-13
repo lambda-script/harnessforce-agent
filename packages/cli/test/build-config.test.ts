@@ -13,7 +13,10 @@ describe("CLI build input", () => {
 		[{}],
 		[{ HARNESSFORCE_BUILD_URL: "" }],
 	])("defaults to production without a URL: %j", (env) =>
-		expect(buildConfigFrom(env)).toEqual({ url: "https://harnessforce.dev" }));
+		expect(buildConfigFrom(env)).toEqual({
+			url: "https://harnessforce.dev",
+			isDefault: true,
+		}));
 
 	// 与えた値が許可されない形なら、既定値へ黙って戻さず失敗する。
 	it.each([

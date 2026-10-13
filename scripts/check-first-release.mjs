@@ -56,10 +56,12 @@ export async function checkFirstRelease({ packages, changesets, isPublished }) {
 }
 
 function readRepository() {
-	const packages = readdirSync(new URL("packages/", root))
-		.map((dir) =>
-			JSON.parse(
-				readFileSync(new URL(`packages/${dir}/package.json`, root), "utf8"),
+	const packages = ["packages", "plugins"]
+		.flatMap((group) =>
+			readdirSync(new URL(`${group}/`, root)).map((dir) =>
+				JSON.parse(
+					readFileSync(new URL(`${group}/${dir}/package.json`, root), "utf8"),
+				),
 			),
 		)
 		.filter((pkg) => !pkg.private)
