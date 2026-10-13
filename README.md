@@ -122,36 +122,10 @@ flowchart LR
   past sessions.
 - The **MCP server** is hosted by Harnessforce at `<connection URL>/mcp`; the plugin only declares it.
 - **`@harnessforce/semconv`** defines what both sides send and accept.
-- The connection URL is a single optional build input, `HARNESSFORCE_BUILD_URL` (default
-  `https://harnessforce.dev`), shared by the CLI default and the MCP server URL. A built plugin and CLI can
-  be pointed elsewhere at run time with the environment variable `HARNESSFORCE_URL` or
-  `harnessforce init --url <base URL>`, without a rebuild.
 
 ## Development
 
-Requirements: Node.js from [`.node-version`](.node-version) and pnpm (the version in `packageManager`,
-for example through `corepack enable`).
-
-```sh
-pnpm install
-HARNESSFORCE_BUILD_URL=http://localhost:3000 pnpm check
-```
-
-`pnpm check` runs lint (Biome), knip, typecheck, tests (Vitest) and build through Turborepo, as CI does.
-`HARNESSFORCE_BUILD_URL` is the optional `apps/web` base URL baked into the CLI and the plugin as their
-default; without it the build uses `https://harnessforce.dev`. `http://localhost:3000` is the value CI uses. CI also runs the tests on macOS,
-Windows and Node.js 24, and runs the built CLI and hook on Node.js 18.
-
-| Path | Contents |
-| --- | --- |
-| `packages/*` | Workspace packages (see [Packages](#packages)) |
-| `plugins/harnessforce` | Plugin source and its build (`build.mjs`) |
-| `.claude-plugin/marketplace.json` | The `harnessforce-agent` marketplace |
-| `scripts/` | Release scripts |
-| `tests/` | Repository-wide contract tests |
-| `docs/runbooks/` | Operator procedures |
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+To develop, see [docs/development.md](docs/development.md).
 
 ## Release
 

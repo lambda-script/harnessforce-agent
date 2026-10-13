@@ -213,6 +213,30 @@ describe("harnessforce init", () => {
 		);
 	});
 
+	it("tells the user when the connection is not the build default", async () => {
+		const server = await startCredentialsServer();
+		const result = await runInit(["--url", server.base], {
+			homeDir: makeHome().home,
+			defaultUrl: "https://default.example.test",
+			openBrowser: fakeBrowser().open,
+		});
+		expect(result.code).toBe(0);
+		expect(result.out).toContain(
+			`接続先: ${server.base}（既定の本番ではありません）\n${M.success}\n`,
+		);
+	});
+
+	it("adds nothing to the output when the connection is the build default", async () => {
+		const server = await startCredentialsServer();
+		const result = await runInit([], {
+			homeDir: makeHome().home,
+			defaultUrl: server.base,
+			openBrowser: fakeBrowser().open,
+		});
+		expect(result.out).not.toContain("接続先");
+		expect(result.out).toContain(`${M.success}\n`);
+	});
+
 	it("records the connection URL without userinfo, query or fragment", async () => {
 		const server = await startCredentialsServer({ basePath: "/hf" });
 		const withUserinfo = server.base.replace("http://", "http://user:pass@");

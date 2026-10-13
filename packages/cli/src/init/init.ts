@@ -28,6 +28,7 @@ import {
 	type InitMessage,
 	keychainUnavailableMessage,
 	listenFailedMessage,
+	nonDefaultConnectionMessage,
 } from "../shared/messages.js";
 import { discoverAuthorizationEndpoint } from "../shared/metadata.js";
 import {
@@ -80,7 +81,13 @@ const sha256Hex = (value: string) =>
 
 export function init(args: InitArgs, deps: InitDeps): Promise<number> {
 	return runUntilStop(async () => {
-		const { codexPath, isKernelKeyring } = await runInit(args, deps);
+		const { codexPath, connection, isKernelKeyring } = await runInit(
+			args,
+			deps,
+		);
+		// 既定の本番以外へ向けた端末で、利用者が接続先に気づけるようにする。既定のときは何も足さない。
+		if (connection !== withoutExtras(new URL(deps.defaultUrl)))
+			deps.stdout(`${nonDefaultConnectionMessage(connection)}\n`);
 		// 保存先がdiskに残らないことを知らないと、再起動の後にテレメトリが届かない理由を見つけられない。
 		const lines = [
 			INIT_MESSAGES.success,
@@ -92,11 +99,15 @@ export function init(args: InitArgs, deps: InitDeps): Promise<number> {
 	}, deps.stderr);
 }
 
-// 書いたCodexの`config.toml`のpathと、keyをkernelのkeyringへ保存したかを返す。
+// 書いたCodexの`config.toml`のpath、記録した接続先、keyをkernelのkeyringへ保存したかを返す。
 async function runInit(
 	args: InitArgs,
 	deps: InitDeps,
-): Promise<{ codexPath: string; isKernelKeyring: boolean }> {
+): Promise<{
+	codexPath: string;
+	connection: string;
+	isKernelKeyring: boolean;
+}> {
 	const port = args.port ?? DEFAULT_PORT;
 	const base =
 		parseAllowedUrl(args.url ?? deps.defaultUrl) ?? stop("invalidUrl");
@@ -148,7 +159,11 @@ async function runInit(
 		deps.stdout(
 			`${issued.contentOptIn ? INIT_MESSAGES.contentEnabled : INIT_MESSAGES.contentNotOptedIn}\n`,
 		);
-	return { codexPath, isKernelKeyring: store.isKernelKeyring };
+	return {
+		codexPath,
+		connection: recordedUrl,
+		isKernelKeyring: store.isKernelKeyring,
+	};
 }
 
 // correlation.md「CLI」の手順1と「実行環境」。保存先を選び、既存の項目を読む。

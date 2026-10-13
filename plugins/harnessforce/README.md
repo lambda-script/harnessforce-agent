@@ -58,8 +58,8 @@ repository, branch and commit of `cwd` to `POST <HARNESSFORCE_ENDPOINT>/v1/sessi
 prompt it sends the same registration again with the prompt ID. Prompts, responses and file
 contents are never sent.
 
-- For an organization, set `HARNESSFORCE_ENDPOINT` (the ingest base URL; `https:`, or `http:` only
-  for `localhost`, `127.0.0.1` and `[::1]`) and `HARNESSFORCE_INGEST_KEY` (a Workspace ingest key) in
+- For an organization, set `HARNESSFORCE_ENDPOINT` (the ingest base URL, `https:`) and
+  `HARNESSFORCE_INGEST_KEY` (a Workspace ingest key) in
   the `env` of the managed settings file (`managed-settings.json` or `managed-settings.d/*.json` in
   the managed directory). The hook reads the Workspace key and its endpoint only from those files,
   never from the process environment, because a repository's `.claude/settings.json` can set
