@@ -25,7 +25,8 @@ come from the build. The copy of the plugin in this repository has no hooks and 
 
 ## Install
 
-Public distribution starts once the production domain of Harnessforce is decided. After that:
+The marketplace installs the plugin from npm, with no version pinned, so you get the latest
+published version:
 
 ```text
 /plugin marketplace add lambda-script/harnessforce-agent
@@ -33,7 +34,8 @@ Public distribution starts once the production domain of Harnessforce is decided
 /harnessforce:setup
 ```
 
-Until then, install the [local marketplace build](../../docs/runbooks/local-marketplace.md).
+To connect to a staging or local `apps/web` instead, install the
+[local marketplace build](../../docs/runbooks/local-marketplace.md).
 
 ## Requirements
 

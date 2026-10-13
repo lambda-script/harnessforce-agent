@@ -1,9 +1,9 @@
 # Building the local marketplace
 
-Until the production domain is recorded in the Harnessforce `docs/specs/infrastructure/environments.md`
-("接続先"), the plugin and the CLI are not distributed to the public. Internal testers and developers
-build them from this repository against a staging or local `apps/web` and install the build output.
-Staging builds are never published to npm or committed to the marketplace in this repository.
+The marketplace in this repository installs the plugin from npm, built against the production
+connection URL. Internal testers and developers who need a staging or local `apps/web` build the plugin
+and the CLI from this repository and install the build output instead. Staging builds are never
+published to npm or committed to the marketplace in this repository.
 
 ## Build
 
