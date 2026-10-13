@@ -95,6 +95,7 @@ describe("scanCodexSessions", () => {
 			skippedFiles: 0,
 			unextractable: 0,
 			compressed: 0,
+			notImported: { outOfRange: 0, outsideGit: 0, notConnected: 0 },
 			sessions: [
 				{
 					agent: "codex",

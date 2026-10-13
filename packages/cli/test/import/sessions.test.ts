@@ -84,6 +84,7 @@ describe("scanSessions", () => {
 		expect(result).toEqual({
 			skippedLines: 0,
 			skippedFiles: 0,
+			notImported: { outOfRange: 0, outsideGit: 0, notConnected: 0 },
 			sessions: [
 				{
 					agent: "claude_code",
@@ -217,5 +218,6 @@ describe("scanSessions", () => {
 			sessions: [],
 			skippedLines: 0,
 			skippedFiles: 0,
+			notImported: { outOfRange: 0, outsideGit: 0, notConnected: 0 },
 		}));
 });
