@@ -20,15 +20,15 @@ your prompts, responses or code.
 | --- | --- | --- |
 | [`@harnessforce/cli`](packages/cli) | `harnessforce`: connects a machine to a Workspace, launches an agent for an Issue, imports past sessions | npm |
 | [`@harnessforce/semconv`](packages/semconv) | `hf.*` attribute names and the JSON Schemas of the ingest API | npm |
-| [`harnessforce` plugin](plugins/harnessforce) | Claude Code hooks, MCP server declaration, `record-run` and `propose-improvements` skills, `/harnessforce:setup` and `/harnessforce:tune` | Claude Code marketplace in this repository |
+| [`harnessforce` plugin](plugins/harnessforce) | Claude Code hooks, MCP server declaration, `record-run` and `propose-improvements` skills, `/harnessforce:setup` and `/harnessforce:tune` | npm (`@harnessforce/claude-code-plugin`), installed through the Claude Code marketplace in this repository |
 | `@harnessforce/agent-core` | Logic shared by `harnessforce` and the plugin hook, bundled into both | private |
 | `@harnessforce/test-support` | Test helpers | private |
 
 ## Quickstart
 
-> Public distribution of the plugin and the CLI starts once the production domain of Harnessforce is
-> decided. Until then, npm has no release and the plugin in this repository has no hooks; internal
-> testers use the [local marketplace build](docs/runbooks/local-marketplace.md).
+> The `harnessforce-agent` marketplace in this repository installs the plugin from npm
+> (`@harnessforce/claude-code-plugin`, latest version). Internal testers who need a staging or local
+> connection use the [local marketplace build](docs/runbooks/local-marketplace.md) instead.
 
 In Claude Code, with Node.js 18 or later installed:
 
@@ -155,9 +155,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 
 ## Release
 
-`@harnessforce/cli` and `@harnessforce/semconv` are released with [Changesets](https://github.com/changesets/changesets)
-and published to npm through trusted publishing with provenance. Publishing stays disabled until the
-production domain is decided. See [Releasing](docs/runbooks/releasing.md).
+`@harnessforce/cli`, `@harnessforce/semconv` and `@harnessforce/claude-code-plugin` are released with
+[Changesets](https://github.com/changesets/changesets) and published to npm through trusted
+publishing with provenance. See [Releasing](docs/runbooks/releasing.md).
 
 ## Links
 

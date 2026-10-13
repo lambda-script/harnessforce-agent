@@ -14,21 +14,26 @@ describe("plugin skeleton", () => {
 		expect(marketplace.plugins).toEqual([
 			expect.objectContaining({
 				name: "harnessforce",
-				source: "./plugins/harnessforce",
+				source: {
+					source: "npm",
+					package: "@harnessforce/claude-code-plugin",
+				},
 			}),
 		]);
 		expect(plugin.name).toBe("harnessforce");
 	});
 
-	it("points the marketplace source at an existing plugin directory", () =>
-		expect(
-			existsSync(
-				new URL(
-					"../plugins/harnessforce/.claude-plugin/plugin.json",
-					import.meta.url,
-				),
-			),
-		).toBe(true));
+	// environments.md「接続先」: versionを指定せず、npmのlatestを導入する。
+	it("installs the plugin from npm at the latest version", () => {
+		const [entry] = marketplace.plugins;
+		expect(entry.source).not.toHaveProperty("version");
+		expect(entry).not.toHaveProperty("version");
+	});
+
+	it("names the npm package the plugin package publishes", () =>
+		expect(read("plugins/harnessforce/package.json").name).toBe(
+			marketplace.plugins[0].source.package,
+		));
 
 	// hookのscriptはbuildの出力（plugins/harnessforce/dist/marketplace）にだけある。repositoryから直接導入しても存在しないscriptを起動しない。
 	it("wires no hooks in the repository copy of the plugin", () =>

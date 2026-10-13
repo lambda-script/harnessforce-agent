@@ -62,7 +62,8 @@ directory. That output holds no CLI tarball and no `bin`; its `/harnessforce:set
 that does bundle the tarballs (see [Building the local marketplace](./local-marketplace.md)); only
 `dist/npm` is published.
 
-The marketplace definition in this repository (`.claude-plugin/marketplace.json`) points at the source
-tree until `npm view @harnessforce/claude-code-plugin version` resolves. Only after that, change the
-plugin source to `{"source": "npm", "package": "@harnessforce/claude-code-plugin"}` in a separate pull
-request: changing it earlier makes installs from the marketplace fail while fetching the package.
+The marketplace definition in this repository (`.claude-plugin/marketplace.json`) installs the plugin
+from npm: its source is `{"source": "npm", "package": "@harnessforce/claude-code-plugin"}` with no
+version, so Claude Code takes the latest published version and a release reaches users without a
+change to the marketplace. Do not point the source back at the source tree: the tree has no hooks and
+no MCP server.
