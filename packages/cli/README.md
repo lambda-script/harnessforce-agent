@@ -23,6 +23,8 @@ harnessforce init
 
 ## Commands
 
+`harnessforce --help` lists the commands. `harnessforce <command> --help` explains when to use a command, what it sends and does not send, its exit codes, and examples.
+
 | Command | What it does |
 | --- | --- |
 | `harnessforce init [--port <port>] [--send-content]` | Logs in with the browser, stores a user ingest key and an API token in the keychain, and configures Claude Code and Codex |
