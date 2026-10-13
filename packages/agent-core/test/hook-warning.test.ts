@@ -12,22 +12,22 @@ import {
 describe("hook warnings", () => {
 	it("states the five conditions in the specified words", () => {
 		expect(UNSUPPORTED_NODE_WARNING).toBe(
-			"Harnessforceのhookには18以上のNode.jsが必要です",
+			"Harnessforce hooks require Node.js 18 or later",
 		);
 		expect(RESTART_FAILED_WARNING).toBe(
-			"Harnessforceのhookを起動し直せませんでした",
+			"Could not restart the Harnessforce hook",
 		);
 		expect(INVALID_ENDPOINT_WARNING).toBe(
-			"Harnessforceの送信先が不正です。`harnessforce init`を実行し直してください",
+			"The Harnessforce destination is invalid. Run `harnessforce init` again",
 		);
 		expect(notConfiguredWarning("claude_code")).toBe(
-			"Harnessforceの送信が設定されていません。`/harnessforce:setup`を実行してください",
+			"Harnessforce sending is not configured. Run `/harnessforce:setup`",
 		);
 		expect(notConfiguredWarning("codex")).toBe(
-			"Harnessforceの送信が設定されていません。`harnessforce init`を実行してください",
+			"Harnessforce sending is not configured. Run `harnessforce init`",
 		);
 		expect(REGISTRATION_FAILED_WARNING).toBe(
-			"Harnessforceへのsession登録に失敗しました。通信を確かめてください",
+			"Harnessforce session registration failed. Check your network connection",
 		);
 	});
 
