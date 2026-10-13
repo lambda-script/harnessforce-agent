@@ -121,59 +121,17 @@ describe("resolving harnessforce on PATH", () => {
 		expect(calls).toEqual([]);
 	});
 
-	// correlation.md「コマンド名」: `hf`を`bin`に持つbuildのhookは、`harnessforce`が無ければ`hf`を解決する。
-	describe("the hf alias", () => {
-		const nodeScript = "#!/usr/bin/env node\n";
-
-		it("falls back to hf when harnessforce is not on PATH", async () => {
-			const { exec, calls } = fakeExec({ ok: true, stdout: header("k") });
-			const read = reader({
-				platform: "linux",
-				env: { PATH: "/usr/local/bin" },
-				fs: memoryFs({ "/usr/local/bin/hf": nodeScript }),
-				exec,
-			});
-			expect(await read("/work/web")).toEqual({ kind: "found", key: "k" });
-			expect(calls).toEqual([
-				{
-					file: process.execPath,
-					args: ["/usr/local/bin/hf", "otel-headers"],
-					verbatim: false,
-				},
-			]);
+	// correlation.md「コマンド名」: `hf`はHugging Face CLIの名前であり、公開するpackageは持たないため解決しない。
+	it("does not resolve hf, which belongs to the Hugging Face CLI", async () => {
+		const { exec, calls } = fakeExec({ ok: true, stdout: header("k") });
+		const read = reader({
+			platform: "linux",
+			env: { PATH: "/usr/local/bin" },
+			fs: memoryFs({ "/usr/local/bin/hf": "#!/usr/bin/env node\n" }),
+			exec,
 		});
-
-		it("prefers harnessforce when both are on PATH", async () => {
-			const { exec, calls } = fakeExec({ ok: true, stdout: header("k") });
-			const read = reader({
-				platform: "linux",
-				env: { PATH: "/a/bin:/b/bin" },
-				fs: memoryFs({
-					"/a/bin/hf": nodeScript,
-					"/b/bin/harnessforce": nodeScript,
-				}),
-				exec,
-			});
-			await read("/work/web");
-			expect(calls.map((call) => call.args[0])).toEqual([
-				"/b/bin/harnessforce",
-			]);
-		});
-
-		it("does not fall back to hf when harnessforce fails to read the key", async () => {
-			const { exec, calls } = fakeExec({ ok: false, stdout: "" });
-			const read = reader({
-				platform: "linux",
-				env: { PATH: "/a/bin" },
-				fs: memoryFs({
-					"/a/bin/harnessforce": nodeScript,
-					"/a/bin/hf": nodeScript,
-				}),
-				exec,
-			});
-			expect(await read("/work/web")).toEqual({ kind: "failed" });
-			expect(calls).toHaveLength(1);
-		});
+		expect(await read("/work/web")).toEqual({ kind: "missing" });
+		expect(calls).toEqual([]);
 	});
 
 	describe("on Windows", () => {

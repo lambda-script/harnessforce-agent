@@ -16,8 +16,7 @@
 	},
 	"type": "module",
 	"bin": {
-		"harnessforce": "./dist/bin.js",
-		"hf": "./dist/bin.js"
+		"harnessforce": "./dist/bin.js"
 	},
 	"files": [
 		"dist"
