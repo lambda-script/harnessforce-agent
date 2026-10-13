@@ -10,6 +10,7 @@ import {
 	takeStashedRuntimeEnv,
 } from "@harnessforce/agent-core/process/runtime-env";
 import { createOsKeychain } from "./credentials/os-keychain.js";
+import { createSecretServiceProcess } from "./credentials/secret-service-process.js";
 import { createImportGit } from "./import/repository.js";
 import { openBrowser } from "./init/browser.js";
 import { startLoopback } from "./init/loopback.js";
@@ -21,9 +22,8 @@ import { runOriginalCommand } from "./usage-limits/original.js";
 import { spawnUsageSender } from "./usage-limits/spawn-sender.js";
 
 // buildが書く既定の接続先（scripts/build-config.mjs）。distのbin.jsと同じdirectoryにある。
-const { url: defaultUrl } = createRequire(import.meta.url)(
-	"./build-config.json",
-) as { url: string };
+const require = createRequire(import.meta.url);
+const { url: defaultUrl } = require("./build-config.json") as { url: string };
 // correlation.md「CLI」: 待ち受けを始めてから5分以内にcallbackが来なければ終える。
 const CALLBACK_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -46,6 +46,10 @@ process.exitCode =
 			platform: process.platform,
 			// native moduleは使う時だけ読み込み、読めない端末ではkeychainが使えないものとして扱う。
 			load: () => import("@napi-rs/keyring"),
+			secretService: createSecretServiceProcess({
+				execPath: process.execPath,
+				resolveKeyring: () => require.resolve("@napi-rs/keyring"),
+			}),
 		}),
 		stdout: (text) => process.stdout.write(text),
 		stderr: (text) => process.stderr.write(text),

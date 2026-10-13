@@ -18,7 +18,7 @@ const NAMES = [
 type Name = (typeof NAMES)[number];
 
 // 読めないuser settingsは値を持たないものとして扱い、harnessforce initを案内する。
-async function readSettingsEnv(
+export async function readSettingsEnv(
 	settingsPath: string,
 ): Promise<Partial<Record<Name, string>>> {
 	const read = await readUserSettings(settingsPath);

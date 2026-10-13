@@ -1,6 +1,7 @@
 import type { Env } from "@harnessforce/agent-core/types";
 import { parseAllowedUrl } from "@harnessforce/agent-core/url";
 import { resolveCliDestinations } from "../destinations.js";
+import { keychainUnavailableMessage } from "../shared/messages.js";
 import { userSettingsPath } from "../shared/settings.js";
 import { stopWith } from "../shared/stop.js";
 import { parseStoredApiToken } from "./api-token.js";
@@ -43,7 +44,9 @@ export async function verifyCliAccess(
 	const { keychain } = deps;
 	const stop = (message: keyof AccessMessages) => stopWith(messages[message]);
 	if (!(await keychain.isAvailable().catch(() => false)))
-		stop("keychainUnavailable");
+		stopWith(
+			keychainUnavailableMessage(keychain, messages.keychainUnavailable),
+		);
 	// 使えると確かめた後の読み出しの失敗も、keychainを使えない場合と同じ終端とする。
 	const read = (account: string) =>
 		keychain.get(account).catch(() => stop("keychainUnavailable"));

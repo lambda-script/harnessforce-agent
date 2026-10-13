@@ -27,6 +27,9 @@ const M = {
 		"Harnessforceに接続しました。Claude Codeを再起動すると設定が反映されます",
 	invalidUrl: "接続先のURLが不正です",
 	keychain: "OSのキーチェーンを利用できないため、送信キーを保存できません",
+	kernelKeyring:
+		"Secret Serviceを使えないため、送信キーをkernelのkeyringに保存しました。再起動するか、一定期間使わないと消えます。消えたら`harnessforce init`を再実行してください",
+	waiting: "Secret Serviceの解錠の確認を待っています（最大60秒）",
 	tooManyKeys:
 		"keychainにある送信キーが多すぎるため、`harnessforce init`を実行できません",
 	tooManyCredentials:
@@ -271,7 +274,57 @@ describe("harnessforce init", () => {
 			"ws1:api-token",
 			"ws1:ingest-origin",
 			"ws1:url-origin",
+			// 手順5: もう一方の保存先にある同じWorkspaceの項目を消す。
+			"delete elsewhere ws1",
 		]);
+	});
+
+	it("reads the previous workspace from the user settings when opening the keychain", async () => {
+		const server = await startCredentialsServer();
+		const { keychain, initOpens } = fakeKeychain();
+		await runInit([], {
+			homeDir: makeHome(
+				JSON.stringify({ env: { HARNESSFORCE_WORKSPACE_ID: "ws0" } }),
+			).home,
+			defaultUrl: server.base,
+			keychain,
+			openBrowser: fakeBrowser().open,
+		});
+		expect(initOpens).toEqual(["ws0"]);
+	});
+
+	it("tells the user when the key is saved to the kernel keyring", async () => {
+		const server = await startCredentialsServer();
+		const home = makeHome();
+		const result = await runInit([], {
+			homeDir: home.home,
+			defaultUrl: server.base,
+			keychain: fakeKeychain({ kernelKeyring: true }).keychain,
+			openBrowser: fakeBrowser().open,
+		});
+		expect(result).toEqual({
+			code: 0,
+			out: `${M.success}\n${M.kernelKeyring}\n${codexNotes(home.home)}\n`,
+			err: "",
+		});
+	});
+
+	it("tells the user it is waiting for the Secret Service to be unlocked", async () => {
+		const server = await startCredentialsServer();
+		const { keychain } = fakeKeychain();
+		const open = keychain.openForInit;
+		keychain.openForInit = (options) => {
+			options.onWaiting();
+			return open(options);
+		};
+		const result = await runInit([], {
+			homeDir: makeHome().home,
+			defaultUrl: server.base,
+			keychain,
+			openBrowser: fakeBrowser().open,
+		});
+		expect(result.code).toBe(0);
+		expect(result.err).toBe(`${M.waiting}\n`);
 	});
 
 	it("honors CLAUDE_CONFIG_DIR for the user settings file", async () => {
@@ -346,6 +399,27 @@ describe("harnessforce init", () => {
 				}),
 			).toEqual(failed(M.keychain));
 			expect(server.metadataRequests()).toEqual([]);
+		});
+
+		it("adds the Linux guidance only when neither store can be used", async () => {
+			const server = await startCredentialsServer();
+			const hint = "linux hint";
+			expect(
+				await runInit([], {
+					homeDir: makeHome().home,
+					defaultUrl: server.base,
+					keychain: fakeKeychain({ available: false, unavailableHint: hint })
+						.keychain,
+				}),
+			).toEqual(failed(`${M.keychain}。${hint}`));
+			expect(
+				await runInit([], {
+					homeDir: makeHome().home,
+					defaultUrl: server.base,
+					keychain: fakeKeychain({ failRead: true, unavailableHint: hint })
+						.keychain,
+				}),
+			).toEqual(failed(M.keychain));
 		});
 
 		it("stops when the keychain holds more than 100 ingest keys", async () => {

@@ -25,6 +25,20 @@ const userEnv = {
 };
 
 describe("harnessforce otel-headers", () => {
+	// hookはotel-headersを1秒で打ち切るため、解錠の確認を待つ読み出しもその時間で終える。
+	it("bounds each keychain operation by 1 second", async () => {
+		const { keychain, timeouts } = fakeKeychain({
+			items: {
+				"ws1:ingest-key": "hf_ik_ws1_user",
+				"ws1:ingest-origin": "https://ingest.example.test",
+			},
+		});
+		expect(
+			await runCli(["otel-headers"], { env: userEnv, keychain }),
+		).toMatchObject({ code: 0, out: header("hf_ik_ws1_user") });
+		expect(timeouts).toEqual([1_000]);
+	});
+
 	it("prints the user ingest key when every destination matches the pinned origin", async () =>
 		expect(
 			await runCli(["otel-headers"], { env: userEnv, keychain: pinned() }),

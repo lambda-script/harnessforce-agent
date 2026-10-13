@@ -11,8 +11,8 @@ then, install it from the [local marketplace build](https://github.com/lambda-sc
 ## Requirements
 
 - Node.js 18 or later (the same Node.js the plugin hook uses).
-- An OS keychain: macOS Keychain, the Secret Service on Linux, or the Windows Credential Manager.
-  Keys and tokens are never written to a plain file.
+- An OS keychain: macOS Keychain, the Windows Credential Manager, or on Linux the Secret Service or the
+  kernel keyring (keyutils). Keys and tokens are never written to a plain file.
 
 ## Install
 
@@ -104,9 +104,13 @@ tokens are sent only to the origins pinned by `harnessforce init`.
 
 `harnessforce init [--url <base URL>] [--port <port>] [--send-content]` connects this machine to a Harnessforce Workspace:
 
-1. It checks the OS keychain first: macOS Keychain, the Secret Service on Linux, or the Windows
-   Credential Manager (through [`@napi-rs/keyring`](https://github.com/Brooooooklyn/keyring-node)).
-   Without one it stops. Keys are never written to a plain file.
+1. It checks the OS keychain first: macOS Keychain or the Windows Credential Manager (through
+   [`@napi-rs/keyring`](https://github.com/Brooooooklyn/keyring-node)). On Linux it writes and deletes
+   a non-secret `availability-probe` item in the Secret Service (GNOME Keyring or KWallet), waiting at
+   most 60 seconds for you to unlock it, and saves there when that works. Otherwise, as on a machine
+   reached only over SSH, it saves to the kernel's persistent keyring, which lives in memory and is
+   cleared on reboot or after a period of disuse; run `harnessforce init` again then. Without either
+   store it stops. Keys are never written to a plain file.
 2. It logs in with the browser: OAuth 2.0 authorization code with PKCE, a `127.0.0.1:8080` loopback
    redirect (`--port <port>` changes the port), the endpoint discovered from
    `/.well-known/oauth-authorization-server`, and a 5 minute wait. When the port is already in use it
@@ -120,7 +124,10 @@ tokens are sent only to the origins pinned by `harnessforce init`.
    `<workspace_id>:api-token` (a JSON object with the access token, the refresh token and their
    expiries), and pins the ingest endpoint origin as `<workspace_id>:ingest-origin`
    and the base URL origin as `<workspace_id>:url-origin`. It deletes both origins first and writes
-   them last, so a failure part way never pairs an old origin with a new key or token.
+   them last, so a failure part way never pairs an old origin with a new key or token. After saving to
+   the Secret Service it deletes the same Workspace's items from the kernel keyring. Later commands read
+   a Workspace from the kernel keyring when it holds the ingest key there, and from the Secret Service
+   otherwise.
 5. It updates the Claude Code user settings (`~/.claude/settings.json`, or `$CLAUDE_CONFIG_DIR`),
    changing only these keys:
    - `env`: the OTel exporter variables, `HARNESSFORCE_URL`, `HARNESSFORCE_ENDPOINT` and

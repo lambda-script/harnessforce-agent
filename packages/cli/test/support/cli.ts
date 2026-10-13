@@ -1,4 +1,8 @@
-import type { Keychain, KeychainItem } from "../../src/credentials/keychain.js";
+import {
+	type Keychain,
+	type KeychainItem,
+	openSingleStore,
+} from "../../src/credentials/keychain.js";
 import { startLoopback } from "../../src/init/loopback.js";
 import { type CliDeps, run } from "../../src/main.js";
 import { fakeTty } from "../top/support.js";
@@ -12,13 +16,20 @@ type FakeKeychainOptions = {
 	failWrite?: boolean;
 	// このaccountへの書き込みだけを失敗させる。
 	failWriteOn?: string;
+	// `harnessforce init`の保存先をkernelのkeyringにする（LinuxでSecret Serviceを使えない端末）。
+	kernelKeyring?: boolean;
+	unavailableHint?: string;
 };
 
 // 実際のkeychainの代わり。itemsは書き込みで更新される。
 export function fakeKeychain(options: FakeKeychainOptions = {}) {
 	const items = new Map(Object.entries(options.items ?? {}));
-	// 書き込みの順序。deleteは"delete <account>"とする。
+	// 書き込みの順序。deleteは"delete <account>"、もう一方の保存先の削除は"delete elsewhere <workspace_id>"とする。
 	const writes: string[] = [];
+	// withTimeoutで渡された上限時間。
+	const timeouts: number[] = [];
+	// openForInitに渡された前回のWorkspace。
+	const initOpens: (string | undefined)[] = [];
 	const fail = (when: boolean | undefined) => {
 		if (when) throw new Error("keychain failure");
 	};
@@ -41,12 +52,33 @@ export function fakeKeychain(options: FakeKeychainOptions = {}) {
 			items.delete(account);
 			writes.push(`delete ${account}`);
 		},
-		list: async (): Promise<KeychainItem[]> => {
-			fail(options.failRead);
-			return [...items].map(([account, secret]) => ({ account, secret }));
+		withTimeout: (ms) => {
+			timeouts.push(ms);
+			return keychain;
+		},
+		openForInit: async ({ previousWorkspaceId }) => {
+			initOpens.push(previousWorkspaceId);
+			const store = await openSingleStore({
+				...keychain,
+				list: async (): Promise<KeychainItem[]> => {
+					fail(options.failRead);
+					return [...items].map(([account, secret]) => ({ account, secret }));
+				},
+			});
+			return (
+				store && {
+					...store,
+					isKernelKeyring: options.kernelKeyring ?? false,
+					deleteElsewhere: async (workspaceId) => {
+						writes.push(`delete elsewhere ${workspaceId}`);
+					},
+				}
+			);
 		},
 	};
-	return { keychain, items, writes };
+	if (options.unavailableHint)
+		keychain.unavailableHint = options.unavailableHint;
+	return { keychain, items, writes, timeouts, initOpens };
 }
 
 // keychainに触れてはいけないtestで使う。
@@ -63,7 +95,10 @@ export const untouchableKeychain: Keychain = {
 	delete: async () => {
 		throw new Error("keychain must not be used");
 	},
-	list: async () => {
+	withTimeout: () => {
+		throw new Error("keychain must not be used");
+	},
+	openForInit: async () => {
 		throw new Error("keychain must not be used");
 	},
 };

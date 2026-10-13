@@ -21,7 +21,10 @@ import { usingHarnessforceBody } from "@harnessforce/agent-core/using-harnessfor
 import { resolveVcs } from "@harnessforce/agent-core/vcs";
 import { isToken, type SessionRegistration } from "@harnessforce/semconv";
 import type { Keychain } from "../credentials/keychain.js";
-import { resolveUserDestination } from "../credentials/user-destination.js";
+import {
+	resolveUserDestination,
+	type UserDestination,
+} from "../credentials/user-destination.js";
 
 export const HOOK_USAGE = "Usage: harnessforce hook session-start\n";
 
@@ -41,6 +44,10 @@ export type SessionStartDeps = {
 const MAX_INPUT_BYTES = 1024 * 1024;
 // correlation.md「Codexのhook」: 登録を送るのはsourceが`startup`、`clear`、または無いときだけ。
 const REGISTERING_SOURCES = new Set(["startup", "clear"]);
+// correlation.md「Codex」: Codexのhookの上限時間は長く、ロックされたSecret Serviceの解錠の確認を待つと
+// sessionの開始が止まるため、keychainの読み出しを打ち切り、keyが無いものとして扱う。
+// 打ち切りは、keychainを読むuser settingsからの宛先の解決全体にかける。
+const KEYCHAIN_READ_TIMEOUT_MS = 1_000;
 const REVOKED_MESSAGE =
 	"送信キーが失効しています。`harnessforce init`を実行してください";
 
@@ -76,8 +83,25 @@ const report = (deps: SessionStartDeps, detail: string) =>
 // 送れない理由が利用者の設定にあるときだけwarningを返す（correlation.md「hookの警告」）。keychainのkeyが無い端末は表示しない。
 type Resolved = { destination?: Destination; warning?: string };
 
+function resolveWithinLimit(deps: SessionStartDeps): Promise<UserDestination> {
+	let timer: NodeJS.Timeout | undefined;
+	const slow = new Promise<UserDestination>((resolve) => {
+		timer = setTimeout(
+			() => resolve({ kind: "skipped", reason: "no ingest key" }),
+			KEYCHAIN_READ_TIMEOUT_MS,
+		);
+	});
+	return Promise.race([
+		resolveUserDestination({
+			...deps,
+			keychain: deps.keychain.withTimeout(KEYCHAIN_READ_TIMEOUT_MS),
+		}),
+		slow,
+	]).finally(() => clearTimeout(timer));
+}
+
 async function resolveDestination(deps: SessionStartDeps): Promise<Resolved> {
-	const resolved = await resolveUserDestination(deps);
+	const resolved = await resolveWithinLimit(deps);
 	if (resolved.kind === "ok") return { destination: resolved.destination };
 	if (resolved.kind === "none") {
 		report(deps, "skipped (not configured)");

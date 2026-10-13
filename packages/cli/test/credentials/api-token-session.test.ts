@@ -340,6 +340,39 @@ describe("the refresh lock", () => {
 		expect(server.refreshForms).toEqual([]);
 	});
 
+	it("bounds each keychain operation inside the lock by 10 seconds", async () => {
+		const server = await startAuthorizationServer();
+		const { tokens, keychain, stored } = session(
+			server.base,
+			token("old", NOW - 1),
+		);
+		const outcome = await tokens.withToken(
+			async (accessToken) => accessToken,
+			() => false,
+		);
+		expect(outcome).toEqual({ kind: "ok", value: "hf_at_ws1_refreshed" });
+		expect(keychain.timeouts).toEqual([10_000]);
+		expect(stored().access_token).toBe("hf_at_ws1_refreshed");
+	});
+
+	it("ends as expired when a keychain operation inside the lock exceeds its limit", async () => {
+		const server = await startAuthorizationServer();
+		const { tokens, keychain } = session(server.base, token("old", NOW - 1));
+		keychain.keychain.withTimeout = () => ({
+			...keychain.keychain,
+			get: async () => {
+				throw new Error("timed out");
+			},
+		});
+		expect(
+			await tokens.withToken(
+				async (accessToken) => accessToken,
+				() => false,
+			),
+		).toEqual({ kind: "expired" });
+		expect(server.refreshForms).toEqual([]);
+	});
+
 	it("ends as expired when the lock is not released within 30 seconds", async () => {
 		const server = await startAuthorizationServer();
 		let clock = NOW;
