@@ -1,7 +1,7 @@
 # Releasing
 
 Publishing to npmjs is disabled until the production domain is recorded in the Harnessforce
-`docs/specs/infrastructure/environments.md` ("接続先") and the npm scope exists. Until the domain is
+`docs/specs/infrastructure/environments.md` (the connection destination section) and the npm scope exists. Until the domain is
 recorded, that spec keeps distributing the plugin and the CLI to the public out of scope.
 
 ## Enabling publishing (once)
