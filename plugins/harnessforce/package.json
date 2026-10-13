@@ -1,10 +1,33 @@
 {
-	"name": "harnessforce-plugin",
-	"version": "0.0.0",
-	"private": true,
-	"description": "Source of the harnessforce Claude Code plugin hooks (not published to npm)",
+	"name": "@harnessforce/claude-code-plugin",
+	"version": "0.1.0",
+	"description": "Harnessforce plugin for Claude Code",
+	"keywords": [
+		"harnessforce",
+		"claude-code",
+		"claude-code-plugin",
+		"opentelemetry",
+		"ai-agents"
+	],
 	"license": "Apache-2.0",
+	"homepage": "https://github.com/lambda-script/harnessforce-agent/tree/main/plugins/harnessforce#readme",
+	"bugs": {
+		"url": "https://github.com/lambda-script/harnessforce-agent/issues"
+	},
 	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/lambda-script/harnessforce-agent.git",
+		"directory": "plugins/harnessforce"
+	},
+	"publishConfig": {
+		"access": "public",
+		"provenance": true,
+		"directory": "dist/npm"
+	},
+	"engines": {
+		"node": ">=18"
+	},
 	"scripts": {
 		"lint": "biome check .",
 		"typecheck": "tsc -p tsconfig.json",

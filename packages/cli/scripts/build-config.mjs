@@ -17,7 +17,7 @@ export function buildConfigFrom(env) {
 		throw new Error(
 			"HARNESSFORCE_BUILD_URL must be the apps/web base URL (https:, or http: for localhost, 127.0.0.1 or [::1])",
 		);
-	return { url };
+	return { url, isDefault: url === DEFAULT_URL };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url))

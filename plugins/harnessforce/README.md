@@ -2,7 +2,9 @@
 
 The `harnessforce` Claude Code plugin links your Claude Code sessions to
 [Harnessforce](https://github.com/lambda-script/harnessforce-agent) Issues. It is distributed through
-the `harnessforce-agent` marketplace in this repository, not through npm.
+the `harnessforce-agent` marketplace in this repository and as the npm package
+`@harnessforce/claude-code-plugin`, which holds the plugin built against the production connection URL
+and does not bundle the CLI (`/harnessforce:setup` installs `@harnessforce/cli` from npm).
 
 ## What it contains
 

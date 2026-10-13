@@ -71,6 +71,30 @@ const RUNBOOK = "docs/runbooks/releasing.md";
 const readRunbook = () =>
 	readFileSync(new URL(`../${RUNBOOK}`, import.meta.url), "utf8");
 
+// environments.md「接続先」: 公開するplugin。buildの出力（dist/npm）をpackageのrootとして公開する。
+describe("plugin package", () => {
+	const plugin = read("plugins/harnessforce/package.json");
+
+	it("is published from its build output as @harnessforce/claude-code-plugin", () => {
+		expect(plugin.name).toBe("@harnessforce/claude-code-plugin");
+		expect(plugin.private).toBeUndefined();
+		expect(plugin.publishConfig).toEqual({
+			access: "public",
+			provenance: true,
+			directory: "dist/npm",
+		});
+		expect(plugin.repository.directory).toBe("plugins/harnessforce");
+	});
+
+	it("is covered by the first-release check as a public package", () =>
+		expect(
+			readFileSync(
+				new URL("../scripts/check-first-release.mjs", import.meta.url),
+				"utf8",
+			),
+		).toContain('"plugins"'));
+});
+
 describe("release workflow", () => {
 	const yml = readFileSync(
 		new URL("../.github/workflows/release.yml", import.meta.url),
@@ -114,11 +138,14 @@ describe("release workflow", () => {
 		).trim();
 		expect(atLeast(node, "22.14.0")).toBe(true);
 	});
-	// environments.md「接続先」: CLIの接続先はbuildの入力として1か所で与え、既定値で補わない。
-	it("builds the CLI with the connection URL from the repository variable", () =>
-		expect(yml).toContain(
-			"HARNESSFORCE_BUILD_URL: ${{ vars.HARNESSFORCE_BUILD_URL }}",
-		));
+	// environments.md「接続先」: 配るのは接続先の値を与えないbuildだけであり、workflowは値を渡さない。
+	it("builds without a connection URL and checks the build before publishing", () => {
+		expect(yml).not.toContain("HARNESSFORCE_BUILD_URL");
+		const release = read("package.json").scripts.release;
+		expect(release).toBe(
+			"turbo run build && node scripts/check-publish-build.mjs && changeset publish",
+		);
+	});
 	// environments.md「接続先」: 一般への配布はproductionのドメインが記録されるまで対象外とする。
 	it("documents that publishing waits for the production domain", () => {
 		expect(yml).toMatch(
@@ -128,6 +155,11 @@ describe("release workflow", () => {
 		expect(releasing).toMatch(
 			/^Publishing to npmjs is disabled until the production domain is recorded/m,
 		);
+	});
+	it("documents the plugin package and the default-connection guard", () => {
+		const releasing = readRunbook();
+		expect(releasing).toContain("@harnessforce/claude-code-plugin");
+		expect(releasing).toContain("scripts/check-publish-build.mjs");
 	});
 	it("documents trusted publishing as the npm credential", () => {
 		const releasing = readRunbook();

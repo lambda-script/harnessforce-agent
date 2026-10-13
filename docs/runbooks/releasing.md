@@ -10,17 +10,20 @@ recorded, that spec keeps distributing the plugin and the CLI to the public out 
 2. Create the `@harnessforce` npm organization on npmjs.com.
 3. The `Release` workflow authenticates to npm only through trusted publishing (OIDC); the repository
    holds no npm token. npm attaches a trusted publisher only to a package that already exists, so a
-   maintainer with 2FA publishes each of `@harnessforce/semconv` and `@harnessforce/cli` once as a
+   maintainer with 2FA publishes each of `@harnessforce/semconv`, `@harnessforce/cli` and
+   `@harnessforce/claude-code-plugin` once as a
    placeholder: from an empty directory holding only a `package.json` with that `name`, the version
    `0.0.0-bootstrap.0` and the same `repository` as `packages/<name>/package.json`, run
    `npm publish --access public`.
 4. Attach the trusted publisher to each package (npm 11.15.0 or later, 2FA required):
    `npm trust github @harnessforce/<name> --repository lambda-script/harnessforce-agent --file release.yml --allow-publish`
 5. In repository Settings → Actions → General, allow GitHub Actions to create pull requests.
-6. Leave the repository variable `HARNESSFORCE_BUILD_URL` unset. The build then bakes the production
-   default `https://harnessforce.dev` into `@harnessforce/cli` and the plugin
-   (`packages/cli/scripts/build-config.mjs`); a staging or local URL is for development builds only and
-   must not be published.
+6. Do not set `HARNESSFORCE_BUILD_URL`. The `Release` workflow does not pass it, so the build bakes the
+   production default `https://harnessforce.dev` into `@harnessforce/cli` and the plugin
+   (`packages/cli/scripts/build-config.mjs`); a staging or local URL is for development builds only.
+   `pnpm run release` runs `scripts/check-publish-build.mjs` between the build and `changeset publish`; it
+   fails unless `packages/cli/dist/build-config.json` has `isDefault: true` and the plugin's `.mcp.json`
+   defaults to `https://harnessforce.dev`, so a build with another connection URL is never published.
 7. Remove the `hf` alias before the first publish. `packages/cli/package.json` lists `harnessforce` and
    `hf` in `bin` only for builds before the first publish (Harnessforce `correlation.md`, "コマンド名"): the
    Hugging Face CLI also uses `hf`. Delete the `hf` entry from `bin`, update the `bin` test in
@@ -30,7 +33,7 @@ recorded, that spec keeps distributing the plugin and the CLI to the public out 
    package still exposes `hf`.
 8. `gh variable set NPM_PUBLISH_ENABLED --body true -R lambda-script/harnessforce-agent`
 9. Re-run the latest `Release` workflow on `main`. It publishes 0.1.0 with provenance and fails
-   unless `npm view @harnessforce/semconv@0.1.0 version` and `npm view @harnessforce/cli@0.1.0 version` resolve.
+   unless `npm view @harnessforce/<name>@0.1.0 version` resolves for `semconv`, `cli` and `claude-code-plugin`.
    The Harnessforce spec (`semantic-conventions.md`) makes 0.1.0 the first published version, and the
    Harnessforce service switches to `@harnessforce/semconv` once 0.1.0 is on npm.
    Until `@harnessforce/<name>@0.1.0` is on npm, do not add a changeset for that package: the changes
@@ -43,9 +46,9 @@ recorded, that spec keeps distributing the plugin and the CLI to the public out 
 
 ## Every release
 
-1. After the first release, each pull request that changes what users of `@harnessforce/cli` or
-   `@harnessforce/semconv` see carries a changeset (`pnpm changeset`). Before it, see step 8 above. Private packages (`@harnessforce/agent-core`,
-   `@harnessforce/test-support`, `harnessforce-plugin`) are never published and need none.
+1. After the first release, each pull request that changes what users of `@harnessforce/cli`,
+   `@harnessforce/semconv` or `@harnessforce/claude-code-plugin` see carries a changeset (`pnpm changeset`). Before it, see step 8 above. Private packages (`@harnessforce/agent-core`,
+   `@harnessforce/test-support`) are never published and need none.
 2. Merging to `main` makes the `Release` workflow open or update the "chore: version packages" pull
    request, which bumps the versions and writes the changelogs.
 3. Merging that pull request runs `pnpm run release` (`turbo run build && changeset publish`), which
@@ -54,6 +57,16 @@ recorded, that spec keeps distributing the plugin and the CLI to the public out 
    resolves with `npm view <name>@<version> version`. A merged version pull request alone does not
    mean the release succeeded: check that the `Release` run is green.
 
-The plugin is not published to npm. Once public distribution starts, users add the marketplace in this
-repository. Until then, internal testers use the build output described in
-[Building the local marketplace](./local-marketplace.md).
+## The plugin package
+
+`@harnessforce/claude-code-plugin` is `plugins/harnessforce`. Its `publishConfig.directory` makes
+`pnpm publish` pack `plugins/harnessforce/dist/npm`, the plugin build output, instead of the source
+directory. That output holds no CLI tarball and no `bin`; its `/harnessforce:setup` installs
+`@harnessforce/cli` from npm. The same build also writes `dist/marketplace`, the local marketplace form
+that does bundle the tarballs (see [Building the local marketplace](./local-marketplace.md)); only
+`dist/npm` is published.
+
+The marketplace definition in this repository (`.claude-plugin/marketplace.json`) points at the source
+tree until `npm view @harnessforce/claude-code-plugin version` resolves. Only after that, change the
+plugin source to `{"source": "npm", "package": "@harnessforce/claude-code-plugin"}` in a separate pull
+request: changing it earlier makes installs from the marketplace fail while fetching the package.

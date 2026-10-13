@@ -24,7 +24,9 @@ Give the exact origin `apps/web` serves, not merely an equivalent one: `http://1
 does not match the URL in `.mcp.json` (`Failed to connect — Protected resource … does not match
 expected …`). Read the host from the running `apps/web` instead of assuming it.
 
-The build writes a marketplace directory to `plugins/harnessforce/dist/marketplace`. The plugin in it
+The build writes two outputs: `plugins/harnessforce/dist/npm`, the package published to npm as
+`@harnessforce/claude-code-plugin` (no CLI tarballs), and the marketplace directory
+`plugins/harnessforce/dist/marketplace` described below. The plugin in it
 contains:
 
 - `hooks/hooks.json` and `scripts/`: the session registration hooks (see the
