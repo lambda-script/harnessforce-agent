@@ -2,11 +2,12 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
+// Windowsのcheckoutは改行をCRLFへ変えるため、frontmatterの正規表現の前にLFへ揃える。
 const read = (name: string) =>
 	readFileSync(
 		fileURLToPath(new URL(`../commands/${name}.md`, import.meta.url)),
 		"utf8",
-	);
+	).replaceAll("\r\n", "\n");
 
 function parse(name: string) {
 	const source = read(name);
