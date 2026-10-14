@@ -45,8 +45,8 @@ function tableCells(readme: string, pattern: RegExp): string[] {
 	return [...readme.matchAll(pattern)].map((m) => m[1] as string);
 }
 
-// 「〜とき」「〜場合」「〜だけ」のいずれかで使う場面を述べ、「使う」で終える。
-const triggerClause = /(とき|場合|だけ).*使う/;
+// "Use when ..." or "Use it when/only for ..." states the situation in which the asset is used.
+const triggerClause = /\bUse (when|it)\b/;
 
 function findDrift(
 	readme: string,
@@ -57,7 +57,7 @@ function findDrift(
 	const tableSkills = tableCells(readme, /^\| Skill `([^`]+)` \|/gm);
 	const tableCommands = tableCells(
 		readme,
-		/^\| Command `\/harnessforce:([^`]+)` \|/gm,
+		/^\| Command `\/harnessforce:([^`\s]+)[^`]*` \|/gm,
 	);
 
 	for (const skill of skills) {
@@ -99,7 +99,7 @@ describe("plugin README, skills and commands", () => {
 			"| Skill `a` | x |",
 			"| Command `/harnessforce:b` | y |",
 		].join("\n");
-		const triggered = "Aのとき使う。";
+		const triggered = "Use when A.";
 
 		it("reports nothing when they match", () => {
 			expect(
@@ -128,7 +128,7 @@ describe("plugin README, skills and commands", () => {
 			expect(
 				findDrift(
 					readme,
-					[{ name: "a", description: "Aを説明する。" }],
+					[{ name: "a", description: "Explains A." }],
 					[{ name: "b", description: "" }],
 				),
 			).toEqual(["skill a description has no trigger clause"]);
