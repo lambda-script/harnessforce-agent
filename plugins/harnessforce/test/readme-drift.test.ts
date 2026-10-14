@@ -8,6 +8,11 @@ interface Asset {
 	description: string;
 }
 
+// Windows checkouts convert line endings to CRLF.
+function readText(url: URL): string {
+	return readFileSync(url, "utf8").replace(/\r\n/g, "\n");
+}
+
 function frontmatterDescription(source: string): string {
 	const match = /^---\n([\s\S]*?)\n---/.exec(source);
 	const line = match?.[1]
@@ -22,10 +27,7 @@ function readSkills(): Asset[] {
 		.map((entry) => ({
 			name: entry.name,
 			description: frontmatterDescription(
-				readFileSync(
-					new URL(`skills/${entry.name}/SKILL.md`, pluginRoot),
-					"utf8",
-				),
+				readText(new URL(`skills/${entry.name}/SKILL.md`, pluginRoot)),
 			),
 		}));
 }
@@ -36,7 +38,7 @@ function readCommands(): Asset[] {
 		.map((file) => ({
 			name: file.replace(/\.md$/, ""),
 			description: frontmatterDescription(
-				readFileSync(new URL(`commands/${file}`, pluginRoot), "utf8"),
+				readText(new URL(`commands/${file}`, pluginRoot)),
 			),
 		}));
 }
@@ -90,7 +92,7 @@ function findDrift(
 
 describe("plugin README, skills and commands", () => {
 	it("agree with each other", () => {
-		const readme = readFileSync(new URL("README.md", pluginRoot), "utf8");
+		const readme = readText(new URL("README.md", pluginRoot));
 		expect(findDrift(readme, readSkills(), readCommands())).toEqual([]);
 	});
 
