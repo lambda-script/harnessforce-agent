@@ -11,7 +11,7 @@ semantic conventions.
 Harnessforce links the work of coding agents to the Issues it was done for. This repository holds the
 open source parts that run on your machine: they register each Claude Code session with its git
 repository, branch and commit, point Claude Code's OpenTelemetry exporter at your Workspace, and give
-the agent MCP tools to record plans, decisions and the Definition of Done. They send metadata, never
+the agent MCP tools to record plans, Actions and the Definition of Done. They send metadata, never
 your prompts, responses or code.
 
 ## Packages

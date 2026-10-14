@@ -30,7 +30,7 @@ through the `harnessforce` CLI or MCP with as little manual work as possible.
    code in this repository. Maintainers' use of them can follow the lambda-harness loop (eval →
    change → PR → human merge) without touching any user environment.
 4. **The current agent-side creation path depends on the agent obeying a skill.** `record-run` is the
-   only path to Plan, Action (`record_decision`) and Definition of Done; it is narrower than the spec
+   only path to Plan, Action (`record_action`) and Definition of Done; it is narrower than the spec
    (harnessforce#763). Hooks only register sessions and count usage (`plugins/harnessforce/build.mjs`).
    The hooks documentation does not name `ExitPlanMode` or `AskUserQuestion` (checked 2026-10-14,
    https://code.claude.com/docs/en/hooks, first 100,000 characters), so approval/answer events cannot be
@@ -53,7 +53,7 @@ through the `harnessforce` CLI or MCP with as little manual work as possible.
 | --- | --- | --- | --- |
 | Run | **Auto**: SessionStart hook registers; `harnessforce run --issue` links at 1.0. **Manual**: `harnessforce import` (once, from `/harnessforce:setup`); `start_run` only if the agent follows `record-run` | **Auto** server-side (ingestion health, Monitors). Agent side: `harnessforce top` is local and pull-only | **Auto**: OTel cost, time, tokens; usage summary. Analysis report only when the user runs `tune` |
 | Plan | Agent-voluntary `record_plan` (`proposed`) | Server shows `proposed` until a human approves | `plan_before_handoff` practice metric (server) |
-| Action (decision) | Agent-voluntary `record_decision`; skill condition narrower than spec (#763); no hook path | Server | Action counts exist; auto-recorded facts not implemented (#796 closed) |
+| Action (decision) | Agent-voluntary `record_action`; skill condition narrower than spec (#763); no hook path | Server | Action counts exist; auto-recorded facts not implemented (#796 closed) |
 | Definition of Done | Agent-voluntary in `complete_run` | Server | Server |
 | Issue | `create_issue` after in-session consent; impossible in non-interactive runs by design | Provider sync (server) | Correlation rate (server) |
 | PR | Agent or human with `gh`; Harnessforce does not create PRs | **Auto** server-side: link from branch/PR text, review and CI Evaluations | **Auto**: first-pass CI/review, time to merge, rework |
@@ -85,7 +85,7 @@ asset, a baseline run without the change.
 
 - `evals/record-run.json`: `{id, prompt, context, assertions[]}`. Assertions are predicates over the
   stub's recorded calls, e.g. "`start_run` is not called when the context has no `harnessforce
-  session_id:` line", "after the user answers a question, `record_decision` is called without asking",
+  session_id:` line", "after the user answers a question, `record_action` is called without asking",
   "`decision` does not contain the user's text".
 - A stub MCP server in `packages/test-support` implements the five tool names and logs calls.
 - `scripts/run-evals.mjs` runs each scenario through `claude -p` with `--plugin-dir` pointing at the
@@ -111,7 +111,7 @@ uses `feature/…`, `bugfix/…` or `chore/…` branches.
 
 | # | PR | Depends on | Gate | Acceptance (observable) |
 | --- | --- | --- | --- | --- |
-| 1 | `fix(plugin): make record-run and using-harnessforce record user decisions as Actions` (closes lambda-script/harnessforce#763) | none | none (implementation catches up to the existing spec) | The `record-run` text contains the spec's condition (user decision, plan approval/rejection, scope decisions → `record_decision` without asking; own words, no quotation of the user); `using-harnessforce` states the same; a test in `plugins/harnessforce/test` fails on the old text |
+| 1 | `fix(plugin): make record-run and using-harnessforce record user decisions as Actions` (closes lambda-script/harnessforce#763) | none | none (implementation catches up to the existing spec) | The `record-run` text contains the spec's condition (user decision, plan approval/rejection, scope decisions → `record_action` without asking; own words, no quotation of the user); `using-harnessforce` states the same; a test in `plugins/harnessforce/test` fails on the old text |
 | 2 | `chore(plugin): add the eval harness for plugin skills` | 1 | none | `pnpm check` passes; `evals/record-run.json` has ≥3 scenarios incl. the three examples above; CI fails when a skill has no eval file; the packed plugin contains no `evals/`; `node scripts/run-evals.mjs --skill record-run` prints baseline vs candidate pass counts |
 | 3 | `test(plugin): fail when plugin README, skills and commands drift apart` | 2 | none | A test compares the README "What it contains" table with `skills/` and `commands/`; adding a skill without a table row, or a skill description without a trigger clause, fails `pnpm test` |
 | 4 | `chore: add scripts/self-improve-report to open one weekly improvement issue` | 2 | none (our repo, our Workspace) | Running it twice in a week updates the same issue (marker line); metrics with no data say "not measured", never 0; it sends nothing to Harnessforce and uses read-only MCP/Read API calls |

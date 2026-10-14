@@ -27,7 +27,7 @@ This session has the Harnessforce hook installed. Harnessforce links the work of
 
 ## Which skill and tool to use, and when
 
-- For work on a specified Issue ID, or when the environment variable `HARNESSFORCE_ISSUE` is set, follow `record-run` and use `start_run`, `get_issue`, `record_plan`, `record_decision`, and `complete_run`. An agent that cannot load the skill calls the tools in the same order.
+- For work on a specified Issue ID, or when the environment variable `HARNESSFORCE_ISSUE` is set, follow `record-run` and use `start_run`, `get_issue`, `record_plan`, `record_action`, and `complete_run`. An agent that cannot load the skill calls the tools in the same order.
 - Pass the value of the `harnessforce session_id:` line in the context to `start_run`. If there are several, use the last one. If the line is missing, do not guess the session ID, and do not call `start_run` or `complete_run`.
 - Use `propose-improvements` for the analysis of `/harnessforce:tune`.
 - When no Issue is specified, do not start recording a Run.
