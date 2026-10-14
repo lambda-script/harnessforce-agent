@@ -27,8 +27,10 @@ describe("harnessforce", () => {
 
 	// --urlは検証者と開発者の接続先の上書きで、利用者向けのusageには載せない（指定すれば動く）。
 	it("does not advertise the hidden --url override in the usage", async () => {
-		const r = await runCli(["unknown"]);
-		expect(r.err).toContain("harnessforce init [--port <port>]");
-		expect(r.err).not.toContain("--url");
+		const r = await runCli(["--help"]);
+		expect(r.out + r.err).not.toContain("--url");
+		const help = await runCli(["init", "--help"]);
+		expect(help.out + help.err).toContain("--port");
+		expect(help.out + help.err).not.toContain("--url");
 	});
 });
