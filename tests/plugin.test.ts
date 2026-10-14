@@ -125,6 +125,16 @@ describe("run recording skill", () => {
 		expect(body).toContain("`unmet`");
 	});
 
+	// correlation.md "MCP": record the user's decisions without asking and do not paste the original text.
+	it("records the user's decisions as Actions without asking", () => {
+		expect(body).toMatch(
+			/user states a decision[^\n]*approving or rejecting[^\n]*without asking[^\n]*/,
+		);
+		expect(body).toMatch(
+			/in your own words[^\n]*do not paste the user's statement verbatim/,
+		);
+	});
+
 	it("tells the agent that its records stay proposed until a person approves them", () =>
 		expect(body).toMatch(/`proposed`[^\n]*until a person approves/));
 
