@@ -25,7 +25,7 @@ harnessforce init
 
 | Command | What it does |
 | --- | --- |
-| `harnessforce init [--url <base URL>] [--port <port>] [--send-content]` | Logs in with the browser, stores a user ingest key and an API token in the keychain, and configures Claude Code and Codex |
+| `harnessforce init [--port <port>] [--send-content]` | Logs in with the browser, stores a user ingest key and an API token in the keychain, and configures Claude Code and Codex |
 | `harnessforce otel-headers` | Prints the `Authorization` header for Claude Code's `otelHeadersHelper` |
 | `harnessforce run --issue <identifier> -- <agent> [args]` | Launches an agent with its session linked to an Issue |
 | `harnessforce import` | Sends the metadata of past Claude Code sessions in connected repositories |
@@ -102,7 +102,7 @@ tokens are sent only to the origins pinned by `harnessforce init`.
 
 ## CLI credentials (`harnessforce init`, `harnessforce otel-headers`)
 
-`harnessforce init [--url <base URL>] [--port <port>] [--send-content]` connects this machine to a Harnessforce Workspace:
+`harnessforce init [--port <port>] [--send-content]` connects this machine to a Harnessforce Workspace:
 
 1. It checks the OS keychain first: macOS Keychain or the Windows Credential Manager (through
    [`@napi-rs/keyring`](https://github.com/Brooooooklyn/keyring-node)). On Linux it writes and deletes
@@ -170,15 +170,6 @@ origin. The new pair replaces `<workspace_id>:api-token`. A lock older than 60 s
 abandoned, and waiting more than 30 seconds for it counts as a failed refresh. If the refresh fails, or
 the refreshed token is also answered with 401, they stop with
 「ログインの有効期限が切れました。`harnessforce init`を実行してください」.
-
-### Default connection
-
-The default base URL is an optional build input: `HARNESSFORCE_BUILD_URL=<apps/web base URL> pnpm build`.
-Without it the default is `https://harnessforce.dev`. The value must be `https:`, or `http:` for localhost.
-At run time the base URL is the environment variable `HARNESSFORCE_URL`, then `env.HARNESSFORCE_URL` in the
-user settings (`harnessforce init --url` writes it), then the build default. The plugin build
-uses the same value for its MCP server URL. See
-[Building the local marketplace](https://github.com/lambda-script/harnessforce-agent/blob/main/docs/runbooks/local-marketplace.md).
 
 ## Launching an agent for an Issue (`harnessforce run`)
 

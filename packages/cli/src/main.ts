@@ -36,9 +36,10 @@ const { version } = createRequire(import.meta.url)("../package.json") as {
 };
 
 const USAGE =
-	"Usage: harnessforce --version | harnessforce init [--url <base URL>] [--port <port>] [--send-content] | harnessforce import | harnessforce otel-headers | harnessforce run --issue <identifier> -- <agent> [args] | harnessforce tune [--all] [--no-send] [--show-report] [--json] | harnessforce tune record | harnessforce tune --purge | harnessforce hook session-start | harnessforce top [--once] [--json] [--ascii] [--theme <auto|light|dark|ansi>] | harnessforce usage-limits on [--yes] | harnessforce usage-limits off | harnessforce usage-limits status | harnessforce usage-limits statusline\n";
+	"Usage: harnessforce --version | harnessforce init [--port <port>] [--send-content] | harnessforce import | harnessforce otel-headers | harnessforce run --issue <identifier> -- <agent> [args] | harnessforce tune [--all] [--no-send] [--show-report] [--json] | harnessforce tune record | harnessforce tune --purge | harnessforce hook session-start | harnessforce top [--once] [--json] [--ascii] [--theme <auto|light|dark|ansi>] | harnessforce usage-limits on [--yes] | harnessforce usage-limits off | harnessforce usage-limits status | harnessforce usage-limits statusline\n";
 
 // `harnessforce init`の引数。受け付けない形ならundefined。--portの値は1〜65535の整数（correlation.md「CLI」）。
+// --urlは検証者と開発者の接続先の上書きで、利用者向けのUSAGEには載せない。
 function parseInitArgs(args: readonly string[]): InitArgs | undefined {
 	let url: string | undefined;
 	let port: number | undefined;

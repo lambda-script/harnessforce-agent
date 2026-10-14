@@ -57,6 +57,10 @@ export const codexNotes = (configPath: string) =>
 
 export type InitMessage = keyof typeof INIT_MESSAGES;
 
+// buildの既定以外の接続先へ向けたときに、利用者が気づくための1行。
+export const nonDefaultConnectionMessage = (url: string) =>
+	`接続先: ${url}（既定の本番ではありません）`;
+
 // portを確保できなかったときの文言。既定の8080は一般的なHTTPのportで衝突しやすいため、
 // 使えなかったportと`harnessforce init --port`の逃げ道を示す（correlation.md「CLI」）。
 export const listenFailedMessage = (port: number) =>
