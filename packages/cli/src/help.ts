@@ -297,7 +297,7 @@ const ORDER: readonly CommandName[] = [
 
 const NAME_WIDTH = Math.max(...ORDER.map((name) => name.length)) + 2;
 
-export const OVERVIEW = `Usage: harnessforce <command> [options]
+const OVERVIEW = `Usage: harnessforce <command> [options]
 
 Connect your AI coding agents to a Harnessforce Workspace.
 
