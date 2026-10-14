@@ -22,16 +22,17 @@ const readJson = (p: string) =>
 const skills = readdirSync(new URL("plugins/harnessforce/skills", root));
 
 describe("eval files", () => {
-	it.each(
-		skills,
-	)("%s has an eval file with at least 3 valid scenarios", (skill) => {
-		const path = `evals/${skill}.json`;
-		expect(existsSync(new URL(path, root)), `${path} is missing`).toBe(true);
-		const file = readJson(path);
-		expect(file.skill).toBe(skill);
-		expect(file.scenarios.length).toBeGreaterThanOrEqual(3);
-		expect(validateEvalFile(file)).toEqual([]);
-	});
+	it.each(skills)(
+		"%s has an eval file with at least 3 valid scenarios",
+		(skill) => {
+			const path = `evals/${skill}.json`;
+			expect(existsSync(new URL(path, root)), `${path} is missing`).toBe(true);
+			const file = readJson(path);
+			expect(file.skill).toBe(skill);
+			expect(file.scenarios.length).toBeGreaterThanOrEqual(3);
+			expect(validateEvalFile(file)).toEqual([]);
+		},
+	);
 
 	it("covers the three record-run examples of the plan", () => {
 		const text = JSON.stringify(readJson("evals/record-run.json"));
