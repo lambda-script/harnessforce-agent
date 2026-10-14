@@ -2,7 +2,7 @@
 
 取得日: 2026-10-10
 
-`harnessforce usage-limits statusline`が元のstatusLineとして包む対象のうち、claude-hud（Claude Codeのplugin）が利用者のuser settingsへ書くstatusLineの形を記す。[AI agentの利用枠](https://github.com/lambda-script/harnessforce/blob/main/docs/references/agent-usage-limits.md)が同じ形を2026-10-09に記録している。ここでは2026-10-10に、利用者の端末のuser settingsとpluginのsourceで確かめ直した。
+`harnessforce usage-limits statusline`が元のstatusLineとして包む対象のうち、claude-hud（Claude Codeのplugin）が利用者のuser settingsへ書くstatusLineの形を記す。2026-10-10に、利用者の端末のuser settingsとpluginのsourceで確かめた。
 
 ## 観測した形（2026-10-10、Claude Code 2.1.296、claude-hud 0.8.0）
 
