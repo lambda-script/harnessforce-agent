@@ -1,0 +1,33 @@
+{
+	"skill": "propose-improvements",
+	"scenarios": [
+		{
+			"id": "insufficient-data",
+			"prompt": "/harnessforce:tune reported \"insufficient data\" for every target. Propose improvements.",
+			"context": "No target is marked \"a proposal can be made\".",
+			"assertions": [
+				{ "type": "not_called", "tool": "record_decision" },
+				{ "type": "not_called", "tool": "record_plan" },
+				{ "type": "not_called", "tool": "start_run" }
+			]
+		},
+		{
+			"id": "no-run-registration",
+			"prompt": "/harnessforce:tune marked the target \"repeated human approvals\" as \"a proposal can be made\". Write the proposal.",
+			"context": "harnessforce session_id: eval-session-3",
+			"assertions": [
+				{ "type": "not_called", "tool": "start_run" },
+				{ "type": "not_called", "tool": "complete_run" }
+			]
+		},
+		{
+			"id": "no-issue-work",
+			"prompt": "Summarize which improvements the last tune analysis supports.",
+			"context": "No Harnessforce issue identifier is given and HARNESSFORCE_ISSUE is unset.",
+			"assertions": [
+				{ "type": "not_called", "tool": "get_issue" },
+				{ "type": "not_called", "tool": "start_run" }
+			]
+		}
+	]
+}

@@ -1,0 +1,41 @@
+{
+	"skill": "using-harnessforce",
+	"scenarios": [
+		{
+			"id": "issue-specified",
+			"prompt": "Work on the Harnessforce issue ENG-7: fix the typo in the usage text of the export command.",
+			"context": "harnessforce session_id: eval-session-1",
+			"assertions": [
+				{
+					"type": "called_before",
+					"first": "start_run",
+					"second": "complete_run"
+				},
+				{
+					"type": "arg_equals",
+					"tool": "start_run",
+					"field": "session_id",
+					"value": "eval-session-1"
+				}
+			]
+		},
+		{
+			"id": "no-session-id",
+			"prompt": "Work on the Harnessforce issue ENG-7: fix the typo in the usage text of the export command.",
+			"context": "The session context contains no `harnessforce session_id:` line.",
+			"assertions": [
+				{ "type": "not_called", "tool": "start_run" },
+				{ "type": "not_called", "tool": "complete_run" }
+			]
+		},
+		{
+			"id": "no-issue",
+			"prompt": "Rename the variable `tmp` to `elapsedMs` in src/timer.ts.",
+			"context": "harnessforce session_id: eval-session-2",
+			"assertions": [
+				{ "type": "not_called", "tool": "start_run" },
+				{ "type": "not_called", "tool": "complete_run" }
+			]
+		}
+	]
+}
