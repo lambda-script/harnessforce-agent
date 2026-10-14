@@ -60,6 +60,12 @@ In Claude Code:
 `harnessforce init` and `harnessforce import`, and asks you to restart Claude Code. Run it again after the restart to
 confirm that the first event arrived.
 
+If the environment already registers a `harnessforce-agent` marketplace from another source (for example the
+npm-backed one in the README), `/plugin marketplace add` fails with `its source doesn't match its
+extraKnownMarketplaces entry`. Delete the existing marketplace in `/plugin` first, or point the `source` of the
+`extraKnownMarketplaces` entry at the build output. The same applies in reverse when you return to the
+README's marketplace.
+
 Claude Code reads a directory marketplace in place: the installed plugin keeps pointing at the build
 output instead of being copied into the plugin cache, and the bundled CLI tarballs are installed from
 that same directory. Keep the output at the registered path while the plugin stays installed. Removing

@@ -42,6 +42,11 @@ In Claude Code, with Node.js 18 or later installed:
 with the browser and pick a Workspace, and runs `harnessforce import` for your past sessions. Restart Claude Code
 and run `/harnessforce:setup` again to confirm that the first event arrived.
 
+If `/plugin marketplace add` fails with `its source doesn't match its extraKnownMarketplaces entry`, the
+environment still registers an earlier local or git `harnessforce-agent` marketplace. Delete that marketplace
+in `/plugin`, then add it again, or change its `source` in the `extraKnownMarketplaces` setting to the
+repository above.
+
 To work on an Issue, either let the agent use the `record-run` skill, or launch it through the CLI:
 
 ```sh
