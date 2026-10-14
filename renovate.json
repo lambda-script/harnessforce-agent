@@ -5,5 +5,13 @@
 		":semanticCommits",
 		"helpers:pinGitHubActionDigests",
 		"group:allNonMajor"
+	],
+	"packageRules": [
+		{
+			"description": "The node18-runtime job pins Node.js 18 on purpose: the plugin hook requires Node.js 18 or later",
+			"matchManagers": ["github-actions"],
+			"matchDepNames": ["node"],
+			"enabled": false
+		}
 	]
 }
