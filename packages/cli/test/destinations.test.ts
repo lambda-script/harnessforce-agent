@@ -82,18 +82,17 @@ describe("resolveCliDestinations", () => {
 			),
 		).toMatchObject({ workspaceId: "ws-settings" }));
 
-	it.each([
-		["not json"],
-		[[]],
-		[{ env: "x" }],
-	])("treats unreadable user settings (%j) as having no values", async (content) =>
-		expect(
-			await resolveCliDestinations({}, settingsFile(content), DEFAULT_URL),
-		).toEqual({
-			readApiUrl: DEFAULT_URL,
-			ingestEndpoint: undefined,
-			workspaceId: undefined,
-		}));
+	it.each([["not json"], [[]], [{ env: "x" }]])(
+		"treats unreadable user settings (%j) as having no values",
+		async (content) =>
+			expect(
+				await resolveCliDestinations({}, settingsFile(content), DEFAULT_URL),
+			).toEqual({
+				readApiUrl: DEFAULT_URL,
+				ingestEndpoint: undefined,
+				workspaceId: undefined,
+			}),
+	);
 
 	it("ignores non-string settings values", async () =>
 		expect(

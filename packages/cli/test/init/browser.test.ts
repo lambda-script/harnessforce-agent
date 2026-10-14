@@ -67,15 +67,18 @@ describe("openBrowser", () => {
 			["url.dll,FileProtocolHandler", URL_WITH_QUERY],
 		],
 		["linux", "/usr/bin/xdg-open", [URL_WITH_QUERY]],
-	] as const)("starts the %s opener by its absolute path without a shell", async (platform, command, args) => {
-		const { spawn, calls } = fakeSpawn({});
-		expect(await openBrowser(URL_WITH_QUERY, optionsFor(platform, spawn))).toBe(
-			true,
-		);
-		expect(calls.map(({ command, args }) => ({ command, args }))).toEqual([
-			{ command, args },
-		]);
-	});
+	] as const)(
+		"starts the %s opener by its absolute path without a shell",
+		async (platform, command, args) => {
+			const { spawn, calls } = fakeSpawn({});
+			expect(
+				await openBrowser(URL_WITH_QUERY, optionsFor(platform, spawn)),
+			).toBe(true);
+			expect(calls.map(({ command, args }) => ({ command, args }))).toEqual([
+				{ command, args },
+			]);
+		},
+	);
 
 	it("does not start an opener placed in the repository", async () => {
 		const { spawn, calls } = fakeSpawn({});
@@ -119,7 +122,8 @@ describe("openBrowser", () => {
 				URL_WITH_QUERY,
 				optionsFor("linux", fakeSpawn(outcome).spawn),
 			),
-		).toBe(false));
+		).toBe(false),
+	);
 
 	it("treats an opener that keeps running as started", async () =>
 		expect(

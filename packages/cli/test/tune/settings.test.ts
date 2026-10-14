@@ -29,7 +29,8 @@ describe("readSendSetting", () => {
 		["an array", "[]", "unreadable"],
 		["invalid JSON", "{", "unreadable"],
 	])("reads %s as %s", async (_, content, expected) =>
-		expect(await readSendSetting(homeWith(content))).toBe(expected));
+		expect(await readSendSetting(homeWith(content))).toBe(expected),
+	);
 
 	it("does not send when the file cannot be read", async () => {
 		const home = tempDir("hf-home-");

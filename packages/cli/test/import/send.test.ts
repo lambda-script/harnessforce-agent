@@ -114,30 +114,34 @@ describe("sendSessions", () => {
 		expect(await result).toEqual({ kind: "done", imported: 61, invalid: 0 });
 	});
 
-	it.each([
-		["monthly_event_limit"],
-		["workspace_read_only"],
-	])("stops on %s without recording those sessions", async (reason) => {
-		const { fetch, bodies } = server(
-			ok([], 100),
-			ok(
-				[
-					{ index: 0, reason },
-					{ index: 2, reason: "bad" },
-				],
-				98,
-			),
-		);
-		const { result, recorded } = run(fetch, sessions(250));
-		// 取り込めなかった1件と、送らなかった3回目の50件。
-		expect(await result).toEqual({ kind: "limited", reason, notImported: 51 });
-		expect(bodies).toHaveLength(2);
-		expect(recorded[1]).toEqual(
-			sessions(200)
-				.slice(101)
-				.map((s) => s.session_id),
-		);
-	});
+	it.each([["monthly_event_limit"], ["workspace_read_only"]])(
+		"stops on %s without recording those sessions",
+		async (reason) => {
+			const { fetch, bodies } = server(
+				ok([], 100),
+				ok(
+					[
+						{ index: 0, reason },
+						{ index: 2, reason: "bad" },
+					],
+					98,
+				),
+			);
+			const { result, recorded } = run(fetch, sessions(250));
+			// 取り込めなかった1件と、送らなかった3回目の50件。
+			expect(await result).toEqual({
+				kind: "limited",
+				reason,
+				notImported: 51,
+			});
+			expect(bodies).toHaveLength(2);
+			expect(recorded[1]).toEqual(
+				sessions(200)
+					.slice(101)
+					.map((s) => s.session_id),
+			);
+		},
+	);
 
 	it("waits Retry-After and resends the same request on 429 and 503", async () => {
 		const { fetch, bodies } = server(

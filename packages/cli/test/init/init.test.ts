@@ -379,17 +379,16 @@ describe("harnessforce init", () => {
 	});
 
 	describe("before login", () => {
-		it.each([
-			"http://app.example.test",
-			"ftp://app.example.test",
-			"not a url",
-		])("rejects --url %s without touching anything", async (url) =>
-			expect(
-				await runInit(["--url", url], {
-					homeDir: makeHome().home,
-					keychain: untouchableKeychain,
-				}),
-			).toEqual(failed(M.invalidUrl)));
+		it.each(["http://app.example.test", "ftp://app.example.test", "not a url"])(
+			"rejects --url %s without touching anything",
+			async (url) =>
+				expect(
+					await runInit(["--url", url], {
+						homeDir: makeHome().home,
+						keychain: untouchableKeychain,
+					}),
+				).toEqual(failed(M.invalidUrl)),
+		);
 
 		it.each([
 			[["--url"]],
@@ -500,20 +499,18 @@ describe("harnessforce init", () => {
 			});
 		});
 
-		it.each([
-			"{",
-			"[]",
-			'{"env":[]}',
-			'{"enabledPlugins":"x"}',
-		])("stops when the user settings are %s", async (content) => {
-			const server = await startCredentialsServer();
-			const home = makeHome(content);
-			expect(
-				await runInit([], { homeDir: home.home, defaultUrl: server.base }),
-			).toEqual(failed(M.settings));
-			expect(server.metadataRequests()).toEqual([]);
-			expect(home.read()).toBe(content);
-		});
+		it.each(["{", "[]", '{"env":[]}', '{"enabledPlugins":"x"}'])(
+			"stops when the user settings are %s",
+			async (content) => {
+				const server = await startCredentialsServer();
+				const home = makeHome(content);
+				expect(
+					await runInit([], { homeDir: home.home, defaultUrl: server.base }),
+				).toEqual(failed(M.settings));
+				expect(server.metadataRequests()).toEqual([]);
+				expect(home.read()).toBe(content);
+			},
+		);
 	});
 
 	describe("authorization server metadata", () => {
@@ -735,23 +732,26 @@ describe("harnessforce init", () => {
 			[201, { ...issued, content_opt_in: "true" }, M.network],
 			[201, { ...issued, content_opt_in: undefined }, M.network],
 			[201, "not an object", M.network],
-		])("maps %i %j to its terminal and changes nothing", async (status, body, message) => {
-			const server = await startCredentialsServer({
-				credentials: { status, body },
-			});
-			const { keychain, items } = fakeKeychain({ items: EXISTING });
-			const home = makeHome('{"model":"opus"}');
-			expect(
-				await runInit([], {
-					homeDir: home.home,
-					defaultUrl: server.base,
-					keychain,
-					openBrowser: fakeBrowser().open,
-				}),
-			).toEqual(failed(message));
-			expect(Object.fromEntries(items)).toEqual(EXISTING);
-			expect(home.read()).toBe('{"model":"opus"}');
-		});
+		])(
+			"maps %i %j to its terminal and changes nothing",
+			async (status, body, message) => {
+				const server = await startCredentialsServer({
+					credentials: { status, body },
+				});
+				const { keychain, items } = fakeKeychain({ items: EXISTING });
+				const home = makeHome('{"model":"opus"}');
+				expect(
+					await runInit([], {
+						homeDir: home.home,
+						defaultUrl: server.base,
+						keychain,
+						openBrowser: fakeBrowser().open,
+					}),
+				).toEqual(failed(message));
+				expect(Object.fromEntries(items)).toEqual(EXISTING);
+				expect(home.read()).toBe('{"model":"opus"}');
+			},
+		);
 
 		it("fails when Harnessforce cannot be reached for the credentials", async () => {
 			const server = await startCredentialsServer();

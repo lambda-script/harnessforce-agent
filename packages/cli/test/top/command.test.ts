@@ -175,14 +175,17 @@ describe("harnessforce top settings", () => {
 		["top is not an object", '{"top": 1}'],
 		["ambiguous_width 3", '{"top": {"ambiguous_width": 3}}'],
 		["braille is not a boolean", '{"top": {"braille": "yes"}}'],
-	])("starts with the defaults and says so for %s, without touching the file", async (_name, text) => {
-		const { run, p } = setup({ a: transcript("a", -10) });
-		const path = config(p.home, text);
-		const result = await run(["--once"]);
-		expect(result.code).toBe(0);
-		expect(result.out).toContain(NOTICE);
-		expect(readFileSync(path, "utf8")).toBe(text);
-	});
+	])(
+		"starts with the defaults and says so for %s, without touching the file",
+		async (_name, text) => {
+			const { run, p } = setup({ a: transcript("a", -10) });
+			const path = config(p.home, text);
+			const result = await run(["--once"]);
+			expect(result.code).toBe(0);
+			expect(result.out).toContain(NOTICE);
+			expect(readFileSync(path, "utf8")).toBe(text);
+		},
+	);
 
 	it("does not complain when the file is missing, when tune keys are present, or when the values are valid", async () => {
 		const { run, p } = setup({ a: transcript("a", -10) });

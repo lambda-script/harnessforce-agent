@@ -36,5 +36,6 @@ describe("session registration", () => {
 		["repository without host", { repository: "acme/web" }],
 		["unknown field", { prompt: "please fix login" }],
 	])("rejects %s", (_, patch) =>
-		expect(check({ ...sessionRegistration, ...patch })).toBe(false));
+		expect(check({ ...sessionRegistration, ...patch })).toBe(false),
+	);
 });

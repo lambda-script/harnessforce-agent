@@ -30,7 +30,8 @@ describe("using-harnessforce body", () => {
 		"## Priority",
 		"## Subagents",
 	])("has the section %s in order", (heading) =>
-		expect(usingHarnessforceBody).toContain(heading));
+		expect(usingHarnessforceBody).toContain(heading),
+	);
 
 	it("keeps the sections in the specified order", () => {
 		const headings = usingHarnessforceBody.match(/^## .+$/gm);

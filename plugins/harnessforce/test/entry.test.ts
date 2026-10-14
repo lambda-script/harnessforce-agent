@@ -32,42 +32,39 @@ describe("hook entry", () => {
 			parse(source, { ecmaVersion: 5, sourceType: "script" }),
 		).not.toThrow());
 
-	it.each([
-		"16.20.2",
-		"17.9.1",
-		"0.12.18",
-	])("skips without loading the main bundle on Node.js %s", (version) => {
-		const result = runEntry(version);
-		expect(result.required).toEqual([]);
-		expect(JSON.parse(result.stdout)).toEqual({
-			systemMessage: UNSUPPORTED_NODE_WARNING,
-		});
-		expect(result.stderr).toBe(
-			"harnessforce: session registration skipped (unsupported node)\n",
-		);
-	});
+	it.each(["16.20.2", "17.9.1", "0.12.18"])(
+		"skips without loading the main bundle on Node.js %s",
+		(version) => {
+			const result = runEntry(version);
+			expect(result.required).toEqual([]);
+			expect(JSON.parse(result.stdout)).toEqual({
+				systemMessage: UNSUPPORTED_NODE_WARNING,
+			});
+			expect(result.stderr).toBe(
+				"harnessforce: session registration skipped (unsupported node)\n",
+			);
+		},
+	);
 
 	// 警告は1つのsessionの開始で多くて1行（correlation.md「hookの警告」）。SessionStart以外のhookは何も出力しない。
-	it.each([
-		"user-prompt-submit",
-		"post-tool-use",
-		"session-end",
-	])("does not print the warning for the %s hook on Node.js 16", (event) => {
-		const result = runEntry("16.20.2", event);
-		expect(result.required).toEqual([]);
-		expect(result.stdout).toBe("");
-		expect(result.stderr).toBe(
-			"harnessforce: session registration skipped (unsupported node)\n",
-		);
-	});
+	it.each(["user-prompt-submit", "post-tool-use", "session-end"])(
+		"does not print the warning for the %s hook on Node.js 16",
+		(event) => {
+			const result = runEntry("16.20.2", event);
+			expect(result.required).toEqual([]);
+			expect(result.stdout).toBe("");
+			expect(result.stderr).toBe(
+				"harnessforce: session registration skipped (unsupported node)\n",
+			);
+		},
+	);
 
-	it.each([
-		"18.0.0",
-		"22.21.1",
-		"24.1.0",
-	])("loads the main bundle on Node.js %s", (version) => {
-		const result = runEntry(version);
-		expect(result.required).toEqual(["./harnessforce-hook-main.cjs"]);
-		expect(result.stderr).toBe("");
-	});
+	it.each(["18.0.0", "22.21.1", "24.1.0"])(
+		"loads the main bundle on Node.js %s",
+		(version) => {
+			const result = runEntry(version);
+			expect(result.required).toEqual(["./harnessforce-hook-main.cjs"]);
+			expect(result.stderr).toBe("");
+		},
+	);
 });

@@ -116,17 +116,16 @@ describe("SessionStart hook", () => {
 		expect(h.out()).toBe(sessionContextLine());
 	});
 
-	it.each([
-		"resume",
-		"compact",
-		"unknown-source",
-	])("does not register on source %s", async (source) => {
-		const h = harness();
-		await start(h, { source });
-		expect(h.requests).toEqual([]);
-		expect(h.out()).toBe(sessionContextLine());
-		expect(h.err()).toBe("");
-	});
+	it.each(["resume", "compact", "unknown-source"])(
+		"does not register on source %s",
+		async (source) => {
+			const h = harness();
+			await start(h, { source });
+			expect(h.requests).toEqual([]);
+			expect(h.out()).toBe(sessionContextLine());
+			expect(h.err()).toBe("");
+		},
+	);
 
 	// semantic-conventions.md「値の形」: 文字数はcode pointで数える。
 	it("accepts a session id of 256 code points beyond 256 UTF-16 units", async () => {
@@ -152,16 +151,14 @@ describe("SessionStart hook", () => {
 		);
 	});
 
-	it.each([
-		"startup",
-		"clear",
-		"fork",
-		undefined,
-	])("registers on source %s", async (source) => {
-		const h = harness();
-		await start(h, { source });
-		expect(h.requests).toHaveLength(1);
-	});
+	it.each(["startup", "clear", "fork", undefined])(
+		"registers on source %s",
+		async (source) => {
+			const h = harness();
+			await start(h, { source });
+			expect(h.requests).toHaveLength(1);
+		},
+	);
 
 	it.each([
 		["missing", { HARNESSFORCE_ENDPOINT: undefined }, NOT_CONFIGURED],
@@ -177,15 +174,18 @@ describe("SessionStart hook", () => {
 			{ HARNESSFORCE_ENDPOINT: "ftp://ingest.example.test" },
 			INVALID_ENDPOINT,
 		],
-	])("skips with invalid endpoint when the endpoint is %s", async (_, managed, message) => {
-		const h = harness({ managed });
-		await start(h);
-		expect(h.requests).toEqual([]);
-		expect(h.out()).toBe(sessionContextLine({ systemMessage: message }));
-		expect(h.err()).toBe(
-			"harnessforce: session registration skipped (invalid endpoint)\n",
-		);
-	});
+	])(
+		"skips with invalid endpoint when the endpoint is %s",
+		async (_, managed, message) => {
+			const h = harness({ managed });
+			await start(h);
+			expect(h.requests).toEqual([]);
+			expect(h.out()).toBe(sessionContextLine({ systemMessage: message }));
+			expect(h.err()).toBe(
+				"harnessforce: session registration skipped (invalid endpoint)\n",
+			);
+		},
+	);
 
 	it("reports only the endpoint when both endpoint and key are missing", async () => {
 		const h = harness({
@@ -315,34 +315,33 @@ describe("SessionStart hook", () => {
 		expect(existsSync(join(dir, "unauthorized-s-1"))).toBe(true);
 	});
 
-	it.each([
-		"startup",
-		"clear",
-		"fork",
-		undefined,
-	])("sends nothing on source %s once the session is marked unauthorized", async (source) => {
-		const dir = scratchpad();
-		await start(harness({ status: 401 }), { scratchpad_dir: dir });
-		const h = harness();
-		await start(h, { scratchpad_dir: dir, source });
-		expect(h.requests).toEqual([]);
-		expect(h.out()).toBe(sessionContextLine());
-	});
+	it.each(["startup", "clear", "fork", undefined])(
+		"sends nothing on source %s once the session is marked unauthorized",
+		async (source) => {
+			const dir = scratchpad();
+			await start(harness({ status: 401 }), { scratchpad_dir: dir });
+			const h = harness();
+			await start(h, { scratchpad_dir: dir, source });
+			expect(h.requests).toEqual([]);
+			expect(h.out()).toBe(sessionContextLine());
+		},
+	);
 
-	it.each([
-		400, 403, 413, 429, 500, 503,
-	])("warns once and does not stop on HTTP %i", async (status) => {
-		const dir = scratchpad();
-		const h = harness({ status });
-		await start(h, { scratchpad_dir: dir });
-		expect(h.out()).toBe(
-			sessionContextLine({ systemMessage: REGISTRATION_FAILED }),
-		);
-		expect(h.err()).toBe(
-			`harnessforce: session registration failed (HTTP ${status})\n`,
-		);
-		expect(existsSync(join(dir, "unauthorized-s-1"))).toBe(false);
-	});
+	it.each([400, 403, 413, 429, 500, 503])(
+		"warns once and does not stop on HTTP %i",
+		async (status) => {
+			const dir = scratchpad();
+			const h = harness({ status });
+			await start(h, { scratchpad_dir: dir });
+			expect(h.out()).toBe(
+				sessionContextLine({ systemMessage: REGISTRATION_FAILED }),
+			);
+			expect(h.err()).toBe(
+				`harnessforce: session registration failed (HTTP ${status})\n`,
+			);
+			expect(existsSync(join(dir, "unauthorized-s-1"))).toBe(false);
+		},
+	);
 
 	it("warns once and does not stop when the request fails", async () => {
 		const h = harness({ fetchError: new TypeError("fetch failed") });
@@ -378,19 +377,18 @@ describe("SessionStart hook", () => {
 		expect(h.out()).toBe("");
 	});
 
-	it.each([
-		"stop",
-		"toString",
-		"__proto__",
-	])("ignores the unknown event %s", async (event) => {
-		const h = harness();
-		await runHook(
-			event,
-			JSON.stringify({ session_id: "s-1", cwd: REPO.cwd }),
-			h.deps,
-		);
-		expect(h.requests).toEqual([]);
-	});
+	it.each(["stop", "toString", "__proto__"])(
+		"ignores the unknown event %s",
+		async (event) => {
+			const h = harness();
+			await runHook(
+				event,
+				JSON.stringify({ session_id: "s-1", cwd: REPO.cwd }),
+				h.deps,
+			);
+			expect(h.requests).toEqual([]);
+		},
+	);
 
 	it("never rejects even when a dependency throws", async () => {
 		const h = harness({

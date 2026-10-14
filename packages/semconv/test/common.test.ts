@@ -19,17 +19,18 @@ const one = (schema: unknown) =>
 
 describe("Instant", () => {
 	const check = one(Instant);
-	it.each([
-		"2026-09-26T01:02:03Z",
-		"2026-09-26T10:02:03.123+09:00",
-	])("accepts %s", (v) => expect(check({ v })).toBe(true));
+	it.each(["2026-09-26T01:02:03Z", "2026-09-26T10:02:03.123+09:00"])(
+		"accepts %s",
+		(v) => expect(check({ v })).toBe(true),
+	);
 	it.each([
 		"2026-09-26T01:02:03",
 		"2026-09-26 01:02:03Z",
 		"2026-13-01T00:00:00Z",
 		"2026-09-26",
 	])("rejects offset-less or invalid %s", (v) =>
-		expect(check({ v })).toBe(false));
+		expect(check({ v })).toBe(false),
+	);
 });
 
 // semantic-conventions.md「値の形」のinstant: offsetのhhは00〜23、mmは00〜59。1677-09-21T00:12:44Zから
@@ -69,7 +70,8 @@ describe("Instant range", () => {
 		"2026-09-26T12:60:00Z",
 		"2262-04-11T23:47:16.000000001Z",
 	])("rejects %s outside the range or the calendar in isInstant", (v) =>
-		expect(isInstant(v)).toBe(false));
+		expect(isInstant(v)).toBe(false),
+	);
 	it.each([
 		"1677-09-21T09:12:44+09:00",
 		"2262-04-12T08:47:16+09:00",

@@ -157,7 +157,8 @@ describe("analysis report", () => {
 			},
 		],
 	])("rejects %s", (_, value) =>
-		expect(check(JSON.parse(JSON.stringify(value)))).toBe(false));
+		expect(check(JSON.parse(JSON.stringify(value)))).toBe(false),
+	);
 
 	// semantic-conventions.md「Analysis report」: measuredでは、件数が0なら中央値はnull、1以上なら数値。
 	it.each([

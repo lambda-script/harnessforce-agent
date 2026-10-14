@@ -97,7 +97,8 @@ describe("redactText", () => {
 		expect(redactText(`token=${secret};`)).toEqual({
 			text: "token=[REDACTED:api_key];",
 			count: 1,
-		}));
+		}),
+	);
 
 	it("masks a key that follows an environment variable name", () =>
 		expect(
@@ -158,7 +159,8 @@ describe("redactText", () => {
 		"task-runner sk-short",
 		"https://github.com/lambda-script/harnessforce/pull/12",
 	])("leaves %s untouched", (text) =>
-		expect(redactText(text)).toEqual({ text, count: 0 }));
+		expect(redactText(text)).toEqual({ text, count: 0 }),
+	);
 
 	// 送信元が決める長い文字列でも、走査が長さに対して線形であること。
 	it.each([

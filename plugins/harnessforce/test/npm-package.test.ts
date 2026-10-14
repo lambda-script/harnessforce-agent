@@ -95,27 +95,25 @@ describe("@harnessforce/claude-code-plugin", () => {
 		).toBe(`\${HARNESSFORCE_URL:-${url}}/mcp`);
 	});
 
-	it(
-		"packs the dot-directory and every file of the plugin",
-		{ timeout: 60_000 },
-		() => {
-			const [{ files }] = JSON.parse(
-				execFileSync("npm", ["pack", "--dry-run", "--json"], {
-					cwd: npmDir,
-					encoding: "utf8",
-					shell: process.platform === "win32",
-				}),
-			);
-			const packed = files.map((file: { path: string }) => file.path);
-			expect(packed).toEqual(
-				expect.arrayContaining([
-					".claude-plugin/plugin.json",
-					".mcp.json",
-					"hooks/hooks.json",
-					"scripts/harnessforce-hook.cjs",
-					"package.json",
-				]),
-			);
-		},
-	);
+	it("packs the dot-directory and every file of the plugin", {
+		timeout: 60_000,
+	}, () => {
+		const [{ files }] = JSON.parse(
+			execFileSync("npm", ["pack", "--dry-run", "--json"], {
+				cwd: npmDir,
+				encoding: "utf8",
+				shell: process.platform === "win32",
+			}),
+		);
+		const packed = files.map((file: { path: string }) => file.path);
+		expect(packed).toEqual(
+			expect.arrayContaining([
+				".claude-plugin/plugin.json",
+				".mcp.json",
+				"hooks/hooks.json",
+				"scripts/harnessforce-hook.cjs",
+				"package.json",
+			]),
+		);
+	});
 });

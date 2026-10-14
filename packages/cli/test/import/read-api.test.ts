@@ -128,17 +128,15 @@ describe("fetchSessionImportDays", () => {
 			kind: "unauthorized",
 		}));
 
-	it.each([
-		[0],
-		[1.5],
-		["30"],
-		[null],
-	])("fails on session_import_days %j", async (days) =>
-		expect(
-			await fetchSessionImportDays(
-				BASE,
-				"t",
-				fakeFetch(() => json(200, { session_import_days: days })).fetch,
-			),
-		).toEqual({ kind: "failed" }));
+	it.each([[0], [1.5], ["30"], [null]])(
+		"fails on session_import_days %j",
+		async (days) =>
+			expect(
+				await fetchSessionImportDays(
+					BASE,
+					"t",
+					fakeFetch(() => json(200, { session_import_days: days })).fetch,
+				),
+			).toEqual({ kind: "failed" }),
+	);
 });

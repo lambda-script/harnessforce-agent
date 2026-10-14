@@ -91,19 +91,20 @@ describe("harnessforce tune", () => {
 		expect(t.readTune("unsent.json").destinations).toEqual({});
 	});
 
-	it.each([
-		401, 403,
-	])("deletes the unsent reports and guides harnessforce init on %i", async (status) => {
-		const t = await setupTune({ analysis: [{ status: 503 }, { status }] });
-		await t.run();
-		const result = await t.run();
-		expect(result.code).toBe(3);
-		expect(result.out).toContain("Sessions analyzed: 10");
-		expect(result.err).toContain(
-			"The ingest key cannot be used. Deleted 10 unsent analysis result(s). Run `harnessforce init`\n",
-		);
-		expect(t.readTune("unsent.json").destinations).toEqual({});
-	});
+	it.each([401, 403])(
+		"deletes the unsent reports and guides harnessforce init on %i",
+		async (status) => {
+			const t = await setupTune({ analysis: [{ status: 503 }, { status }] });
+			await t.run();
+			const result = await t.run();
+			expect(result.code).toBe(3);
+			expect(result.out).toContain("Sessions analyzed: 10");
+			expect(result.err).toContain(
+				"The ingest key cannot be used. Deleted 10 unsent analysis result(s). Run `harnessforce init`\n",
+			);
+			expect(t.readTune("unsent.json").destinations).toEqual({});
+		},
+	);
 
 	it("does not resend unsent reports of a repository that is no longer connected", async () => {
 		let isConnected = true;

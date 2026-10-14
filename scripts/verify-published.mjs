@@ -47,5 +47,6 @@ export async function verifyPublished(published, view = npmView) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
+	// biome-ignore lint/suspicious/noUndeclaredEnvVars: turbo経由では実行されず、release workflowが渡す。
 	await verifyPublished(JSON.parse(process.env.PUBLISHED_PACKAGES ?? "[]"));
 }

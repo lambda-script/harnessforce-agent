@@ -21,13 +21,14 @@ function buildWith(input: Record<string, string>) {
 
 describe("plugin build input", () => {
 	// 与えた値が許可されない形なら、既定値へ黙って戻さず失敗する。
-	it.each([
-		[{ HARNESSFORCE_BUILD_URL: "http://app.example.test" }],
-	])("fails with a disallowed HARNESSFORCE_BUILD_URL: %j", (input) => {
-		const result = buildWith(input);
-		expect(result.status).not.toBe(0);
-		expect(result.stderr).toContain("HARNESSFORCE_BUILD_URL");
-	});
+	it.each([[{ HARNESSFORCE_BUILD_URL: "http://app.example.test" }]])(
+		"fails with a disallowed HARNESSFORCE_BUILD_URL: %j",
+		(input) => {
+			const result = buildWith(input);
+			expect(result.status).not.toBe(0);
+			expect(result.stderr).toContain("HARNESSFORCE_BUILD_URL");
+		},
+	);
 
 	// 同じ値を別の場所に書かない: 同梱するCLIの既定の接続先とMCP serverのURLが食い違うbuildを作らない。
 	it("fails when the CLI was built with another connection URL", () => {

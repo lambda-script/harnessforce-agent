@@ -33,7 +33,8 @@ describe("session usage summary", () => {
 	])("accepts a summary %s", (_, overrides) =>
 		expect(check(JSON.parse(JSON.stringify({ ...u, ...overrides })))).toBe(
 			true,
-		));
+		),
+	);
 
 	it.each([
 		["offset-less last_event_at", { last_event_at: "2026-09-26T01:30:00" }],
@@ -104,5 +105,6 @@ describe("session usage summary", () => {
 	])("rejects %s", (_, overrides) =>
 		expect(check(JSON.parse(JSON.stringify({ ...u, ...overrides })))).toBe(
 			false,
-		));
+		),
+	);
 });

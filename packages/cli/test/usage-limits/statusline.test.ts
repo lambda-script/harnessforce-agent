@@ -141,12 +141,15 @@ describe("harnessforce usage-limits statusline", () => {
 	it.each([
 		["the user has not consented", { ...consented(), consented: false }],
 		["the consent is for an old text", { ...consented(), text_version: 0 }],
-	])("sends nothing when %s, and still shows the original", async (_name, mark) => {
-		const { run, originals, payloads } = setup({ mark });
-		await run();
-		expect(payloads).toEqual([]);
-		expect(originals).toHaveLength(1);
-	});
+	])(
+		"sends nothing when %s, and still shows the original",
+		async (_name, mark) => {
+			const { run, originals, payloads } = setup({ mark });
+			await run();
+			expect(payloads).toEqual([]);
+			expect(originals).toHaveLength(1);
+		},
+	);
 
 	it("sends nothing without rate_limits and keeps the original output and exit code", async () => {
 		const { run, payloads } = setup({
