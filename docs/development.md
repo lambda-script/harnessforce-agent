@@ -32,7 +32,7 @@ Customers only use the production Harnessforce, so the override below is not in 
 - `harnessforce init --url <base URL>` connects to another `apps/web` (`https:`, or `http:` for `localhost`,
   `127.0.0.1` and `[::1]`). The URL is recorded as `env.HARNESSFORCE_URL` in the Claude Code user
   settings and its origin is pinned in the keychain. `harnessforce init` then prints
-  `接続先: <URL>（既定の本番ではありません）` before its success message; it prints nothing extra when the
+  `Connecting to <URL> (not the default production endpoint)` before its success message; it prints nothing extra when the
   connection is the build default.
 - `HARNESSFORCE_URL` in the environment overrides the recorded Read API base URL for `harnessforce run` and
   `harnessforce import`, and the MCP server URL of the plugin. The API token is still sent only to the

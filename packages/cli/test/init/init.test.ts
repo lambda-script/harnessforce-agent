@@ -220,7 +220,7 @@ describe("harnessforce init", () => {
 		});
 		expect(result.code).toBe(0);
 		expect(result.out).toContain(
-			`接続先: ${server.base}（既定の本番ではありません）\n${M.success}\n`,
+			`Connecting to ${server.base} (not the default production endpoint)\n${M.success}\n`,
 		);
 	});
 
