@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   check:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     env:
       # CLIの既定の接続先（buildの入力）。CIのbuildは配布しないため、localのapps/webを与える。
@@ -63,7 +63,7 @@ jobs:
   # correlation.md「実行環境」: hookは端末のNode.js 18以上で動き、harnessforceも同じNode.jsで起動される。
   # 開発とbuildは.node-versionのNode.jsで行い、build済みの成果物だけを18で実行する。
   node18-runtime:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     env:
       HARNESSFORCE_BUILD_URL: http://localhost:3000

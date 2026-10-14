@@ -17,7 +17,7 @@ jobs:
     # それまでは一般への配布（npmへのpublish）が対象外である。有効にする手順はdocs/runbooks/releasing.mdを参照。
     if: vars.NPM_PUBLISH_ENABLED == 'true'
     # npmのtrusted publishingとprovenanceはGitHub-hosted runnerでしか使えない。
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     permissions:
       contents: write
