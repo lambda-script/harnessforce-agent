@@ -16,7 +16,14 @@
 		"test": {
 			"dependsOn": ["^build"]
 		},
-		"//#lint:root": {},
+		"//#lint:root": {
+			"env": [
+				"METRICS_FILE",
+				"PREVIOUS_METRICS_FILE",
+				"DRY_RUN",
+				"HF_EVAL_CALL_LOG"
+			]
+		},
 		"//#knip": {
 			"cache": false
 		},
