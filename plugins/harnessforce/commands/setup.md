@@ -1,83 +1,79 @@
 ---
-description: Harnessforceのsetup。Node.jsの確認、本文データを送るかの選択、CLIの導入、harnessforce init、過去のsessionの取り込み、利用枠を共有するかの選択、再起動後の最初のイベントの確認までを対話で進める
+description: Harnessforce setup. Walks through checking Node.js, choosing whether to send prompt content, installing the CLI, running harnessforce init, importing past sessions, choosing whether to share usage limits, and confirming the first event after the restart
 disable-model-invocation: true
 ---
 
-# Harnessforceのsetup
+# Harnessforce setup
 
-次の手順を順に、利用者と対話しながら進める。commandが失敗したら、その出力を利用者へ示し、以降の手順へ進まずに止まる。
+Go through the steps below in order, interacting with the user. If a command fails, show its output to the user and stop without moving on to the later steps.
 
-## 1. Node.jsを確かめる
+## 1. Check Node.js
 
-最初に`node --version`を実行する。commandが見つからない、またはversionが18未満なら、CLIの導入へ進まずに次の文言をそのまま表示して終わる。
+First run `node --version`. If the command is not found, or the version is below 18, do not move on to installing the CLI. Show the following text as it is and stop.
 
-> プラグインのフックにはNode.js 18以上が必要です。Node.jsを導入してからClaude Codeを再起動し、もう一度`/harnessforce:setup`を実行してください
+> Harnessforce hooks require Node.js 18 or later. Install Node.js, restart Claude Code, then run `/harnessforce:setup` again.
 
-## 2. 再起動後の実行かを確かめる
+## 2. Check whether this run is after the restart
 
-`harnessforce --version`が成功し、かつこのsessionの環境変数`HARNESSFORCE_WORKSPACE_ID`が空でなければ、`harnessforce init`の後に再起動したsessionである。手順3から8を行わずに手順9へ進む。
+If `harnessforce --version` succeeds and the environment variable `HARNESSFORCE_WORKSPACE_ID` of this session is not empty, this is a session restarted after `harnessforce init`. Skip steps 3 to 8 and go to step 9.
 
-## 3. CLIを導入する
+## 3. Install the CLI
 
-次を実行し、続けて`harnessforce --version`で導入できたことを確かめる。
+Run the following, then confirm the install with `harnessforce --version`.
 
 ```sh
 npm install -g @harnessforce/cli
 ```
 
-## 4. 本文データを送るかを選ぶ
+## 4. Choose whether to send prompt content
 
-`harnessforce init`の前に、本文データを送る設定の選択肢を、既定では選ばれない状態で利用者に示す。この時点ではログインが済んでおらず、接続するWorkspaceもそのopt-inの状態も分からないため、opt-inの有無で表示を変えない。
+Before `harnessforce init`, present the option to send prompt content to the user, not selected by default. The login is not done yet at this point, so neither the Workspace to connect nor its opt-in state is known. Do not change what you show depending on the opt-in.
 
-選択肢には次を併せて示す。
+Present the option together with the following.
 
-- 選ぶと、agentに入力した指示（prompt）の本文がこのWorkspaceへ届き、secretのパターンとメールアドレス・電話番号を`[REDACTED:種類]`に置き換えたうえで保存され、本文データの保持期間（最大30日）で削除される。パターンに一致しない秘密値と個人情報は伏せ字にならず、すべてを検出できるとは限らない。保存した本文は、Workspaceのメンバーの中では送った本人だけが読め、OwnerとAdminも読めない。本人は「自分のやり方」でいつでも自分の本文を削除できる。
-- 本文が保存されるのは、端末のこの設定とWorkspaceのopt-inの2つがそろう場合だけ。Workspaceのopt-inを解除すると、それ以降の本文は受信時に破棄され、既存の本文データも読めなくなる。この設定はモデルの応答やツールの入出力を送る設定を有効にしない。
-- 選んだ場合は`harnessforce init --send-content`、選ばない場合は`harnessforce init`を実行する（手順5）。この設定はClaude Codeのuser settingsの`env`に書き、project（`.claude/settings.json`）とlocal（`.claude/settings.local.json`）の`env`には書かない。その2つのfileの`env`では本文の変数が無視されるため。
-- 選んだ後で止めるときは、user settingsの`env`の`OTEL_LOG_USER_PROMPTS`を`0`にする。止める値はprojectとlocalの`env`でも効く。
+- If selected, the body of the prompts the user types to the agent is delivered to this Workspace. Secret patterns, email addresses, and phone numbers are replaced with `[REDACTED:kind]` before storing, and the content is deleted after the content retention period (at most 30 days). Secrets and personal information that do not match a pattern are not masked, and not everything can be detected. Within the Workspace, only the person who sent the stored content can read it; Owners and Admins cannot read it either. That person can delete their own content at any time from My practices.
+- Content is stored only when both this setting on the device and the Workspace opt-in are in place. If the Workspace opt-in is withdrawn, later content is discarded on receipt and existing content data can no longer be read. This setting does not enable sending model responses or tool input and output.
+- If selected, run `harnessforce init --send-content`; if not, run `harnessforce init` (step 5). Write this setting to the `env` of the Claude Code user settings, and do not write it to the `env` of the project (`.claude/settings.json`) or local (`.claude/settings.local.json`) files, because the content variable is ignored in the `env` of those two files.
+- To stop after selecting it, set `OTEL_LOG_USER_PROMPTS` in the `env` of the user settings to `0`. The value that stops it also takes effect in the project and local `env`.
 
-選択肢の文言は次をそのまま使う。
+Use the following option text as it is.
 
-> 入力した指示の本文を送って分析に使えます（既定では無効。Workspaceが指示本文をオプトインしている場合だけ有効になります）。有効にすると、エージェントに入力した指示の本文がこのWorkspaceへ届き、保存されます。パターンに一致した秘密値と個人情報は`[REDACTED:種類]`に置き換えますが、すべてを検出できるとは限りません。本文データの保持期間（最大30日）で削除し、Workspaceのメンバーの中では、読めるのは送ったあなただけです。自分のやり方の画面からいつでも削除できます。有効にしますか？
->
 > You can send the prompts you type for analysis (off by default; it takes effect only if the workspace has opted in to prompts you typed). If enabled, the prompts you type to the agent are delivered to this workspace and stored. Values that match known patterns for secrets and personal information are replaced with `[REDACTED:kind]`, but not everything can be detected. Content is deleted after the content retention period (at most 30 days), and within the workspace only you can read it. You can delete it at any time from My practices. Enable this?
->
-> 本文を送りません（既定）。後から設定できます
 >
 > Content is not sent (by default). You can enable it later.
 
-## 5. Harnessforceに接続する
+## 5. Connect to Harnessforce
 
-手順4の選択に従い、選んだ場合は`harnessforce init --send-content`、選ばない場合は`harnessforce init`を実行する。ブラウザでHarnessforceにログインし、接続するWorkspaceを1つ選ぶよう利用者へ伝える。ブラウザが開かなければ、`harnessforce init`が表示するURLを利用者へ示す。ログインの完了を最大5分待つため、Bashのtimeoutを10分にして実行する。
+Follow the choice in step 4: run `harnessforce init --send-content` if selected, or `harnessforce init` if not. Tell the user to log in to Harnessforce in the browser and choose one Workspace to connect. If the browser does not open, show the user the URL that `harnessforce init` prints. The command waits up to 5 minutes for the login to complete, so run it with a Bash timeout of 10 minutes.
 
-opt-inしていないWorkspaceでは`harnessforce init --send-content`は本文の設定を書かず、その旨とWorkspaceの設定のデータの保持への案内を表示して終了コード0で終わる。失敗として扱わず、表示された文言をそのまま利用者へ示す。
+For a Workspace that has not opted in, `harnessforce init --send-content` does not write the content setting. It prints a message about that and about the Data retention page of the Workspace settings, and exits with code 0. Do not treat this as a failure; show the printed text to the user as it is.
 
-## 6. 過去のsessionを取り込む
+## 6. Import past sessions
 
-`harnessforce import`を実行し、表示された取り込んだ件数と、取り込まなかったセッションの内訳と案内を、そのまま利用者へ伝える。0件のときも、表示された理由と次の行動を省かない。
+Run `harnessforce import` and tell the user, as it is, the imported count it prints, along with the breakdown of sessions that were not imported and the guidance. Do not omit the printed reason and the next action even when the count is 0.
 
-## 7. 利用枠を共有するかを選ぶ
+## 7. Choose whether to share usage limits
 
-`harnessforce init`の後に、`harnessforce usage-limits status`を実行する。表示のWorkspaceのopt-inが「有効」でなければ（「無効」「確認できません」を含む）、利用枠の選択肢を示さず手順8へ進む。「有効」なら、利用枠（Claude Codeの5時間と7日の枠の使用率とリセット時刻）をこのWorkspaceのメンバーと共有する選択肢を、既定では選ばれない状態で利用者に示す。選ばれなければ、何も実行せず手順8へ進む。
+After `harnessforce init`, run `harnessforce usage-limits status`. If the Workspace opt-in in the output is not "enabled" (including "disabled" and "unknown"), do not present the usage-limits option and go to step 8. If it is "enabled", present the option to share the usage limits (the usage percentage and reset time of the Claude Code 5-hour and 7-day windows) with the members of this Workspace, not selected by default. If it is not selected, run nothing and go to step 8.
 
-選択肢の文言は次をそのまま使う。
+Use the following option text as it is.
 
-> 利用枠を共有できます（既定では共有しません）。共有すると、あなたの名前とともに、あなたの利用枠（5時間・7日などの窓の使用率とリセット時刻だけ）を、このWorkspaceのメンバー全員が見られます。プロンプトなどの本文は送りません。いつでもやめられ、やめると保存済みの値も削除します。メンバーの順位づけには使いません。共有しますか？
+> Show your usage limits (usage percentage and reset time only) to everyone in the workspace
 >
-> You can share your usage limits (not shared by default). If shared, everyone in this workspace can see your usage limits together with your name (only the usage percentage and reset time of each window, such as 5 hours and 7 days). No prompt or other content is sent. You can stop at any time, and stopping deletes the stored values. They are not used to rank members. Share them?
->
-> 共有しません（既定）。後から`harnessforce usage-limits on`で設定できます
+> Everyone in this workspace can see your usage limits together with your name (only the usage percentage and reset time of each window, such as 5 hours and 7 days). No prompt or other content is sent. You can stop at any time, and stopping deletes the stored values. They are not used to rank members.
 >
 > Not shared (by default). You can set it up later with `harnessforce usage-limits on`.
 
-共有を選んだ場合だけ、利用者自身が同意の文面に答えるため、`!harnessforce usage-limits on`を利用者に入力してもらう。`--yes`は付けず、agentが同意を代行しない。同意の文面に`y`と答えると、既にstatusLineを使っている場合（claude-hudなど）は、そのcommandを包んで表示と終了コードを変えずに残す。Windowsや、組み込めないstatusLineでは、このcommandは何も変えずに理由を表示して0以外で終わる。その表示を利用者へそのまま示し、他の手順は続ける。やめるときは`harnessforce usage-limits off`を案内する。
+Only if the user chooses to share, ask the user to type `!harnessforce usage-limits on` so that the user answers the consent text themselves. Do not add `--yes`, and the agent does not consent on the user's behalf. When the user answers `y` to the consent text, an existing statusLine (such as claude-hud) is wrapped, and its output and exit code are left unchanged. On Windows, or with a statusLine that cannot be embedded, this command changes nothing, prints the reason, and exits non-zero. Show that output to the user as it is and continue with the other steps. To stop sharing, point the user to `harnessforce usage-limits off`.
 
-## 8. 再起動を案内する
+## 8. Ask for a restart
 
-次を利用者へ伝えて終わる。
+Tell the user the following and stop.
 
-> Claude Codeを再起動すると設定が反映されます。再起動したsessionで、もう一度`/harnessforce:setup`を実行してください。最初のイベントが届いたかを確認します。
+> Harnessforce setup, part 1 of 2, is done. Restart Claude Code, then run `/harnessforce:setup` again in the new session. Part 2 checks that the first event arrived.
 
-## 9. 最初のイベントを確認する
+## 9. Confirm the first event
 
-このsessionの開始時に、pluginのhookがsessionをHarnessforceへ送っている。利用者に、ブラウザでHarnessforceのHome（環境変数`HARNESSFORCE_URL`のURL）を開き、最初のRunの待機画面で受信を確認するよう伝える。15分待っても届かなければ、待機画面が示す原因ごとの確認手順に沿って確かめるよう伝える。
+At the start of this session, the plugin hook sent the session to Harnessforce. Tell the user to open the Harnessforce Home in the browser (the URL in the environment variable `HARNESSFORCE_URL`) and confirm on the waiting screen for the first Run that it was received. If nothing arrives after 15 minutes, tell the user to follow the checks for each cause shown on the waiting screen. Finish with the following line.
+
+> Harnessforce setup is complete.

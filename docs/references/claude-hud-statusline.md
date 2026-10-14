@@ -1,31 +1,31 @@
-# claude-hudのstatusLine
+# The claude-hud statusLine
 
-取得日: 2026-10-10
+Retrieved: 2026-10-10
 
-`harnessforce usage-limits statusline`が元のstatusLineとして包む対象のうち、claude-hud（Claude Codeのplugin）が利用者のuser settingsへ書くstatusLineの形を記す。2026-10-10に、利用者の端末のuser settingsとpluginのsourceで確かめた。
+This records the shape of the statusLine that claude-hud (a Claude Code plugin) writes to the user's user settings. It is one of the original statusLines that `harnessforce usage-limits statusline` wraps. On 2026-10-10 it was checked against the user settings on the user's device and the plugin source.
 
-## 観測した形（2026-10-10、Claude Code 2.1.296、claude-hud 0.8.0）
+## Observed shape (2026-10-10, Claude Code 2.1.296, claude-hud 0.8.0)
 
-利用者のuser settings（`~/.claude/settings.json`）の`statusLine`は、次の3つの項目だけを持つ。
+The `statusLine` in the user's user settings (`~/.claude/settings.json`) has only these three items.
 
-| 項目 | 値 |
+| Item | Value |
 | --- | --- |
 | `type` | `command` |
-| `command` | shellの文字列。`bash -c '...'`で、terminalの幅を環境変数`COLUMNS`に設定し、`$CLAUDE_CONFIG_DIR`または`$HOME/.claude`の`plugins/cache/*/claude-hud/*/`から最も新しいversionのdirectoryを探し、Node.jsの実行fileの絶対pathで`dist/index.js`を`exec`する |
+| `command` | A shell string. With `bash -c '...'`, it sets the terminal width in the environment variable `COLUMNS`, looks for the newest version directory under `plugins/cache/*/claude-hud/*/` in `$CLAUDE_CONFIG_DIR` or `$HOME/.claude`, and runs `dist/index.js` with `exec` using the absolute path of the Node.js executable |
 | `refreshInterval` | `5` |
 
-- `command`はshellの引用符を入れ子にした1本の文字列。
-- `command`はNode.jsの実行fileの絶対pathを含む。端末ごとに異なる値であり、`original`へ元のまま保存する。
+- `command` is a single string with nested shell quoting.
+- `command` contains the absolute path of the Node.js executable. This differs from device to device, and it is saved as it is in `original`.
 
-## claude-hudのsourceの記述（plugin cache内、0.8.0）
+## What the claude-hud source says (in the plugin cache, 0.8.0)
 
-- stdinのJSONの`rate_limits`から`five_hour.used_percentage`、`five_hour.resets_at`、`seven_day.used_percentage`、`seven_day.resets_at`と、`model_scoped`（配列）を読む（`src/stdin.ts`、`src/types.ts`）。
-- READMEは、statusLineが応答の後などにだけ走るため、時刻に依存する表示を更新し続けるには`statusLine`に`refreshInterval`（秒、最小1）を足すよう案内する。
-- READMEの`commands/setup.md`は、Claude CodeがstatusLineのcommandをbashで起動すると記す。
+- It reads `five_hour.used_percentage`, `five_hour.resets_at`, `seven_day.used_percentage`, `seven_day.resets_at`, and `model_scoped` (an array) from `rate_limits` in the JSON on stdin (`src/stdin.ts`, `src/types.ts`).
+- The README says that the statusLine runs only after responses and similar events, so to keep a time-dependent display updating, add `refreshInterval` (seconds, minimum 1) to `statusLine`.
+- `commands/setup.md` in the README says that Claude Code starts the statusLine command with bash.
 
-出典: 利用者の端末のuser settings（観測日 2026-10-10）、claude-hud 0.8.0のplugin cache内の`src/stdin.ts`、`src/types.ts`、`README.md`、`commands/setup.md`。
+Sources: the user settings on the user's device (observed 2026-10-10), and `src/stdin.ts`, `src/types.ts`, `README.md`, and `commands/setup.md` in the claude-hud 0.8.0 plugin cache.
 
-## 確認できていないこと
+## Not confirmed
 
-- 他のstatusLine用のpluginやscriptの`statusLine`の形。
-- Windowsでclaude-hudが書く`command`の形。
+- The shape of `statusLine` for other statusLine plugins or scripts.
+- The shape of the `command` that claude-hud writes on Windows.

@@ -13,7 +13,7 @@ const isSending = (argv: readonly string[]) =>
 	(argv[0] === "usage-limits" && argv[1] !== "statusline");
 const HOOK_RESTART_FAILED =
 	"harnessforce: session registration skipped (restart failed)";
-const RESTART_FAILED = "harnessforceを起動し直せませんでした";
+const RESTART_FAILED = "Could not restart harnessforce";
 
 type RelaunchDeps = {
 	platform: NodeJS.Platform;

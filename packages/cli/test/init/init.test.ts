@@ -24,61 +24,59 @@ import {
 // correlation.md「CLI」の`harnessforce init`が定める文言。
 const M = {
 	success:
-		"Harnessforceに接続しました。Claude Codeを再起動すると設定が反映されます",
-	invalidUrl: "接続先のURLが不正です",
-	keychain: "OSのキーチェーンを利用できないため、送信キーを保存できません",
+		"Connected to Harnessforce. Restart Claude Code to apply the settings",
+	invalidUrl: "The connection URL is invalid",
+	keychain: "The OS keychain is unavailable, so the ingest key cannot be saved",
 	kernelKeyring:
-		"Secret Serviceを使えないため、送信キーをkernelのkeyringに保存しました。再起動するか、一定期間使わないと消えます。消えたら`harnessforce init`を再実行してください",
-	waiting: "Secret Serviceの解錠の確認を待っています（最大60秒）",
+		"The Secret Service is unavailable, so the ingest key was saved in the kernel keyring. It is lost on reboot or after a period of disuse. If it disappears, run `harnessforce init` again",
+	waiting: "Waiting for the Secret Service unlock prompt (up to 60 seconds)",
 	tooManyKeys:
-		"keychainにある送信キーが多すぎるため、`harnessforce init`を実行できません",
+		"There are too many ingest keys in the keychain, so `harnessforce init` cannot run",
 	tooManyCredentials:
-		"keychainにある送信キーまたはログインの情報が多すぎるため、`harnessforce init`を実行できません",
-	settings: "Claude Codeのuser settingsを読めません",
+		"There are too many ingest keys or login entries in the keychain, so `harnessforce init` cannot run",
+	settings: "Cannot read the Claude Code user settings",
 	network:
-		"Harnessforceとの通信に失敗しました。もう一度`harnessforce init`を実行してください",
-	listen: "ログインの待ち受けを開始できませんでした",
-	timeout:
-		"ログインが時間内に完了しませんでした。もう一度`harnessforce init`を実行してください",
-	denied: "ログインが拒否されました",
+		"Communication with Harnessforce failed. Run `harnessforce init` again",
+	listen: "Could not start waiting for the login",
+	timeout: "The login did not complete in time. Run `harnessforce init` again",
+	denied: "The login was denied",
 	noWorkspace:
-		"参加しているWorkspaceがありません。Workspaceを作成するか招待を受諾してから、もう一度`harnessforce init`を実行してください",
-	loginFailed:
-		"ログインに失敗しました。もう一度`harnessforce init`を実行してください",
+		"You are not a member of any Workspace. Create a Workspace or accept an invitation, then run `harnessforce init` again",
+	loginFailed: "The login failed. Run `harnessforce init` again",
 	viewer:
-		"閲覧のみのロールでは送信キーを発行できません。Workspaceの管理者に連絡してください",
+		"The view-only role cannot issue an ingest key. Contact a Workspace administrator",
 	limitAdmin:
-		"有効な送信キーの数が上限に達しました。送信キーの画面で使っていないキーを失効してください",
+		"The number of active ingest keys has reached the limit. Revoke unused keys on the ingest keys page",
 	limitMember:
-		"送信キーの上限に達しています。Workspaceの管理者に連絡してください",
-	gate: "受信側へ反映できませんでした。変更はしていません。もう一度お試しください",
-	noIngest: "この環境はテレメトリを受信しないため、送信キーを発行できません",
-	saveFailed:
-		"送信キーを保存できませんでした。もう一度`harnessforce init`を実行してください",
+		"The ingest key limit has been reached. Contact a Workspace administrator",
+	gate: "Could not apply the change on the receiving side. Nothing was changed. Try again",
+	noIngest:
+		"This environment does not receive telemetry, so an ingest key cannot be issued",
+	saveFailed: "Could not save the ingest key. Run `harnessforce init` again",
 	contentNotOptedIn:
-		"このWorkspaceは本文データをopt-inしていないため、本文を送る設定は有効にしませんでした。Workspaceの設定のデータの保持でopt-inしてから、もう一度`harnessforce init --send-content`を実行してください",
+		"This workspace has not opted in to prompts you typed, so sending content was not enabled. Opt in under Data retention in the workspace settings, then run `harnessforce init --send-content` again",
 };
 
 // Codexの`config.toml`を書いた後の案内（correlation.md「CLI」の手順8）。
 const codexNotes = (home: string) =>
 	[
-		`Codexの設定を書き込みました（${join(home, ".codex", "config.toml")}）。Codexを再起動すると反映されます`,
-		"Codexのhookは、Codexの/hooksで内容をtrustするまで実行されません。/hooksでharnessforceのSessionStartのhookをtrustしてください",
-		"HarnessforceのMCPを使う場合は、`codex mcp login harnessforce`でログインしてください",
+		`Wrote the Codex configuration (${join(home, ".codex", "config.toml")}). Restart Codex to apply it`,
+		"Codex hooks do not run until you trust them in Codex's /hooks. Trust the harnessforce SessionStart hook in /hooks",
+		"To use the Harnessforce MCP server, log in with `codex mcp login harnessforce`",
 	].join("\n");
 const finished = (home: string) => `${M.success}\n${codexNotes(home)}\n`;
 
 const contentEnabled =
-	"入力した指示の本文を送る設定を有効にしました。パターンに一致した秘密値と個人情報を伏せ字にしますが、すべてを検出できるとは限りません。保存した本文は、Workspaceのメンバーの中ではあなただけが読め、本文データの保持期間（最大30日）が過ぎると削除されます";
+	"Sending the prompts you type is now enabled. Values that match known patterns for secrets and personal information are masked, but not everything can be detected. Within the workspace, only you can read your stored content, and it is deleted after the content retention period (at most 30 days)";
 
 const codexSaveFailed =
-	"Codexの設定を書き込めませんでした。もう一度`harnessforce init`を実行してください";
+	"Could not write the Codex configuration. Run `harnessforce init` again";
 
 const failed = (message: string) => ({ code: 1, out: "", err: `${message}\n` });
 
 // portを確保できなかったときの文言。使えなかったportと`--port`の逃げ道を示す（correlation.md「CLI」）。
 const listenFailed = (port: number) =>
-	`${M.listen}。ポート ${port}を使っているプロセスを終えるか、\`harnessforce init --port\`で別のポートを指定してください`;
+	`${M.listen}. Stop the process using port ${port}, or specify another port with \`harnessforce init --port\``;
 
 const EXISTING = {
 	"ws1:ingest-key": "hf_ik_ws1_old",
@@ -130,7 +128,7 @@ describe("harnessforce init", () => {
 			code_challenge_method: "S256",
 			state: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
 		});
-		expect(await browser.pages[0]).toContain("ターミナルに戻ってください");
+		expect(await browser.pages[0]).toContain("Return to the terminal");
 
 		const [request] = server.credentialRequests;
 		expect(request?.headers["content-type"]).toBe("application/json");
@@ -222,7 +220,7 @@ describe("harnessforce init", () => {
 		});
 		expect(result.code).toBe(0);
 		expect(result.out).toContain(
-			`接続先: ${server.base}（既定の本番ではありません）\n${M.success}\n`,
+			`Connecting to ${server.base} (not the default production endpoint)\n${M.success}\n`,
 		);
 	});
 
@@ -435,7 +433,7 @@ describe("harnessforce init", () => {
 					keychain: fakeKeychain({ available: false, unavailableHint: hint })
 						.keychain,
 				}),
-			).toEqual(failed(`${M.keychain}。${hint}`));
+			).toEqual(failed(`${M.keychain}. ${hint}`));
 			expect(
 				await runInit([], {
 					homeDir: makeHome().home,

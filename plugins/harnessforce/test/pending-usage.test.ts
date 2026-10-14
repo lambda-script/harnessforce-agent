@@ -21,7 +21,7 @@ const T0 = Date.parse("2026-09-26T00:00:00Z");
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
 const WORKSPACE_KEY_REVOKED =
-	"組織の送信キーが失効しています。Workspaceの管理者に連絡してください";
+	"The organization's ingest key has been revoked. Contact a Workspace administrator";
 
 type Options = Parameters<typeof harness>[0];
 

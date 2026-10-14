@@ -169,7 +169,7 @@ describe("UserPromptSubmit hook", () => {
 		await submit(h, { scratchpad_dir: dir, prompt_id: "p-1" });
 		expect(JSON.parse(h.out())).toEqual({
 			systemMessage:
-				"組織の送信キーが失効しています。Workspaceの管理者に連絡してください",
+				"The organization's ingest key has been revoked. Contact a Workspace administrator",
 		});
 		const later = harness();
 		await start(later, { scratchpad_dir: dir, source: "clear" });

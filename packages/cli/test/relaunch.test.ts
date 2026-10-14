@@ -96,7 +96,7 @@ describe("relaunching harnessforce without Node runtime variables", () => {
 			stderr: (text) => err.push(text),
 		});
 		expect(code).toBe(1);
-		expect(err).toEqual(["harnessforceを起動し直せませんでした\n"]);
+		expect(err).toEqual(["Could not restart harnessforce\n"]);
 	});
 
 	// correlation.md「hook」: hookはどの失敗でもsessionを止めず、常にexit 0で終える。
@@ -117,6 +117,6 @@ describe("relaunching harnessforce without Node runtime variables", () => {
 			"harnessforce: session registration skipped (restart failed)\n",
 		]);
 		// correlation.md「hookの警告」: Codexのhookは平文の警告1行だけを出す。
-		expect(out).toEqual(["Harnessforceのhookを起動し直せませんでした\n"]);
+		expect(out).toEqual(["Could not restart the Harnessforce hook\n"]);
 	});
 });

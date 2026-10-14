@@ -1,54 +1,54 @@
 ---
 name: using-harnessforce
-description: Harnessforceのhookが入った環境でsessionを始めたとき、HarnessforceのIssue（ENG-42のような識別子）に取り組む作業を始めるとき、Harnessforceが何を記録し何を収集しないかを尋ねられたときに使う。sessionの開始時にhookがこの本文をcontextへ注入する。
+description: Use when starting a session in an environment with the Harnessforce hook, when starting work on an Issue, or when asked what is recorded or collected. The hook injects this text into the context at session start.
 ---
 
-# Harnessforceを使う
+# Using Harnessforce
 
-このsessionにはHarnessforceのhookが入っている。Harnessforceは、人とAIの作業をIssueに結び付けて記録する。次の規則に従う。
+This session has the Harnessforce hook installed. Harnessforce links the work of people and AI to Issues and records it. Follow these rules.
 
-## 何を記録するか
+## What is recorded
 
-- session registration: agent、session ID、repository、branch、commit、開始時刻、最初のprompt ID。
-- config snapshot: 利用中の設定の構成（Claude Codeだけ）。
-- OTelのテレメトリ: 利用者の設定で送るもの。
-- Issueに取り組む作業で`record-run`が記録する、Plan、Decision、Definition of Doneの充足。人が承認するまで確定しない。
+- Session registration: agent, session ID, repository, branch, commit, start time, and the first prompt ID.
+- Config snapshot: the structure of the configuration in use (Claude Code only).
+- OTel telemetry: what the user chooses to send.
+- For work on an Issue, `record-run` records the Plan, the Decision, and whether the Definition of Done is met. Nothing is final until a person approves it.
 
-## 何を収集しないか
+## What is not collected
 
-- prompt、応答、toolの入出力、code diffの本文は、利用者が`--send-content`で選び、Workspaceがopt-inした場合だけ届く。既定では収集しない。
-- MCPのtoolの入力にも記録にも、これらの本文、secret、環境変数の値を含めない。
+- Prompts, responses, tool input and output, and the body of code diffs arrive only when the user opts in with `--send-content` and the Workspace has opted in. They are not collected by default.
+- Never put these contents, secrets, or environment variable values in MCP tool input or in a record.
 
-## どのhookが何を送るか
+## Which hook sends what
 
-- SessionStart: session registrationとconfig snapshot（Codexはsession registrationだけ）。
-- UserPromptSubmit: 最初のpromptでの再送（Claude Codeだけ）。
-- hookは失敗してもsessionを止めない。送れない状態のときは、hookが警告を1行表示する。警告が出たら利用者に伝える。
+- SessionStart: session registration and the config snapshot (Codex sends session registration only).
+- UserPromptSubmit: resends on the first prompt (Claude Code only).
+- A failing hook never stops the session. When the hook cannot send, it shows a one-line warning. Tell the user when a warning appears.
 
-## どのskillとtoolをいつ使うか
+## Which skill and tool to use, and when
 
-- IssueのIDを指定された作業、または環境変数`HARNESSFORCE_ISSUE`がある作業は、`record-run`に従い、`start_run`、`get_issue`、`record_plan`、`record_decision`、`complete_run`を使う。skillを読み込めないagentは、同じ順にtoolを呼ぶ。
-- `start_run`には、contextの`harnessforce session_id:`の行の値を渡す。複数あれば最後の値を使う。行が無ければ、session IDを推測せず、`start_run`と`complete_run`を呼ばない。
-- `/harnessforce:tune`の分析は`propose-improvements`を使う。
-- Issueが指定されていない作業では、Runの記録を始めない。
+- For work on a specified Issue ID, or when the environment variable `HARNESSFORCE_ISSUE` is set, follow `record-run` and use `start_run`, `get_issue`, `record_plan`, `record_decision`, and `complete_run`. An agent that cannot load the skill calls the tools in the same order.
+- Pass the value of the `harnessforce session_id:` line in the context to `start_run`. If there are several, use the last one. If the line is missing, do not guess the session ID, and do not call `start_run` or `complete_run`.
+- Use `propose-improvements` for the analysis of `/harnessforce:tune`.
+- When no Issue is specified, do not start recording a Run.
 
 ## Red Flags
 
-次の考えが浮かんだら、立ち止まる。
+Stop when one of these thoughts comes up.
 
-| 考え | 現実 |
+| Thought | Reality |
 | --- | --- |
-| 小さな作業なので記録は要らない | Issueが指定された作業は、大きさによらず記録する |
-| session IDの行が無いが、推測して`start_run`を呼ぶ | 推測しない。Runがsessionと結び付かなくなる |
-| 本文を要約して渡せば記録の役に立つ | 本文はtoolに渡さない。収集しない範囲を超える |
-| 警告が出たが、気にしなくてよい | 送れていない。利用者に伝える |
+| An Issue was specified, but the work is small, so recording is unnecessary | Work on a specified Issue is recorded regardless of its size |
+| The session ID line is missing, so I will guess it and call `start_run` | Do not guess. The Run would no longer be linked to the session |
+| Summarizing the content before recording would help | Do not pass content to the tool. It goes beyond what is collected |
+| A warning appeared, but I can ignore it | Sending is not working. Tell the user |
 
-## 優先順位
+## Priority
 
-1. 利用者の指示（CLAUDE.md、AGENTS.md、直接の依頼）。利用者が記録を止めるよう指示したら、Runの記録を止める。
-2. この導入文。
-3. 既定の動作。
+1. The user's instructions (CLAUDE.md, AGENTS.md, direct requests). If the user tells you to stop recording, stop recording the Run.
+2. This introduction.
+3. Default behavior.
 
-## subagent
+## Subagents
 
-親から特定の作業だけを委譲されたsubagentは、この導入文に従ってRunを登録しない。Runの登録は親が行う。
+A subagent that was delegated only a specific task by its parent does not register a Run by following this introduction. The parent registers the Run.

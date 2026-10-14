@@ -1,85 +1,85 @@
 ---
 name: propose-improvements
-description: /harnessforce:tuneの分析結果から、人の介入、ループにできる繰り返し、MCP server、使い方（contextの圧縮、cacheの再利用、modelの使い分け）の改善の提案を作り、harnessforce tune recordで記録してから表示する。/harnessforce:tuneが「提案を作れます」と判定した対象にだけ使う。ファイルは書き換えない。
+description: From the analysis results of /harnessforce:tune, make suggested improvements for human interventions, repeatable loops, MCP servers, and usage (context compaction, cache reuse, model choice), record them with harnessforce tune record, and then show them. Use it only for targets that /harnessforce:tune marks as "a suggestion can be made". Does not modify files.
 ---
 
-# 分析結果から改善の提案を作る
+# Make improvement suggestions from the analysis results
 
-`/harnessforce:tune`の`summarize.mjs`が出した「提案の対象」のうち、「提案を作れます」の対象ごとに提案を作る。提案は利用者がそのまま適用できる形にし、記録してから表示する。
+For each target marked "a suggestion can be made" in the "Targets for suggestions" printed by `summarize.mjs` of `/harnessforce:tune`, make a suggestion. Make each suggestion in a form the user can apply as it is, and record it before showing it.
 
-## 書き換えない
+## Do not modify anything
 
-- 利用者のファイル、設定、repository、managed settingsを書き換えない。Edit、Writeのtool、`git apply`、`git commit`、branchの作成、`gh pr create`を使わない。差分とPull Requestの下書きは表示するだけである。
-- 書き込むのは、`harnessforce tune record`が`~/.harnessforce/tune/`へ書く記録だけである。一時fileも作らない。
+- Do not modify the user's files, settings, repository, or managed settings. Do not use the Edit or Write tools, `git apply`, `git commit`, creating a branch, or `gh pr create`. The diff and the Pull Request draft are only shown.
+- The only thing written is the record that `harnessforce tune record` writes to `~/.harnessforce/tune/`. Do not create temporary files either.
 
-## 作る条件
+## Conditions for making a suggestion
 
-`summarize.mjs`の判定が正である。「データ不足」と「未計測のため提案しません」の対象には提案を作らない。判定の条件は次のとおりである。
+The result of `summarize.mjs` is authoritative. Make no suggestion for a target marked "Not enough data" or "not measured, so no suggestion is made". The conditions are as follows.
 
-| 対象 | 提案を作る最小の条件 |
+| Target | Minimum condition for a suggestion |
 | --- | --- |
-| すべて | 分析した範囲に10 session以上ある |
-| 人の介入 | その`intervention.kind`が、3 session以上で合計10回以上ある |
-| ループにできる繰り返し | その`loop.kind`が、合計3回以上ある |
-| MCP server | `configured`のsessionが10以上ある |
-| 使い方の`frequent_compaction`、`low_cache_reuse` | その`usage.kind`に当たるsessionが3以上ある |
-| 使い方の`model_choice` | `models`を持つsessionが10以上あり、分析した範囲の`models`の合計で、1つの`message.model`の値が`output_tokens`の合計の90%以上を占める |
+| All | The analyzed range has at least 10 sessions |
+| Human interventions | That `intervention.kind` appears in at least 3 sessions and at least 10 times in total |
+| Repeatable loops | That `loop.kind` appears at least 3 times in total |
+| MCP servers | At least 10 sessions have `configured` |
+| `frequent_compaction` and `low_cache_reuse` of usage | At least 3 sessions match that `usage.kind` |
+| `model_choice` of usage | At least 10 sessions have `models`, and in the total of `models` over the analyzed range, one `message.model` value accounts for at least 90% of the total `output_tokens` |
 
-- 未計測（`not_measured`）の値を根拠にしない。未計測を0として扱わない。
-- 使い方の提案の変更の種類は、`claude_md`、`rule`、`skill`、`agent`、`command`に限る（例: 肥大したCLAUDE.mdを分ける、探索をsubagentへ移してそのagentの`model`を指定する）。settingsの`model`など、他の変更の種類にしない。`harnessforce tune record`は他の変更の種類を拒否する。`claude_md`の変更は適用を検出しないため、前回の提案の前後にも現れない。
-- 使い方の値（`usage`）は端末だけの値であり、Harnessforceへ送られない。提案の根拠には使ってよい。
-- ハーネスの構成（skill、rule、agent、command、hook、MCP server、modelのversionごとの成果の差）を対象にした提案は作らない。
-- 調べても、利用者がそのまま適用できる変更が見つからなければ、その対象の提案を作らず、理由を1行で伝える。
+- Do not use a value that was not measured (`not_measured`) as evidence. Do not treat "not measured" as 0.
+- The change type of a usage suggestion is limited to `claude_md`, `rule`, `skill`, `agent`, and `command` (for example, split up a bloated CLAUDE.md, or move exploration to a subagent and specify that agent's `model`). Do not use another change type such as the `model` in settings. `harnessforce tune record` rejects other change types. A change to `claude_md` is not detected when applied, so it does not appear in the before and after of the previous suggestion either.
+- Usage values (`usage`) stay on this device and are not sent to Harnessforce. You may use them as evidence for a suggestion.
+- Do not make a suggestion about the harness configuration itself (differences in results between skills, rules, agents, commands, hooks, MCP servers, and model versions).
+- If you investigate and find no change the user can apply as it is, make no suggestion for that target and say why in one line.
 
-## 根拠を集める
+## Gather evidence
 
-- 対象の「根拠のsession」の`transcript_path`の記録を、提案に必要な部分だけ読む。人の介入なら、その種類のpromptと、直前のagentの応答を読む。ループなら、一巡の手順（Issueの取得、修正、test、push、Pull Requestの作成など）と、人が介入した時点を読む。MCP serverなら、呼び出しと失敗を読む。使い方なら、`frequent_compaction`は圧縮の前の指示と経緯、`low_cache_reuse`はcacheが再利用されなかった応答の前後、`model_choice`は本体が行っていた探索や定型の作業を読む。
-- 「前回の提案の前後」で「良くなった向きへ動いていません」と示された提案と同じ対象の提案を作るときは、その前後を根拠に示し、前回と同じ差分を繰り返さない。
-- 適用先の現在の定義（settings、skill、rule、agent、command、hook、`.mcp.json`、`~/.claude.json`の`mcpServers`、CLAUDE.md）を読み、差分を現在の内容に対して作る。
+- Read only the parts you need of the record at the `transcript_path` of the target's evidence sessions. For human interventions, read the prompts of that kind and the agent response just before them. For loops, read the steps of one cycle (fetching the Issue, fixing, testing, pushing, creating the Pull Request, and so on) and the points where a person intervened. For MCP servers, read the calls and failures. For usage, read the instructions and the course of events before compaction for `frequent_compaction`, the responses before and after where the cache was not reused for `low_cache_reuse`, and the exploration and routine work done by the main agent for `model_choice`.
+- When you make a suggestion for the same target as a suggestion that "Before and after the previous suggestion" shows as "Did not move in the improving direction", cite that before and after as evidence and do not repeat the same diff as last time.
+- Read the current definition of the target (settings, skill, rule, agent, command, hook, `.mcp.json`, `mcpServers` in `~/.claude.json`, CLAUDE.md) and make the diff against the current content.
 
-## 形式
+## Format
 
-提案ごとに次を持たせる。
+Give each suggestion the following.
 
-| 項目 | 内容 |
+| Item | Content |
 | --- | --- |
-| 対象のカテゴリ | `intervention.kind=<kind>`、`loop.kind=<kind>`、`mcp_server=<識別子>`、`usage.kind=<kind>`のいずれか。`usage.kind`の`<kind>`は`frequent_compaction`、`low_cache_reuse`、`model_choice`のいずれか |
-| 根拠 | 期間、回数、該当したsessionの時刻と、記録の抜粋。抜粋は端末にだけ表示する |
-| 変更の種類 | `permissions`、`hook`、`skill`、`rule`、`agent`、`command`、`loop_prompt`、`mcp_config`、`claude_md`のいずれか |
-| 適用先 | 利用者のscope、repositoryのscope、managed settingsのいずれかと、ファイルのpath |
-| 変更 | そのまま適用できるunified diff。repositoryのscopeなら、branch名、title、本文、diffからなるPull Requestの下書き。managed settingsなら、Owner/Adminが貼り付ける差分 |
-| 期待する効果 | どのカテゴリの値が減るか、どの既存の指標（CIの失敗率、手戻り率、完了Issueあたりのcost）が変わるか |
-| 測り方 | 適用で変わるComponentVersion（種類と識別子）と、比較に使う指標 |
+| Target category | One of `intervention.kind=<kind>`, `loop.kind=<kind>`, `mcp_server=<identifier>`, `usage.kind=<kind>`. The `<kind>` of `usage.kind` is one of `frequent_compaction`, `low_cache_reuse`, `model_choice` |
+| Evidence | The period, the counts, the times of the matching sessions, and excerpts of the records. Excerpts are shown on this device only |
+| Change type | One of `permissions`, `hook`, `skill`, `rule`, `agent`, `command`, `loop_prompt`, `mcp_config`, `claude_md` |
+| Apply to | The user scope, the repository scope, or managed settings, and the file path |
+| Change | A unified diff that can be applied as it is. For the repository scope, a Pull Request draft made of the branch name, the title, the body, and the diff. For managed settings, the diff that an Owner or Admin pastes |
+| Expected effect | Which category value decreases, and which existing metric (CI failure rate, rework rate, cost per completed Issue) changes |
+| How to measure | The ComponentVersion that changes when applied (kind and identifier), and the metric used for comparison |
 
-変更の種類と、適用で変わるcomponentの対応は次のとおりである。
+The change type and the component that changes when applied correspond as follows.
 
-| 変更の種類 | componentの`kind` | componentの識別子（`id`） | 期待する内容 |
+| Change type | Component `kind` | Component identifier (`id`) | Expected content |
 | --- | --- | --- | --- |
-| `permissions` | `permissions` | `permissions` | 適用後のsettingsの`permissions`の値全体（`value`） |
-| `hook` | `hook` | hookのevent名 | 適用後のsettingsの`hooks`のそのeventの値（`value`） |
-| `skill` | `skill` | skillのdirectory名 | 適用後の`SKILL.md`の内容全体（`content`） |
-| `rule` | `rule` | `CLAUDE.md`か`rules/<path>` | 適用後のfileの内容全体（`content`） |
-| `agent` | `agent` | `agents/`からのpathの`.md`を除き`/`を`:`にした名前 | 適用後のfileの内容全体（`content`） |
-| `command` | `command` | `commands/`からのpathの`.md`を除き`/`を`:`にした名前 | 適用後のfileの内容全体（`content`） |
-| `loop_prompt` | 書くfileの形式に従い`command`か`skill` | 上の`command`か`skill`と同じ | 適用後のfileの内容全体（`content`） |
-| `mcp_config` | `mcp_server`（serverを削除する差分ではcomponentを持たない） | server名 | 適用後のserverの定義（`value`）。削除では適用後のfileの内容全体（`content`） |
-| `claude_md` | 無し | 無し | 適用後のCLAUDE.mdの内容全体（`content`） |
+| `permissions` | `permissions` | `permissions` | The whole `permissions` value of the settings after applying (`value`) |
+| `hook` | `hook` | The event name of the hook | The value of that event under `hooks` in the settings after applying (`value`) |
+| `skill` | `skill` | The directory name of the skill | The whole content of `SKILL.md` after applying (`content`) |
+| `rule` | `rule` | `CLAUDE.md` or `rules/<path>` | The whole content of the file after applying (`content`) |
+| `agent` | `agent` | The path from `agents/` without `.md`, with `/` replaced by `:` | The whole content of the file after applying (`content`) |
+| `command` | `command` | The path from `commands/` without `.md`, with `/` replaced by `:` | The whole content of the file after applying (`content`) |
+| `loop_prompt` | `command` or `skill`, following the format of the file written | Same as `command` or `skill` above | The whole content of the file after applying (`content`) |
+| `mcp_config` | `mcp_server` (a diff that deletes the server has no component) | The server name | The definition of the server after applying (`value`). For deletion, the whole content of the file after applying (`content`) |
+| `claude_md` | None | None | The whole content of CLAUDE.md after applying (`content`) |
 
-componentの`source`は適用先のscope（`user`、`repository`、`local`、`managed`）とする。`.mcp.json`のserverは`repository`、`~/.claude.json`の最上位の`mcpServers`は`user`、その`projects`の下は`local`である。
+The component `source` is the scope it applies to (`user`, `repository`, `local`, `managed`). A server in `.mcp.json` is `repository`, the top-level `mcpServers` of `~/.claude.json` is `user`, and the one under its `projects` is `local`.
 
-## 許可を減らす提案
+## Suggestions to reduce permissions
 
-- 権限の確認への応答を減らす提案は、確認を求められたtoolと、その許可の内訳を根拠にする。許可するのは、根拠に現れたtoolとcommandの最小の範囲だけとする（例: `Bash(pnpm test:*)`、`Bash(git status)`、`mcp__github__get_issue`）。
-- すべてのコマンドを許可する規則を提案しない。`Bash`、`Bash(*)`、`Bash(:*)`、`*`のような、tool全体やすべてのcommandへの許可、`"defaultMode": "bypassPermissions"`、`--dangerously-skip-permissions`は、どの提案にも含めない。
+- A suggestion to reduce answers to permission prompts takes the tools that asked for confirmation and the breakdown of their permissions as evidence. Allow only the smallest range of tools and commands that appeared in the evidence (for example `Bash(pnpm test:*)`, `Bash(git status)`, `mcp__github__get_issue`).
+- Do not suggest a rule that allows all commands. Do not include in any suggestion a permission for a whole tool or all commands such as `Bash`, `Bash(*)`, `Bash(:*)`, or `*`, nor `"defaultMode": "bypassPermissions"` or `--dangerously-skip-permissions`.
 
-## ループの提案
+## Suggestions for loops
 
-- ループにできる繰り返しの提案は、commandかskillの形式のprompt（`loop_prompt`）とし、止める条件を必ず含める。止める条件は、最大の繰り返し回数と、人が確認する時点（例: Pull Requestの作成前、同じ失敗が2回続いたとき）の両方とする。
-- promptは、根拠のsessionで人が介入していた時点を、止める条件か、agentが自分で行う手順のどちらかに置き換える。
+- A suggestion for a repeatable loop is a prompt in the form of a command or a skill (`loop_prompt`), and it must include stopping conditions. The stopping conditions are both the maximum number of repetitions and the points where a person checks (for example before creating a Pull Request, or when the same failure happens twice in a row).
+- In the prompt, replace each point where a person intervened in the evidence sessions with either a stopping condition or a step the agent does by itself.
 
-## 記録してから表示する
+## Record, then show
 
-提案を表示する前に、提案ごとに`harnessforce tune record`を実行し、stdinへUTF-8のJSONのobjectを1つ渡す。入力はheredocで渡し、fileに書かない。区切りの語は、入力に現れない語にする。
+Before showing a suggestion, run `harnessforce tune record` for each suggestion and pass one UTF-8 JSON object on stdin. Pass the input with a heredoc and do not write it to a file. Use a delimiter word that does not appear in the input.
 
 ```sh
 harnessforce tune record <<'HF_TUNE_RECORD_7f3c'
@@ -87,19 +87,19 @@ harnessforce tune record <<'HF_TUNE_RECORD_7f3c'
 HF_TUNE_RECORD_7f3c
 ```
 
-| 項目 | 必須 | 内容 |
+| Item | Required | Content |
 | --- | --- | --- |
-| `category` | ✓ | 対象のカテゴリ |
-| `change_type` | ✓ | 変更の種類 |
-| `scope` | ✓ | `user`、`repository`、`local`、`managed`のいずれか |
-| `path` | ✓ | 変更が書くfileの絶対path |
-| `project_root` | `scope`が`repository`か`local`なら必須 | 適用先のrepositoryのrootの絶対path。それ以外では渡さない |
-| `component` | 上の対応表でcomponentを持つ変更なら必須 | `kind`、`source`、`id` |
-| `content` | `component`の`kind`が`rule`、`skill`、`agent`、`command`の場合と、componentを持たない場合に必須 | 適用後の`path`のfileの内容全体 |
-| `value` | `component`の`kind`が`hook`、`permissions`、`mcp_server`の場合に必須 | 適用後のそのcomponentのsettingsの値（JSON） |
-| `evidence_session_ids` | ✓ | 根拠のsessionのsession ID（1件以上）。「根拠のsession」に表示されたものだけを使う |
-| `body` | ✓ | 提案の本文（markdown）。根拠、変更、期待する効果、測り方 |
+| `category` | yes | The target category |
+| `change_type` | yes | The change type |
+| `scope` | yes | One of `user`, `repository`, `local`, `managed` |
+| `path` | yes | The absolute path of the file the change writes |
+| `project_root` | required when `scope` is `repository` or `local` | The absolute path of the root of the repository it applies to. Do not pass it otherwise |
+| `component` | required for a change that has a component in the table above | `kind`, `source`, `id` |
+| `content` | required when the `kind` of `component` is `rule`, `skill`, `agent`, or `command`, and when there is no component | The whole content of the file at `path` after applying |
+| `value` | required when the `kind` of `component` is `hook`, `permissions`, or `mcp_server` | The settings value (JSON) of that component after applying |
+| `evidence_session_ids` | yes | The session IDs of the evidence sessions (at least 1). Use only those shown in the evidence sessions |
+| `body` | yes | The body of the suggestion (markdown): the evidence, the change, the expected effect, and how to measure |
 
-- `harnessforce tune record`が終了コード0で終わった提案だけを表示する。0以外で終わった提案は表示せず、stderrの文言を伝える。
-- 同じ提案は同じ入力で記録する。同じ`category`、`change_type`、`path`、適用後の内容なら、何回記録しても1件として数えられる。
-- 表示では、対象のカテゴリ、根拠、変更の種類、適用先、変更、期待する効果、測り方を、この順に示す。
+- Show only the suggestions for which `harnessforce tune record` ended with exit code 0. Do not show a suggestion that ended with a non-zero code, and tell the user the message on stderr.
+- Record the same suggestion with the same input. With the same `category`, `change_type`, `path`, and content after applying, it counts as one no matter how many times it is recorded.
+- When showing, present the target category, the evidence, the change type, where to apply, the change, the expected effect, and how to measure, in this order.

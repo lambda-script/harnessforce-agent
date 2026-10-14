@@ -56,12 +56,6 @@ const ACCESS_MESSAGES: AccessMessages = {
 	apiTokenMissing: MESSAGES.noUserKey,
 };
 
-// 日本語の環境では日本語、それ以外は英語の文面を示す。
-function language(env: ManageDeps["env"]): "ja" | "en" {
-	const locale = env.LC_ALL || env.LC_MESSAGES || env.LANG || "";
-	return locale.toLowerCase().startsWith("ja") ? "ja" : "en";
-}
-
 function consentClient(deps: ManageDeps, access: CliAccess) {
 	const authorized = createApiTokenSession({
 		keychain: deps.keychain,
@@ -97,9 +91,8 @@ async function runOn(yes: boolean, deps: ManageDeps): Promise<number> {
 	// 手順4の前: Workspaceのopt-inの状態。取れなければ表示せずに続ける。
 	const before = await client.read();
 	// 手順3
-	const lang = language(deps.env);
-	deps.stdout(`${CONSENT_TEXT[lang]}\n`);
-	if (!yes && (await deps.ask(CONSENT_PROMPT[lang])).trim() !== "y")
+	deps.stdout(`${CONSENT_TEXT}\n`);
+	if (!yes && (await deps.ask(CONSENT_PROMPT)).trim() !== "y")
 		return stopWith(MESSAGES.notAgreed);
 	// 手順4
 	const recorded = await client.record();
@@ -206,15 +199,15 @@ async function runStatus(deps: ManageDeps): Promise<number> {
 	const result = await readRemote(deps);
 	deps.stdout(
 		[
-			`本人の同意: ${consentLabel(result, mark)}`,
-			`Workspaceのopt-in: ${
+			`Your consent: ${consentLabel(result, mark)}`,
+			`Workspace opt-in: ${
 				result.kind !== "ok"
 					? STATUS_LABELS.optIn.unknown
 					: result.state.workspaceOptedIn
 						? STATUS_LABELS.optIn.on
 						: STATUS_LABELS.optIn.off
 			}`,
-			`statusLineの組み込み: ${statusLine}`,
+			`statusLine embedding: ${statusLine}`,
 			"",
 		].join("\n"),
 	);

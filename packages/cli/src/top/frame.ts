@@ -275,7 +275,7 @@ export function renderList(
 	}
 	const body =
 		sessions.length === 0
-			? ["直近24時間に記録のあるsessionはありません"].map((t) =>
+			? ["No sessions recorded in the last 24 hours"].map((t) =>
 					clip(t, options),
 				)
 			: options.width >= COMPACT_WIDTH
@@ -392,6 +392,6 @@ export function renderDetail(row: TopRow, options: FrameOptions): string[] {
 export const skippedNotice = (snapshot: TopSnapshot): string[] =>
 	snapshot.skippedLines > 0 || snapshot.skippedFiles > 0
 		? [
-				`読めなかった${snapshot.skippedLines}行と${snapshot.skippedFiles}個のファイルを読み飛ばしました`,
+				`Skipped ${snapshot.skippedLines} unreadable line(s) and ${snapshot.skippedFiles} unreadable file(s)`,
 			]
 		: [];

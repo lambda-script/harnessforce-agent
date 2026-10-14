@@ -174,7 +174,7 @@ describe("OS keychain", () => {
 			}),
 		).toBeUndefined();
 		expect(keychain.unavailableHint).toBe(
-			"Secret Service（GNOME KeyringまたはKWallet）とkernelのkeyringのどちらも使えません。コンテナやCIでは、Workspace用の送信キーをmanaged settingsで配るようOwnerかAdminに依頼してください",
+			"Neither the Secret Service (GNOME Keyring or KWallet) nor the kernel keyring is available. In containers and CI, ask an Owner or Admin to distribute a Workspace ingest key through managed settings",
 		);
 	});
 

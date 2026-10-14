@@ -143,18 +143,20 @@ describe("the session list", () => {
 	it("marks the selected row and says so when there are no sessions", () => {
 		const lines = renderList(sessions, options(100, { selectedIndex: 1 }));
 		expect(lines.find((l) => l.startsWith(">"))).toContain("bugfix");
-		expect(renderList([], options(100)).join("\n")).toContain("直近24時間");
+		expect(renderList([], options(100)).join("\n")).toContain("last 24 hours");
 	});
 
 	it("shows the notices and the key hint, paused included", () => {
 		const text = renderList(
 			sessions,
 			options(100, {
-				notices: ["読めなかった2行を読み飛ばしました"],
+				notices: ["Skipped 2 unreadable line(s) and 0 unreadable file(s)"],
 				paused: true,
 			}),
 		).join("\n");
-		expect(text).toContain("読めなかった2行を読み飛ばしました");
+		expect(text).toContain(
+			"Skipped 2 unreadable line(s) and 0 unreadable file(s)",
+		);
 		expect(text).toContain("paused");
 		expect(text).toContain("q quit");
 	});

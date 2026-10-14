@@ -29,51 +29,51 @@ export const MINIMUM_SESSIONS = 10;
 export const TUNE_MESSAGES = {
 	keychainUnavailable: INIT_MESSAGES.keychainUnavailable,
 	initRequired:
-		"`harnessforce init`を実行してください。Viewerのロールでは`harnessforce tune`を利用できません",
-	invalidUrl: "接続先のURLが不正です",
-	locked: "別の`harnessforce tune`が実行中のため、実行できません",
+		"Run `harnessforce init`. The Viewer role cannot use `harnessforce tune`",
+	invalidUrl: "The connection URL is invalid",
+	locked: "Another `harnessforce tune` is running, so this run cannot start",
 	insufficient: (count: number) =>
-		`データ不足: 分析したセッションは${count}件です。提案には${MINIMUM_SESSIONS}件以上が必要です（あと${MINIMUM_SESSIONS - count}件）`,
+		`Not enough data: ${count} session(s) analyzed. Suggestions need at least ${MINIMUM_SESSIONS} (${MINIMUM_SESSIONS - count} more needed)`,
 	outOfRange: (days: number, count: number) =>
-		`送信の範囲外: 開始が${days}日より前の${count}件のセッションは送信しません`,
+		`Outside the sending range: ${count} session(s) that started more than ${days} days ago will not be sent`,
 	notConnected: (count: number) =>
-		`接続済みでないリポジトリの${count}件のセッションは送信しません`,
+		`${count} session(s) in repositories that are not connected will not be sent`,
 	partlyUnreadable: (lines: number, skipped: number) =>
-		`記録の一部を読めていない: 読んだ${lines}行のうち${skipped}行を読み飛ばしました`,
+		`Some records could not be read: skipped ${skipped} of ${lines} lines read`,
 	savedList: (fetchedAt: string) =>
-		`接続済みのリポジトリの一覧を取得できないため、${fetchedAt}に保存した一覧を使います`,
-	noList: "接続済みのリポジトリを確認できないため送信しません",
-	noSend: "送信しない設定のため、分析結果を送信しません",
+		`Could not fetch the list of connected repositories, so the list saved at ${fetchedAt} is used`,
+	noList: "Could not verify the connected repositories, so nothing is sent",
+	noSend: "Sending is turned off, so the analysis results are not sent",
 	settingUnreadable:
-		"端末の設定（`~/.harnessforce/config.json`）を読めないため、分析結果を送信しません",
+		"Cannot read the device settings (`~/.harnessforce/config.json`), so the analysis results are not sent",
 	importLimited: (count: number) =>
-		`月間イベント数の上限または閲覧のみのため、${count}件のセッションを取り込めませんでした。分析結果は送信し、取り込みは解除の後の実行でやり直します`,
+		`Could not import ${count} session(s) because of the monthly event limit or view-only mode. The analysis results are sent; importing is retried in a run after the restriction is lifted`,
 	importFailed:
-		"送信の前のセッションの取り込みに失敗しました。分析結果は送信し、取り込みは次の実行でやり直します",
-	sent: (count: number) => `${count}件の分析結果を送信しました`,
+		"Importing sessions before sending failed. The analysis results are sent; importing is retried in the next run",
+	sent: (count: number) => `Sent ${count} analysis result(s)`,
 	unreachable: (count: number) =>
-		`Harnessforceへ送信できませんでした。${count}件の分析結果は次の実行で送ります`,
+		`Could not send to Harnessforce. ${count} analysis result(s) will be sent in the next run`,
 	expiredUnsent: (count: number) =>
-		`送信の範囲外になった未送信の分析結果${count}件を削除しました`,
+		`Deleted ${count} unsent analysis result(s) that fell outside the sending range`,
 	readOnly: (count: number) =>
-		`Workspaceが閲覧のみのため、${count}件の分析結果を送信できませんでした。次の実行で送ります`,
+		`Could not send ${count} analysis result(s) because the Workspace is view-only. They will be sent in the next run`,
 	invalidReports: (count: number, reasons: readonly string[]) =>
-		`形式が不正なため${count}件の分析結果を送信せずに削除しました（${reasons.join("、")}）`,
+		`Deleted ${count} analysis result(s) without sending because their format is invalid (${reasons.join(", ")})`,
 	rejected: (status: number, count: number) =>
-		`Harnessforceが送信を拒否しました（HTTP ${status}）。${count}件の分析結果を送信せずに削除しました`,
+		`Harnessforce rejected the submission (HTTP ${status}). Deleted ${count} analysis result(s) without sending`,
 	keyUnusable: (count: number) =>
-		`送信キーを使えません。未送信の分析結果${count}件を削除しました。\`harnessforce init\`を実行してください`,
-	loginExpired:
-		"ログインの有効期限が切れました。`harnessforce init`を実行してください",
+		`The ingest key cannot be used. Deleted ${count} unsent analysis result(s). Run \`harnessforce init\``,
+	loginExpired: "Your login has expired. Run `harnessforce init`",
 	unwritable:
-		"`~/.harnessforce/tune/`に書き込めないため、分析結果を送信しません",
-	recordFailed: "提案を記録できませんでした",
-	recordInvalid: (field: string) => `提案の記録の入力が不正です: ${field}`,
+		"Cannot write to `~/.harnessforce/tune/`, so the analysis results are not sent",
+	recordFailed: "Could not record the suggestion",
+	recordInvalid: (field: string) =>
+		`The suggestion record input is invalid: ${field}`,
 	usage:
-		"使い方: harnessforce tune [--all] [--no-send] [--show-report] [--json] ｜ harnessforce tune record ｜ harnessforce tune --purge",
+		"Usage: harnessforce tune [--all] [--no-send] [--show-report] [--json], harnessforce tune record, or harnessforce tune --purge",
 	purged:
-		"`~/.harnessforce/tune/`の分析結果、提案、未送信の分析結果を削除しました",
-	purgeFailed: "`~/.harnessforce/tune/`の一部のファイルを削除できませんでした",
+		"Deleted the analysis results, suggestions and unsent analysis results in `~/.harnessforce/tune/`",
+	purgeFailed: "Could not delete some files in `~/.harnessforce/tune/`",
 } as const;
 
 // 1回の実行で当たった行。同じ行に複数回当たったら、後の値で置き換える（件数は呼び出し側が合計する）。

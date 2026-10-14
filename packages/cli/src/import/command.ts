@@ -45,29 +45,28 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 // correlation.md「session import」「CLIの宛先の決め方」「CLI」が定める文言。
 const MESSAGES = {
-	runInit: "`harnessforce init`を実行してください",
-	invalidUrl: "接続先のURLが不正です",
+	runInit: "Run `harnessforce init`",
+	invalidUrl: "The connection URL is invalid",
 	keychainUnavailable: INIT_MESSAGES.keychainUnavailable,
 	readFailed:
-		"Harnessforceとの通信に失敗しました。もう一度`harnessforce import`を実行してください",
+		"Communication with Harnessforce failed. Run `harnessforce import` again",
 	sendFailed:
-		"Harnessforceとの通信に失敗しました。もう一度`harnessforce import`を実行すると続きから取り込みます",
-	revoked: "送信キーが失効しています。`harnessforce init`を実行してください",
-	loginExpired:
-		"ログインの有効期限が切れました。`harnessforce init`を実行してください",
-	stateFailed: "取り込みの状態を保存できませんでした",
+		"Communication with Harnessforce failed. Run `harnessforce import` again to resume importing",
+	revoked: "Your ingest key has been revoked. Run `harnessforce init`",
+	loginExpired: "Your login has expired. Run `harnessforce init`",
+	stateFailed: "Could not save the import state",
 	connectNone:
-		"WorkspaceにGitHubのリポジトリが接続されていません。HarnessforceでGitHub Appを接続すると、`harnessforce import`で取り込めます",
+		"No GitHub repository is connected to the Workspace. Connect the GitHub App in Harnessforce to import sessions with `harnessforce import`",
 	connectOther:
-		"セッションのリポジトリがWorkspaceに接続されていません。HarnessforceでそのリポジトリをGitHub Appに接続すると、`harnessforce import`で取り込めます",
-	nothingFound: "取り込めるセッションの記録が見つかりませんでした",
+		"The session's repository is not connected to the Workspace. Connect that repository to the GitHub App in Harnessforce to import it with `harnessforce import`",
+	nothingFound: "No session records to import were found",
 } as const;
 
 const limitMessage = {
 	monthly_event_limit: (count: number) =>
-		`月間イベント数の上限に達したため、${count}件のセッションを取り込めませんでした。上限が解除された後に\`harnessforce import\`を再実行すると続きから取り込みます`,
+		`Could not import ${count} session(s) because the monthly event limit was reached. Run \`harnessforce import\` again after the limit is lifted to resume importing`,
 	workspace_read_only: (count: number) =>
-		`Workspaceが閲覧のみのため、${count}件のセッションを取り込めませんでした。閲覧のみが解除された後に\`harnessforce import\`を再実行すると続きから取り込みます`,
+		`Could not import ${count} session(s) because the Workspace is view-only. Run \`harnessforce import\` again after view-only mode is lifted to resume importing`,
 };
 
 const ACCESS_MESSAGES: AccessMessages = {
@@ -89,20 +88,20 @@ function unwrap<T>(outcome: ReadOutcome<T>): T {
 
 // correlation.md「session import」の取り込まなかったsessionの内訳。1件以上の理由だけを、決まった順で示す。
 const NOT_IMPORTED_LABELS = [
-	["alreadySent", "送信済み"],
-	["outOfRange", "期間外"],
-	["outsideGit", "gitのリポジトリの外"],
-	["notConnected", "Workspaceに接続されていないリポジトリ"],
+	["alreadySent", "already sent"],
+	["outOfRange", "outside the period"],
+	["outsideGit", "outside a git repository"],
+	["notConnected", "in a repository not connected to the Workspace"],
 ] as const;
 
 type Breakdown = Record<(typeof NOT_IMPORTED_LABELS)[number][0], number>;
 
 function breakdownLine(breakdown: Breakdown): string | undefined {
 	const parts = NOT_IMPORTED_LABELS.filter(([key]) => breakdown[key] > 0).map(
-		([key, label]) => `${label}${breakdown[key]}件`,
+		([key, label]) => `${label} ${breakdown[key]}`,
 	);
 	return parts.length > 0
-		? `取り込まなかったセッション: ${parts.join("、")}`
+		? `Sessions not imported: ${parts.join(", ")}`
 		: undefined;
 }
 
@@ -132,10 +131,10 @@ function reportNotImported(
 function report(result: SendResult, notes: Notes, deps: ImportDeps): number {
 	switch (result.kind) {
 		case "done":
-			deps.stdout(`${result.imported}件のセッションを取り込みました\n`);
+			deps.stdout(`Sessions imported: ${result.imported}\n`);
 			if (result.invalid > 0)
 				deps.stdout(
-					`形式が不正なため${result.invalid}件のセッションを取り込めませんでした\n`,
+					`Could not import ${result.invalid} session(s) because their format is invalid\n`,
 				);
 			reportNotImported(
 				result.imported,
@@ -213,15 +212,15 @@ async function runImport(deps: ImportDeps): Promise<number> {
 	const skippedFiles = claude.skippedFiles + codex.skippedFiles;
 	if (skippedLines > 0 || skippedFiles > 0)
 		deps.stdout(
-			`読めなかった${skippedLines}行と${skippedFiles}個のファイルを読み飛ばしました\n`,
+			`Skipped ${skippedLines} unreadable line(s) and ${skippedFiles} unreadable file(s)\n`,
 		);
 	if (codex.unextractable > 0)
 		deps.stdout(
-			`modelまたはtoken数を読めないCodexのセッション${codex.unextractable}個は取り込みませんでした\n`,
+			`Did not import ${codex.unextractable} Codex session(s) whose model or token count could not be read\n`,
 		);
 	if (codex.compressed > 0)
 		deps.stdout(
-			`圧縮されたCodexのセッションの記録${codex.compressed}個は読めないため取り込みませんでした\n`,
+			`Did not import ${codex.compressed} compressed Codex session record(s) because they cannot be read\n`,
 		);
 	const scanned = [...claude.sessions, ...codex.sessions];
 	const statePath = importStatePath(deps.homeDir);

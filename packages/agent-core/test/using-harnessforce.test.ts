@@ -22,26 +22,26 @@ describe("using-harnessforce body", () => {
 		expect(usingHarnessforceBody.split("\n").length).toBeLessThanOrEqual(80));
 
 	it.each([
-		"## 何を記録するか",
-		"## 何を収集しないか",
-		"## どのhookが何を送るか",
-		"## どのskillとtoolをいつ使うか",
+		"## What is recorded",
+		"## What is not collected",
+		"## Which hook sends what",
+		"## Which skill and tool to use, and when",
 		"## Red Flags",
-		"## 優先順位",
-		"## subagent",
+		"## Priority",
+		"## Subagents",
 	])("has the section %s in order", (heading) =>
 		expect(usingHarnessforceBody).toContain(heading));
 
 	it("keeps the sections in the specified order", () => {
 		const headings = usingHarnessforceBody.match(/^## .+$/gm);
 		expect(headings).toEqual([
-			"## 何を記録するか",
-			"## 何を収集しないか",
-			"## どのhookが何を送るか",
-			"## どのskillとtoolをいつ使うか",
+			"## What is recorded",
+			"## What is not collected",
+			"## Which hook sends what",
+			"## Which skill and tool to use, and when",
 			"## Red Flags",
-			"## 優先順位",
-			"## subagent",
+			"## Priority",
+			"## Subagents",
 		]);
 	});
 });

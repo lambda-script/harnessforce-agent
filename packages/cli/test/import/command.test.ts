@@ -17,13 +17,12 @@ import {
 	transcript,
 } from "./harness.js";
 
-const RUN_INIT = "`harnessforce init`を実行してください\n";
-const EXPIRED =
-	"ログインの有効期限が切れました。`harnessforce init`を実行してください\n";
+const RUN_INIT = "Run `harnessforce init`\n";
+const EXPIRED = "Your login has expired. Run `harnessforce init`\n";
 const READ_FAILED =
-	"Harnessforceとの通信に失敗しました。もう一度`harnessforce import`を実行してください\n";
+	"Communication with Harnessforce failed. Run `harnessforce import` again\n";
 const SEND_FAILED =
-	"Harnessforceとの通信に失敗しました。もう一度`harnessforce import`を実行すると続きから取り込みます\n";
+	"Communication with Harnessforce failed. Run `harnessforce import` again to resume importing\n";
 
 async function setup(
 	options: Parameters<typeof startImportServer>[0] = {},
@@ -120,7 +119,7 @@ describe("harnessforce import", () => {
 		const { hf, home, run } = await setup();
 		expect(await run()).toEqual({
 			code: 0,
-			out: "1件のセッションを取り込みました\n",
+			out: "Sessions imported: 1\n",
 			err: "",
 		});
 		expect(hf.requests.map((r) => r.path)).toEqual([
@@ -200,7 +199,7 @@ describe("harnessforce import", () => {
 			});
 			expect(await run()).toEqual({
 				code: 0,
-				out: "2件のセッションを取り込みました\n",
+				out: "Sessions imported: 2\n",
 				err: "",
 			});
 			const codex = (hf.requests.at(-1)?.body as { agent: string }[]).filter(
@@ -222,7 +221,7 @@ describe("harnessforce import", () => {
 			expect(JSON.stringify(hf.requests)).not.toContain("SECRET");
 			expect(home.readState()).toContain("codex:c1");
 			expect(await run()).toMatchObject({
-				out: "0件のセッションを取り込みました\n取り込まなかったセッション: 送信済み2件\n",
+				out: "Sessions imported: 0\nSessions not imported: already sent 2\n",
 			});
 		});
 
@@ -238,7 +237,7 @@ describe("harnessforce import", () => {
 			);
 			writeCodex(home.home, {});
 			expect(await run({ env: { CODEX_HOME: other } })).toMatchObject({
-				out: "1件のセッションを取り込みました\n",
+				out: "Sessions imported: 1\n",
 			});
 		});
 
@@ -251,9 +250,9 @@ describe("harnessforce import", () => {
 			expect(await run()).toEqual({
 				code: 0,
 				out:
-					"modelまたはtoken数を読めないCodexのセッション1個は取り込みませんでした\n" +
-					"圧縮されたCodexのセッションの記録1個は読めないため取り込みませんでした\n" +
-					"1件のセッションを取り込みました\n",
+					"Did not import 1 Codex session(s) whose model or token count could not be read\n" +
+					"Did not import 1 compressed Codex session record(s) because they cannot be read\n" +
+					"Sessions imported: 1\n",
 				err: "",
 			});
 		});
@@ -271,9 +270,9 @@ describe("harnessforce import", () => {
 			expect(await run()).toEqual({
 				code: 0,
 				out:
-					"0件のセッションを取り込みました\n" +
-					"取り込まなかったセッション: Workspaceに接続されていないリポジトリ2件\n" +
-					"WorkspaceにGitHubのリポジトリが接続されていません。HarnessforceでGitHub Appを接続すると、`harnessforce import`で取り込めます\n",
+					"Sessions imported: 0\n" +
+					"Sessions not imported: in a repository not connected to the Workspace 2\n" +
+					"No GitHub repository is connected to the Workspace. Connect the GitHub App in Harnessforce to import sessions with `harnessforce import`\n",
 				err: "",
 			});
 		});
@@ -287,8 +286,8 @@ describe("harnessforce import", () => {
 			expect(await run()).toEqual({
 				code: 0,
 				out:
-					"modelまたはtoken数を読めないCodexのセッション1個は取り込みませんでした\n" +
-					"0件のセッションを取り込みました\n",
+					"Did not import 1 Codex session(s) whose model or token count could not be read\n" +
+					"Sessions imported: 0\n",
 				err: "",
 			});
 		});
@@ -299,7 +298,7 @@ describe("harnessforce import", () => {
 		await run();
 		expect(await run()).toMatchObject({
 			code: 0,
-			out: "0件のセッションを取り込みました\n取り込まなかったセッション: 送信済み1件\n",
+			out: "Sessions imported: 0\nSessions not imported: already sent 1\n",
 		});
 		expect(hf.sessionBodies()).toEqual([["s000"]]);
 	});
@@ -313,7 +312,7 @@ describe("harnessforce import", () => {
 				keychain: other.keychain,
 				env: { HARNESSFORCE_WORKSPACE_ID: "ws2" },
 			}),
-		).toMatchObject({ code: 0, out: "1件のセッションを取り込みました\n" });
+		).toMatchObject({ code: 0, out: "Sessions imported: 1\n" });
 		expect(hf.requests.at(-1)?.headers.authorization).toBe(
 			"Bearer hf_ik_ws2_user",
 		);
@@ -411,9 +410,9 @@ describe("harnessforce import", () => {
 			expect(await run()).toEqual({
 				code: 0,
 				out:
-					"0件のセッションを取り込みました\n" +
-					"取り込まなかったセッション: Workspaceに接続されていないリポジトリ1件\n" +
-					"WorkspaceにGitHubのリポジトリが接続されていません。HarnessforceでGitHub Appを接続すると、`harnessforce import`で取り込めます\n",
+					"Sessions imported: 0\n" +
+					"Sessions not imported: in a repository not connected to the Workspace 1\n" +
+					"No GitHub repository is connected to the Workspace. Connect the GitHub App in Harnessforce to import sessions with `harnessforce import`\n",
 				err: "",
 			});
 			expect(hf.sessionBodies()).toEqual([]);
@@ -432,9 +431,9 @@ describe("harnessforce import", () => {
 			expect(await run()).toEqual({
 				code: 0,
 				out:
-					"0件のセッションを取り込みました\n" +
-					"取り込まなかったセッション: Workspaceに接続されていないリポジトリ1件\n" +
-					"セッションのリポジトリがWorkspaceに接続されていません。HarnessforceでそのリポジトリをGitHub Appに接続すると、`harnessforce import`で取り込めます\n",
+					"Sessions imported: 0\n" +
+					"Sessions not imported: in a repository not connected to the Workspace 1\n" +
+					"The session's repository is not connected to the Workspace. Connect that repository to the GitHub App in Harnessforce to import it with `harnessforce import`\n",
 				err: "",
 			});
 		});
@@ -445,7 +444,7 @@ describe("harnessforce import", () => {
 			});
 			expect(await run()).toEqual({
 				code: 0,
-				out: "0件のセッションを取り込みました\n取り込まなかったセッション: 期間外1件\n",
+				out: "Sessions imported: 0\nSessions not imported: outside the period 1\n",
 				err: "",
 			});
 		});
@@ -455,7 +454,7 @@ describe("harnessforce import", () => {
 			await run();
 			expect(await run()).toEqual({
 				code: 0,
-				out: "0件のセッションを取り込みました\n取り込まなかったセッション: 送信済み1件\n",
+				out: "Sessions imported: 0\nSessions not imported: already sent 1\n",
 				err: "",
 			});
 		});
@@ -470,7 +469,7 @@ describe("harnessforce import", () => {
 			);
 			expect(await run()).toEqual({
 				code: 0,
-				out: "0件のセッションを取り込みました\n取り込まなかったセッション: 送信済み1件、gitのリポジトリの外1件\n",
+				out: "Sessions imported: 0\nSessions not imported: already sent 1, outside a git repository 1\n",
 				err: "",
 			});
 		});
@@ -480,7 +479,7 @@ describe("harnessforce import", () => {
 			rmSync(join(home.home, ".claude", "projects"), { recursive: true });
 			expect(await run()).toEqual({
 				code: 0,
-				out: "0件のセッションを取り込みました\n取り込めるセッションの記録が見つかりませんでした\n",
+				out: "Sessions imported: 0\nNo session records to import were found\n",
 				err: "",
 			});
 		});
@@ -494,7 +493,7 @@ describe("harnessforce import", () => {
 			).toEqual({
 				code: 1,
 				out: "",
-				err: "OSのキーチェーンを利用できないため、送信キーを保存できません\n",
+				err: "The OS keychain is unavailable, so the ingest key cannot be saved\n",
 			});
 			expect(hf.requests).toEqual([]);
 			expect(home.readState()).toBeUndefined();
@@ -512,7 +511,7 @@ describe("harnessforce import", () => {
 			).toEqual({
 				code: 1,
 				out: "",
-				err: "OSのキーチェーンを利用できないため、送信キーを保存できません。linux hint\n",
+				err: "The OS keychain is unavailable, so the ingest key cannot be saved. linux hint\n",
 			});
 			expect(hf.requests).toEqual([]);
 		});
@@ -527,7 +526,7 @@ describe("harnessforce import", () => {
 			).toEqual({
 				code: 1,
 				out: "",
-				err: "OSのキーチェーンを利用できないため、送信キーを保存できません\n",
+				err: "The OS keychain is unavailable, so the ingest key cannot be saved\n",
 			});
 			expect(hf.requests).toEqual([]);
 			expect(home.readState()).toBeUndefined();
@@ -626,7 +625,7 @@ describe("harnessforce import", () => {
 			).toEqual({
 				code: 1,
 				out: "",
-				err: "接続先のURLが不正です\n",
+				err: "The connection URL is invalid\n",
 			});
 			expect(hf.requests).toEqual([]);
 		});
@@ -725,7 +724,7 @@ describe("harnessforce import", () => {
 		expect(await run()).toEqual({
 			code: 1,
 			out: "",
-			err: "送信キーが失効しています。`harnessforce init`を実行してください\n",
+			err: "Your ingest key has been revoked. Run `harnessforce init`\n",
 		});
 		expect(home.readState()).toBeUndefined();
 	});
@@ -755,7 +754,7 @@ describe("harnessforce import", () => {
 		expect(sleeps).toEqual([2000, 2000, 2000]);
 		expect(await run()).toMatchObject({
 			code: 0,
-			out: "50件のセッションを取り込みました\n取り込まなかったセッション: 送信済み100件\n",
+			out: "Sessions imported: 50\nSessions not imported: already sent 100\n",
 		});
 		expect(hf.sessionBodies().map((b) => b.length)).toEqual([
 			100, 50, 50, 50, 50, 50,
@@ -798,11 +797,11 @@ describe("harnessforce import", () => {
 		expect(await run()).toEqual({
 			code: 1,
 			out: "",
-			err: "月間イベント数の上限に達したため、52件のセッションを取り込めませんでした。上限が解除された後に`harnessforce import`を再実行すると続きから取り込みます\n",
+			err: "Could not import 52 session(s) because the monthly event limit was reached. Run `harnessforce import` again after the limit is lifted to resume importing\n",
 		});
 		expect(await run()).toMatchObject({
 			code: 0,
-			out: "52件のセッションを取り込みました\n取り込まなかったセッション: 送信済み98件\n",
+			out: "Sessions imported: 52\nSessions not imported: already sent 98\n",
 		});
 		expect(hf.sessionBodies()[1]?.slice(0, 2)).toEqual(["s003", "s004"]);
 	});
@@ -821,7 +820,7 @@ describe("harnessforce import", () => {
 		});
 		expect(await run()).toMatchObject({
 			code: 1,
-			err: "Workspaceが閲覧のみのため、1件のセッションを取り込めませんでした。閲覧のみが解除された後に`harnessforce import`を再実行すると続きから取り込みます\n",
+			err: "Could not import 1 session(s) because the Workspace is view-only. Run `harnessforce import` again after view-only mode is lifted to resume importing\n",
 		});
 	});
 
@@ -844,7 +843,7 @@ describe("harnessforce import", () => {
 		);
 		expect(await run()).toEqual({
 			code: 0,
-			out: "読めなかった1行と0個のファイルを読み飛ばしました\n0件のセッションを取り込みました\n形式が不正なため1件のセッションを取り込めませんでした\n",
+			out: "Skipped 1 unreadable line(s) and 0 unreadable file(s)\nSessions imported: 0\nCould not import 1 session(s) because their format is invalid\n",
 			err: "",
 		});
 		await run();
@@ -858,7 +857,7 @@ describe("harnessforce import", () => {
 		expect(await run()).toEqual({
 			code: 1,
 			out: "",
-			err: "取り込みの状態を保存できませんでした\n",
+			err: "Could not save the import state\n",
 		});
 	});
 });

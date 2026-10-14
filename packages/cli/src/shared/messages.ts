@@ -1,70 +1,67 @@
 // correlation.md「CLI」の`harnessforce init`、control-plane.md「IngestKey と ApiToken」、telemetry-pipeline.mdが定める文言。
 export const INIT_MESSAGES = {
 	success:
-		"Harnessforceに接続しました。Claude Codeを再起動すると設定が反映されます",
-	invalidUrl: "接続先のURLが不正です",
+		"Connected to Harnessforce. Restart Claude Code to apply the settings",
+	invalidUrl: "The connection URL is invalid",
 	keychainUnavailable:
-		"OSのキーチェーンを利用できないため、送信キーを保存できません",
+		"The OS keychain is unavailable, so the ingest key cannot be saved",
 	// Linuxで両方の保存先が使えなかったときだけ、keychainを使えない文言に続ける。
 	linuxKeychainUnavailable:
-		"Secret Service（GNOME KeyringまたはKWallet）とkernelのkeyringのどちらも使えません。コンテナやCIでは、Workspace用の送信キーをmanaged settingsで配るようOwnerかAdminに依頼してください",
+		"Neither the Secret Service (GNOME Keyring or KWallet) nor the kernel keyring is available. In containers and CI, ask an Owner or Admin to distribute a Workspace ingest key through managed settings",
 	waitingForSecretService:
-		"Secret Serviceの解錠の確認を待っています（最大60秒）",
+		"Waiting for the Secret Service unlock prompt (up to 60 seconds)",
 	savedToKernelKeyring:
-		"Secret Serviceを使えないため、送信キーをkernelのkeyringに保存しました。再起動するか、一定期間使わないと消えます。消えたら`harnessforce init`を再実行してください",
+		"The Secret Service is unavailable, so the ingest key was saved in the kernel keyring. It is lost on reboot or after a period of disuse. If it disappears, run `harnessforce init` again",
 	tooManyKeys:
-		"keychainにある送信キーが多すぎるため、`harnessforce init`を実行できません",
+		"There are too many ingest keys in the keychain, so `harnessforce init` cannot run",
 	tooManyCredentials:
-		"keychainにある送信キーまたはログインの情報が多すぎるため、`harnessforce init`を実行できません",
-	settingsUnreadable: "Claude Codeのuser settingsを読めません",
+		"There are too many ingest keys or login entries in the keychain, so `harnessforce init` cannot run",
+	settingsUnreadable: "Cannot read the Claude Code user settings",
 	network:
-		"Harnessforceとの通信に失敗しました。もう一度`harnessforce init`を実行してください",
-	listenFailed: "ログインの待ち受けを開始できませんでした",
-	timeout:
-		"ログインが時間内に完了しませんでした。もう一度`harnessforce init`を実行してください",
-	accessDenied: "ログインが拒否されました",
+		"Communication with Harnessforce failed. Run `harnessforce init` again",
+	listenFailed: "Could not start waiting for the login",
+	timeout: "The login did not complete in time. Run `harnessforce init` again",
+	accessDenied: "The login was denied",
 	noWorkspace:
-		"参加しているWorkspaceがありません。Workspaceを作成するか招待を受諾してから、もう一度`harnessforce init`を実行してください",
-	loginFailed:
-		"ログインに失敗しました。もう一度`harnessforce init`を実行してください",
+		"You are not a member of any Workspace. Create a Workspace or accept an invitation, then run `harnessforce init` again",
+	loginFailed: "The login failed. Run `harnessforce init` again",
 	viewer:
-		"閲覧のみのロールでは送信キーを発行できません。Workspaceの管理者に連絡してください",
+		"The view-only role cannot issue an ingest key. Contact a Workspace administrator",
 	limitOwnerAdmin:
-		"有効な送信キーの数が上限に達しました。送信キーの画面で使っていないキーを失効してください",
+		"The number of active ingest keys has reached the limit. Revoke unused keys on the ingest keys page",
 	limitMember:
-		"送信キーの上限に達しています。Workspaceの管理者に連絡してください",
+		"The ingest key limit has been reached. Contact a Workspace administrator",
 	gateUnavailable:
-		"受信側へ反映できませんでした。変更はしていません。もう一度お試しください",
+		"Could not apply the change on the receiving side. Nothing was changed. Try again",
 	ingestUnavailable:
-		"この環境はテレメトリを受信しないため、送信キーを発行できません",
-	saveFailed:
-		"送信キーを保存できませんでした。もう一度`harnessforce init`を実行してください",
+		"This environment does not receive telemetry, so an ingest key cannot be issued",
+	saveFailed: "Could not save the ingest key. Run `harnessforce init` again",
 	codexSaveFailed:
-		"Codexの設定を書き込めませんでした。もう一度`harnessforce init`を実行してください",
+		"Could not write the Codex configuration. Run `harnessforce init` again",
 	contentEnabled:
-		"入力した指示の本文を送る設定を有効にしました。パターンに一致した秘密値と個人情報を伏せ字にしますが、すべてを検出できるとは限りません。保存した本文は、Workspaceのメンバーの中ではあなただけが読め、本文データの保持期間（最大30日）が過ぎると削除されます",
+		"Sending the prompts you type is now enabled. Values that match known patterns for secrets and personal information are masked, but not everything can be detected. Within the workspace, only you can read your stored content, and it is deleted after the content retention period (at most 30 days)",
 	contentNotOptedIn:
-		"このWorkspaceは本文データをopt-inしていないため、本文を送る設定は有効にしませんでした。Workspaceの設定のデータの保持でopt-inしてから、もう一度`harnessforce init --send-content`を実行してください",
+		"This workspace has not opted in to prompts you typed, so sending content was not enabled. Opt in under Data retention in the workspace settings, then run `harnessforce init --send-content` again",
 } as const;
 
 // 手順8: Codexの`config.toml`を書いた後の案内。trustは利用者の操作で、`harnessforce init`は代行できない。
 export const codexNotes = (configPath: string) =>
 	[
-		`Codexの設定を書き込みました（${configPath}）。Codexを再起動すると反映されます`,
-		"Codexのhookは、Codexの/hooksで内容をtrustするまで実行されません。/hooksでharnessforceのSessionStartのhookをtrustしてください",
-		"HarnessforceのMCPを使う場合は、`codex mcp login harnessforce`でログインしてください",
+		`Wrote the Codex configuration (${configPath}). Restart Codex to apply it`,
+		"Codex hooks do not run until you trust them in Codex's /hooks. Trust the harnessforce SessionStart hook in /hooks",
+		"To use the Harnessforce MCP server, log in with `codex mcp login harnessforce`",
 	].join("\n");
 
 export type InitMessage = keyof typeof INIT_MESSAGES;
 
 // buildの既定以外の接続先へ向けたときに、利用者が気づくための1行。
 export const nonDefaultConnectionMessage = (url: string) =>
-	`接続先: ${url}（既定の本番ではありません）`;
+	`Connecting to ${url} (not the default production endpoint)`;
 
 // portを確保できなかったときの文言。既定の8080は一般的なHTTPのportで衝突しやすいため、
 // 使えなかったportと`harnessforce init --port`の逃げ道を示す（correlation.md「CLI」）。
 export const listenFailedMessage = (port: number) =>
-	`${INIT_MESSAGES.listenFailed}。ポート ${port}を使っているプロセスを終えるか、\`harnessforce init --port\`で別のポートを指定してください`;
+	`${INIT_MESSAGES.listenFailed}. Stop the process using port ${port}, or specify another port with \`harnessforce init --port\``;
 
 // keychainが使えるかを確かめて使えなかったときの文言。Linuxでは両方の保存先が使えない理由と逃げ道を続ける（correlation.md「実行環境」）。
 export const keychainUnavailableMessage = (
@@ -72,5 +69,5 @@ export const keychainUnavailableMessage = (
 	message: string = INIT_MESSAGES.keychainUnavailable,
 ) =>
 	keychain.unavailableHint
-		? `${message}。${keychain.unavailableHint}`
+		? `${message}. ${keychain.unavailableHint}`
 		: message;

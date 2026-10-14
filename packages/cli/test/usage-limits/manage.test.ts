@@ -166,13 +166,12 @@ describe("harnessforce usage-limits on", () => {
 		expect(t.readMark()).toBeUndefined();
 	});
 
-	it("shows the consent text and asks first, and a Japanese environment gets the Japanese text", async () => {
+	it("shows the English consent text and asks first, even in a Japanese environment", async () => {
 		const t = setup({ env: { LANG: "ja_JP.UTF-8" } });
 		const result = await t.run(["on"]);
-		expect(result.out).toContain("このWorkspaceのメンバー全員が見られます");
-		expect(t.questions).toHaveLength(1);
-		const en = await setup().run(["on"]);
-		expect(en.out).toContain("Everyone in this workspace can see");
+		expect(result.out).toContain("Everyone in this workspace can see");
+		expect(result.out).not.toMatch(/\p{Script=Han}|\p{Script=Hiragana}/u);
+		expect(t.questions).toEqual(["Do you agree? [y/N] "]);
 	});
 
 	it("changes nothing when the answer is not y", async () => {
@@ -224,7 +223,7 @@ describe("harnessforce usage-limits on", () => {
 		});
 		const result = await t.run(["on", "--yes"]);
 		expect(result.code).toBe(0);
-		expect(result.out).toContain("opt-inするまで");
+		expect(result.out).toContain("opted in");
 	});
 
 	it("goes on when the opt-in state cannot be read", async () => {
@@ -245,21 +244,25 @@ describe("harnessforce usage-limits on", () => {
 		const t = setup({ keychain: { items: {} } });
 		const result = await t.run(["on", "--yes"]);
 		expect(result.code).toBe(1);
-		expect(result.err).toContain("利用者用の送信キー");
+		expect(result.err).toContain("no user ingest key");
 		expect(t.readSettings().statusLine).toBeUndefined();
 	});
 
 	it.each([
-		["unreadable settings", { rawSettings: "{" }, "読めません"],
+		[
+			"unreadable settings",
+			{ rawSettings: "{" },
+			"Cannot read the Claude Code user settings",
+		],
 		[
 			"a statusLine that is not a command",
 			{ settings: { statusLine: { type: "text" } } },
-			"組み込めません",
+			"cannot be embedded",
 		],
 		[
 			"a statusLine that is not an object",
 			{ settings: { statusLine: "x" } },
-			"組み込めません",
+			"cannot be embedded",
 		],
 	])("records no consent for %s", async (_name, options, message) => {
 		const t = setup(options as Options);
@@ -275,17 +278,22 @@ describe("harnessforce usage-limits on", () => {
 			"a text version that is not current",
 			400,
 			{ code: "invalid_text_version" },
-			"更新",
+			"Update `harnessforce`",
 		],
-		["a viewer", 403, { code: "forbidden" }, "閲覧のみのロール"],
+		["a viewer", 403, { code: "forbidden" }, "The view-only role"],
 		[
 			"a read-only Workspace",
 			403,
 			{ code: "workspace_read_only" },
-			"閲覧のみのため",
+			"is view-only",
 		],
-		["an expired login", 401, undefined, "有効期限"],
-		["a server error", 500, undefined, "通信に失敗"],
+		["an expired login", 401, undefined, "Your login has expired"],
+		[
+			"a server error",
+			500,
+			undefined,
+			"Communication with Harnessforce failed",
+		],
 	])("stops without changes for %s", async (_name, status, body, message) => {
 		const t = setup({
 			settings: { statusLine: HUD },
@@ -360,7 +368,7 @@ describe("harnessforce usage-limits on", () => {
 		});
 		const result = await t.run(["on", "--yes"]);
 		expect(result.code).toBe(1);
-		expect(result.err).toContain("取り消しにも失敗");
+		expect(result.err).toContain("failed to revoke the consent");
 	});
 });
 
@@ -439,9 +447,9 @@ describe("harnessforce usage-limits status", () => {
 				],
 			},
 		});
-		expect(out).toContain("本人の同意: 同意している");
-		expect(out).toContain("Workspaceのopt-in: 有効");
-		expect(out).toContain("組み込まれている（元のcommandあり）");
+		expect(out).toContain("Your consent: agreed");
+		expect(out).toContain("Workspace opt-in: enabled");
+		expect(out).toContain("embedded (original command present)");
 	});
 
 	it("says the text is old when the recorded version is not the current one", async () => {
@@ -460,20 +468,20 @@ describe("harnessforce usage-limits status", () => {
 				],
 			},
 		});
-		expect(out).toContain("本人の同意: 文面が古い");
-		expect(out).toContain("Workspaceのopt-in: 無効");
-		expect(out).toContain("組み込まれていない");
+		expect(out).toContain("Your consent: outdated text");
+		expect(out).toContain("Workspace opt-in: disabled");
+		expect(out).toContain("not embedded");
 	});
 
 	it("says it cannot confirm when the request fails", async () => {
 		const out = await status({ replies: { GET: [{ status: 500 }] } });
-		expect(out).toContain("本人の同意: 確認できません");
-		expect(out).toContain("Workspaceのopt-in: 確認できません");
+		expect(out).toContain("Your consent: unknown");
+		expect(out).toContain("Workspace opt-in: unknown");
 	});
 
 	it("still shows the device state without a user key", async () => {
 		const out = await status({ keychain: { items: {} } });
-		expect(out).toContain("本人の同意: 確認できません");
-		expect(out).toContain("組み込まれていない");
+		expect(out).toContain("Your consent: unknown");
+		expect(out).toContain("not embedded");
 	});
 });

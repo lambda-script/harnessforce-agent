@@ -3,9 +3,9 @@
 // Node.js 18で依存なしに動かすため、plainなESMで書く。
 import { spawnSync } from "node:child_process";
 
-const USAGE = "使い方: /harnessforce:tune [--all] [--no-send]";
+const USAGE = "Usage: /harnessforce:tune [--all] [--no-send]";
 const HF_MISSING =
-	"`harnessforce`が見つかりません。`/harnessforce:setup`でCLIを導入してください";
+	"`harnessforce` was not found. Install the CLI with `/harnessforce:setup`";
 const ALLOWED_FLAGS = new Set(["--all", "--no-send"]);
 
 const MINIMUM_SESSIONS = 10;
@@ -54,7 +54,7 @@ const median = (values) => {
 		: (sorted[middle - 1] + sorted[middle]) / 2;
 };
 
-const secondsText = (value) => (value === null ? "—" : `${value.toFixed(1)}秒`);
+const secondsText = (value) => (value === null ? "—" : `${value.toFixed(1)}s`);
 
 const newestFirst = (a, b) =>
 	a.session.started_at < b.session.started_at
@@ -116,13 +116,13 @@ function mcpServers(sessions) {
 
 function evidenceLines(hits, unit) {
 	const sorted = [...hits].sort(newestFirst);
-	const lines = ["    根拠のsession（新しい順）:"];
+	const lines = ["    Evidence sessions (newest first):"];
 	for (const { session, count } of sorted.slice(0, MAX_EVIDENCE))
 		lines.push(
 			`      ${session.session_id} ${session.started_at} ${session.repository ?? "-"} sendable=${session.sendable} ${count}${unit} ${session.transcript_path}`,
 		);
 	if (sorted.length > MAX_EVIDENCE)
-		lines.push(`      ほか${sorted.length - MAX_EVIDENCE}件`);
+		lines.push(`      and ${sorted.length - MAX_EVIDENCE} more`);
 	return lines;
 }
 
@@ -130,7 +130,7 @@ const missing = (parts) =>
 	parts
 		.filter(([amount]) => amount > 0)
 		.map(([amount, unit]) => `${amount}${unit}`)
-		.join("、");
+		.join(", ");
 
 const percent = (share) => `${(share * 100).toFixed(1)}%`;
 
@@ -165,13 +165,13 @@ function modelShares(sessions) {
 
 const sharesText = (shares) =>
 	shares === null
-		? "なし"
+		? "none"
 		: [
-				...shares.main.map((m) => `本体 ${m.model} ${percent(m.share)}`),
+				...shares.main.map((m) => `main ${m.model} ${percent(m.share)}`),
 				...shares.subagent.map(
 					(m) => `subagent ${m.model} ${percent(m.share)}`,
 				),
-			].join("、");
+			].join(", ");
 
 // 「作る条件」の`model_choice`: 分析した範囲の`models`の合計で、output_tokensが最も多いmodelとその割合。
 function topMainModel(sessions) {
@@ -190,7 +190,7 @@ function topMainModel(sessions) {
 
 const valueText = (value) =>
 	value === null
-		? "値なし"
+		? "no value"
 		: typeof value === "number"
 			? String(Number(value.toFixed(3)))
 			: sharesText(value);
@@ -203,17 +203,19 @@ function improvesBy(category) {
 function renderFollowups(followups) {
 	if (!Array.isArray(followups) || followups.length === 0) return [];
 	const lines = [
-		"前回の提案の前後（前後の差（因果を示しません）。起点は適用を検出した時刻です）:",
+		"Before and after the previous suggestion (Before/after difference (does not show causation). The starting point is the time the application was detected):",
 	];
 	for (const f of followups) {
 		lines.push(
-			`- ${f.category}（${f.change_type} ${f.path}）起点 ${f.origin}`,
-			`    前 ${f.before.from}〜${f.before.to}: ${f.before.sessions} session、${valueText(f.before.value)}`,
-			`    後 ${f.after.from}〜${f.after.to}: ${f.after.sessions} session、${valueText(f.after.value)}`,
+			`- ${f.category} (${f.change_type} ${f.path}) starting point ${f.origin}`,
+			`    Before ${f.before.from} to ${f.before.to}: ${f.before.sessions} session(s), ${valueText(f.before.value)}`,
+			`    After ${f.after.from} to ${f.after.to}: ${f.after.sessions} session(s), ${valueText(f.after.value)}`,
 		);
-		if (f.no_comparison_data) lines.push("    比較データなし");
+		if (f.no_comparison_data) lines.push("    No comparison data");
 		if (f.before_outside_range)
-			lines.push("    前の期間の一部が分析の範囲の外です");
+			lines.push(
+				"    Part of the earlier period is outside the analysis range",
+			);
 		const direction = improvesBy(f.category);
 		const isImproved =
 			direction === "decrease"
@@ -221,7 +223,7 @@ function renderFollowups(followups) {
 				: f.after.value > f.before.value;
 		if (direction !== undefined && !f.no_comparison_data && !isImproved)
 			lines.push(
-				"    良くなった向きへ動いていません。同じ対象の提案を作るときの根拠にします",
+				"    Did not move in the improving direction. Use this as the basis when making a suggestion for the same target",
 			);
 	}
 	lines.push("");
@@ -235,18 +237,18 @@ function usageTargets(sessions) {
 	for (const kind of SESSION_USAGE_KINDS) {
 		const category = `usage.kind=${kind}`;
 		if (withUsage.length === 0) {
-			lines.push(`- ${category}: 未計測のため提案しません`);
+			lines.push(`- ${category}: not measured, so no suggestion is made`);
 			continue;
 		}
 		const hits = withUsage.filter((s) => s.usage.kinds.includes(kind));
 		if (hits.length < USAGE_MIN_SESSIONS) {
 			lines.push(
-				`- ${category}: データ不足: 当たるsessionが${USAGE_MIN_SESSIONS}以上必要です（あと${USAGE_MIN_SESSIONS - hits.length} session）`,
+				`- ${category}: Not enough data: needs at least ${USAGE_MIN_SESSIONS} matching sessions (${USAGE_MIN_SESSIONS - hits.length} more session(s) needed)`,
 			);
 			continue;
 		}
 		lines.push(
-			`- ${category}: 提案を作れます（${hits.length} session）`,
+			`- ${category}: a suggestion can be made (${hits.length} session(s))`,
 			...evidenceLines(
 				hits.map((session) => ({
 					session,
@@ -256,8 +258,8 @@ function usageTargets(sessions) {
 							: Number(session.usage.cache_reuse_ratio.toFixed(3)),
 				})),
 				kind === "frequent_compaction"
-					? "回の自動圧縮"
-					: "（cacheの再利用の割合）",
+					? " auto-compaction(s)"
+					: " (cache reuse ratio)",
 			),
 		);
 	}
@@ -266,24 +268,24 @@ function usageTargets(sessions) {
 		(s) => Array.isArray(s.usage.models) && s.usage.models.length > 0,
 	);
 	if (withUsage.length === 0) {
-		lines.push(`- ${category}: 未計測のため提案しません`);
+		lines.push(`- ${category}: not measured, so no suggestion is made`);
 		return lines;
 	}
 	if (withModels.length < MODEL_CHOICE_MIN_SESSIONS) {
 		lines.push(
-			`- ${category}: データ不足: modelsを持つsessionが${MODEL_CHOICE_MIN_SESSIONS}以上必要です（あと${MODEL_CHOICE_MIN_SESSIONS - withModels.length} session）`,
+			`- ${category}: Not enough data: needs at least ${MODEL_CHOICE_MIN_SESSIONS} sessions with models (${MODEL_CHOICE_MIN_SESSIONS - withModels.length} more session(s) needed)`,
 		);
 		return lines;
 	}
 	const top = topMainModel(withModels);
 	if (top === undefined || top.share < MODEL_CHOICE_MIN_SHARE) {
 		lines.push(
-			`- ${category}: 提案しません: 1つのmodelが本体のoutput_tokensの${MODEL_CHOICE_MIN_SHARE * 100}%以上を占めていません${top ? `（最大 ${top.model} ${percent(top.share)}）` : ""}`,
+			`- ${category}: not suggested: no single model accounts for ${MODEL_CHOICE_MIN_SHARE * 100}% or more of the main output_tokens${top ? ` (largest: ${top.model} ${percent(top.share)})` : ""}`,
 		);
 		return lines;
 	}
 	lines.push(
-		`- ${category}: 提案を作れます（${withModels.length} session、${top.model} ${percent(top.share)}）`,
+		`- ${category}: a suggestion can be made (${withModels.length} session(s), ${top.model} ${percent(top.share)})`,
 		...evidenceLines(
 			withModels.map((session) => ({
 				session,
@@ -291,7 +293,7 @@ function usageTargets(sessions) {
 					session.usage.models.find((m) => m.model === top.model)
 						?.output_tokens ?? 0,
 			})),
-			` output_tokens（${top.model}）`,
+			` output_tokens (${top.model})`,
 		),
 	);
 	return lines;
@@ -300,9 +302,9 @@ function usageTargets(sessions) {
 function render(output) {
 	const { sessions } = output;
 	const lines = [
-		`分析したsession: ${output.session_count}件（analyzer ${output.analyzer_version}、parser ${output.parser_version}）`,
+		`Sessions analyzed: ${output.session_count} (analyzer ${output.analyzer_version}, parser ${output.parser_version})`,
 		"",
-		"人の介入（回数、介入のあったsession数、待ち時間の中央値）:",
+		"Human interventions (count, sessions with interventions, median wait time):",
 	];
 	const interventions = INTERVENTION_KINDS.map((kind) => ({
 		kind,
@@ -316,13 +318,13 @@ function render(output) {
 	for (const { kind, result } of interventions)
 		lines.push(
 			result === undefined
-				? `  ${kind}: 未計測`
-				: `  ${kind}: ${result.total}回、${result.hits.length} session、${secondsText(result.median)}`,
+				? `  ${kind}: not measured`
+				: `  ${kind}: ${result.total} time(s), ${result.hits.length} session(s), ${secondsText(result.median)}`,
 		);
 
 	lines.push(
 		"",
-		"ループにできる繰り返し（回数、その間の介入、所要時間の中央値）:",
+		"Repeatable loops (count, interventions during them, median duration):",
 	);
 	const loops = LOOP_KINDS.map((kind) => ({
 		kind,
@@ -335,7 +337,7 @@ function render(output) {
 	}));
 	for (const { kind, result } of loops) {
 		if (result === undefined) {
-			lines.push(`  ${kind}: 未計測`);
+			lines.push(`  ${kind}: not measured`);
 			continue;
 		}
 		const count = result.measured.reduce(
@@ -343,98 +345,98 @@ function render(output) {
 			0,
 		);
 		lines.push(
-			`  ${kind}: ${result.total}回、介入${count}回、${secondsText(result.median)}`,
+			`  ${kind}: ${result.total} time(s), ${count} intervention(s), ${secondsText(result.median)}`,
 		);
 	}
 
-	lines.push("", "MCP server（設定されていたsession数、呼び出し、失敗）:");
+	lines.push("", "MCP servers (sessions where configured, calls, failures):");
 	const servers = mcpServers(sessions);
-	if (servers.length === 0) lines.push("  （記録にMCP serverがありません）");
+	if (servers.length === 0) lines.push("  (no MCP servers in the records)");
 	for (const s of servers)
 		lines.push(
-			`  ${s.server}: 設定されていたsession ${s.configured.length}件、${s.calls === undefined ? "呼び出し: 未計測" : `呼び出し${s.calls}回`}、${s.failures === undefined ? "失敗: 未計測" : `失敗${s.failures}回`}`,
+			`  ${s.server}: configured in ${s.configured.length} session(s), ${s.calls === undefined ? "calls: not measured" : `${s.calls} call(s)`}, ${s.failures === undefined ? "failures: not measured" : `${s.failures} failure(s)`}`,
 		);
 
 	const withUsage = sessions.filter((s) => s.usage);
-	lines.push("", "使い方（当たるsession）:");
+	lines.push("", "Usage (matching sessions):");
 	for (const kind of SESSION_USAGE_KINDS)
 		lines.push(
 			withUsage.length === 0
-				? `  ${kind}: 未計測`
-				: `  ${kind}: ${withUsage.filter((s) => s.usage.kinds.includes(kind)).length} session`,
+				? `  ${kind}: not measured`
+				: `  ${kind}: ${withUsage.filter((s) => s.usage.kinds.includes(kind)).length} session(s)`,
 		);
 	lines.push(
-		`  model（output_tokensの割合）: ${sharesText(modelShares(withUsage))}`,
+		`  model (share of output_tokens): ${sharesText(modelShares(withUsage))}`,
 	);
 
 	lines.push("", ...renderFollowups(output.followups));
 	if (!output.sufficient) {
 		lines.push(
-			`データ不足のため提案を作りません: 分析したsessionは${output.session_count}件です。提案には${MINIMUM_SESSIONS}件以上が必要です（あと${MINIMUM_SESSIONS - output.session_count}件）`,
+			`Not enough data, so no suggestions are made: ${output.session_count} session(s) analyzed. Suggestions need at least ${MINIMUM_SESSIONS} (${MINIMUM_SESSIONS - output.session_count} more needed)`,
 		);
 		return lines;
 	}
 
-	lines.push("提案の対象:");
+	lines.push("Targets for suggestions:");
 	for (const { kind, result } of interventions) {
 		const category = `intervention.kind=${kind}`;
 		if (result === undefined) {
-			lines.push(`- ${category}: 未計測のため提案しません`);
+			lines.push(`- ${category}: not measured, so no suggestion is made`);
 			continue;
 		}
 		const lacking = missing([
-			[INTERVENTION_MIN_SESSIONS - result.hits.length, " session"],
-			[INTERVENTION_MIN_COUNT - result.total, "回"],
+			[INTERVENTION_MIN_SESSIONS - result.hits.length, " session(s)"],
+			[INTERVENTION_MIN_COUNT - result.total, " time(s)"],
 		]);
 		if (lacking) {
 			lines.push(
-				`- ${category}: データ不足: ${INTERVENTION_MIN_SESSIONS} session以上で合計${INTERVENTION_MIN_COUNT}回以上が必要です（あと${lacking}）`,
+				`- ${category}: Not enough data: needs at least ${INTERVENTION_MIN_SESSIONS} sessions and at least ${INTERVENTION_MIN_COUNT} times in total (${lacking} more needed)`,
 			);
 			continue;
 		}
 		lines.push(
-			`- ${category}: 提案を作れます（${result.hits.length} session、${result.total}回）`,
-			...evidenceLines(result.hits, "回"),
+			`- ${category}: a suggestion can be made (${result.hits.length} session(s), ${result.total} time(s))`,
+			...evidenceLines(result.hits, " time(s)"),
 		);
 	}
 	for (const { kind, result } of loops) {
 		const category = `loop.kind=${kind}`;
 		if (result === undefined) {
-			lines.push(`- ${category}: 未計測のため提案しません`);
+			lines.push(`- ${category}: not measured, so no suggestion is made`);
 			continue;
 		}
 		if (result.total < LOOP_MIN_OCCURRENCES) {
 			lines.push(
-				`- ${category}: データ不足: 合計${LOOP_MIN_OCCURRENCES}回以上が必要です（あと${LOOP_MIN_OCCURRENCES - result.total}回）`,
+				`- ${category}: Not enough data: needs at least ${LOOP_MIN_OCCURRENCES} times in total (${LOOP_MIN_OCCURRENCES - result.total} more needed)`,
 			);
 			continue;
 		}
 		lines.push(
-			`- ${category}: 提案を作れます（合計${result.total}回）`,
-			...evidenceLines(result.hits, "回"),
+			`- ${category}: a suggestion can be made (${result.total} time(s) in total)`,
+			...evidenceLines(result.hits, " time(s)"),
 		);
 	}
 	// unlistedは構成に無いserverをまとめたものであり、設定されていたsessionを持たないため対象にしない。
 	for (const s of servers.filter((server) => server.server !== "unlisted")) {
 		const category = `mcp_server=${s.server}`;
 		if (s.calls === undefined && s.failures === undefined) {
-			lines.push(`- ${category}: 未計測のため提案しません`);
+			lines.push(`- ${category}: not measured, so no suggestion is made`);
 			continue;
 		}
 		if (s.configured.length < MCP_MIN_CONFIGURED_SESSIONS) {
 			lines.push(
-				`- ${category}: データ不足: 設定されていたsessionが${MCP_MIN_CONFIGURED_SESSIONS}件以上必要です（あと${MCP_MIN_CONFIGURED_SESSIONS - s.configured.length}件）`,
+				`- ${category}: Not enough data: needs at least ${MCP_MIN_CONFIGURED_SESSIONS} sessions where it was configured (${MCP_MIN_CONFIGURED_SESSIONS - s.configured.length} more needed)`,
 			);
 			continue;
 		}
 		lines.push(
-			`- ${category}: 提案を作れます（設定されていたsession ${s.configured.length}件）`,
+			`- ${category}: a suggestion can be made (configured in ${s.configured.length} session(s))`,
 			...evidenceLines(
 				s.configured.map(({ session, element }) => ({
 					session,
 					count: element.calls ?? 0,
 				})),
-				"回の呼び出し",
+				" call(s)",
 			),
 		);
 	}

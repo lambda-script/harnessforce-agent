@@ -15,7 +15,7 @@ if (major >= 18) {
 	if (process.argv[2] === "session-start") {
 		process.stdout.write(
 			JSON.stringify({
-				systemMessage: "Harnessforceのhookには18以上のNode.jsが必要です",
+				systemMessage: "Harnessforce hooks require Node.js 18 or later",
 			}) + "\n"
 		);
 	}

@@ -444,7 +444,7 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 			expect(JSON.parse(result.stdout)).toEqual({
 				...JSON.parse(SESSION_CONTEXT),
 				systemMessage:
-					"送信キーが失効しています。`harnessforce init`を実行してください",
+					"Your ingest key has been revoked. Run `harnessforce init`",
 			});
 		});
 
@@ -459,7 +459,7 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 			// correlation.md「hookの警告」: 登録の失敗は、利用者へ1行を表示する。
 			expect(result.code).toBe(0);
 			expect(JSON.parse(result.stdout).systemMessage).toBe(
-				"Harnessforceへのsession登録に失敗しました。通信を確かめてください",
+				"Harnessforce session registration failed. Check your network connection",
 			);
 			expect(result.stderr).toBe(
 				"harnessforce: session registration failed (TimeoutError)\n",

@@ -16,11 +16,9 @@ const HOST = "127.0.0.1";
 const CALLBACK_PATH = "/callback";
 // 本文は固定の文言とし、code、state、error_descriptionを含めない（correlation.md「CLI」）。
 const page = (message: string) =>
-	`<!doctype html><html lang="ja"><meta charset="utf-8"><title>Harnessforce</title><p>${message}</p></html>`;
-const SUCCESS_PAGE = page("ターミナルに戻ってください");
-const FAILURE_PAGE = page(
-	"ログインに失敗しました。ターミナルを確認してください",
-);
+	`<!doctype html><html lang="en"><meta charset="utf-8"><title>Harnessforce</title><p>${message}</p></html>`;
+const SUCCESS_PAGE = page("Return to the terminal");
+const FAILURE_PAGE = page("The login failed. Check the terminal");
 
 export async function startLoopback(options: {
 	state: string;

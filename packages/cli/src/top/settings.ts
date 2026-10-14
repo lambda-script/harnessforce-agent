@@ -16,7 +16,7 @@ const DEFAULT_SETTINGS: TopSettings = {
 };
 
 const SETTINGS_NOTICE =
-	"端末の設定（~/.harnessforce/config.json）を読めないため、既定の表示にします";
+	"Cannot read the device settings (`~/.harnessforce/config.json`), so the default display is used";
 
 export type SettingsRead = { settings: TopSettings; notice?: string };
 
