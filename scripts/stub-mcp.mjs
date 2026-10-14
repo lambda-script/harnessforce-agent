@@ -14,7 +14,7 @@ const RESULTS = {
 		definition_of_done: [{ item_id: "dod-1", text: "Behavior is implemented" }],
 	},
 	record_plan: { status: "proposed" },
-	record_decision: { status: "proposed" },
+	record_action: { status: "proposed" },
 	complete_run: { status: "completed" },
 };
 

@@ -12,7 +12,7 @@ and does not bundle the CLI (`/harnessforce:setup` installs `@harnessforce/cli` 
 | --- | --- |
 | `SessionStart` and `UserPromptSubmit` hooks | Register each session and its config snapshot with Harnessforce |
 | `PostToolUse`, `PostToolUseFailure`, `UserPromptExpansion`, `PermissionRequest`, `PostCompact` and `SessionEnd` hooks | Count the configured skills, commands, subagents and MCP servers a session uses, and send the session usage summary |
-| MCP server `harnessforce` (`<connection URL>/mcp`, HTTP) | Tools to start a run, read an Issue, and record plans, decisions and the Definition of Done |
+| MCP server `harnessforce` (`<connection URL>/mcp`, HTTP) | Tools to start a run, read an Issue, and record plans, Actions and the Definition of Done |
 | Skill `using-harnessforce` | What Harnessforce records and does not collect, which hook sends what, and when to use the other skills. The `SessionStart` hook injects its body into the context of every session (the build embeds the same text into the hook and the CLI) |
 | Skill `record-run` | Tells the agent when to call those tools |
 | Command `/harnessforce:setup` | Checks Node.js, installs the `harnessforce` CLI, asks whether to send content, runs `harnessforce init` (`--send-content` when chosen) and `harnessforce import`, offers (unchecked by default) to share your usage limits with `harnessforce usage-limits on --yes`, and confirms the first event after a restart |

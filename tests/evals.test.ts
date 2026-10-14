@@ -91,7 +91,7 @@ describe("validateEvalFile", () => {
 describe("evaluateAssertions", () => {
 	const calls = [
 		{ tool: "start_run", arguments: { session_id: "s-1" } },
-		{ tool: "record_decision", arguments: { decision: "Use option B" } },
+		{ tool: "record_action", arguments: { decision: "Use option B" } },
 	];
 	const run = (assertion: EvalAssertion) =>
 		evaluateAssertions([assertion], calls)[0]?.passed;
@@ -111,13 +111,13 @@ describe("evaluateAssertions", () => {
 			run({
 				type: "called_before",
 				first: "start_run",
-				second: "record_decision",
+				second: "record_action",
 			}),
 		).toBe(true);
 		expect(
 			run({
 				type: "called_before",
-				first: "record_decision",
+				first: "record_action",
 				second: "start_run",
 			}),
 		).toBe(false);
@@ -134,7 +134,7 @@ describe("evaluateAssertions", () => {
 		expect(
 			run({
 				type: "arg_excludes",
-				tool: "record_decision",
+				tool: "record_action",
 				field: "decision",
 				text: "secret",
 			}),
@@ -142,7 +142,7 @@ describe("evaluateAssertions", () => {
 		expect(
 			run({
 				type: "arg_excludes",
-				tool: "record_decision",
+				tool: "record_action",
 				field: "decision",
 				text: "option B",
 			}),
@@ -220,7 +220,7 @@ describe("stub MCP server", () => {
 		).toEqual([
 			"complete_run",
 			"get_issue",
-			"record_decision",
+			"record_action",
 			"record_plan",
 			"start_run",
 		]);

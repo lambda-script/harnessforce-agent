@@ -4,7 +4,7 @@ export const TOOLS = [
 	"start_run",
 	"get_issue",
 	"record_plan",
-	"record_decision",
+	"record_action",
 	"complete_run",
 ];
 

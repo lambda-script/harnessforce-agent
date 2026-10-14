@@ -17,8 +17,8 @@ If the user has not given an Issue, follow "When no Issue is specified" below fi
 
 ## During the work
 
-- When the user states a decision or judgment (choosing an option, approving or rejecting an approach, fixing the scope or the way to proceed), record it as an Action (`record_decision`) together with the reason, without asking the user whether to record it. Write `decision` and `rationale` in your own words about what was decided, and do not paste the user's statement verbatim.
-- When you change course yourself or choose from several options, also record it with `record_decision`. Always write the title (`title`), what you decided (`decision`), and the reason (`rationale`), and write the options you considered in `alternatives`.
+- When the user states a decision or judgment (choosing an option, approving or rejecting an approach, fixing the scope or the way to proceed), record it as an Action (`record_action`) together with the reason, without asking the user whether to record it. Write `decision` and `rationale` in your own words about what was decided, and do not paste the user's statement verbatim.
+- When you change course yourself or choose from several options, also record it with `record_action`. Always write the title (`title`), what you decided (`decision`), and the reason (`rationale`), and write the options you considered in `alternatives`.
 
 ## When the session ID changes
 
@@ -60,7 +60,7 @@ If the user starts work without giving an Issue, ask whether to create one. Crea
 
 ## When the session ID is missing
 
-- If the context has no `harnessforce session_id:` line, do not guess and pass a session ID, and do not call `start_run` or `complete_run`. `get_issue`, `record_plan`, and `record_decision` do not depend on the Run, so continue with them. Tell the user once: "The Harnessforce hook is not running, so the Run cannot be recorded. Run `/harnessforce:setup`".
+- If the context has no `harnessforce session_id:` line, do not guess and pass a session ID, and do not call `start_run` or `complete_run`. `get_issue`, `record_plan`, and `record_action` do not depend on the Run, so continue with them. Tell the user once: "The Harnessforce hook is not running, so the Run cannot be recorded. Run `/harnessforce:setup`".
 
 ## How records are treated
 

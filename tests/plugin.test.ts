@@ -90,7 +90,7 @@ describe("run recording skill", () => {
 			"`start_run`",
 			"`get_issue`",
 			"`record_plan`",
-			"`record_decision`",
+			"`record_action`",
 			"`complete_run`",
 		]);
 		expect(positions.every((position) => position >= 0)).toBe(true);

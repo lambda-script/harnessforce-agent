@@ -6,7 +6,7 @@
 			"prompt": "/harnessforce:tune reported \"insufficient data\" for every target. Propose improvements.",
 			"context": "No target is marked \"a proposal can be made\".",
 			"assertions": [
-				{ "type": "not_called", "tool": "record_decision" },
+				{ "type": "not_called", "tool": "record_action" },
 				{ "type": "not_called", "tool": "record_plan" },
 				{ "type": "not_called", "tool": "start_run" }
 			]
