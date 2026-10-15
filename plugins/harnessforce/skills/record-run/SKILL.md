@@ -13,7 +13,7 @@ If the user has not given an Issue, follow "When no Issue is specified" below fi
 
 1. Pass the value of `harnessforce session_id: <session_id>` in the context as `session_id`, and register the Run with `start_run`. The Harnessforce plugin adds this line to the context at session start. If there are several, use the last one added. The input is the Issue identifier (`issue_identifier`), `agent` (`claude_code`), and `session_id`. If you know the repository, branch, and commit you are working on, pass them too. Keep the returned `run_id` until the end. If the line is missing from the context, follow "When the session ID is missing" below.
 2. Check the Issue, the Plan, and the Definition of Done with `get_issue`. For a native Issue, follow "Status of a native Issue" below. A Plan is distinguished by its status (current or `proposed`).
-3. If the Definition of Done has no items, propose items with `propose_definition_of_done_items` (see "Proposing Definition of Done items" below).
+3. If the Definition of Done has no items, add items with `record_definition_of_done_items` (see "Adding Definition of Done items" below).
 4. If there is neither a current Plan nor a `proposed` Plan, record the approach to the work with `record_plan`. Write the body in markdown.
 
 ## During the work
@@ -21,15 +21,15 @@ If the user has not given an Issue, follow "When no Issue is specified" below fi
 - When the user states a decision or judgment (choosing an option, approving or rejecting an approach, fixing the scope or the way to proceed), record it as an Action (`record_action`) together with the reason, without asking the user whether to record it. Write `decision` and `rationale` in your own words about what was decided, and do not paste the user's statement verbatim.
 - When you change course yourself or choose from several options, also record it with `record_action`. Always write the title (`title`), what you decided (`decision`), and the reason (`rationale`), and write the options you considered in `alternatives`.
 
-## Proposing Definition of Done items
+## Adding Definition of Done items
 
-A person rarely types the Definition of Done, and `complete_run` records nothing for an Issue without items. Propose items so that a person only has to approve them.
+A person rarely types the Definition of Done, and `complete_run` records nothing for an Issue without items. Add items so that a person only has to review them.
 
-- Propose only when `get_issue` shows no Definition of Done items. Do not propose when items already exist, and propose at most once for the same value of the last `harnessforce session_id:` in the context.
-- Do not ask the user first. A proposal is stored as `proposed`, creates no item, and is final only when a person approves it in the Issue page.
+- Add only when `get_issue` shows no Definition of Done items. Do not add when items already exist, and add at most once for the same value of the last `harnessforce session_id:` in the context.
+- Do not ask the user first. The items take effect without approval as items added by the agent, and a person can delete any of them in the Issue page. Whether an item is met is still reported as `proposed` until a person confirms it.
 - Pass `identifier` and 1 to 10 `items`. Each item has a `text` of 1 to 500 characters and a `basis`: `issue_description`, `acceptance_criteria`, `pull_request`, `test`, or `check`, whichever the item was summarized from.
 - Write each `text` as a short summary of the Issue's description or acceptance criteria, the Pull Request, a test you will change, or a CI check. Do not copy the prompt, a response, tool input or output, a diff, a file path, a command, or a secret into it.
-- If the result lists an item under `skipped`, it already exists or is already proposed. Do not send it again. If `propose_definition_of_done_items` returns `forbidden` or `conflict`, tell the user once and continue without retrying.
+- If the result lists an item under `skipped`, an item with the same text already exists. Do not send it again. If `record_definition_of_done_items` returns `forbidden` or `conflict`, tell the user once and continue without retrying.
 - Use `add_definition_of_done_item` only when the user explicitly tells you in the conversation to add an item.
 
 ## When the session ID changes
@@ -76,4 +76,4 @@ If the user starts work without giving an Issue, ask whether to create one. Crea
 
 ## How records are treated
 
-- The Plan, the Decision, the Definition of Done items proposed, and the Definition of Done status recorded by the agent are stored as `proposed` and are not final until a person approves them. Do not tell the user that what you recorded is final.
+- The Plan, the Decision, and the Definition of Done status recorded by the agent are stored as `proposed` and are not final until a person approves them. Do not tell the user that what you recorded is final. Definition of Done items you add take effect at once, but only a person confirms whether they are met.
