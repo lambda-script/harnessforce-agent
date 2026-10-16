@@ -24,7 +24,12 @@ const EXIT_WITHHELD = 4;
 const EXIT_FAILED = 1;
 
 type KeySelection =
-	| { kind: "key"; key: string; userWorkspaceId?: string }
+	// 利用者用のkeyは、読んだkeychainとWorkspaceを持つ。移す処理が保存先の判定を繰り返さないためである。
+	| {
+			kind: "key";
+			key: string;
+			user?: { keychain: Keychain; workspaceId: string };
+	  }
 	| { kind: "missing" }
 	| { kind: "withheld" }
 	| { kind: "failed" };
@@ -38,6 +43,7 @@ export async function otelHeaders(
 	keychain: Keychain,
 	stdout: (text: string) => void,
 	stderr: (text: string) => void,
+	endStdout: () => Promise<void>,
 ): Promise<number> {
 	const selection = await selectKey(env, managedDir, keychain).catch(
 		(): KeySelection => ({ kind: "failed" }),
@@ -49,10 +55,11 @@ export async function otelHeaders(
 	if (selection.kind === "missing") return EXIT_KEY_MISSING;
 	if (selection.kind === "failed") return EXIT_FAILED;
 	stdout(`${JSON.stringify({ Authorization: `Bearer ${selection.key}` })}\n`);
-	if (selection.userWorkspaceId && !env.HARNESSFORCE_NO_MIGRATE)
-		await keychain
-			.migrateFromKernel?.(selection.userWorkspaceId)
-			.catch(() => {});
+	const { user } = selection;
+	if (user && !env.HARNESSFORCE_NO_MIGRATE) {
+		await endStdout();
+		await user.keychain.migrateFromKernel?.(user.workspaceId).catch(() => {});
+	}
 	return 0;
 }
 
@@ -77,7 +84,7 @@ async function selectKey(
 	if (!key) return { kind: "missing" };
 	const pinnedOrigin = await keychain.get(ingestOriginAccount(workspaceId));
 	return pinnedOrigin && isPinnedDestination(env, pinnedOrigin)
-		? { kind: "key", key, userWorkspaceId: workspaceId }
+		? { kind: "key", key, user: { keychain, workspaceId } }
 		: { kind: "withheld" };
 }
 

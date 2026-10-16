@@ -39,6 +39,8 @@ const PROBE_VALUE = "harnessforce";
 // 移す処理の全体の上限。
 const MIGRATION_PROBE_TIMEOUT_MS = 200;
 const MIGRATION_BUDGET_MS = 1_000;
+// 上限時間を過ぎた後の片付けを並列に行う時間。processの終了を長く延ばさない。
+const CLEANUP_TIMEOUT_MS = 200;
 
 type Location = "kernel" | "secret-service";
 
@@ -209,8 +211,9 @@ async function migrate(
 		for (const account of workspaceAccounts(workspaceId))
 			await secretService.delete(account, remaining());
 		for (const { account, secret } of items) {
-			await secretService.set(account, secret, remaining());
+			// 上限時間で途中になった書き込みも片付けの対象にする。項目が無くても削除は成功する。
 			written.push(account);
+			await secretService.set(account, secret, remaining());
 		}
 		for (const { account, secret } of items)
 			if ((await secretService.get(account, remaining())) !== secret)
@@ -219,7 +222,7 @@ async function migrate(
 		isVerified = true;
 		// keyを先に消すと、以後の読み出しはSecret Serviceの揃った組を選ぶ（読み出しの順）。残った項目は使われない。
 		for (const { account } of [...items].reverse())
-			await kernel.delete(account, MIGRATION_BUDGET_MS);
+			await kernel.delete(account, remaining());
 	};
 	let timer: NodeJS.Timeout | undefined;
 	const expiry = new Promise<never>((_, reject) => {
@@ -232,8 +235,11 @@ async function migrate(
 		await Promise.race([move(), expiry]);
 	} catch (error) {
 		if (isVerified) throw error;
-		for (const account of written)
-			await secretService.delete(account, MIGRATION_BUDGET_MS).catch(() => {});
+		await Promise.allSettled(
+			written.map((account) =>
+				secretService.delete(account, CLEANUP_TIMEOUT_MS),
+			),
+		);
 		throw error;
 	} finally {
 		clearTimeout(timer);

@@ -210,16 +210,30 @@ describe("harnessforce otel-headers", () => {
 
 	// correlation.md「CLI」: kernelのkeyringから読んだkeyを出力した後、Secret Serviceへ移す。
 	describe("moving the kernel keyring items", () => {
-		it("moves the workspace items after printing the key", async () => {
+		// Claude Codeがhelperの出力を待つ時間を、移す処理の分だけ延ばさない。
+		it("closes stdout after printing the key and then moves the workspace items", async () => {
 			const { keychain, migrations } = fakeKeychain({
 				items: {
 					"ws1:ingest-key": "hf_ik_ws1_user",
 					"ws1:ingest-origin": "https://ingest.example.test",
 				},
 			});
+			const order: string[] = [];
+			const moving = keychain.migrateFromKernel;
+			keychain.migrateFromKernel = async (workspaceId) => {
+				order.push("migrate");
+				await moving?.(workspaceId);
+			};
 			expect(
-				await runCli(["otel-headers"], { env: userEnv, keychain }),
+				await runCli(["otel-headers"], {
+					env: userEnv,
+					keychain,
+					endStdout: async () => {
+						order.push("end stdout");
+					},
+				}),
 			).toEqual({ code: 0, out: header("hf_ik_ws1_user"), err: "" });
+			expect(order).toEqual(["end stdout", "migrate"]);
 			expect(migrations).toEqual(["ws1"]);
 		});
 

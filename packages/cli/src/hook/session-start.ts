@@ -122,7 +122,12 @@ async function resolveDestination(deps: SessionStartDeps): Promise<Resolved> {
 		report(deps, "skipped (not configured)");
 		return { warning: notConfiguredWarning("codex") };
 	}
-	report(deps, `skipped (${resolved.reason})`);
+	// stderrの終端はcorrelation.md「hook」の共通の規則の文言とし、keychainを読めない場合もkeyが無いと書く。
+	const detail =
+		resolved.reason === "keychain unreadable"
+			? "no ingest key"
+			: resolved.reason;
+	report(deps, `skipped (${detail})`);
 	return { warning: SKIPPED_WARNINGS[resolved.reason] };
 }
 

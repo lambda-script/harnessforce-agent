@@ -317,6 +317,13 @@ describe("Linux keychain", () => {
 				"get ws1:ingest-key",
 			]);
 			expect(Object.fromEntries(secretService.items)).toEqual(WS1);
+			// keyを先に消し、以後の読み出しがSecret Serviceの揃った組を選ぶようにする。
+			expect(kernel.calls.filter((call) => call.startsWith("delete"))).toEqual([
+				"delete ws1:ingest-key",
+				"delete ws1:api-token",
+				"delete ws1:url-origin",
+				"delete ws1:ingest-origin",
+			]);
 			expect(kernel.items.size).toBe(0);
 		});
 
@@ -379,7 +386,10 @@ describe("Linux keychain", () => {
 			await vi.advanceTimersByTimeAsync(1_000);
 			await moving;
 			for (const resolve of secretService.held) resolve();
+			await vi.advanceTimersByTimeAsync(0);
 			expect(Object.fromEntries(kernel.items)).toEqual(WS1);
+			// 途中だった書き込みも片付けの対象にし、keyの無い項目だけが残りうる。
+			expect(secretService.items.has("ws1:ingest-key")).toBe(false);
 		});
 	});
 });

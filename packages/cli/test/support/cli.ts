@@ -137,6 +137,7 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}) {
 		hookGit: async () => undefined,
 		sleep: async () => {},
 		readStdin: async () => Buffer.alloc(0),
+		endStdout: async () => {},
 		top: fakeTty({ isTty: false }).io,
 		runOriginal: async () => {
 			throw new Error("the original statusLine command must not be run");

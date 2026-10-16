@@ -342,7 +342,7 @@ async function sendSessionStart(
 	// Workspace用のkeyを配る組織は、テレメトリの設定をhookが読めない経路で配りうるため判定しない。
 	const isConfigured =
 		registers && destination.keyKind === "user"
-			? deps.isTelemetryConfigured().catch(() => true)
+			? deps.isTelemetryConfigured()
 			: Promise.resolve(true);
 	const [registration, snapshot, unsent, configured] = await Promise.all([
 		registers
