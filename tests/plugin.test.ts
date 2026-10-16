@@ -89,6 +89,7 @@ describe("run recording skill", () => {
 		const positions = indexesOf(body, [
 			"`start_run`",
 			"`get_issue`",
+			"`record_definition_of_done_items`",
 			"`record_plan`",
 			"`record_action`",
 			"`complete_run`",
@@ -119,6 +120,27 @@ describe("run recording skill", () => {
 
 	it("records a plan only when neither a current nor a proposed plan exists", () =>
 		expect(body).toMatch(/neither a current Plan nor a `proposed` Plan/));
+
+	// control-plane.md「項目の提案」: 0件のときだけ、確認せずに、本文を含めず提案する。
+	describe("adding Definition of Done items", () => {
+		it("adds only when no items exist and once per session id", () =>
+			expect(body).toMatch(
+				/Add only when `get_issue` shows no Definition of Done items[\s\S]*at most once for the same value/,
+			));
+
+		it("adds without asking and without approval", () =>
+			expect(body).toMatch(/Do not ask the user first[^\n]*without approval/));
+
+		it("keeps prompts, diffs, paths, commands and secrets out of the item text", () =>
+			expect(body).toMatch(
+				/Do not copy the prompt[^\n]*diff[^\n]*file path[^\n]*command[^\n]*secret/,
+			));
+
+		it("uses add_definition_of_done_item only on an explicit instruction", () =>
+			expect(body).toMatch(
+				/`add_definition_of_done_item` only when the user explicitly/,
+			));
+	});
 
 	it("reports each Definition of Done item as met or unmet", () => {
 		expect(body).toContain("`met`");
