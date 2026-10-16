@@ -18,6 +18,8 @@ type FakeKeychainOptions = {
 	failWriteOn?: string;
 	// `harnessforce init`の保存先をkernelのkeyringにする（LinuxでSecret Serviceを使えない端末）。
 	kernelKeyring?: boolean;
+	// kernelのkeyringからSecret Serviceへ移す処理を失敗させる。
+	failMigration?: boolean;
 	unavailableHint?: string;
 };
 
@@ -30,6 +32,8 @@ export function fakeKeychain(options: FakeKeychainOptions = {}) {
 	const timeouts: number[] = [];
 	// openForInitに渡された前回のWorkspace。
 	const initOpens: (string | undefined)[] = [];
+	// migrateFromKernelに渡されたWorkspace。
+	const migrations: string[] = [];
 	const fail = (when: boolean | undefined) => {
 		if (when) throw new Error("keychain failure");
 	};
@@ -51,6 +55,10 @@ export function fakeKeychain(options: FakeKeychainOptions = {}) {
 			fail(options.failWrite);
 			items.delete(account);
 			writes.push(`delete ${account}`);
+		},
+		migrateFromKernel: async (workspaceId) => {
+			migrations.push(workspaceId);
+			fail(options.failMigration);
 		},
 		withTimeout: (ms) => {
 			timeouts.push(ms);
@@ -78,7 +86,7 @@ export function fakeKeychain(options: FakeKeychainOptions = {}) {
 	};
 	if (options.unavailableHint)
 		keychain.unavailableHint = options.unavailableHint;
-	return { keychain, items, writes, timeouts, initOpens };
+	return { keychain, items, writes, timeouts, initOpens, migrations };
 }
 
 // keychainに触れてはいけないtestで使う。
@@ -129,6 +137,7 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}) {
 		hookGit: async () => undefined,
 		sleep: async () => {},
 		readStdin: async () => Buffer.alloc(0),
+		endStdout: async () => {},
 		top: fakeTty({ isTty: false }).io,
 		runOriginal: async () => {
 			throw new Error("the original statusLine command must not be run");

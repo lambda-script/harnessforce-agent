@@ -187,9 +187,17 @@ describe("harnessforce hook session-start", () => {
 		expect(sent[0]?.url).toBe(`${ENDPOINT}/v1/sessions`);
 	});
 
-	// correlation.md「hookの警告」: Codexのhookは平文で、session IDの行、本文、警告の1行を出す。
-	const plain = (message: string) =>
-		`harnessforce session_id: sess-1\n${usingHarnessforceBody}\n${message}\n`;
+	// correlation.md「hookの警告」: Codexのhookは、session contextのJSONのobjectの`systemMessage`で警告を出す。
+	const warned = (message: string) => ({
+		...context("sess-1"),
+		systemMessage: message,
+	});
+	const KEY_MISSING =
+		"Harnessforce cannot find your ingest key, so sessions are not being registered. Run `harnessforce init`";
+	const KEY_UNREADABLE =
+		"Harnessforce could not read your ingest key from the OS keychain, so sessions may not be registered. Unlock the keychain or run `harnessforce init`";
+	const DESTINATION_MISMATCH =
+		"Sessions are not being registered because the Harnessforce destination differs from the one saved by `harnessforce init`. Run `harnessforce init` again";
 	const NOT_CONFIGURED =
 		"Harnessforce sending is not configured. Run `harnessforce init`";
 	const INVALID_ENDPOINT =
@@ -210,7 +218,7 @@ describe("harnessforce hook session-start", () => {
 		expect(result.code).toBe(0);
 		expect(sent).toEqual([]);
 		expect(result.err).toContain(NOT_CONFIGURED);
-		expect(result.out).toBe(plain(NOT_CONFIGURED));
+		expect(JSON.parse(result.out)).toEqual(warned(NOT_CONFIGURED));
 	});
 
 	it("warns about an endpoint that is set but not allowed", async () => {
@@ -219,7 +227,7 @@ describe("harnessforce hook session-start", () => {
 		});
 		const result = await run();
 		expect(sent).toEqual([]);
-		expect(result.out).toBe(plain(INVALID_ENDPOINT));
+		expect(JSON.parse(result.out)).toEqual(warned(INVALID_ENDPOINT));
 	});
 
 	it.each(["resume", "compact"])(
@@ -242,10 +250,11 @@ describe("harnessforce hook session-start", () => {
 		expect(sent).toEqual([]);
 		expect(result.code).toBe(0);
 		expect(result.err).not.toContain(KEY);
+		expect(JSON.parse(result.out)).toEqual(warned(DESTINATION_MISMATCH));
 	});
 
 	it.each([
-		["no key", { items: {} }],
+		["no key", { items: {} }, KEY_MISSING],
 		[
 			"an unavailable keychain",
 			{
@@ -255,21 +264,26 @@ describe("harnessforce hook session-start", () => {
 					[ingestOriginAccount(WORKSPACE)]: "https://ingest.example.test",
 				},
 			},
+			KEY_UNREADABLE,
 		],
 		[
 			"a key without the origin pinned by init",
 			{ items: { [ingestKeyAccount(WORKSPACE)]: KEY } },
+			DESTINATION_MISMATCH,
 		],
-		["a failing keychain", { failRead: true }],
-	])("sends nothing and exits 0 with %s", async (_name, keychain) => {
-		const { run, sent } = setup({ keychain });
-		const result = await run();
-		expect(sent).toEqual([]);
-		expect(result.code).toBe(0);
-		expect(JSON.parse(result.out)).toEqual(context("sess-1"));
-	});
+		["a failing keychain", { failRead: true }, KEY_UNREADABLE],
+	])(
+		"sends nothing, exits 0 and warns with %s",
+		async (_name, keychain, message) => {
+			const { run, sent } = setup({ keychain });
+			const result = await run();
+			expect(sent).toEqual([]);
+			expect(result.code).toBe(0);
+			expect(JSON.parse(result.out)).toEqual(warned(message));
+		},
+	);
 
-	it("bounds the keychain read by 1 second and treats a slower read as no key", async () => {
+	it("bounds the keychain read by 1 second and warns that a slower read could not read the key", async () => {
 		const { keychain, timeouts } = fakeKeychain();
 		const hanging = { ...keychain, get: () => new Promise<never>(() => {}) };
 		keychain.withTimeout = (ms) => {
@@ -304,7 +318,7 @@ describe("harnessforce hook session-start", () => {
 		expect(timeouts).toEqual([1_000]);
 		expect(sent).toEqual([]);
 		expect(result.code).toBe(0);
-		expect(JSON.parse(result.out)).toEqual(context("sess-1"));
+		expect(JSON.parse(result.out)).toEqual(warned(KEY_UNREADABLE));
 	});
 
 	it("sends nothing outside a git repository", async () => {
@@ -314,21 +328,19 @@ describe("harnessforce hook session-start", () => {
 		expect(JSON.parse(result.out)).toEqual(context("sess-1"));
 	});
 
-	it("on 401 writes the revoked-key message to stderr and the context and the message as plain text, not JSON", async () => {
+	it("on 401 writes the revoked-key message to stderr and as the systemMessage", async () => {
 		const { run } = setup({ status: 401 });
 		const result = await run();
 		expect(result.code).toBe(0);
 		expect(result.err).toContain(REVOKED);
-		expect(result.out).toBe(
-			`harnessforce session_id: sess-1\n${usingHarnessforceBody}\n${REVOKED}\n`,
-		);
+		expect(JSON.parse(result.out)).toEqual(warned(REVOKED));
 	});
 
 	it("exits 0 and warns about the failed registration when the network is down", async () => {
 		const { run } = setup({ fetchFails: true });
 		const result = await run();
 		expect(result.code).toBe(0);
-		expect(result.out).toBe(plain(REGISTRATION_FAILED));
+		expect(JSON.parse(result.out)).toEqual(warned(REGISTRATION_FAILED));
 	});
 
 	it.each([400, 500, 503])(
@@ -337,7 +349,7 @@ describe("harnessforce hook session-start", () => {
 			const { run } = setup({ status });
 			const result = await run();
 			expect(result.code).toBe(0);
-			expect(result.out).toBe(plain(REGISTRATION_FAILED));
+			expect(JSON.parse(result.out)).toEqual(warned(REGISTRATION_FAILED));
 		},
 	);
 

@@ -11,6 +11,8 @@ export type Keychain = {
 	set(account: string, secret: string): Promise<void>;
 	// 項目が無くても成功とする。
 	delete(account: string): Promise<void>;
+	// kernelのkeyringにあるWorkspaceの項目を、解錠済みのSecret Serviceへ移す（Linuxだけ）。失敗しても例外を投げない。
+	migrateFromKernel?(workspaceId: string): Promise<void>;
 	// 各操作の上限時間をmsにしたkeychain。超えた操作は失敗する。
 	withTimeout(ms: number): Keychain;
 	// `harnessforce init`の手順1。保存先を選び、既存の項目を読む。使えなければundefined、読めなければ例外。

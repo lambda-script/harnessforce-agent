@@ -29,6 +29,8 @@ export type CliDeps = InitDeps &
 		runOriginal: UsageLimitsDeps["runOriginal"];
 		spawnSender: UsageLimitsDeps["spawnSender"];
 		ask: UsageLimitsDeps["ask"];
+		// stdoutを閉じ、書いた分が渡るのを待つ。otel-headersが出力の後に処理を続ける前に呼ぶ。
+		endStdout: () => Promise<void>;
 	};
 
 // src（test）とdist（公開物）のどちらから読んでも、1つ上がpackage.jsonになる。
@@ -99,6 +101,7 @@ export async function run(
 			deps.keychain,
 			deps.stdout,
 			deps.stderr,
+			deps.endStdout,
 		);
 	if (command === "import" && rest.length === 0)
 		return importCommand({

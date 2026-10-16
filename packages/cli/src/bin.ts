@@ -53,6 +53,8 @@ process.exitCode =
 		}),
 		stdout: (text) => process.stdout.write(text),
 		stderr: (text) => process.stderr.write(text),
+		endStdout: () =>
+			new Promise<void>((resolve) => process.stdout.end(() => resolve())),
 		fetch: (url, init) => fetch(url, init),
 		openBrowser: (url) =>
 			openBrowser(url, {

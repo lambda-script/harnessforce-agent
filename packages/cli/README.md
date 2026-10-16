@@ -28,7 +28,7 @@ harnessforce init
 | Command | What it does |
 | --- | --- |
 | `harnessforce init [--port <port>] [--send-content]` | Logs in with the browser, stores a user ingest key and an API token in the keychain, and configures Claude Code and Codex |
-| `harnessforce otel-headers` | Prints the `Authorization` header for Claude Code's `otelHeadersHelper` |
+| `harnessforce otel-headers` | Prints the `Authorization` header for Claude Code's `otelHeadersHelper`. Exits 3 when there is no key, 4 when the destination differs from the pinned origin, and 1 on other failures. On Linux, after printing a key read from the kernel keyring, it moves that Workspace's items to an unlocked Secret Service (not when the hook starts it), so a reboot does not lose them |
 | `harnessforce run --issue <identifier> -- <agent> [args]` | Launches an agent with its session linked to an Issue |
 | `harnessforce import` | Sends the metadata of past Claude Code sessions in connected repositories |
 | `harnessforce tune [--all] [--no-send] [--show-report] [--json]` | Analyzes past sessions on this machine by public rules and sends the counts (analysis reports) |
@@ -75,8 +75,10 @@ Codex runs this command through the `[[hooks.SessionStart]]` entry that `harness
   Claude Code user settings that `harnessforce init` wrote. When `HARNESSFORCE_ISSUE` is a valid identifier
   (`harnessforce run --issue` sets it), the registration claims `source=cli` with that Issue.
 - prints `{"hookSpecificOutput": {...}}` carrying `harnessforce session_id: <id>` so the agent knows its session
-  ID. When the key was revoked (401) it prints that line and the message as plain text instead, and writes the
-  message to stderr.
+  ID. When it cannot send, it adds one warning as `systemMessage`, which Codex shows in its UI, and writes it to
+  stderr: a revoked key (401), sending not set up, an invalid endpoint, no key in the keychain, a destination
+  that differs from the pinned origin, a keychain that could not be read within 1 second, or a failed
+  registration. Only `startup`, `clear` and a missing `source` show a warning.
 - never fails the session: any error ends with exit code 0, and nothing is sent outside a git repository.
 
 ## Usage limits in the statusLine (`harnessforce usage-limits statusline`)
