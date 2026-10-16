@@ -12,7 +12,7 @@ export type CompletionStatus =
 	| "no_workspace"
 	| "viewer"
 	| "failed";
-export type Completion = {
+type Completion = {
 	status: CompletionStatus;
 	// connectedのときだけ付ける。
 	workspaceId?: string;
