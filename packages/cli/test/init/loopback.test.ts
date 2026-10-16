@@ -6,9 +6,10 @@ import { startLoopback } from "../../src/init/loopback.js";
 const STATE = "expected-state";
 
 async function get(url: string) {
-	const response = await fetch(url);
+	const response = await fetch(url, { redirect: "manual" });
 	return {
 		status: response.status,
+		location: response.headers.get("location"),
 		contentType: response.headers.get("content-type"),
 		cacheControl: response.headers.get("cache-control"),
 		body: await response.text(),
@@ -16,11 +17,14 @@ async function get(url: string) {
 }
 
 describe("loopback", () => {
-	it("listens on 127.0.0.1 and answers /callback with a fixed page", async () => {
+	const WEB = "https://app.example.test";
+
+	it("listens on 127.0.0.1 and holds the /callback response until finish", async () => {
 		const loopback = await startLoopback({
 			state: STATE,
 			timeoutMs: 5000,
 			port: 0,
+			webOrigin: WEB,
 		});
 		expect(loopback.redirectUri).toMatch(
 			/^http:\/\/127\.0\.0\.1:\d+\/callback$/,
@@ -29,44 +33,64 @@ describe("loopback", () => {
 			loopback.redirectUri.replace("/callback", "/favicon.ico"),
 		);
 		expect(favicon.status).toBe(404);
-		const page = await get(`${loopback.redirectUri}?code=c-1&state=${STATE}`);
-		expect(page).toMatchObject({
-			status: 200,
-			cacheControl: "no-store",
-			body: expect.stringContaining("Return to the terminal"),
-		});
-		expect(page.contentType).toMatch(/^text\/html\b/);
-		expect(page.body).not.toContain("c-1");
-		expect(page.body).not.toContain(STATE);
+		const pending = get(`${loopback.redirectUri}?code=c-1&state=${STATE}`);
 		expect(await loopback.callback).toEqual({
 			code: "c-1",
 			state: STATE,
 			error: undefined,
+		});
+		let isAnswered = false;
+		void pending.then(() => {
+			isAnswered = true;
+		});
+		await new Promise((resolve) => setTimeout(resolve, 50));
+		expect(isAnswered).toBe(false);
+		loopback.finish({ status: "connected", workspaceId: "ws1" });
+		const page = await pending;
+		expect(page).toMatchObject({
+			status: 303,
+			location: `${WEB}/cli/connected?status=connected&workspace=ws1`,
+			cacheControl: "no-store",
+			body: "",
 		});
 		// 最初のcallbackで待ち受けを閉じる。
 		await expect(fetch(loopback.redirectUri)).rejects.toThrow();
 	});
 
 	it.each([
-		[
-			"an error",
-			`?error=access_denied&state=${STATE}&error_description=secret`,
-		],
-		["a wrong state", "?code=c-1&state=other"],
-		["no code", `?state=${STATE}`],
-		["an empty code", `?code=&state=${STATE}`],
-	])("shows the failure page for %s", async (_, query) => {
+		["denied", `?error=access_denied&state=${STATE}&error_description=secret`],
+		["failed", "?code=c-1&state=other"],
+	] as const)(
+		"redirects to the %s screen without the code, state or description",
+		async (status, query) => {
+			const loopback = await startLoopback({
+				state: STATE,
+				timeoutMs: 5000,
+				port: 0,
+				webOrigin: WEB,
+			});
+			const pending = get(`${loopback.redirectUri}${query}`);
+			await loopback.callback;
+			loopback.finish({ status, workspaceId: "ws1" });
+			const page = await pending;
+			// workspaceはconnectedのときだけ付ける。
+			expect(page.location).toBe(`${WEB}/cli/connected?status=${status}`);
+			expect(page.location).not.toMatch(/secret|c-1|state=/);
+		},
+	);
+
+	it("ignores a second finish", async () => {
 		const loopback = await startLoopback({
 			state: STATE,
 			timeoutMs: 5000,
 			port: 0,
+			webOrigin: WEB,
 		});
-		const page = await get(`${loopback.redirectUri}${query}`);
-		expect(page.status).toBe(200);
-		expect(page.body).toContain("The login failed. Check the terminal");
-		expect(page.body).not.toContain("secret");
-		expect(page.body).not.toContain("c-1");
+		const pending = get(`${loopback.redirectUri}?code=c-1&state=${STATE}`);
 		await loopback.callback;
+		loopback.finish({ status: "viewer" });
+		loopback.finish({ status: "failed" });
+		expect((await pending).location).toBe(`${WEB}/cli/connected?status=viewer`);
 	});
 
 	it("resolves undefined when no callback arrives in time and stops listening", async () => {
@@ -74,6 +98,7 @@ describe("loopback", () => {
 			state: STATE,
 			timeoutMs: 50,
 			port: 0,
+			webOrigin: WEB,
 		});
 		expect(await loopback.callback).toBeUndefined();
 		await expect(fetch(loopback.redirectUri)).rejects.toThrow();
@@ -91,7 +116,7 @@ describe("loopback", () => {
 		});
 		// 他のportへ黙って移らない（correlation.md「CLI」）。
 		await expect(
-			startLoopback({ state: STATE, timeoutMs: 5000, port }),
+			startLoopback({ state: STATE, timeoutMs: 5000, port, webOrigin: WEB }),
 		).rejects.toThrow();
 	});
 });

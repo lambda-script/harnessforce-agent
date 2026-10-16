@@ -43,7 +43,12 @@ import {
 	type Issued,
 	requestCredentials,
 } from "./credentials-api.js";
-import type { Callback, startLoopback } from "./loopback.js";
+import type {
+	Callback,
+	CompletionStatus,
+	Loopback,
+	startLoopback,
+} from "./loopback.js";
 import { createLoginSecrets, type LoginSecrets } from "./pkce.js";
 
 export type InitDeps = {
@@ -125,45 +130,75 @@ async function runInit(
 	const authorizationEndpoint =
 		(await discoverAuthorizationEndpoint(base, deps.fetch)) ?? stop("network");
 	const secrets = createLoginSecrets();
-	const { code, redirectUri } = await logIn(
+	const { code, redirectUri, loopback } = await logIn(
 		authorizationEndpoint,
 		secrets,
 		port,
+		new URL(recordedUrl).origin,
 		deps,
 	);
-	const outcome = await requestCredentials(
-		base,
-		{
-			code,
-			code_verifier: secrets.codeVerifier,
-			client_id: CLIENT_ID,
-			redirect_uri: redirectUri,
-			revoke_key_hashes: revoke.keyHashes,
-			revoke_api_token_hashes: revoke.apiTokenHashes,
-		},
-		deps.fetch,
-	);
-	const issued = issuedOrStop(outcome);
-	await save(issued, recordedUrl, settingsPath, args.sendContent, store).catch(
-		(error: unknown) => {
+	// callbackへの応答は、結果が決まるまで保留している。どの終端でも完了画面へ移して閉じる。
+	let completion: CompletionStatus = "failed";
+	try {
+		const outcome = await requestCredentials(
+			base,
+			{
+				code,
+				code_verifier: secrets.codeVerifier,
+				client_id: CLIENT_ID,
+				redirect_uri: redirectUri,
+				revoke_key_hashes: revoke.keyHashes,
+				revoke_api_token_hashes: revoke.apiTokenHashes,
+			},
+			deps.fetch,
+		);
+		if (outcome.kind === "viewer") completion = "viewer";
+		const issued = issuedOrStop(outcome);
+		await save(
+			issued,
+			recordedUrl,
+			settingsPath,
+			args.sendContent,
+			store,
+		).catch((error: unknown) => {
 			if (isStop(error)) throw error;
 			return stop("saveFailed");
-		},
-	);
-	const codexPath = codexConfigPath(deps.env, deps.homeDir);
-	await saveCodexConfig(issued, recordedUrl, codexPath, args.sendContent).catch(
-		() => stop("codexSaveFailed"),
-	);
+		});
+		const codexPath = codexConfigPath(deps.env, deps.homeDir);
+		await saveCodexConfig(
+			issued,
+			recordedUrl,
+			codexPath,
+			args.sendContent,
+		).catch(() => stop("codexSaveFailed"));
+		completion = "connected";
+		loopback.finish({ status: completion, workspaceId: issued.workspaceId });
+		return finishInit(issued, args, deps, {
+			codexPath,
+			connection: recordedUrl,
+			isKernelKeyring: store.isKernelKeyring,
+		});
+	} finally {
+		loopback.finish({ status: completion });
+	}
+}
+
+function finishInit(
+	issued: Issued,
+	args: InitArgs,
+	deps: InitDeps,
+	result: {
+		codexPath: string;
+		connection: string;
+		isKernelKeyring: boolean;
+	},
+) {
 	// 発行と保存は済んでいるため、本文のopt-inが無いことを失敗とせず、opt-inの場所を示す。opt-in済みなら有効にした旨を示す。
 	if (args.sendContent)
 		deps.stdout(
 			`${issued.contentOptIn ? INIT_MESSAGES.contentEnabled : INIT_MESSAGES.contentNotOptedIn}\n`,
 		);
-	return {
-		codexPath,
-		connection: recordedUrl,
-		isKernelKeyring: store.isKernelKeyring,
-	};
+	return result;
 }
 
 // correlation.md「CLI」の手順1と「実行環境」。保存先を選び、既存の項目を読む。
@@ -207,13 +242,15 @@ async function logIn(
 	authorizationEndpoint: URL,
 	secrets: LoginSecrets,
 	port: number,
+	webOrigin: string,
 	deps: InitDeps,
-): Promise<{ code: string; redirectUri: string }> {
+): Promise<{ code: string; redirectUri: string; loopback: Loopback }> {
 	const loopback = await deps
 		.startLoopback({
 			state: secrets.state,
 			timeoutMs: deps.callbackTimeoutMs,
 			port,
+			webOrigin,
 		})
 		.catch(() => stopWith(listenFailedMessage(port)));
 	const authorization = new URL(authorizationEndpoint);
@@ -229,13 +266,26 @@ async function logIn(
 	if (!(await deps.openBrowser(authorization.href)))
 		deps.stderr(`${authorization.href}\n`);
 	const callback = (await loopback.callback) ?? stop("timeout");
-	return {
-		code: codeOrStop(callback, secrets.state),
-		redirectUri: loopback.redirectUri,
-	};
+	try {
+		return {
+			code: codeOrStop(callback, secrets.state),
+			redirectUri: loopback.redirectUri,
+			loopback,
+		};
+	} catch (error) {
+		loopback.finish({ status: callbackFailure(callback, secrets.state) });
+		throw error;
+	}
 }
 
 // stateを最初に照合し、一致しなければerrorの値によらずログインの失敗とする。
+function callbackFailure(callback: Callback, state: string): CompletionStatus {
+	if (callback.state !== state) return "failed";
+	if (callback.error === "access_denied") return "denied";
+	if (callback.error === "no_workspace") return "no_workspace";
+	return "failed";
+}
+
 function codeOrStop(callback: Callback, state: string): string {
 	if (callback.state !== state) return stop("loginFailed");
 	if (callback.error === "access_denied") return stop("accessDenied");
