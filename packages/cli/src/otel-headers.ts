@@ -18,13 +18,20 @@ const DESTINATION_VARIABLES = [
 // 送信先の値はrepositoryが書いたものでありうるため、含めない。
 const WITHHELD = "harnessforce: user key withheld (destination not verified)\n";
 
+// correlation.md「CLI」の終了コード。hookはこれで表示する文言を選ぶ（correlation.md「送信の健全性」）。
+const EXIT_KEY_MISSING = 3;
+const EXIT_WITHHELD = 4;
+const EXIT_FAILED = 1;
+
 type KeySelection =
-	| { kind: "key"; key: string }
-	| { kind: "none" }
-	| { kind: "withheld" };
+	| { kind: "key"; key: string; userWorkspaceId?: string }
+	| { kind: "missing" }
+	| { kind: "withheld" }
+	| { kind: "failed" };
 
 // correlation.md「CLI」の`harnessforce otel-headers`。Claude Codeの`otelHeadersHelper`とpluginのhookが起動する。
 // keyが得られない場合はstdoutへ何も出力せず失敗し、Claude Codeが利用者へ通知する。
+// kernelのkeyringから読んだ利用者用のkeyは、出力の後にSecret Serviceへ移す。hookは1秒で打ち切るため、hookからの起動では移さない。
 export async function otelHeaders(
 	env: Env,
 	managedDir: string,
@@ -33,11 +40,19 @@ export async function otelHeaders(
 	stderr: (text: string) => void,
 ): Promise<number> {
 	const selection = await selectKey(env, managedDir, keychain).catch(
-		(): KeySelection => ({ kind: "none" }),
+		(): KeySelection => ({ kind: "failed" }),
 	);
-	if (selection.kind === "withheld") stderr(WITHHELD);
-	if (selection.kind !== "key") return 1;
+	if (selection.kind === "withheld") {
+		stderr(WITHHELD);
+		return EXIT_WITHHELD;
+	}
+	if (selection.kind === "missing") return EXIT_KEY_MISSING;
+	if (selection.kind === "failed") return EXIT_FAILED;
 	stdout(`${JSON.stringify({ Authorization: `Bearer ${selection.key}` })}\n`);
+	if (selection.userWorkspaceId && !env.HARNESSFORCE_NO_MIGRATE)
+		await keychain
+			.migrateFromKernel?.(selection.userWorkspaceId)
+			.catch(() => {});
 	return 0;
 }
 
@@ -54,15 +69,15 @@ async function selectKey(
 	if (managed.HARNESSFORCE_INGEST_KEY)
 		return { kind: "key", key: managed.HARNESSFORCE_INGEST_KEY };
 	const workspaceId = env.HARNESSFORCE_WORKSPACE_ID;
-	if (!workspaceId) return { kind: "none" };
+	if (!workspaceId) return { kind: "missing" };
 	// hookはこのprocessを1秒で打ち切る（correlation.md「実行環境」）。解錠の確認を待つ操作もその時間で止める。
 	const keychain = unlimited.withTimeout(HOOK_READ_TIMEOUT_MS);
-	if (!(await keychain.isAvailable())) return { kind: "none" };
+	if (!(await keychain.isAvailable())) return { kind: "failed" };
 	const key = await keychain.get(ingestKeyAccount(workspaceId));
-	if (!key) return { kind: "none" };
+	if (!key) return { kind: "missing" };
 	const pinnedOrigin = await keychain.get(ingestOriginAccount(workspaceId));
 	return pinnedOrigin && isPinnedDestination(env, pinnedOrigin)
-		? { kind: "key", key }
+		? { kind: "key", key, userWorkspaceId: workspaceId }
 		: { kind: "withheld" };
 }
 

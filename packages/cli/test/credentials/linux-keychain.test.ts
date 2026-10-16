@@ -291,4 +291,95 @@ describe("Linux keychain", () => {
 			expect(onWaiting).not.toHaveBeenCalled();
 		});
 	});
+
+	// correlation.md「CLI」の`harnessforce otel-headers`: kernelのkeyringは再起動で消えるため、
+	// 解錠済みのSecret Serviceへ移す。keyを最後に書き、途中で止まってもkeyとoriginの組を欠けさせない。
+	describe("moving the kernel keyring items to the Secret Service", () => {
+		it("writes the origins, token and key in that order, verifies them and deletes the kernel items", async () => {
+			const { keychain, kernel, secretService } = linuxKeychain(
+				fakeStore({ items: WS1 }),
+				fakeStore({ items: { "ws1:ingest-key": "hf_ik_ws1_stale" } }),
+			);
+			await keychain.migrateFromKernel?.("ws1");
+			expect(secretService.calls).toEqual([
+				"get availability-probe",
+				"delete ws1:ingest-key",
+				"delete ws1:api-token",
+				"delete ws1:ingest-origin",
+				"delete ws1:url-origin",
+				"set ws1:ingest-origin",
+				"set ws1:url-origin",
+				"set ws1:api-token",
+				"set ws1:ingest-key",
+				"get ws1:ingest-origin",
+				"get ws1:url-origin",
+				"get ws1:api-token",
+				"get ws1:ingest-key",
+			]);
+			expect(Object.fromEntries(secretService.items)).toEqual(WS1);
+			expect(kernel.items.size).toBe(0);
+		});
+
+		it("bounds the probe by 200 milliseconds and does not wait for an unlock prompt", async () => {
+			const { keychain, kernel, secretService } = linuxKeychain(
+				fakeStore({ items: WS1 }),
+				fakeStore({ broken: true }),
+			);
+			await keychain.migrateFromKernel?.("ws1");
+			expect(secretService.calls).toEqual(["get availability-probe"]);
+			expect(secretService.timeouts[0]).toBe(200);
+			expect(Object.fromEntries(kernel.items)).toEqual(WS1);
+		});
+
+		it("removes what it wrote and keeps the kernel items when a write fails", async () => {
+			const { keychain, kernel, secretService } = linuxKeychain(
+				fakeStore({ items: WS1 }),
+				fakeStore({ failOn: "ws1:api-token" }),
+			);
+			await keychain.migrateFromKernel?.("ws1");
+			expect(secretService.items.has("ws1:ingest-origin")).toBe(false);
+			expect(secretService.items.has("ws1:url-origin")).toBe(false);
+			expect(secretService.items.has("ws1:ingest-key")).toBe(false);
+			expect(Object.fromEntries(kernel.items)).toEqual(WS1);
+		});
+
+		it("keeps the kernel items when the read-back differs", async () => {
+			const secretService = fakeStore();
+			const original = secretService.store.get;
+			secretService.store.get = async (account, timeoutMs) =>
+				account === "ws1:ingest-key"
+					? "hf_ik_other"
+					: original(account, timeoutMs);
+			const { keychain, kernel } = linuxKeychain(
+				fakeStore({ items: WS1 }),
+				secretService,
+			);
+			await keychain.migrateFromKernel?.("ws1");
+			expect(Object.fromEntries(kernel.items)).toEqual(WS1);
+			expect(secretService.items.has("ws1:ingest-key")).toBe(false);
+		});
+
+		it("does nothing when the workspace key is in the Secret Service", async () => {
+			const { keychain, kernel, secretService } = linuxKeychain(
+				fakeStore(),
+				fakeStore({ items: WS1 }),
+			);
+			await keychain.migrateFromKernel?.("ws1");
+			expect(kernel.calls).toEqual(["get ws1:ingest-key"]);
+			expect(secretService.calls).toEqual([]);
+		});
+
+		it("stops within 1 second as a whole", async () => {
+			vi.useFakeTimers();
+			const { keychain, kernel, secretService } = linuxKeychain(
+				fakeStore({ items: WS1 }),
+				fakeStore({ holdWrites: true }),
+			);
+			const moving = keychain.migrateFromKernel?.("ws1");
+			await vi.advanceTimersByTimeAsync(1_000);
+			await moving;
+			for (const resolve of secretService.held) resolve();
+			expect(Object.fromEntries(kernel.items)).toEqual(WS1);
+		});
+	});
 });

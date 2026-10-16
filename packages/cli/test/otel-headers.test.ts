@@ -156,7 +156,7 @@ describe("harnessforce otel-headers", () => {
 		],
 	])("withholds the user key when %s", async (_, env) =>
 		expect(await runCli(["otel-headers"], { env, keychain: pinned() })).toEqual(
-			{ code: 1, out: "", err: WITHHELD },
+			{ code: 4, out: "", err: WITHHELD },
 		),
 	);
 
@@ -165,17 +165,25 @@ describe("harnessforce otel-headers", () => {
 			items: { "ws1:ingest-key": "hf_ik_ws1_user" },
 		});
 		expect(await runCli(["otel-headers"], { env: userEnv, keychain })).toEqual({
-			code: 1,
+			code: 4,
 			out: "",
 			err: WITHHELD,
 		});
 	});
 
+	// correlation.md「CLI」: hookは終了コードで表示する文言を選ぶ。3はkeyが無い、1はそれ以外の失敗。
 	it.each([
 		[
 			"HARNESSFORCE_WORKSPACE_ID is missing",
 			{ HARNESSFORCE_ENDPOINT: userEnv.HARNESSFORCE_ENDPOINT },
 			pinned(),
+			3,
+		],
+		[
+			"the workspace has no key",
+			{ ...userEnv, HARNESSFORCE_WORKSPACE_ID: "ws3" },
+			pinned(),
+			3,
 		],
 		[
 			"the keychain is unavailable",
@@ -184,22 +192,74 @@ describe("harnessforce otel-headers", () => {
 				available: false,
 				items: { "ws1:ingest-key": "hf_ik_ws1_user" },
 			}).keychain,
-		],
-		[
-			"the workspace has no key",
-			{ ...userEnv, HARNESSFORCE_WORKSPACE_ID: "ws3" },
-			pinned(),
+			1,
 		],
 		[
 			"the keychain cannot be read",
 			userEnv,
 			fakeKeychain({ failRead: true }).keychain,
+			1,
 		],
-	])("prints nothing and fails when %s", async (_, env, keychain) =>
+	])("prints nothing and fails when %s", async (_, env, keychain, code) =>
 		expect(await runCli(["otel-headers"], { env, keychain })).toEqual({
-			code: 1,
+			code,
 			out: "",
 			err: "",
 		}),
 	);
+
+	// correlation.md「CLI」: kernelのkeyringから読んだkeyを出力した後、Secret Serviceへ移す。
+	describe("moving the kernel keyring items", () => {
+		it("moves the workspace items after printing the key", async () => {
+			const { keychain, migrations } = fakeKeychain({
+				items: {
+					"ws1:ingest-key": "hf_ik_ws1_user",
+					"ws1:ingest-origin": "https://ingest.example.test",
+				},
+			});
+			expect(
+				await runCli(["otel-headers"], { env: userEnv, keychain }),
+			).toEqual({ code: 0, out: header("hf_ik_ws1_user"), err: "" });
+			expect(migrations).toEqual(["ws1"]);
+		});
+
+		// hookはこの変数を付けて起動する。hookの1秒の上限を移す処理で使わないためである。
+		it("does not move when HARNESSFORCE_NO_MIGRATE is set", async () => {
+			const { keychain, migrations } = fakeKeychain({
+				items: {
+					"ws1:ingest-key": "hf_ik_ws1_user",
+					"ws1:ingest-origin": "https://ingest.example.test",
+				},
+			});
+			await runCli(["otel-headers"], {
+				env: { ...userEnv, HARNESSFORCE_NO_MIGRATE: "1" },
+				keychain,
+			});
+			expect(migrations).toEqual([]);
+		});
+
+		it("keeps the exit code when moving fails", async () => {
+			const { keychain } = fakeKeychain({
+				items: {
+					"ws1:ingest-key": "hf_ik_ws1_user",
+					"ws1:ingest-origin": "https://ingest.example.test",
+				},
+				failMigration: true,
+			});
+			expect(
+				await runCli(["otel-headers"], { env: userEnv, keychain }),
+			).toEqual({ code: 0, out: header("hf_ik_ws1_user"), err: "" });
+		});
+
+		it("does not move a withheld key", async () => {
+			const withheld = fakeKeychain({
+				items: { "ws1:ingest-key": "hf_ik_ws1_user" },
+			});
+			await runCli(["otel-headers"], {
+				env: userEnv,
+				keychain: withheld.keychain,
+			});
+			expect(withheld.migrations).toEqual([]);
+		});
+	});
 });
