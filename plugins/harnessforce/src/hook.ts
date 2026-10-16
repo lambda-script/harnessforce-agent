@@ -4,9 +4,13 @@ import {
 } from "@harnessforce/agent-core/config/collect";
 import type { ConfigComponent } from "@harnessforce/agent-core/config/component";
 import {
+	DESTINATION_MISMATCH_WARNING,
 	INVALID_ENDPOINT_WARNING,
+	keyMissingWarning,
+	keyUnreadableWarning,
 	notConfiguredWarning,
 	REGISTRATION_FAILED_WARNING,
+	TELEMETRY_NOT_CONFIGURED_WARNING,
 } from "@harnessforce/agent-core/hook-warning";
 import {
 	type Destination,
@@ -65,6 +69,8 @@ export type HookDeps = {
 	managedDir: string;
 	// `harnessforce otel-headers`を起動してkeychainの利用者用IngestKeyを読む。
 	readUserKey: (cwd: string) => Promise<UserKeyRead>;
+	// `harnessforce init`が書いたClaude Codeのテレメトリの設定があるか（correlation.md「送信の健全性」）。
+	isTelemetryConfigured: () => Promise<boolean>;
 };
 
 // correlation.md「hook」の共通の規則が、選んだkeyの種類ごとに定める文言。
@@ -86,16 +92,24 @@ type Subject = "session registration" | "config snapshot" | "session usage";
 const report = (deps: HookDeps, subject: Subject, detail: string) =>
 	deps.stderr(`harnessforce: ${subject} ${detail}\n`);
 
+// keyを得られなかった理由ごとの警告（correlation.md「送信の健全性」）。harnessforceを起動しなかった場合は示さない。
+const KEY_WARNINGS: Partial<Record<UserKeyRead["kind"], string>> = {
+	absent: keyMissingWarning("claude_code"),
+	withheld: DESTINATION_MISMATCH_WARNING.claude_code,
+	unreadable: keyUnreadableWarning("claude_code"),
+};
+
 // 利用者用のkeyは、`harnessforce otel-headers`が送信先の固定を確かめたうえで返す。
 async function selectUserKey(
 	deps: HookDeps,
 	cwd: string,
-): Promise<string | undefined> {
-	if (!deps.env.HARNESSFORCE_WORKSPACE_ID) return undefined;
+): Promise<{ key?: string; warning?: string }> {
+	if (!deps.env.HARNESSFORCE_WORKSPACE_ID) return {};
 	const read = await deps.readUserKey(cwd);
-	if (read.kind === "failed")
+	if (read.kind === "found") return { key: read.key };
+	if (read.kind !== "missing")
 		deps.stderr("harnessforce: no user key in keychain or read failed\n");
-	return read.kind === "found" ? read.key : undefined;
+	return { warning: KEY_WARNINGS[read.kind] };
 }
 
 // 送れない理由が利用者の設定にあるときだけwarningを返す（correlation.md「hookの警告」）。
@@ -134,13 +148,12 @@ async function resolveDestination(
 		return {
 			destination: { ingestBase, key: workspaceKey, keyKind: "workspace" },
 		};
-	const userKey = await selectUserKey(deps, cwd);
+	const { key: userKey, warning } = await selectUserKey(deps, cwd);
 	if (!userKey) {
 		report(deps, "session registration", "skipped (no ingest key)");
-		// WORKSPACE_IDがあるのにkeyが無い端末は、otelHeadersHelperの通知と重ねない。
-		return notConfigured
-			? { warning: notConfiguredWarning("claude_code") }
-			: {};
+		return {
+			warning: notConfigured ? notConfiguredWarning("claude_code") : warning,
+		};
 	}
 	return { destination: { ingestBase, key: userKey, keyKind: "user" } };
 }
@@ -326,7 +339,12 @@ async function sendSessionStart(
 	const collected = collects
 		? collectComponents(input, deps)
 		: Promise.resolve(undefined);
-	const [registration, snapshot, unsent] = await Promise.all([
+	// Workspace用のkeyを配る組織は、テレメトリの設定をhookが読めない経路で配りうるため判定しない。
+	const isConfigured =
+		registers && destination.keyKind === "user"
+			? deps.isTelemetryConfigured().catch(() => true)
+			: Promise.resolve(true);
+	const [registration, snapshot, unsent, configured] = await Promise.all([
 		registers
 			? registerSession(input, destination, deps).catch(logError(deps))
 			: undefined,
@@ -340,6 +358,7 @@ async function sendSessionStart(
 					.catch(logError(deps))
 			: undefined,
 		usage ? startUsage(usage, destination, collected, deps) : undefined,
+		isConfigured,
 	]);
 	if (
 		[registration, snapshot, unsent].some(
@@ -347,6 +366,7 @@ async function sendSessionStart(
 		)
 	)
 		return reportRevokedKey(destination, input.scratchpad, deps);
+	if (!configured) return TELEMETRY_NOT_CONFIGURED_WARNING;
 	return registration?.kind === "failed"
 		? REGISTRATION_FAILED_WARNING
 		: undefined;

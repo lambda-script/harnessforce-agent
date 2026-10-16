@@ -1,5 +1,7 @@
 import { homedir } from "node:os";
+import { join } from "node:path";
 import { performance } from "node:perf_hooks";
+import { absoluteEnv } from "@harnessforce/agent-core/config/scope";
 import {
 	RESTART_FAILED_WARNING,
 	warningOnlyOutput,
@@ -10,6 +12,7 @@ import {
 	relaunchWithoutRuntimeVariables,
 	spawnSelf,
 } from "@harnessforce/agent-core/process/runtime-env";
+import { isTelemetryConfigured } from "@harnessforce/agent-core/telemetry-settings";
 import { runHook } from "./hook.js";
 import { createUserKeyReader, execHf } from "./user-key.js";
 
@@ -42,6 +45,12 @@ async function main(): Promise<void> {
 	}
 	if (relaunch.kind !== "not-needed") return;
 	const raw = await readStdin().catch(() => "");
+	const managedDir = managedDirFor(process.platform);
+	// `harnessforce init`が書くuser settingsと同じfile（correlation.md「CLIの宛先の決め方」）。
+	const userSettingsPath = join(
+		absoluteEnv(process.env.CLAUDE_CONFIG_DIR) ?? join(homedir(), ".claude"),
+		"settings.json",
+	);
 	await runHook(process.argv[2] ?? "", raw, {
 		env: process.env,
 		now: () => new Date(),
@@ -57,13 +66,15 @@ async function main(): Promise<void> {
 		stdout: (text) => process.stdout.write(text),
 		stderr: (text) => process.stderr.write(text),
 		homeDir: homedir(),
-		managedDir: managedDirFor(process.platform),
+		managedDir,
 		readUserKey: createUserKeyReader({
 			platform: process.platform,
 			env: process.env,
 			exec: execHf,
 			processCwd: process.cwd(),
 		}),
+		isTelemetryConfigured: () =>
+			isTelemetryConfigured({ userSettingsPath, managedDir }),
 	});
 }
 

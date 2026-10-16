@@ -1,6 +1,9 @@
 import { isAbsolute } from "node:path";
 import {
+	DESTINATION_MISMATCH_WARNING,
 	INVALID_ENDPOINT_WARNING,
+	keyMissingWarning,
+	keyUnreadableWarning,
 	notConfiguredWarning,
 	REGISTRATION_FAILED_WARNING,
 } from "@harnessforce/agent-core/hook-warning";
@@ -12,12 +15,8 @@ import {
 import { isIssueIdentifier } from "@harnessforce/agent-core/issue";
 import { isObject } from "@harnessforce/agent-core/object";
 import type { RunGit } from "@harnessforce/agent-core/process/git";
-import {
-	sessionContext,
-	sessionContextLine,
-} from "@harnessforce/agent-core/session-context";
+import { sessionContext } from "@harnessforce/agent-core/session-context";
 import type { Env, Fetch } from "@harnessforce/agent-core/types";
-import { usingHarnessforceBody } from "@harnessforce/agent-core/using-harnessforce";
 import { resolveVcs } from "@harnessforce/agent-core/vcs";
 import { isToken, type SessionRegistration } from "@harnessforce/semconv";
 import type { Keychain } from "../credentials/keychain.js";
@@ -80,14 +79,25 @@ function parseInput(raw: string): Input | undefined {
 const report = (deps: SessionStartDeps, detail: string) =>
 	deps.stderr(`harnessforce: session registration ${detail}\n`);
 
-// 送れない理由が利用者の設定にあるときだけwarningを返す（correlation.md「hookの警告」）。keychainのkeyが無い端末は表示しない。
+// 送れない理由ごとのwarning（correlation.md「hookの警告」「送信の健全性」）。
 type Resolved = { destination?: Destination; warning?: string };
+
+const SKIPPED_WARNINGS: Record<
+	Extract<UserDestination, { kind: "skipped" }>["reason"],
+	string
+> = {
+	"not configured": notConfiguredWarning("codex"),
+	"invalid endpoint": INVALID_ENDPOINT_WARNING,
+	"no ingest key": keyMissingWarning("codex"),
+	"keychain unreadable": keyUnreadableWarning("codex"),
+	"destination not verified": DESTINATION_MISMATCH_WARNING.codex,
+};
 
 function resolveWithinLimit(deps: SessionStartDeps): Promise<UserDestination> {
 	let timer: NodeJS.Timeout | undefined;
 	const slow = new Promise<UserDestination>((resolve) => {
 		timer = setTimeout(
-			() => resolve({ kind: "skipped", reason: "no ingest key" }),
+			() => resolve({ kind: "skipped", reason: "keychain unreadable" }),
 			KEYCHAIN_READ_TIMEOUT_MS,
 		);
 	});
@@ -95,7 +105,12 @@ function resolveWithinLimit(deps: SessionStartDeps): Promise<UserDestination> {
 		resolveUserDestination({
 			...deps,
 			keychain: deps.keychain.withTimeout(KEYCHAIN_READ_TIMEOUT_MS),
-		}),
+		}).catch(
+			(): UserDestination => ({
+				kind: "skipped",
+				reason: "keychain unreadable",
+			}),
+		),
 		slow,
 	]).finally(() => clearTimeout(timer));
 }
@@ -108,11 +123,7 @@ async function resolveDestination(deps: SessionStartDeps): Promise<Resolved> {
 		return { warning: notConfiguredWarning("codex") };
 	}
 	report(deps, `skipped (${resolved.reason})`);
-	if (resolved.reason === "not configured")
-		return { warning: notConfiguredWarning("codex") };
-	return resolved.reason === "invalid endpoint"
-		? { warning: INVALID_ENDPOINT_WARNING }
-		: {};
+	return { warning: SKIPPED_WARNINGS[resolved.reason] };
 }
 
 // Workspace用のkeyではないため、`HARNESSFORCE_ISSUE`が制約を満たせばsource=cliを名乗る。
@@ -177,15 +188,13 @@ export async function sessionStart(deps: SessionStartDeps): Promise<number> {
 				(registered.outcome?.kind === "failed"
 					? REGISTRATION_FAILED_WARNING
 					: undefined));
-	if (warning !== undefined) {
-		// `additionalContext`以外の項目をCodexが受け付けるか確認できていないため、JSONにせず平文で出す。
-		// SessionStartの平文のstdoutはそのままagentのcontextに加えられ、利用者とagentに届く。
-		deps.stderr(`${warning}\n`);
-		deps.stdout(
-			`${sessionContextLine(input.sessionId)}\n${usingHarnessforceBody}\n${warning}\n`,
-		);
-		return 0;
-	}
-	deps.stdout(`${JSON.stringify(sessionContext(input.sessionId))}\n`);
+	// CodexはSessionStartのJSONの`systemMessage`をUIの警告として示す（agent-telemetry.md「hook、MCP」）。
+	if (warning !== undefined) deps.stderr(`${warning}\n`);
+	deps.stdout(
+		`${JSON.stringify({
+			...sessionContext(input.sessionId),
+			...(warning === undefined ? {} : { systemMessage: warning }),
+		})}\n`,
+	);
 	return 0;
 }

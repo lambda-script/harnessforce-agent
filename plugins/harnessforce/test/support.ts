@@ -54,6 +54,8 @@ type HarnessOptions = {
 	hang?: boolean;
 	// `harnessforce otel-headers`でkeychainを読んだ結果。無ければ`harnessforce`がPATHに無い場合とする。
 	userKey?: UserKeyRead;
+	// `harnessforce init`が書いたテレメトリの設定があるか。既定はある。
+	telemetryConfigured?: boolean;
 	// managed-settings.jsonのenv。既定のWorkspace用のkeyと送信先に重ね、undefinedの値は除く。nullならfileを置かない。
 	managed?: Env | null;
 };
@@ -99,6 +101,7 @@ export function harness(options: HarnessOptions = {}) {
 		},
 		stdout: (text) => out.push(text),
 		stderr: (text) => err.push(text),
+		isTelemetryConfigured: async () => options.telemetryConfigured ?? true,
 		readUserKey: async () => {
 			userKeyReads += 1;
 			return options.userKey ?? { kind: "missing" };

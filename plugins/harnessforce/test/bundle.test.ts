@@ -123,12 +123,33 @@ async function startIngest(reply: Reply) {
 	return { endpoint: `http://127.0.0.1:${port}/base/`, received };
 }
 
-// homeは空の一時directoryを既定とし、testを実行する利用者の~/.claudeを読まない。
+// `harnessforce init`が書くuser settingsのテレメトリの設定（correlation.md「送信の健全性」）。
+// envとotelHeadersHelperは構成のcomponentにならないため、config snapshotの内容を変えない。
+function initHome(): string {
+	const home = tempDir("hf-home-");
+	mkdirSync(join(home, ".claude"), { recursive: true });
+	writeFileSync(
+		join(home, ".claude/settings.json"),
+		JSON.stringify({
+			env: {
+				CLAUDE_CODE_ENABLE_TELEMETRY: "1",
+				OTEL_METRICS_EXPORTER: "otlp",
+				OTEL_LOGS_EXPORTER: "otlp",
+				OTEL_TRACES_EXPORTER: "otlp",
+				OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf",
+			},
+			otelHeadersHelper: "harnessforce otel-headers",
+		}),
+	);
+	return home;
+}
+
+// homeは`harnessforce init`の後の一時directoryを既定とし、testを実行する利用者の~/.claudeを読まない。
 function runBundle(
 	event: string,
 	input: object,
 	env: Record<string, string>,
-	home = tempDir("hf-home-"),
+	home = initHome(),
 	cwd?: string,
 ) {
 	return new Promise<{
@@ -519,7 +540,7 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 			const hf = join(dir, "harnessforce");
 			writeFileSync(
 				hf,
-				`#!/bin/sh\ncase "$HARNESSFORCE_ENDPOINT" in\n  ${pinnedOrigin}/*) printf '{"Authorization":"Bearer hf_ik_ws1_user"}' ;;\n  *) echo "harnessforce: user key withheld (destination not verified)" >&2; exit 1 ;;\nesac\n`,
+				`#!/bin/sh\ncase "$HARNESSFORCE_ENDPOINT" in\n  ${pinnedOrigin}/*) printf '{"Authorization":"Bearer hf_ik_ws1_user"}' ;;\n  *) echo "harnessforce: user key withheld (destination not verified)" >&2; exit 4 ;;\nesac\n`,
 			);
 			chmodSync(hf, 0o755);
 			return dir;
@@ -539,7 +560,10 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 					{ session_id: "s-1", cwd: repo.dir, source: "startup" },
 					{ ...env, HARNESSFORCE_ENDPOINT: ingest.endpoint },
 				);
-				expect(withheld).toMatchObject({ code: 0, stdout: SESSION_CONTEXT });
+				expect(withheld.code).toBe(0);
+				expect(JSON.parse(withheld.stdout).systemMessage).toBe(
+					"Telemetry is not being sent because the Harnessforce destination differs from the one saved by `harnessforce init`. Check this repository's settings or run `harnessforce init` again",
+				);
 				expect(withheld.stderr).toBe(
 					"harnessforce: no user key in keychain or read failed\n" +
 						"harnessforce: session registration skipped (no ingest key)\n",
@@ -575,7 +599,7 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 						HARNESSFORCE_WORKSPACE_ID: "ws1",
 						PATH: `:${hfDir}:${process.env.PATH ?? ""}`,
 					},
-					tempDir("hf-home-"),
+					initHome(),
 					hookCwd,
 				);
 				expect(result).toMatchObject({
@@ -675,7 +699,7 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 		it("sends a config snapshot of the real home and repository through HTTP", async () => {
 			const repo = makeRepo();
 			writeFileSync(join(repo.dir, "CLAUDE.md"), "Secret team notes\n");
-			const home = tempDir("hf-home-");
+			const home = initHome();
 			mkdirSync(join(home, ".claude/skills/ship"), { recursive: true });
 			writeFileSync(join(home, ".claude/skills/ship/SKILL.md"), "ship it\n");
 			const ingest = await startIngest("accept");
@@ -721,6 +745,22 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 			expect(JSON.stringify(snapshot?.body)).not.toContain("Secret team notes");
 		});
 
+		// correlation.md「送信の健全性」: `harnessforce init`の書いたuser settingsを実際のfileから読む。
+		it("warns when the user settings lack the telemetry settings", async () => {
+			const repo = makeRepo();
+			const ingest = await startIngest("accept");
+			const result = await runBundle(
+				"session-start",
+				{ session_id: "s-1", cwd: repo.dir, source: "startup" },
+				env(ingest.endpoint),
+				tempDir("hf-home-"),
+			);
+			expect(result.code).toBe(0);
+			expect(JSON.parse(result.stdout).systemMessage).toBe(
+				"Claude Code telemetry for Harnessforce is not configured. Run `harnessforce init`",
+			);
+		});
+
 		it("sends only the config snapshot outside a git repository", async () => {
 			const cwd = realpathSync(tempDir("hf-plain-"));
 			writeFileSync(join(cwd, "CLAUDE.md"), "plain\n");
@@ -739,7 +779,7 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 		// 利用者用のkeyではSessionEndは送らず、次のsessionの開始が他のsessionの送れていない要約を送る。
 		it("counts a session's calls and sends its summary from the next session start", async () => {
 			const repo = makeRepo();
-			const home = tempDir("hf-home-");
+			const home = initHome();
 			mkdirSync(join(home, ".claude/skills/ship"), { recursive: true });
 			writeFileSync(join(home, ".claude/skills/ship/SKILL.md"), "ship it\n");
 			const data = tempDir("hf-data-");

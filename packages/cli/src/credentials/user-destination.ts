@@ -27,6 +27,7 @@ export type UserDestination =
 				| "not configured"
 				| "invalid endpoint"
 				| "no ingest key"
+				| "keychain unreadable"
 				| "destination not verified";
 	  };
 
@@ -45,7 +46,7 @@ export async function resolveUserDestination(
 	const ingestBase = ingestBaseFrom(ingestEndpoint);
 	if (!ingestBase) return { kind: "skipped", reason: "invalid endpoint" };
 	if (!(await deps.keychain.isAvailable()))
-		return { kind: "skipped", reason: "no ingest key" };
+		return { kind: "skipped", reason: "keychain unreadable" };
 	const key = await deps.keychain.get(ingestKeyAccount(workspaceId));
 	if (!key) return { kind: "skipped", reason: "no ingest key" };
 	const pinnedOrigin = await deps.keychain.get(
