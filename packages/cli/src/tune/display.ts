@@ -19,6 +19,21 @@ const median = (values: readonly number[]): number | null => {
 		: ((sorted[middle - 1] as number) + (sorted[middle] as number)) / 2;
 };
 
+// 端末へ出す値は印字可能なASCIIだけにする。制御文字に加え、UTF-8の2バイト目が0x80-0x9Fになる文字は、
+// 8bitのC1を解釈する端末でCSIなどとして働く。例: "a\u001b" → "a\\u{1b}"
+const escapeForTerminal = (text: string) =>
+	text.replace(
+		/[^\x20-\x7e]/gu,
+		(c) => `\\u{${(c.codePointAt(0) as number).toString(16)}}`,
+	);
+
+// JSONとしての値を変えずに、印字可能なASCIIと改行だけで書く。改行はspaceによる字下げだけに現れる。
+export const asciiJson = (value: unknown, space?: number) =>
+	JSON.stringify(value, null, space).replace(
+		/[^\n\x20-\x7e]/g,
+		(c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`,
+	);
+
 const secondsText = (value: number | null) =>
 	value === null ? "—" : `${value.toFixed(1)}s`;
 
@@ -123,7 +138,7 @@ export function renderAnalysis(
 		a < b ? -1 : a > b ? 1 : 0,
 	))
 		lines.push(
-			`  ${server}: ${s.calls === null ? "not measured" : `${s.calls} call(s)`}, ${s.failures === null ? "not measured" : `${s.failures} failure(s)`}, ${s.configured} session(s)`,
+			`  ${escapeForTerminal(server)}: ${s.calls === null ? "not measured" : `${s.calls} call(s)`}, ${s.failures === null ? "not measured" : `${s.failures} failure(s)`}, ${s.configured} session(s)`,
 		);
 	lines.push(...renderUsage(usages));
 	return `${lines.join("\n")}\n`;
@@ -140,8 +155,12 @@ function renderUsage(usages: readonly SessionUsage[]): string[] {
 		);
 	const shares = modelShares(usages);
 	const parts = shares && [
-		...shares.main.map((m) => `main ${m.model} ${percent(m.share)}`),
-		...shares.subagent.map((m) => `subagent ${m.model} ${percent(m.share)}`),
+		...shares.main.map(
+			(m) => `main ${escapeForTerminal(m.model)} ${percent(m.share)}`,
+		),
+		...shares.subagent.map(
+			(m) => `subagent ${escapeForTerminal(m.model)} ${percent(m.share)}`,
+		),
 	];
 	lines.push(
 		`  model (share of output_tokens): ${parts ? parts.join(", ") : "none"}`,

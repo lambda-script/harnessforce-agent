@@ -18,6 +18,9 @@ jobs:
     if: vars.NPM_PUBLISH_ENABLED == 'true'
     # npmのtrusted publishingとprovenanceはGitHub-hosted runnerでしか使えない。
     runs-on: ubuntu-26.04
+    # npmのtrusted publisherはこのenvironmentのOIDC tokenだけを受け付け、environmentはmainからの実行だけを許す。
+    # main以外のbranchに置いたrelease.ymlからは公開できない。設定はdocs/runbooks/releasing.mdを参照。
+    environment: release
     timeout-minutes: 15
     permissions:
       contents: write

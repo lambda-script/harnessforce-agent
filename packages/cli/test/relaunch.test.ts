@@ -1,4 +1,7 @@
 import { type ChildProcess, spawn } from "node:child_process";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { relaunchHf } from "../src/relaunch.js";
 
@@ -36,21 +39,69 @@ describe("relaunching harnessforce without Node runtime variables", () => {
 	it.each([
 		["usage-limits", "send"],
 		["usage-limits", "on"],
+		["tune"],
+		["tune", "--json"],
+		["tune", "--all", "--show-report"],
 	])("relaunches harnessforce %j", async (...argv) => {
+		const seen: Record<string, string>[] = [];
 		const code = await relaunchHf(argv, {
 			platform: "linux",
 			env: { NODE_OPTIONS: "--x" },
-			spawnSelf: exitingWith(0, []),
+			spawnSelf: exitingWith(0, seen),
 			stdout: () => {},
 			stderr: () => {},
 		});
 		expect(code).toBe(0);
+		expect(seen[0]?.NODE_OPTIONS).toBeUndefined();
 	});
 
+	// tokenやkeyを送るcommandを足したとき、起動し直す集合へ入れ忘れると、TLSとproxyの変数を受け継いだまま送る。
+	const src = fileURLToPath(new URL("../src/", import.meta.url));
+	const sendingDirs = readdirSync(src, { withFileTypes: true })
+		.filter((entry) => entry.isDirectory() && entry.name !== "credentials")
+		.map((entry) => entry.name)
+		.filter((dir) =>
+			readdirSync(join(src, dir), { recursive: true, encoding: "utf8" })
+				.filter((file) => file.endsWith(".ts"))
+				.some((file) =>
+					/\b(verifyCliAccess|createApiTokenSession)\b/.test(
+						readFileSync(join(src, dir, file), "utf8"),
+					),
+				),
+		);
+	it("finds the commands that send an ApiToken", () => {
+		expect(sendingDirs.sort()).toEqual([
+			"import",
+			"run",
+			"tune",
+			"usage-limits",
+		]);
+	});
+	it.each(sendingDirs)(
+		"relaunches harnessforce %s, which sends an ApiToken",
+		async (command) => {
+			expect(
+				await relaunchHf([command], {
+					platform: "linux",
+					env: { NODE_OPTIONS: "--x" },
+					spawnSelf: exitingWith(0),
+					stdout: () => {},
+					stderr: () => {},
+				}),
+			).toBe(0);
+		},
+	);
+
 	// 元のstatusLineのcommandへ利用者の環境をそのまま渡すため、statuslineは起動し直さない。
+	// tuneの`record`、`--purge`、`--no-send`を付けた分析、誤った引数は通信を行わない。
 	it.each([
 		["otel-headers"],
 		["usage-limits", "statusline"],
+		["tune", "record"],
+		["tune", "--purge"],
+		["tune", "--no-send"],
+		["tune", "--json", "--no-send"],
+		["tune", "--unknown"],
 		["--version"],
 		[],
 	])("does not relaunch %j", async (...argv) => {
