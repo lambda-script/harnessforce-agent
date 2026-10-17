@@ -5,6 +5,7 @@ import {
 	hashFileContent,
 	hashValue,
 } from "@harnessforce/agent-core/config/canonical";
+import { hashInput } from "@harnessforce/agent-core/config/hash-input";
 import { isObject } from "@harnessforce/agent-core/object";
 import {
 	INTERVENTION_KINDS,
@@ -131,7 +132,7 @@ function expectedHash(
 	const usesValue = component !== null && VALUE_KINDS.has(component.kind);
 	if (usesValue) {
 		if (!("value" in input)) return invalid("value");
-		return hashValue(input.value);
+		return hashValue(hashInput(component.kind, input.value));
 	}
 	if (typeof input.content !== "string") return invalid("content");
 	return hashFileContent(Buffer.from(input.content, "utf8"));

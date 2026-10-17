@@ -13,6 +13,7 @@ import {
 	listFiles,
 	readFileIfExists,
 } from "./files.js";
+import { hashInput } from "./hash-input.js";
 
 // correlation.md「構成の収集」。一部だけを集めたsnapshotは構成を誤って表すため、超えたら送らない。
 const MAX_COMPONENTS = 1000;
@@ -63,7 +64,8 @@ export class Sink {
 			});
 		return {
 			guard: this.guard,
-			addValue: (kind, id, value) => add(kind, id, hashValue(value)),
+			addValue: (kind, id, value) =>
+				add(kind, id, hashValue(hashInput(kind, value))),
 			addFile: async (kind, id, path) => {
 				const content = await readFileIfExists(path, this.guard);
 				if (content) add(kind, id, hashFileContent(content));

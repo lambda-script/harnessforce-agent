@@ -68,7 +68,8 @@ the [plugin README](plugins/harnessforce/README.md#session-registration-hooks).
   branch, model, token counts and per-tool call and failure counts.
 - **Hashes only:** the config snapshot describes CLAUDE.md files, rules, skills, agents, commands,
   settings and MCP servers by kind, scope, identifier and SHA-256 hash. Their contents, settings
-  values and MCP server URLs, headers and environment are never sent.
+  values and MCP server URLs, headers and environment are never sent. Hook and MCP server hashes
+  leave out `env` and `headers` values, `args`, and URL userinfo, queries and fragments.
 - **Names and counts only:** the session usage summary counts calls and failures of the skills,
   commands, subagents and MCP servers listed in the session's config snapshot, permission requests
   and compactions. Command arguments, tool inputs and results, error messages and file paths are never
