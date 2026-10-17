@@ -49,6 +49,12 @@ function parseArgs(args: readonly string[]): Parsed | undefined {
 	return { kind: "analyze", options };
 }
 
+// tokenとkeyを送りうるのは`--no-send`を付けない分析だけ。`record`、`--purge`、`--no-send`を付けた分析、誤った引数は通信を行わない。
+export function canTuneSend(args: readonly string[]): boolean {
+	const parsed = parseArgs(args);
+	return parsed?.kind === "analyze" && !parsed.options.noSend;
+}
+
 // improvement-loop.md「`harnessforce tune`」の`record`と`--purge`: keychainと宛先を読まず、ネットワークを使わない。
 async function underLock(
 	deps: TuneCommandDeps,
