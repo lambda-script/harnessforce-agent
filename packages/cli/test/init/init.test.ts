@@ -588,18 +588,6 @@ describe("harnessforce init", () => {
 
 	describe("callback", () => {
 		it.each([
-			[
-				"a wrong state even with access_denied",
-				{ error: "access_denied", state: "forged" },
-				M.loginFailed,
-				"failed",
-			],
-			[
-				"a missing state with no_workspace",
-				{ error: "no_workspace", state: undefined },
-				M.loginFailed,
-				"failed",
-			],
 			["access_denied", { error: "access_denied" }, M.denied, "denied"],
 			[
 				"no_workspace",
@@ -638,6 +626,46 @@ describe("harnessforce init", () => {
 				expect(home.read()).toBeUndefined();
 			},
 		);
+
+		// 期待したstateを持たないcallbackは他のprocessやWebページからでも送れるため、ログインを終わらせない。
+		it("ignores callbacks with a wrong or missing state and logs in with the real one", async () => {
+			const server = await startCredentialsServer();
+			const browser = fakeBrowser();
+			const forged: { status: number; location: string | null }[] = [];
+			const openBrowser = async (url: string) => {
+				const redirectUri = new URL(url).searchParams.get("redirect_uri") ?? "";
+				for (const query of [
+					"error=access_denied&state=forged",
+					"error=no_workspace",
+				]) {
+					const response = await fetch(`${redirectUri}?${query}`, {
+						redirect: "manual",
+					});
+					forged.push({
+						status: response.status,
+						location: response.headers.get("location"),
+					});
+				}
+				return browser.open(url);
+			};
+			const home = makeHome();
+			expect(
+				await runInit([], {
+					homeDir: home.home,
+					defaultUrl: server.base,
+					openBrowser,
+				}),
+			).toEqual({ code: 0, out: finished(home.home), err: "" });
+			expect(forged).toEqual([
+				{ status: 303, location: `${server.base}/cli/connected?status=failed` },
+				{ status: 303, location: `${server.base}/cli/connected?status=failed` },
+			]);
+			expect(server.credentialRequests).toEqual([
+				expect.objectContaining({
+					body: expect.objectContaining({ code: "code-1" }),
+				}),
+			]);
+		});
 
 		it("times out when no callback arrives", async () => {
 			const server = await startCredentialsServer();

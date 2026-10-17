@@ -59,7 +59,7 @@ describe("loopback", () => {
 
 	it.each([
 		["denied", `?error=access_denied&state=${STATE}&error_description=secret`],
-		["failed", "?code=c-1&state=other"],
+		["failed", `?state=${STATE}`],
 	] as const)(
 		"redirects to the %s screen without the code, state or description",
 		async (status, query) => {
@@ -78,6 +78,41 @@ describe("loopback", () => {
 			expect(page.location).not.toMatch(/secret|c-1|state=/);
 		},
 	);
+
+	// 他のprocessやWebページが先に送っても、本物のcallbackを受け取れる。
+	it("keeps listening past a malformed request and callbacks without the expected state", async () => {
+		const loopback = await startLoopback({
+			state: STATE,
+			timeoutMs: 5000,
+			port: 0,
+			webOrigin: WEB,
+		});
+		// request-targetが"//"になり、new URLでは解釈できない。
+		const malformed = await get(
+			loopback.redirectUri.replace("/callback", "//"),
+		);
+		expect(malformed.status).toBe(400);
+		for (const query of [
+			"?code=c-1&state=other",
+			`?code=c-1&state=${STATE}x`,
+			"?error=access_denied",
+		]) {
+			const forged = await get(`${loopback.redirectUri}${query}`);
+			expect(forged.status).toBe(303);
+			expect(forged.location).toBe(`${WEB}/cli/connected?status=failed`);
+			expect(forged.cacheControl).toBe("no-store");
+		}
+		const pending = get(`${loopback.redirectUri}?code=c-2&state=${STATE}`);
+		expect(await loopback.callback).toEqual({
+			code: "c-2",
+			state: STATE,
+			error: undefined,
+		});
+		loopback.finish({ status: "connected", workspaceId: "ws1" });
+		expect((await pending).location).toBe(
+			`${WEB}/cli/connected?status=connected&workspace=ws1`,
+		);
+	});
 
 	it("ignores a second finish", async () => {
 		const loopback = await startLoopback({

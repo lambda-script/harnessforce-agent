@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { createServer, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 
@@ -38,6 +39,26 @@ function completionUrl(webOrigin: string, completion: Completion): string {
 	return url.href;
 }
 
+// 例: "//"や"http://["。request listenerの中で投げると、processごと落ちて待ち受けが消える。
+function parseRequestUrl(target: string | undefined): URL | undefined {
+	try {
+		return new URL(target ?? "/", `http://${HOST}`);
+	} catch {
+		return undefined;
+	}
+}
+
+// 比較の時間からstateを1文字ずつ推測させない。長さは固定で秘密ではないため、先に比べてよい。
+function isSameState(received: string | null, expected: string): boolean {
+	if (received === null) return false;
+	const receivedBytes = Buffer.from(received, "utf8");
+	const expectedBytes = Buffer.from(expected, "utf8");
+	return (
+		receivedBytes.length === expectedBytes.length &&
+		timingSafeEqual(receivedBytes, expectedBytes)
+	);
+}
+
 export async function startLoopback(options: {
 	state: string;
 	timeoutMs: number;
@@ -51,7 +72,11 @@ export async function startLoopback(options: {
 	});
 	let held: ServerResponse | undefined;
 	const server = createServer((req, res) => {
-		const url = new URL(req.url ?? "/", `http://${HOST}`);
+		const url = parseRequestUrl(req.url);
+		if (url === undefined) {
+			res.writeHead(400).end();
+			return;
+		}
 		// ブラウザが送る/favicon.icoなどはcallbackとして数えない。
 		if (url.pathname !== CALLBACK_PATH) {
 			res.writeHead(404).end();
@@ -60,6 +85,15 @@ export async function startLoopback(options: {
 		// 最初のcallbackだけを数える。CLIが結果を決めるまで応答を保留する。
 		if (isStopped) {
 			res.writeHead(404).end();
+			return;
+		}
+		// stateが一致しないrequestは他のprocessやWebページからでも送れるため、ログインを終わらせず、待ち受けを続けて本物のcallbackかtimeoutを待つ。
+		if (!isSameState(url.searchParams.get("state"), options.state)) {
+			res.writeHead(303, {
+				location: completionUrl(options.webOrigin, { status: "failed" }),
+				"cache-control": "no-store",
+			});
+			res.end();
 			return;
 		}
 		held = res;
