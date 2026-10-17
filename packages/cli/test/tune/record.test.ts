@@ -83,6 +83,78 @@ describe("harnessforce tune record", () => {
 		});
 	});
 
+	it("hashes a hook value without its header values, as the config snapshot does", async () => {
+		const t = await setupTune({ sessions: 1 });
+		await t.run();
+		const hook = (key: string) => [
+			{
+				hooks: [
+					{ type: "http", url: "https://h.test/x?k=1", headers: { K: key } },
+				],
+			},
+		];
+		const record = async (key: string) => {
+			const result = await t.run(["record"], {
+				readStdin: stdin({
+					...skillProposal(t.home.home, ["s000"]),
+					change_type: "hook",
+					path: join(t.home.home, ".claude", "settings.json"),
+					component: { kind: "hook", source: "user", id: "Stop" },
+					content: undefined,
+					value: hook(key),
+				}),
+			});
+			return JSON.parse(result.out).proposal_id;
+		};
+		expect(await record("one")).toBe(await record("two"));
+		const [proposal] = JSON.parse(
+			readFileSync(join(t.tuneDir, "proposals.json"), "utf8"),
+		).proposals;
+		expect(proposal.expected_hash).toBe(
+			createHash("sha256")
+				.update(
+					'[{"hooks":[{"headers":["K"],"type":"http","url":"https://h.test/x"}]}]',
+				)
+				.digest("hex"),
+		);
+	});
+
+	it("hashes an MCP server value without its header values, as the config snapshot does", async () => {
+		const t = await setupTune({ sessions: 1 });
+		await t.run();
+		const record = async (token: string) => {
+			const result = await t.run(["record"], {
+				readStdin: stdin({
+					...skillProposal(t.home.home, ["s000"]),
+					change_type: "mcp_config",
+					scope: "repository",
+					project_root: t.home.home,
+					path: join(t.home.home, ".mcp.json"),
+					component: { kind: "mcp_server", source: "repository", id: "api" },
+					content: undefined,
+					value: {
+						type: "http",
+						url: "https://mcp.example.test",
+						headers: { Authorization: `Bearer ${token}` },
+					},
+				}),
+			});
+			return JSON.parse(result.out).proposal_id;
+		};
+		expect(await record("one")).toBe(await record("two"));
+		const [proposal] = JSON.parse(
+			readFileSync(join(t.tuneDir, "proposals.json"), "utf8"),
+		).proposals;
+		// collect-settings.testのHTTP_HASHEDと同じ値。
+		expect(proposal.expected_hash).toBe(
+			createHash("sha256")
+				.update(
+					'{"headers":["Authorization"],"type":"http","url":"https://mcp.example.test/"}',
+				)
+				.digest("hex"),
+		);
+	});
+
 	it.each([
 		["JSON that is not an object", "[]", "input"],
 		["broken JSON", "{", "input"],

@@ -96,7 +96,9 @@ an identifier, plus a SHA-256 hash:
 - The same kinds of component from enabled marketplace plugins in the plugin cache.
 
 File contents, settings values and MCP server configuration (URLs, headers, environment) are never
-sent, only their hashes. Nothing is sent when there are no components, and the snapshot is skipped
+sent, only their hashes. The hashes of hooks and MCP servers leave out the values that can carry
+credentials: `env` and `headers` values, `args`, and the userinfo, query and fragment of URLs, so a
+hash cannot be brute-forced back to a short secret. Nothing is sent when there are no components, and the snapshot is skipped
 when collection takes over 1 second or finds more than 1,000 components. The collector lives in
 `packages/agent-core/src/config`, shared with `harnessforce run` so it can compute the same snapshot ID.
 
