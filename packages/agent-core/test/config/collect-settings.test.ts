@@ -57,6 +57,23 @@ describe("settings-based components", () => {
 		]);
 	});
 
+	it("keeps the hook hash when only an http hook header value changes, not when a command changes", async () => {
+		const hashOf = async (hook: Record<string, unknown>) => {
+			const f = fixture();
+			f.project({
+				".claude/settings.json": json({ hooks: { Stop: [{ hooks: [hook] }] } }),
+			});
+			return (await components(f.options))[0]?.hash;
+		};
+		const http = { type: "http", url: "https://hooks.example.test/h" };
+		expect(await hashOf({ ...http, headers: { "X-Key": "one" } })).toBe(
+			await hashOf({ ...http, headers: { "X-Key": "two" } }),
+		);
+		expect(await hashOf({ type: "command", command: "a" })).not.toBe(
+			await hashOf({ type: "command", command: "b" }),
+		);
+	});
+
 	it("hashes settings values independent of key order and whitespace", async () => {
 		const a = fixture();
 		a.home({
@@ -135,8 +152,15 @@ describe("MCP servers", () => {
 		headers: { Authorization: "Bearer secret" },
 	};
 	const STDIO = { command: "npx", args: ["server"] };
+	// correlation.md「構成の収集」: headersの値とargsはhashに入れない。
+	const HTTP_HASHED = {
+		type: "http",
+		url: "https://mcp.example.test/",
+		headers: ["Authorization"],
+	};
+	const STDIO_HASHED = { command: "npx" };
 
-	it("collects servers from every scope, hashing the entry", async () => {
+	it("collects servers from every scope, hashing the entry without secret-bearing values", async () => {
 		const f = fixture();
 		f.managed({
 			"managed-mcp.json": json({ mcpServers: { corp: HTTP } }),
@@ -160,31 +184,31 @@ describe("MCP servers", () => {
 				kind: "mcp_server",
 				source: "local",
 				id: "mine",
-				hash: hashValue(STDIO),
+				hash: hashValue(STDIO_HASHED),
 			},
 			{
 				kind: "mcp_server",
 				source: "managed",
 				id: "corp",
-				hash: hashValue(HTTP),
+				hash: hashValue(HTTP_HASHED),
 			},
 			{
 				kind: "mcp_server",
 				source: "managed",
 				id: "extra",
-				hash: hashValue(STDIO),
+				hash: hashValue(STDIO_HASHED),
 			},
 			{
 				kind: "mcp_server",
 				source: "repository",
 				id: "shared",
-				hash: hashValue(STDIO),
+				hash: hashValue(STDIO_HASHED),
 			},
 			{
 				kind: "mcp_server",
 				source: "user",
 				id: "personal",
-				hash: hashValue(HTTP),
+				hash: hashValue(HTTP_HASHED),
 			},
 		]);
 	});
@@ -195,6 +219,50 @@ describe("MCP servers", () => {
 			".claude.json": json({ mcpServers: { personal: HTTP } }),
 		});
 		expect(await components(f.options)).toEqual([]);
+	});
+
+	it("keeps the hash when only header, env, args or URL credential values change", async () => {
+		const hashOf = async (servers: Record<string, unknown>) => {
+			const f = fixture();
+			f.project({ ".mcp.json": json({ mcpServers: servers }) });
+			return (await components(f.options)).map((c) => c.hash);
+		};
+		const before = await hashOf({
+			http: { ...HTTP, url: "https://a:b@mcp.example.test/?k=1" },
+			stdio: { ...STDIO, env: { DB_PASSWORD: "one" } },
+		});
+		expect(
+			await hashOf({
+				http: {
+					...HTTP,
+					url: "https://c:d@mcp.example.test/?k=2",
+					headers: { Authorization: "Bearer other" },
+				},
+				stdio: {
+					command: "npx",
+					args: ["--pw", "x"],
+					env: { DB_PASSWORD: "two" },
+				},
+			}),
+		).toEqual(before);
+		const [httpBefore, stdioBefore] = before;
+		const changed = async (servers: Record<string, unknown>) => {
+			const after = await hashOf(servers);
+			expect(after[0]).not.toBe(httpBefore);
+			expect(after[1]).not.toBe(stdioBefore);
+		};
+		await changed({
+			http: { ...HTTP, url: "https://mcp.example.test/other" },
+			stdio: { ...STDIO, env: { DB_PASSWORD: "one", EXTRA: "" } },
+		});
+		await changed({
+			http: { ...HTTP, url: "https://other.example.test/" },
+			stdio: { ...STDIO, command: "node", env: { DB_PASSWORD: "one" } },
+		});
+		await changed({
+			http: { ...HTTP, headers: { Authorization: "Bearer secret", X: "" } },
+			stdio: { command: "npx" },
+		});
 	});
 
 	it("never exposes the server configuration, only its hash", async () => {
