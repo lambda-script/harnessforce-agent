@@ -10,14 +10,18 @@ type Call = { file: string; args: readonly string[]; verbatim: boolean };
 const header = (key: string) =>
 	JSON.stringify({ Authorization: `Bearer ${key}` });
 
-function fakeExec(result: { ok: boolean; stdout: string }) {
+type ExecResult = Awaited<ReturnType<ExecHf>>;
+
+function fakeExec(result: ExecResult) {
 	const calls: Call[] = [];
+	const envs: Record<string, string | undefined>[] = [];
 	const exec: ExecHf = async (file, args, options) => {
 		calls.push({ file, args, verbatim: options.windowsVerbatimArguments });
+		envs.push(options.env);
 		expect(options.timeoutMs).toBe(1000);
 		return result;
 	};
-	return { exec, calls };
+	return { exec, calls, envs };
 }
 
 // memory上のfile。Windowsのfile systemと同じく大文字と小文字を区別しない。
@@ -267,7 +271,7 @@ describe("resolving harnessforce on PATH", () => {
 });
 
 describe("reading the harnessforce otel-headers output", () => {
-	const readWith = (result: { ok: boolean; stdout: string }) =>
+	const readWith = (result: ExecResult) =>
 		reader({
 			platform: "linux",
 			env: { PATH: "/bin" },
@@ -275,16 +279,46 @@ describe("reading the harnessforce otel-headers output", () => {
 			exec: fakeExec(result).exec,
 		})("/work/web");
 
+	// correlation.md「CLI」の`harnessforce otel-headers`の終了コード。hookは表示する文言をこれで選ぶ。
+	it("reports exit code 3 as a missing key", async () =>
+		expect(await readWith({ ok: false, stdout: "", exitCode: 3 })).toEqual({
+			kind: "absent",
+		}));
+
+	it("reports exit code 4 as a withheld key", async () =>
+		expect(await readWith({ ok: false, stdout: "", exitCode: 4 })).toEqual({
+			kind: "withheld",
+		}));
+
 	it.each([
-		["a non-zero exit or timeout", { ok: false, stdout: header("k") }],
+		["another non-zero exit", { ok: false, stdout: "", exitCode: 1 }],
+		["a timeout", { ok: false, stdout: header("k") }],
 		["output that is not JSON", { ok: true, stdout: "Bearer k" }],
 		["a JSON array", { ok: true, stdout: "[]" }],
 		["another header", { ok: true, stdout: '{"X-Key":"Bearer k"}' }],
 		["a non-Bearer value", { ok: true, stdout: '{"Authorization":"Basic k"}' }],
 		["an empty key", { ok: true, stdout: '{"Authorization":"Bearer "}' }],
-	])("reports %s as a failed read", async (_, result) =>
-		expect(await readWith(result)).toEqual({ kind: "failed" }),
+	])("reports %s as an unreadable key", async (_, result) =>
+		expect(await readWith(result)).toEqual({ kind: "unreadable" }),
 	);
+
+	// hookの1秒の上限を、kernelのkeyringからSecret Serviceへ移す処理で使わせない。
+	it("starts harnessforce with HARNESSFORCE_NO_MIGRATE", async () => {
+		const { exec, envs } = fakeExec({ ok: true, stdout: header("k") });
+		await reader({
+			platform: "linux",
+			env: { PATH: "/bin", HARNESSFORCE_WORKSPACE_ID: "ws1" },
+			fs: memoryFs({ "/bin/harnessforce": "" }),
+			exec,
+		})("/work/web");
+		expect(envs).toEqual([
+			{
+				PATH: "/bin",
+				HARNESSFORCE_WORKSPACE_ID: "ws1",
+				HARNESSFORCE_NO_MIGRATE: "1",
+			},
+		]);
+	});
 });
 
 describe.skipIf(process.platform === "win32")(
@@ -318,10 +352,18 @@ describe.skipIf(process.platform === "win32")(
 			});
 		});
 
+		it.each([
+			["3", "absent"],
+			["4", "withheld"],
+			["1", "unreadable"],
+		])("reads exit code %s as %s", async (code, kind) =>
+			expect(await realReader(writeHf(`exit ${code}`))()).toEqual({ kind }),
+		);
+
 		it("gives up after 1 second", async () => {
 			const dir = writeHf("sleep 5");
 			const began = Date.now();
-			expect(await realReader(dir)()).toEqual({ kind: "failed" });
+			expect(await realReader(dir)()).toEqual({ kind: "unreadable" });
 			expect(Date.now() - began).toBeLessThan(3000);
 		});
 
@@ -329,7 +371,7 @@ describe.skipIf(process.platform === "win32")(
 		it("does not wait for a child that keeps stdout open after the limit", async () => {
 			const dir = writeHf("sleep 5 &\nsleep 5");
 			const began = Date.now();
-			expect(await realReader(dir)()).toEqual({ kind: "failed" });
+			expect(await realReader(dir)()).toEqual({ kind: "unreadable" });
 			expect(Date.now() - began).toBeLessThan(3000);
 		});
 

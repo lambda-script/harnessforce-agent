@@ -17,6 +17,14 @@ const REGISTRATION_FAILED =
 	"Harnessforce session registration failed. Check your network connection";
 const USER_KEY_REVOKED =
 	"Your ingest key has been revoked. Run `harnessforce init`";
+const KEY_MISSING =
+	"Harnessforce cannot find your ingest key, so telemetry is not being sent. Run `harnessforce init`";
+const KEY_UNREADABLE =
+	"Harnessforce could not read your ingest key from the OS keychain, so telemetry may not be sent. Unlock the keychain or run `harnessforce init`";
+const DESTINATION_MISMATCH =
+	"Telemetry is not being sent because the Harnessforce destination differs from the one saved by `harnessforce init`. Check this repository's settings or run `harnessforce init` again";
+const TELEMETRY_NOT_CONFIGURED =
+	"Claude Code telemetry for Harnessforce is not configured. Run `harnessforce init`";
 
 const start = (h: Harness, input: Record<string, unknown> = {}) =>
 	runHook(
@@ -33,6 +41,7 @@ const start = (h: Harness, input: Record<string, unknown> = {}) =>
 const warned = (h: Harness) => JSON.parse(h.out());
 const warning = (message: string) => sessionContext({ systemMessage: message });
 const VALID_ENDPOINT = { HARNESSFORCE_ENDPOINT: "https://ingest.example.test" };
+const USER_ENV = { ...VALID_ENDPOINT, HARNESSFORCE_WORKSPACE_ID: "ws1" };
 
 describe("SessionStart hook warning", () => {
 	it("warns that sending is not configured when neither a workspace key nor a workspace id exists", async () => {
@@ -56,14 +65,100 @@ describe("SessionStart hook warning", () => {
 		expect(warned(h)).toEqual(warning(INVALID_ENDPOINT));
 	});
 
-	it("does not warn when the workspace id exists but the keychain has no key", async () => {
+	// correlation.md「送信の健全性」: Claude CodeのotelHeadersHelperの通知だけでは気付けることを保証できないため、hookも示す。
+	it.each([
+		["the keychain has no key", { kind: "absent" }, KEY_MISSING],
+		[
+			"the destination is not verified",
+			{ kind: "withheld" },
+			DESTINATION_MISMATCH,
+		],
+		["the keychain cannot be read", { kind: "unreadable" }, KEY_UNREADABLE],
+	] as const)(
+		"warns when the workspace id exists but %s",
+		async (_, userKey, message) => {
+			const h = harness({ managed: null, env: USER_ENV, userKey });
+			await start(h);
+			expect(warned(h)).toEqual(warning(message));
+			expect(h.err()).toContain("skipped (no ingest key)");
+			expect(h.requests).toEqual([]);
+		},
+	);
+
+	// harnessforceを起動できない端末では、Claude Codeのhelperも起動できずに通知し、導入はsetupが確かめる。
+	it("does not warn when harnessforce is not on PATH", async () => {
 		const h = harness({
 			managed: null,
-			env: { ...VALID_ENDPOINT, HARNESSFORCE_WORKSPACE_ID: "ws1" },
+			env: USER_ENV,
+			userKey: { kind: "missing" },
 		});
 		await start(h);
 		expect(warned(h)).toEqual(sessionContext());
-		expect(h.err()).toContain("skipped (no ingest key)");
+	});
+
+	it.each(["resume", "compact"])(
+		"does not warn about the key on %s",
+		async (source) => {
+			const h = harness({
+				managed: null,
+				env: USER_ENV,
+				userKey: { kind: "absent" },
+			});
+			await start(h, { source });
+			expect(warned(h)).toEqual(sessionContext());
+		},
+	);
+
+	it("warns when the telemetry settings written by harnessforce init are missing", async () => {
+		const h = harness({
+			managed: null,
+			env: USER_ENV,
+			userKey: { kind: "found", key: "hf_ik_ws1_user" },
+			telemetryConfigured: false,
+		});
+		await start(h);
+		expect(warned(h)).toEqual(warning(TELEMETRY_NOT_CONFIGURED));
+		expect(h.requests.length).toBeGreaterThan(0);
+	});
+
+	it("does not judge the telemetry settings for the workspace key", async () => {
+		const h = harness({ telemetryConfigured: false });
+		await start(h);
+		expect(warned(h)).toEqual(sessionContext());
+	});
+
+	it("prefers a revoked key over missing telemetry settings", async () => {
+		const h = harness({
+			managed: null,
+			env: USER_ENV,
+			userKey: { kind: "found", key: "hf_ik_ws1_user" },
+			telemetryConfigured: false,
+			status: 401,
+		});
+		await start(h);
+		expect(warned(h)).toEqual(warning(USER_KEY_REVOKED));
+	});
+
+	it("prefers missing telemetry settings over a failed registration", async () => {
+		const h = harness({
+			managed: null,
+			env: USER_ENV,
+			userKey: { kind: "found", key: "hf_ik_ws1_user" },
+			telemetryConfigured: false,
+			status: 500,
+		});
+		await start(h);
+		expect(warned(h)).toEqual(warning(TELEMETRY_NOT_CONFIGURED));
+	});
+
+	it("shows nothing when sending is healthy", async () => {
+		const h = harness({
+			managed: null,
+			env: USER_ENV,
+			userKey: { kind: "found", key: "hf_ik_ws1_user" },
+		});
+		await start(h);
+		expect(warned(h)).toEqual(sessionContext());
 	});
 
 	it.each([500, 404])(

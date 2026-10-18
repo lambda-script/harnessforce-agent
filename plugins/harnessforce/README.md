@@ -51,9 +51,13 @@ continues without sending anything.
 
 When a hook cannot send, it shows one line in the session instead of staying silent: Node.js older than 18,
 a failed restart of the hook process, sending not set up (`/harnessforce:setup`), an endpoint that is set
-but not allowed, and a session registration that failed with anything other than 401. The line appears
-only at a session start that registers (`startup`, `clear`, `fork`), except for the two startup failures,
-which appear at every session start. A missing key while `HARNESSFORCE_WORKSPACE_ID` is set shows nothing.
+but not allowed, no ingest key in the keychain (for example after a reboot cleared the kernel keyring), a
+destination that differs from the one `harnessforce init` saved, the Claude Code telemetry settings that
+`harnessforce init` wrote missing from the user settings, a keychain that could not be read, and a session
+registration that failed with anything other than 401. The line appears only at a session start that
+registers (`startup`, `clear`, `fork`), except for the two startup failures, which appear at every session
+start. Nothing is shown while sending works, and nothing is checked again later in the session. When
+`harnessforce` is not on `PATH`, the hook shows nothing: Claude Code reports that `otelHeadersHelper` failed.
 
 ## Session registration hooks
 

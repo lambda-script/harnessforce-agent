@@ -111,11 +111,10 @@ describe("hook key selection", () => {
 		const h = harness({
 			...noManaged,
 			env: userEnv,
-			userKey: { kind: "failed" },
+			userKey: { kind: "unreadable" },
 		});
 		await start(h, { scratchpad_dir: scratchpad() });
 		expect(h.requests).toEqual([]);
-		expect(h.out()).toBe(sessionContextLine());
 		expect(h.err()).toBe(
 			"harnessforce: no user key in keychain or read failed\n" +
 				"harnessforce: session registration skipped (no ingest key)\n",

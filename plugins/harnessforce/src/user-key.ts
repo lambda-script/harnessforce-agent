@@ -8,23 +8,30 @@ import {
 import type { Env } from "@harnessforce/agent-core/types";
 
 // `harnessforce otel-headers`でkeychainの利用者用IngestKeyを読んだ結果（correlation.md「実行環境」）。
-// missingは`harnessforce`がPATHに無い場合、failedは`harnessforce`があって読み出しに失敗した（keyが無い場合を含む）場合。
+// missingは`harnessforce`がPATHに無い場合。absent、withheld、unreadableは`harnessforce otel-headers`の
+// 終了コード3、4、それ以外の失敗で、hookが表示する文言を分ける（correlation.md「送信の健全性」）。
 export type UserKeyRead =
 	| { kind: "found"; key: string }
 	| { kind: "missing" }
-	| { kind: "failed" };
+	| { kind: "absent" }
+	| { kind: "withheld" }
+	| { kind: "unreadable" };
 
-// 終了コード0で上限時間内に終わったときだけokとする。
+// 終了コード0で上限時間内に終わったときだけokとする。exitCodeは上限時間内に0以外で終わったときの終了コード。
 export type ExecHf = (
 	file: string,
 	args: readonly string[],
 	options: { timeoutMs: number; windowsVerbatimArguments: boolean; env: Env },
-) => Promise<{ ok: boolean; stdout: string }>;
+) => Promise<{ ok: boolean; stdout: string; exitCode?: number }>;
 
 // 送信の上限時間（2秒）とは別に数える起動の上限時間。
 const HF_TIMEOUT_MS = 1000;
 const HF_OUTPUT_LIMIT_BYTES = 64 * 1024;
 const BEARER = /^Bearer (\S+)$/;
+const FAILURES: Record<number, UserKeyRead> = {
+	3: { kind: "absent" },
+	4: { kind: "withheld" },
+};
 
 function parseKey(stdout: string): string | undefined {
 	try {
@@ -71,13 +78,19 @@ export function createUserKeyReader({
 						quoteArgs: false,
 					});
 		if (!command) return { kind: "missing" };
+		// hookの上限時間を、kernelのkeyringからSecret Serviceへ移す処理で使わせない（correlation.md「CLI」）。
 		const result = await exec(command.file, command.args, {
 			timeoutMs: HF_TIMEOUT_MS,
 			windowsVerbatimArguments: command.verbatim,
-			env,
+			env: { ...env, HARNESSFORCE_NO_MIGRATE: "1" },
 		});
 		const key = result.ok ? parseKey(result.stdout) : undefined;
-		return key ? { kind: "found", key } : { kind: "failed" };
+		if (key) return { kind: "found", key };
+		return (
+			(result.exitCode !== undefined && FAILURES[result.exitCode]) || {
+				kind: "unreadable",
+			}
+		);
 	};
 }
 
@@ -95,6 +108,14 @@ export const execHf: ExecHf = (file, args, options) =>
 				windowsHide: true,
 				windowsVerbatimArguments: options.windowsVerbatimArguments,
 			},
-			(error, stdout) => resolve({ ok: !error, stdout }),
+			(error, stdout) =>
+				resolve({
+					ok: !error,
+					stdout,
+					// 上限時間で止めたprocessの終了コードは使わない。
+					...(error && !error.killed && typeof error.code === "number"
+						? { exitCode: error.code }
+						: {}),
+				}),
 		);
 	});
