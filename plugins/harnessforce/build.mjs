@@ -176,6 +176,11 @@ async function writePlugin(plugin, connection, version) {
 		fixedExtension: true,
 		target: "node18",
 		plugins: [rawPlugin()],
+		// client-updates.md「版の申告」: hookの`User-Agent`に載せる版と、接続先を与えたbuildか。
+		define: {
+			__HF_PLUGIN_VERSION__: JSON.stringify(version),
+			__HF_DEV_BUILD__: JSON.stringify(!buildConfigFrom(process.env).isDefault),
+		},
 		dts: false,
 		logLevel: "warn",
 	});

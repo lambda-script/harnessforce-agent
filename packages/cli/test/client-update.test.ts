@@ -260,9 +260,9 @@ describe("update notices after a command", () => {
 		);
 		const result = await hookRun(dir, fetch);
 		const init = (fetch.mock.calls as unknown as [URL, RequestInit][])[0]?.[1];
-		expect((init?.headers as Record<string, string>)["user-agent"]).toBe(
-			`harnessforce-cli/${pkg.version}`,
-		);
+		expect(
+			(init?.headers as Record<string, string> | undefined)?.["user-agent"],
+		).toBe(`harnessforce-cli/${pkg.version}`);
 		expect(readState(dir)).toMatchObject({
 			status: "deprecated",
 			deadline: "2026-11-10T00:00:00.000Z",

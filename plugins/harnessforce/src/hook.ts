@@ -1,3 +1,14 @@
+import { isAbsolute, join } from "node:path";
+import {
+	type ClientIdentity,
+	markOutdatedShown,
+	readSavedUpdateState,
+	readUpdateState,
+	recheckClientStatus,
+	recordingFetch,
+	shouldShowOutdated,
+	updateLine,
+} from "@harnessforce/agent-core/client-update";
 import {
 	COLLECT_BUDGET_MS,
 	collectConfig,
@@ -71,7 +82,24 @@ export type HookDeps = {
 	readUserKey: (cwd: string) => Promise<UserKeyRead>;
 	// `harnessforce init`が書いたClaude Codeのテレメトリの設定があるか（correlation.md「送信の健全性」）。
 	isTelemetryConfigured: () => Promise<boolean>;
+	// このpluginの版。Harnessforceへの要求の`User-Agent`に載せる（client-updates.md「版の申告」）。
+	client: ClientIdentity;
+	// Claude Codeがpluginを自動更新するとみなせるか。sessionのcwdのrepositoryの設定も見る。
+	isPluginAutoUpdateEffective: (cwd: string) => Promise<boolean>;
 };
+
+// runHookが、要求に版を申告するfetchへ差し替えた依存。baseFetchは差し替える前のfetchとする。
+type Deps = HookDeps & { baseFetch: Fetch };
+
+// client-updates.md「状態の保存」: pluginの更新をまたいで残るdata directoryに置く。
+const pluginStatePath = (env: Env) =>
+	env.CLAUDE_PLUGIN_DATA && isAbsolute(env.CLAUDE_PLUGIN_DATA)
+		? join(env.CLAUDE_PLUGIN_DATA, "update-status.json")
+		: undefined;
+// CLIが自身の状態を置くfile。`harnessforce otel-headers`が終了コード5で終わったときに確かめ直す。
+const cliStatePath = (homeDir: string) =>
+	join(homeDir, ".harnessforce", "update-status.json");
+const CLI_UNSUPPORTED_WARNING = updateLine("cli", { status: "unsupported" });
 
 // correlation.md「hook」の共通の規則が、選んだkeyの種類ごとに定める文言。
 const REVOKED_KEY_MESSAGES: Record<KeyKind, string> = {
@@ -83,25 +111,26 @@ const REVOKED_KEY_MESSAGES: Record<KeyKind, string> = {
 // resumeとcompactは同じsessionの継続なので送らない。未知のsourceも送らない。
 const REGISTERING_SOURCES = new Set(["startup", "clear", "fork"]);
 
-const logError = (deps: HookDeps) => (error: unknown) =>
+const logError = (deps: Deps) => (error: unknown) =>
 	deps.stderr(
 		`harnessforce: ${error instanceof Error ? error.message : String(error)}\n`,
 	);
 
 type Subject = "session registration" | "config snapshot" | "session usage";
-const report = (deps: HookDeps, subject: Subject, detail: string) =>
+const report = (deps: Deps, subject: Subject, detail: string) =>
 	deps.stderr(`harnessforce: ${subject} ${detail}\n`);
 
 // keyを得られなかった理由ごとの警告（correlation.md「送信の健全性」）。harnessforceを起動しなかった場合は示さない。
 const KEY_WARNINGS: Partial<Record<UserKeyRead["kind"], string>> = {
 	absent: keyMissingWarning("claude_code"),
 	withheld: DESTINATION_MISMATCH_WARNING.claude_code,
+	cliUnsupported: CLI_UNSUPPORTED_WARNING,
 	unreadable: keyUnreadableWarning("claude_code"),
 };
 
 // 利用者用のkeyは、`harnessforce otel-headers`が送信先の固定を確かめたうえで返す。
 async function selectUserKey(
-	deps: HookDeps,
+	deps: Deps,
 	cwd: string,
 ): Promise<{ key?: string; warning?: string }> {
 	if (!deps.env.HARNESSFORCE_WORKSPACE_ID) return {};
@@ -120,7 +149,7 @@ type Resolved = { destination?: Destination; warning?: string };
 // 送信先の判定をkeyの判定より先に行い、両方が無ければ送信先の終端だけを書く。警告は、未設定を送信先の不正より先に判定する。
 // withUserKeyが偽なら、Workspace用のkeyが無いときは何も書かずに送らない。
 async function resolveDestination(
-	deps: HookDeps,
+	deps: Deps,
 	cwd: string,
 	withUserKey = true,
 ): Promise<Resolved> {
@@ -151,11 +180,37 @@ async function resolveDestination(
 	const { key: userKey, warning } = await selectUserKey(deps, cwd);
 	if (!userKey) {
 		report(deps, "session registration", "skipped (no ingest key)");
+		// clientの版が対応外の警告は、送信の設定の警告より先に示す（correlation.md「hookの警告」）。
+		if (warning === CLI_UNSUPPORTED_WARNING) {
+			await recheckCliStatus(deps, ingestBase);
+			return { warning };
+		}
 		return {
 			warning: notConfigured ? notConfiguredWarning("claude_code") : warning,
 		};
 	}
 	return { destination: { ingestBase, key: userKey, keyKind: "user" } };
+}
+
+// CLIの状態のfileを、そのCLIの版で確かめ直す。CLIのcommandを実行しない利用者でも、最小対応版の誤りを直した後に戻るためである。
+async function recheckCliStatus(deps: Deps, ingestBase: URL): Promise<void> {
+	const statePath = cliStatePath(deps.homeDir);
+	// CLIの版はpluginに分からないため、状態のfileが持つ版をそのまま使う。
+	const state = await readSavedUpdateState(statePath);
+	if (!state) return;
+	const cli: ClientIdentity = {
+		component: "cli",
+		version: state.version,
+		dev: false,
+	};
+	await recheckClientStatus({
+		state,
+		ingestBase,
+		fetch: recordingFetch(deps.baseFetch, cli, statePath, deps.now),
+		statePath,
+		version: state.version,
+		now: deps.now,
+	});
 }
 
 // Workspace用のkeyではsource=cliを名乗らない（control-plane.md「認証の種類と信頼」）。
@@ -174,7 +229,7 @@ async function send(
 	path: IngestPath,
 	item: IngestItem,
 	subject: Subject,
-	deps: HookDeps,
+	deps: Deps,
 ): Promise<SendOutcome> {
 	const outcome = await postItems(destination, path, [item], deps.fetch);
 	if (outcome.kind === "failed")
@@ -187,7 +242,7 @@ async function send(
 async function reportRevokedKey(
 	destination: Destination,
 	pad: Scratchpad | undefined,
-	deps: HookDeps,
+	deps: Deps,
 ): Promise<string> {
 	const message = REVOKED_KEY_MESSAGES[destination.keyKind];
 	deps.stderr(`${message}\n`);
@@ -196,13 +251,13 @@ async function reportRevokedKey(
 }
 
 // stdoutはJSONのobject1つだけとする（correlation.md「hook」）。JSONの出力はstdoutがそのobjectだけのときに解釈される。
-const writeJson = (deps: HookDeps, output: object) =>
+const writeJson = (deps: Deps, output: object) =>
 	deps.stdout(`${JSON.stringify(output)}\n`);
 
 async function registerSession(
 	input: HookInput,
 	destination: Destination,
-	deps: HookDeps,
+	deps: Deps,
 ): Promise<SendOutcome | undefined> {
 	const vcs = await resolveVcs(input.cwd, deps.git);
 	if (!vcs) return undefined;
@@ -230,7 +285,7 @@ async function registerSession(
 // 打ち切った場合と失敗した場合はundefinedを返す。
 async function collectComponents(
 	input: HookInput,
-	deps: HookDeps,
+	deps: Deps,
 ): Promise<ConfigComponent[] | undefined> {
 	// 収集の開始はproject rootを求める前とする（correlation.md「構成の収集」）。
 	const startedMs = deps.now().getTime();
@@ -256,7 +311,7 @@ async function sendConfigSnapshot(
 	input: HookInput,
 	components: ConfigComponent[],
 	destination: Destination,
-	deps: HookDeps,
+	deps: Deps,
 ): Promise<SendOutcome | undefined> {
 	if (components.length === 0) return undefined;
 	const snapshot: ConfigSnapshot = {
@@ -305,7 +360,7 @@ async function startUsage(
 	usage: UsageStore,
 	destination: Destination,
 	collected: Promise<ConfigComponent[] | undefined>,
-	deps: HookDeps,
+	deps: Deps,
 ): Promise<SendOutcome | undefined> {
 	const [, unsent] = await Promise.all([
 		collected
@@ -324,7 +379,7 @@ async function startUsage(
 async function sendSessionStart(
 	input: HookInput,
 	usage: UsageStore | undefined,
-	deps: HookDeps,
+	deps: Deps,
 ): Promise<string | undefined> {
 	const registers =
 		input.source === undefined || REGISTERING_SOURCES.has(input.source);
@@ -372,15 +427,88 @@ async function sendSessionStart(
 		: undefined;
 }
 
+// 送信先の判定と同じく、Workspace用のkeyがあればmanaged settingsの送信先、無ければprocessの環境変数の送信先へ確かめる。
+async function statusCheckBase(deps: Deps): Promise<URL | undefined> {
+	const managed = await readManagedEnv(deps.managedDir, [
+		"HARNESSFORCE_INGEST_KEY",
+		"HARNESSFORCE_ENDPOINT",
+	]);
+	return ingestBaseFrom(
+		managed.HARNESSFORCE_INGEST_KEY
+			? managed.HARNESSFORCE_ENDPOINT
+			: deps.env.HARNESSFORCE_ENDPOINT,
+	);
+}
+
+/**
+ * pluginの状態のfileがunsupportedなら送信を止める（client-updates.md「送信の停止」）。recheckなら、受けてから24時間以上
+ * 経った状態を資格情報を送らずに確かめ直す。SessionEndは1秒の予算に収めるため確かめ直さない。
+ */
+async function isPluginBlocked(deps: Deps, recheck: boolean): Promise<boolean> {
+	const statePath = pluginStatePath(deps.env);
+	if (!statePath) return false;
+	const state = await readUpdateState(statePath, deps.client.version);
+	if (state?.status !== "unsupported") return false;
+	const ingestBase = recheck ? await statusCheckBase(deps) : undefined;
+	const checked = ingestBase
+		? await recheckClientStatus({
+				state,
+				ingestBase,
+				fetch: deps.fetch,
+				statePath,
+				version: deps.client.version,
+				now: deps.now,
+			})
+		: state;
+	return checked?.status === "unsupported";
+}
+
+const REVOKED_MESSAGES = new Set(Object.values(REVOKED_KEY_MESSAGES));
+
+// correlation.md「hookの警告」の順: 401、clientの版が対応外、送信の設定と失敗の警告、clientの更新の期限、新しい版がある。
+async function withUpdateLine(
+	message: string | undefined,
+	input: HookInput,
+	deps: Deps,
+): Promise<string | undefined> {
+	if (message !== undefined && REVOKED_MESSAGES.has(message)) return message;
+	const statePath = pluginStatePath(deps.env);
+	const state = statePath
+		? await readUpdateState(statePath, deps.client.version)
+		: undefined;
+	if (state?.status === "unsupported")
+		return updateLine("claude-code-plugin", state);
+	if (message !== undefined || !state || !statePath) return message;
+	if (state.status === "outdated") {
+		// Claude Codeが次のsessionまでに更新する間は示さない。
+		if (
+			!shouldShowOutdated(state, deps.now(), deps.env) ||
+			(await deps.isPluginAutoUpdateEffective(input.cwd))
+		)
+			return undefined;
+		await markOutdatedShown(statePath, state, deps.now()).catch(logError(deps));
+	}
+	return updateLine("claude-code-plugin", state);
+}
+
 // sourceや送信の結果によらず、session contextを必ず1回出す。resumeとcompactの後のcontextにもsession IDを残すためである。
-async function onSessionStart(input: HookInput, deps: HookDeps): Promise<void> {
+async function onSessionStart(input: HookInput, deps: Deps): Promise<void> {
 	const usage = usageStoreOf(input.sessionId, deps.env);
 	const startedAt = deps.now();
 	if (usage) await removeExpiredFiles(usage, startedAt).catch(logError(deps));
-	const message = await sendSessionStart(input, usage, deps).catch((error) => {
-		logError(deps)(error);
-		return undefined;
-	});
+	const registers =
+		input.source === undefined || REGISTERING_SOURCES.has(input.source);
+	const blocked = await isPluginBlocked(deps, true).catch(() => false);
+	const sent = blocked
+		? undefined
+		: await sendSessionStart(input, usage, deps).catch((error) => {
+				logError(deps)(error);
+				return undefined;
+			});
+	// 表示は登録を送るsourceだけとする（correlation.md「hookの警告」）。
+	const message = registers
+		? await withUpdateLine(sent, input, deps).catch(() => sent)
+		: sent;
 	if (usage)
 		await appendIfRecording(usage, {
 			at: startedAt.toISOString(),
@@ -394,10 +522,7 @@ async function onSessionStart(input: HookInput, deps: HookDeps): Promise<void> {
 }
 
 // sessionの最初のpromptだけ、SessionStartが保存した登録にprompt_idを加えて送る。SessionStartの送信の再送を兼ねる。
-async function onUserPromptSubmit(
-	input: HookInput,
-	deps: HookDeps,
-): Promise<void> {
+async function onUserPromptSubmit(input: HookInput, deps: Deps): Promise<void> {
 	const usage = usageStoreOf(input.sessionId, deps.env);
 	if (usage)
 		await appendIfRecording(usage, {
@@ -407,6 +532,7 @@ async function onUserPromptSubmit(
 		}).catch(logError(deps));
 	const pad = input.scratchpad;
 	if (!input.promptId || !pad || (await isMarkedUnauthorized(pad))) return;
+	if (await isPluginBlocked(deps, false)) return;
 	const saved = await loadRegistration(pad);
 	if (!saved || (await isFirstPromptSent(pad))) return;
 	const { destination } = await resolveDestination(deps, input.cwd);
@@ -428,11 +554,12 @@ async function onUserPromptSubmit(
 const SESSION_END_BUDGET_MS = 1000;
 
 // SessionEndは`harnessforce otel-headers`を起動せず、Workspace用のkeyを選ぶ場合だけ送る。JSONの出力は捨てられるためstdoutへ書かない。
-async function onSessionEnd(input: HookInput, deps: HookDeps): Promise<void> {
+async function onSessionEnd(input: HookInput, deps: Deps): Promise<void> {
 	const usage = usageStoreOf(input.sessionId, deps.env);
 	if (!usage) return;
 	if (input.scratchpad && (await isMarkedUnauthorized(input.scratchpad)))
 		return;
+	if (await isPluginBlocked(deps, false)) return;
 	const { destination } = await resolveDestination(deps, input.cwd, false);
 	if (!destination) return;
 	const outcome = await sendSessionUsage(
@@ -452,7 +579,7 @@ async function onSessionEnd(input: HookInput, deps: HookDeps): Promise<void> {
 // correlation.md「数えるhook」: 状態のfileの識別子で名前を対応させ、1回を1行として記録する。stdoutへ何も書かない。
 const onCountingEvent =
 	(event: (typeof COUNTING_EVENTS)[number]) =>
-	async (input: HookInput, deps: HookDeps): Promise<void> => {
+	async (input: HookInput, deps: Deps): Promise<void> => {
 		const usage = usageStoreOf(input.sessionId, deps.env);
 		const state = usage && (await readState(usage));
 		const counted = state && countedOf(event, input.fields, state.identifiers);
@@ -464,7 +591,7 @@ const onCountingEvent =
 			});
 	};
 
-type Handler = (input: HookInput, deps: HookDeps) => Promise<void>;
+type Handler = (input: HookInput, deps: Deps) => Promise<void>;
 const HANDLERS = new Map<string, Handler>([
 	["session-start", onSessionStart],
 	["user-prompt-submit", onUserPromptSubmit],
@@ -477,11 +604,22 @@ const HANDLERS = new Map<string, Handler>([
 export async function runHook(
 	event: string,
 	rawInput: string,
-	deps: HookDeps,
+	hookDeps: HookDeps,
 ): Promise<void> {
 	const handler = HANDLERS.get(event);
 	const input = parseHookInput(rawInput);
 	if (!handler || !input) return;
+	// Harnessforceへの要求に版を申告し、応答の更新の状態を保存する（client-updates.md「版の申告」）。
+	const deps: Deps = {
+		...hookDeps,
+		baseFetch: hookDeps.fetch,
+		fetch: recordingFetch(
+			hookDeps.fetch,
+			hookDeps.client,
+			pluginStatePath(hookDeps.env),
+			hookDeps.now,
+		),
+	};
 	// fail-open: どの失敗でもsessionを止めない。stderrはdebug logにだけ出る。
 	await handler(input, deps).catch(logError(deps));
 }

@@ -122,8 +122,8 @@ describe("recordingFetch", () => {
 			headers: { authorization: "Bearer key" },
 		});
 
-		const init = base.mock.calls[0]?.[1] as RequestInit;
-		const headers = new Headers(init.headers);
+		const init = (base.mock.calls as unknown as [URL, RequestInit][])[0]?.[1];
+		const headers = new Headers(init?.headers);
 		expect(headers.get("user-agent")).toBe("harnessforce-cli/0.2.0");
 		expect(headers.get("authorization")).toBe("Bearer key");
 		expect(await readUpdateState(path, "0.2.0")).toEqual(

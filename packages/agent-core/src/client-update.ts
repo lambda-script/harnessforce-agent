@@ -96,8 +96,19 @@ export async function readUpdateState(
 	path: string,
 	version: string,
 ): Promise<UpdateState | undefined> {
+	const saved = await readSavedUpdateState(path);
+	return saved?.version === version ? saved : undefined;
+}
+
+// 版を問わずに読む。pluginのhookが、版を知らないCLIの状態を確かめ直すときに使う。
+export async function readSavedUpdateState(
+	path: string,
+): Promise<UpdateState | undefined> {
 	try {
-		return stateFrom(JSON.parse(await readFile(path, "utf8")), version);
+		const value: unknown = JSON.parse(await readFile(path, "utf8"));
+		return isObject(value) && typeof value.version === "string"
+			? stateFrom(value, value.version)
+			: undefined;
 	} catch {
 		return undefined;
 	}
@@ -116,12 +127,12 @@ export async function writeUpdateState(
 
 /**
  * Harnessforceへの要求に`User-Agent`を付け、応答の`Harnessforce-Client-Update`を状態のfileへ保存するfetch。
- * 保存に失敗しても要求の結果は変えない。
+ * 保存に失敗しても要求の結果は変えない。statePathが無い（pluginのdata directoryが無い）場合は版の申告だけを行う。
  */
 export function recordingFetch(
 	fetchImpl: Fetch,
 	client: ClientIdentity,
-	statePath: string,
+	statePath: string | undefined,
 	now: () => Date,
 ): Fetch {
 	return async (url, init) => {
@@ -134,7 +145,7 @@ export function recordingFetch(
 		const update = parseClientUpdateHeader(
 			response.headers.get(CLIENT_UPDATE_HEADER),
 		);
-		if (update) {
+		if (update && statePath) {
 			const previous = await readUpdateState(statePath, client.version);
 			await writeUpdateState(statePath, {
 				...update,

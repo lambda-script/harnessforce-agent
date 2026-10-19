@@ -10,11 +10,13 @@ import type { Env } from "@harnessforce/agent-core/types";
 // `harnessforce otel-headers`でkeychainの利用者用IngestKeyを読んだ結果（correlation.md「実行環境」）。
 // missingは`harnessforce`がPATHに無い場合。absent、withheld、unreadableは`harnessforce otel-headers`の
 // 終了コード3、4、それ以外の失敗で、hookが表示する文言を分ける（correlation.md「送信の健全性」）。
+// cliUnsupportedは終了コード5で、CLIの版が対応外のためkeyを出さなかった場合（client-updates.md「送信の停止」）。
 export type UserKeyRead =
 	| { kind: "found"; key: string }
 	| { kind: "missing" }
 	| { kind: "absent" }
 	| { kind: "withheld" }
+	| { kind: "cliUnsupported" }
 	| { kind: "unreadable" };
 
 // 終了コード0で上限時間内に終わったときだけokとする。exitCodeは上限時間内に0以外で終わったときの終了コード。
@@ -31,6 +33,7 @@ const BEARER = /^Bearer (\S+)$/;
 const FAILURES: Record<number, UserKeyRead> = {
 	3: { kind: "absent" },
 	4: { kind: "withheld" },
+	5: { kind: "cliUnsupported" },
 };
 
 function parseKey(stdout: string): string | undefined {

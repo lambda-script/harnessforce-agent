@@ -59,6 +59,15 @@ registers (`startup`, `clear`, `fork`), except for the two startup failures, whi
 start. Nothing is shown while sending works, and nothing is checked again later in the session. When
 `harnessforce` is not on `PATH`, the hook shows nothing: Claude Code reports that `otelHeadersHelper` failed.
 
+## Updates
+
+The hooks send `User-Agent: harnessforce-claude-code-plugin/<version>` and keep the update status the
+server returns in `${CLAUDE_PLUGIN_DATA}/update-status.json`. When a session starts they show one line
+for a newer version (once a day, and not while Claude Code updates the plugin automatically), for the
+date a version stops sending after a security fix, or for an unsupported version. An unsupported version
+sends nothing until you run `claude plugin update harnessforce@harnessforce-agent`; the session keeps
+running. `harnessforce init` turns on automatic updates for the `harnessforce-agent` marketplace.
+
 ## Session registration hooks
 
 The `harnessforce` plugin registers each Claude Code session with Harnessforce so that runs can be
