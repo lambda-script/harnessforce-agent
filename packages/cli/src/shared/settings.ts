@@ -48,8 +48,7 @@ export async function readUserSettings(
 			isObject(settings) &&
 			(settings.env === undefined || isObject(settings.env)) &&
 			(settings.enabledPlugins === undefined ||
-				isObject(settings.enabledPlugins)) &&
-			MARKETPLACE_KEYS.every((key) => isMarketplacesValid(settings[key]));
+				isObject(settings.enabledPlugins));
 		return isValid ? { kind: "ok", settings } : { kind: "invalid" };
 	} catch {
 		return { kind: "invalid" };
@@ -68,6 +67,10 @@ const isMarketplacesValid = (value: unknown) =>
 	(isObject(value) &&
 		(value[MARKETPLACE_NAME] === undefined ||
 			isObject(value[MARKETPLACE_NAME])));
+
+// correlation.md「CLI」の手順1と6: initが自動更新を書けるか。読み取りだけのcommandは確かめない。
+export const hasWritableMarketplaces = (settings: Settings): boolean =>
+	MARKETPLACE_KEYS.every((key) => isMarketplacesValid(settings[key]));
 
 /**
  * marketplaceの登録の鍵の`harnessforce-agent`に、sourceと自動更新を書く。sourceと、利用者が切り替えた真偽値は残し、

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { isObject } from "./object.js";
@@ -44,7 +45,7 @@ const DISPLAY_NAMES: Record<ClientComponent, string> = {
 	"claude-code-plugin": "plugin",
 };
 const DAY_MS = 24 * 60 * 60 * 1000;
-// recheckの上限時間。hookの送信の上限時間と揃える。
+// client-updates.md「送信の停止」の確かめ直しの上限時間。
 const RECHECK_TIMEOUT_MS = 2000;
 
 export const userAgentOf = (client: ClientIdentity): string =>
@@ -77,10 +78,24 @@ export function parseClientUpdateHeader(
 	if (reason && REASONS.has(reason)) update.reason = reason as UpdateReason;
 	const seconds = /^@(\d+)$/.exec(members.get("deadline") ?? "")?.[1];
 	if (seconds) update.deadline = new Date(Number(seconds) * 1000).toISOString();
-	if ((status === "deprecated" || status === "unsupported") && !update.reason)
-		return undefined;
-	if (status === "deprecated" && !update.deadline) return undefined;
-	return update;
+	return isComplete(update) ? update : undefined;
+}
+
+// 状態ごとに文言が必要とするmemberを持つか。headerとfileのどちらから読んだ値にも当てる。
+function isComplete(update: ClientUpdate): boolean {
+	switch (update.status) {
+		case "outdated":
+			return Boolean(update.latest);
+		case "deprecated":
+			return (
+				Boolean(update.reason) &&
+				!Number.isNaN(Date.parse(update.deadline ?? ""))
+			);
+		case "unsupported":
+			return Boolean(update.reason);
+		default:
+			return true;
+	}
 }
 
 function stateFrom(value: unknown, version: string): UpdateState | undefined {
@@ -88,7 +103,8 @@ function stateFrom(value: unknown, version: string): UpdateState | undefined {
 	if (typeof value.receivedAt !== "string") return undefined;
 	if (typeof value.status !== "string" || !STATUSES.has(value.status))
 		return undefined;
-	return value as UpdateState;
+	const state = value as UpdateState;
+	return isComplete(state) ? state : undefined;
 }
 
 // 更新の後（fileの版が自身の版と異なる）と読めないfileは、状態が無いものとして扱う。
@@ -120,7 +136,8 @@ export async function writeUpdateState(
 	state: UpdateState,
 ): Promise<void> {
 	await mkdir(dirname(path), { recursive: true, mode: 0o700 });
-	const temporary = `${path}.${process.pid}.tmp`;
+	// 同じprocessの並行した応答が同じ一時fileを書かないよう、書き込みごとに名前を変える。
+	const temporary = `${path}.${randomUUID()}.tmp`;
 	await writeFile(temporary, `${JSON.stringify(state)}\n`, { mode: 0o600 });
 	await rename(temporary, path);
 }
@@ -169,6 +186,9 @@ const utcDate = (instant: string) =>
 		day: "2-digit",
 	}).format(new Date(instant));
 
+export const unsupportedLine = (component: ClientComponent): string =>
+	`This Harnessforce ${DISPLAY_NAMES[component]} version is no longer supported, so nothing is being sent to Harnessforce. Update it: \`${UPDATE_COMMANDS[component]}\``;
+
 // client-updates.md「表示」の文言。currentでは何も表示しない。
 export function updateLine(
 	component: ClientComponent,
@@ -178,7 +198,7 @@ export function updateLine(
 	const command = UPDATE_COMMANDS[component];
 	switch (update.status) {
 		case "unsupported":
-			return `This Harnessforce ${name} version is no longer supported, so nothing is being sent to Harnessforce. Update it: \`${command}\``;
+			return unsupportedLine(component);
 		case "deprecated": {
 			const stops = `stops sending on ${utcDate(update.deadline ?? "")} (00:00 UTC)`;
 			return update.reason === "security"
@@ -212,6 +232,27 @@ export const markOutdatedShown = (
 	now: Date,
 ): Promise<void> =>
 	writeUpdateState(path, { ...state, outdatedShownAt: now.toISOString() });
+
+/**
+ * 表示する1行。outdatedは24時間に1回までとし、表示する場合はその時刻を書く。isSuppressedは、pluginを
+ * Claude Codeが自動更新する間など、呼び出し側がoutdatedを示さない条件。
+ */
+export async function noticeLine(
+	component: ClientComponent,
+	statePath: string,
+	state: UpdateState,
+	options: { now: Date; env: Env; isSuppressed?: () => Promise<boolean> },
+): Promise<string | undefined> {
+	if (state.status === "outdated") {
+		if (
+			!shouldShowOutdated(state, options.now, options.env) ||
+			(await options.isSuppressed?.())
+		)
+			return undefined;
+		await markOutdatedShown(statePath, state, options.now).catch(() => {});
+	}
+	return updateLine(component, state);
+}
 
 type RecheckOptions = {
 	state: UpdateState | undefined;

@@ -32,6 +32,7 @@ import {
 } from "../shared/messages.js";
 import { discoverAuthorizationEndpoint } from "../shared/metadata.js";
 import {
+	hasWritableMarketplaces,
 	mergeUserSettings,
 	readUserSettings,
 	userSettingsPath,
@@ -123,7 +124,11 @@ async function runInit(
 	);
 	const revoke = revokeHashes(store);
 	// 発行した後に保存で失敗し、再実行のたびにkeyを入れ替えることを避けるため、ログインの前に確かめる。
-	if ((await readUserSettings(settingsPath)).kind === "invalid")
+	const settings = await readUserSettings(settingsPath);
+	if (
+		settings.kind === "invalid" ||
+		!hasWritableMarketplaces(settings.settings)
+	)
 		stop("settingsUnreadable");
 	const authorizationEndpoint =
 		(await discoverAuthorizationEndpoint(base, deps.fetch)) ?? stop("network");
@@ -301,7 +306,8 @@ async function save(
 	// 読み出しはkernelのkeyringを先に選ぶため、Secret Serviceへ保存したら古いkernelのkeyringの項目を残さない。
 	await store.deleteElsewhere(issued.workspaceId);
 	const current = await readUserSettings(settingsPath);
-	if (current.kind === "invalid") return stop("saveFailed");
+	if (current.kind === "invalid" || !hasWritableMarketplaces(current.settings))
+		return stop("saveFailed");
 	const env: Record<string, string> = {
 		HARNESSFORCE_URL: connection,
 		HARNESSFORCE_ENDPOINT: issued.ingestEndpoint,

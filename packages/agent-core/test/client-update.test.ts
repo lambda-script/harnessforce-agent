@@ -72,6 +72,7 @@ describe("parseClientUpdateHeader", () => {
 			"latest=1",
 			"status=deprecated",
 			"status=unsupported",
+			"status=outdated",
 		])
 			expect(parseClientUpdateHeader(value)).toBeUndefined();
 	});
@@ -88,6 +89,29 @@ describe("update state file", () => {
 		expect(await readUpdateState(path, "0.2.0")).toEqual(
 			state({ status: "outdated", latest: "0.3.0" }),
 		);
+	});
+
+	it("treats a state without the members its line needs as no state", async () => {
+		const path = await tempPath();
+		for (const incomplete of [
+			{ status: "deprecated", reason: "security" },
+			{ status: "deprecated", reason: "security", deadline: "soon" },
+			{ status: "outdated" },
+			{ status: "unsupported" },
+		]) {
+			await writeFile(
+				path,
+				JSON.stringify({
+					version: "0.2.0",
+					receivedAt: NOW.toISOString(),
+					...incomplete,
+				}),
+			);
+			expect(
+				await readUpdateState(path, "0.2.0"),
+				JSON.stringify(incomplete),
+			).toBeUndefined();
+		}
 	});
 
 	it("treats another version or an unreadable file as no state", async () => {

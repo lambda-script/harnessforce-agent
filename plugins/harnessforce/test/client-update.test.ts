@@ -96,6 +96,34 @@ describe("plugin requests", () => {
 	});
 });
 
+describe("the order of the session start line", () => {
+	it("shows a revoked key before the update line", async () => {
+		const h = harness({
+			env: { CLAUDE_PLUGIN_DATA: pluginData() },
+			status: 401,
+			updateHeader: "status=unsupported, reason=security",
+		});
+		await run("session-start", h);
+		expect(messageOf(h)).toBe(
+			"The organization's ingest key has been revoked. Contact a Workspace administrator",
+		);
+	});
+
+	it("shows a sending warning before a newer version", async () => {
+		const data = pluginData();
+		const h = harness({
+			env: { CLAUDE_PLUGIN_DATA: data },
+			status: 500,
+			updateHeader: 'status=outdated, latest="9.9.9"',
+		});
+		await run("session-start", h);
+		expect(messageOf(h)).toBe(
+			"Harnessforce session registration failed. Check your network connection",
+		);
+		expect(readState(data).outdatedShownAt).toBeUndefined();
+	});
+});
+
 describe("while the plugin version is unsupported", () => {
 	const unsupported = (receivedAt = NOW.toISOString()) => ({
 		status: "unsupported",
@@ -126,6 +154,26 @@ describe("while the plugin version is unsupported", () => {
 		const h = harness({ env: { CLAUDE_PLUGIN_DATA: data } });
 		await run("user-prompt-submit", h, { scratchpad_dir: pad });
 		expect(h.requests).toEqual([]);
+	});
+
+	it("SessionEnd sends nothing for a session that would otherwise send its usage", async () => {
+		const data = pluginData();
+		await run("session-start", harness({ env: { CLAUDE_PLUGIN_DATA: data } }));
+		const sending = harness({ env: { CLAUDE_PLUGIN_DATA: data } });
+		await run("session-end", sending);
+		expect(
+			sending.requests.some((r) => r.url.endsWith("/v1/session-usage")),
+		).toBe(true);
+
+		const blockedData = pluginData();
+		await run(
+			"session-start",
+			harness({ env: { CLAUDE_PLUGIN_DATA: blockedData } }),
+		);
+		withState(blockedData, unsupported());
+		const blocked = harness({ env: { CLAUDE_PLUGIN_DATA: blockedData } });
+		await run("session-end", blocked);
+		expect(blocked.requests).toEqual([]);
 	});
 
 	it("rechecks without credentials after 24 hours and sends again when current", async () => {

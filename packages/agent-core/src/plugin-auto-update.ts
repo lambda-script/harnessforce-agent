@@ -1,3 +1,4 @@
+import { access } from "node:fs/promises";
 import { join } from "node:path";
 import { byCodeUnit } from "./config/canonical.js";
 import { listFiles, readJsonObjectFile } from "./config/files.js";
@@ -63,17 +64,17 @@ export async function isPluginAutoUpdateEffective(options: {
 		join(options.projectDir, ".claude", "settings.json"),
 		join(options.projectDir, ".claude", "settings.local.json"),
 	];
-	for (const file of higher)
-		if (
-			declaresEntry(
-				await readJsonObjectFile(file, noGuard).catch(() => undefined),
-			)
-		)
-			return false;
-	const user = await readJsonObjectFile(
-		options.userSettingsPath,
-		noGuard,
-	).catch(() => undefined);
+	for (const file of higher) {
+		const exists = await access(file).then(
+			() => true,
+			() => false,
+		);
+		if (!exists) continue;
+		// 読めないfileは同じ名前のentryを持つかを確かめられないため、自動更新するとみなさない。
+		const settings = await readJsonObjectFile(file, noGuard);
+		if (!settings || declaresEntry(settings)) return false;
+	}
+	const user = await readJsonObjectFile(options.userSettingsPath, noGuard);
 	const entry = marketplacesOf(user)?.[MARKETPLACE_NAME];
 	return isObject(entry) && entry.autoUpdate === true;
 }

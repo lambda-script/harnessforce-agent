@@ -28,7 +28,7 @@ harnessforce init
 | Command | What it does |
 | --- | --- |
 | `harnessforce init [--port <port>] [--send-content] [--no-plugin-auto-update]` | Logs in with the browser, stores a user ingest key and an API token in the keychain, and configures Claude Code and Codex |
-| `harnessforce otel-headers` | Prints the `Authorization` header for Claude Code's `otelHeadersHelper`. Exits 3 when there is no key, 4 when the destination differs from the pinned origin, and 1 on other failures. On Linux, after printing a key read from the kernel keyring, it moves that Workspace's items to an unlocked Secret Service (not when the hook starts it), so a reboot does not lose them |
+| `harnessforce otel-headers` | Prints the `Authorization` header for Claude Code's `otelHeadersHelper`. Exits 3 when there is no key, 4 when the destination differs from the pinned origin, 5 while the CLI version is unsupported, and 1 on other failures. On Linux, after printing a key read from the kernel keyring, it moves that Workspace's items to an unlocked Secret Service (not when the hook starts it), so a reboot does not lose them |
 | `harnessforce run --issue <identifier> -- <agent> [args]` | Launches an agent with its session linked to an Issue |
 | `harnessforce import` | Sends the metadata of past Claude Code sessions in connected repositories |
 | `harnessforce tune [--all] [--no-send] [--show-report] [--json]` | Analyzes past sessions on this machine by public rules and sends the counts (analysis reports) |

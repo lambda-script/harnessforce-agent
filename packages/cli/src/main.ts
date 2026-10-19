@@ -2,7 +2,6 @@ import { createRequire } from "node:module";
 import {
 	type ClientIdentity,
 	recordingFetch,
-	updateLine,
 } from "@harnessforce/agent-core/client-update";
 import type { RunGit } from "@harnessforce/agent-core/process/git";
 import {
@@ -223,9 +222,7 @@ export async function run(
 	if (runArgs) {
 		// agentの実行は止めず、Harnessforceのための環境を付けずに起動する（client-updates.md「送信の停止」）。
 		if (await isSendingBlocked(updateDeps)) {
-			const state = await readCliUpdateState(cli.homeDir, version);
-			const line = state && updateLine("cli", state);
-			if (line) cli.stderr(`${line}\n`);
+			await noticeUpdate(updateDeps);
 			return runWithoutHarnessforce(runArgs, cli);
 		}
 		await noticeUpdate(updateDeps);

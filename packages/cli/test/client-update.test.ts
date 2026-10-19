@@ -175,6 +175,22 @@ describe("sending commands while the CLI version is unsupported", () => {
 		expect(readState(dir).status).toBe("current");
 	});
 
+	it("shows a sending warning instead of a newer version in the Codex hook", async () => {
+		const dir = home({
+			status: "outdated",
+			latest: "9.9.9",
+			receivedAt: NOW.toISOString(),
+		});
+		const result = await hookRun(
+			dir,
+			async () => new Response(null, { status: 500 }),
+		);
+		expect(systemMessageOf(result.out)).toBe(
+			"Harnessforce session registration failed. Check your network connection",
+		);
+		expect(readState(dir).outdatedShownAt).toBeUndefined();
+	});
+
 	it("registers nothing from the Codex hook and shows the update line", async () => {
 		const fetch = vi.fn();
 		const result = await hookRun(home(unsupported()), fetch);
@@ -206,7 +222,11 @@ describe("harnessforce otel-headers", () => {
 			env: { HARNESSFORCE_WORKSPACE_ID: WORKSPACE },
 			keychain: keychain(),
 		});
-		expect(result.code).not.toBe(5);
+		expect(result).toEqual({
+			code: 0,
+			out: `${JSON.stringify({ Authorization: `Bearer ${KEY}` })}\n`,
+			err: "",
+		});
 	});
 });
 

@@ -1,8 +1,7 @@
 import { isAbsolute } from "node:path";
 import {
 	type ClientIdentity,
-	markOutdatedShown,
-	shouldShowOutdated,
+	noticeLine,
 	updateLine,
 } from "@harnessforce/agent-core/client-update";
 import {
@@ -195,15 +194,10 @@ async function selectWarning(
 			? REGISTRATION_FAILED_WARNING
 			: undefined);
 	if (sending !== undefined || !state) return sending;
-	if (state.status === "outdated") {
-		if (!shouldShowOutdated(state, deps.now(), deps.env)) return undefined;
-		await markOutdatedShown(
-			updateStatePath(deps.homeDir),
-			state,
-			deps.now(),
-		).catch(() => {});
-	}
-	return updateLine("cli", state);
+	return noticeLine("cli", updateStatePath(deps.homeDir), state, {
+		now: deps.now(),
+		env: deps.env,
+	});
 }
 
 // correlation.md「Codexのhook」。CodexのSessionStartのhookが起動する。どの失敗でもsessionを止めず、常にexit 0で終える。

@@ -1,12 +1,12 @@
 import { isAbsolute, join } from "node:path";
 import {
 	type ClientIdentity,
-	markOutdatedShown,
+	noticeLine,
 	readSavedUpdateState,
 	readUpdateState,
 	recheckClientStatus,
 	recordingFetch,
-	shouldShowOutdated,
+	unsupportedLine,
 	updateLine,
 } from "@harnessforce/agent-core/client-update";
 import {
@@ -99,7 +99,7 @@ const pluginStatePath = (env: Env) =>
 // CLIが自身の状態を置くfile。`harnessforce otel-headers`が終了コード5で終わったときに確かめ直す。
 const cliStatePath = (homeDir: string) =>
 	join(homeDir, ".harnessforce", "update-status.json");
-const CLI_UNSUPPORTED_WARNING = updateLine("cli", { status: "unsupported" });
+const CLI_UNSUPPORTED_WARNING = unsupportedLine("cli");
 
 // correlation.md「hook」の共通の規則が、選んだkeyの種類ごとに定める文言。
 const REVOKED_KEY_MESSAGES: Record<KeyKind, string> = {
@@ -124,7 +124,6 @@ const report = (deps: Deps, subject: Subject, detail: string) =>
 const KEY_WARNINGS: Partial<Record<UserKeyRead["kind"], string>> = {
 	absent: keyMissingWarning("claude_code"),
 	withheld: DESTINATION_MISMATCH_WARNING.claude_code,
-	cliUnsupported: CLI_UNSUPPORTED_WARNING,
 	unreadable: keyUnreadableWarning("claude_code"),
 };
 
@@ -132,17 +131,29 @@ const KEY_WARNINGS: Partial<Record<UserKeyRead["kind"], string>> = {
 async function selectUserKey(
 	deps: Deps,
 	cwd: string,
-): Promise<{ key?: string; warning?: string }> {
+): Promise<{ key?: string; warning?: string; isCliUnsupported?: boolean }> {
 	if (!deps.env.HARNESSFORCE_WORKSPACE_ID) return {};
 	const read = await deps.readUserKey(cwd);
 	if (read.kind === "found") return { key: read.key };
 	if (read.kind !== "missing")
 		deps.stderr("harnessforce: no user key in keychain or read failed\n");
-	return { warning: KEY_WARNINGS[read.kind] };
+	return {
+		warning: KEY_WARNINGS[read.kind],
+		isCliUnsupported: read.kind === "cliUnsupported",
+	};
 }
 
+// 表示する1行と、その順位を決める種類（correlation.md「hookの警告」）。sendingは送信の設定と失敗の警告。
+type Notice = {
+	kind: "revoked" | "clientUnsupported" | "sending";
+	message: string;
+};
+
 // 送れない理由が利用者の設定にあるときだけwarningを返す（correlation.md「hookの警告」）。
-type Resolved = { destination?: Destination; warning?: string };
+type Resolved = { destination?: Destination; warning?: Notice };
+
+const sendingNotice = (message: string | undefined): Notice | undefined =>
+	message === undefined ? undefined : { kind: "sending", message };
 
 // Workspace用のkeyとその送信先はmanaged settingsのfileからだけ読む。processの環境変数はrepositoryのsettingsが書けるためである。
 // Workspace用のkeyが無ければ、processの環境変数の送信先と利用者用のkeyを使う。
@@ -168,25 +179,38 @@ async function resolveDestination(
 	if (!ingestBase) {
 		report(deps, "session registration", "skipped (invalid endpoint)");
 		return {
-			warning: notConfigured
-				? notConfiguredWarning("claude_code")
-				: INVALID_ENDPOINT_WARNING,
+			warning: sendingNotice(
+				notConfigured
+					? notConfiguredWarning("claude_code")
+					: INVALID_ENDPOINT_WARNING,
+			),
 		};
 	}
 	if (workspaceKey)
 		return {
 			destination: { ingestBase, key: workspaceKey, keyKind: "workspace" },
 		};
-	const { key: userKey, warning } = await selectUserKey(deps, cwd);
+	const {
+		key: userKey,
+		warning,
+		isCliUnsupported,
+	} = await selectUserKey(deps, cwd);
 	if (!userKey) {
 		report(deps, "session registration", "skipped (no ingest key)");
 		// clientの版が対応外の警告は、送信の設定の警告より先に示す（correlation.md「hookの警告」）。
-		if (warning === CLI_UNSUPPORTED_WARNING) {
+		if (isCliUnsupported) {
 			await recheckCliStatus(deps, ingestBase);
-			return { warning };
+			return {
+				warning: {
+					kind: "clientUnsupported",
+					message: CLI_UNSUPPORTED_WARNING,
+				},
+			};
 		}
 		return {
-			warning: notConfigured ? notConfiguredWarning("claude_code") : warning,
+			warning: sendingNotice(
+				notConfigured ? notConfiguredWarning("claude_code") : warning,
+			),
 		};
 	}
 	return { destination: { ingestBase, key: userKey, keyKind: "user" } };
@@ -380,7 +404,7 @@ async function sendSessionStart(
 	input: HookInput,
 	usage: UsageStore | undefined,
 	deps: Deps,
-): Promise<string | undefined> {
+): Promise<Notice | undefined> {
 	const registers =
 		input.source === undefined || REGISTERING_SOURCES.has(input.source);
 	if (!registers && !usage) return undefined;
@@ -420,11 +444,14 @@ async function sendSessionStart(
 			(outcome) => outcome?.kind === "unauthorized",
 		)
 	)
-		return reportRevokedKey(destination, input.scratchpad, deps);
-	if (!configured) return TELEMETRY_NOT_CONFIGURED_WARNING;
-	return registration?.kind === "failed"
-		? REGISTRATION_FAILED_WARNING
-		: undefined;
+		return {
+			kind: "revoked",
+			message: await reportRevokedKey(destination, input.scratchpad, deps),
+		};
+	if (!configured) return sendingNotice(TELEMETRY_NOT_CONFIGURED_WARNING);
+	return sendingNotice(
+		registration?.kind === "failed" ? REGISTRATION_FAILED_WARNING : undefined,
+	);
 }
 
 // 送信先の判定と同じく、Workspace用のkeyがあればmanaged settingsの送信先、無ければprocessの環境変数の送信先へ確かめる。
@@ -463,32 +490,26 @@ async function isPluginBlocked(deps: Deps, recheck: boolean): Promise<boolean> {
 	return checked?.status === "unsupported";
 }
 
-const REVOKED_MESSAGES = new Set(Object.values(REVOKED_KEY_MESSAGES));
-
 // correlation.md「hookの警告」の順: 401、clientの版が対応外、送信の設定と失敗の警告、clientの更新の期限、新しい版がある。
 async function withUpdateLine(
-	message: string | undefined,
+	notice: Notice | undefined,
 	input: HookInput,
 	deps: Deps,
 ): Promise<string | undefined> {
-	if (message !== undefined && REVOKED_MESSAGES.has(message)) return message;
+	if (notice && notice.kind !== "sending") return notice.message;
 	const statePath = pluginStatePath(deps.env);
 	const state = statePath
 		? await readUpdateState(statePath, deps.client.version)
 		: undefined;
 	if (state?.status === "unsupported")
 		return updateLine("claude-code-plugin", state);
-	if (message !== undefined || !state || !statePath) return message;
-	if (state.status === "outdated") {
-		// Claude Codeが次のsessionまでに更新する間は示さない。
-		if (
-			!shouldShowOutdated(state, deps.now(), deps.env) ||
-			(await deps.isPluginAutoUpdateEffective(input.cwd))
-		)
-			return undefined;
-		await markOutdatedShown(statePath, state, deps.now()).catch(logError(deps));
-	}
-	return updateLine("claude-code-plugin", state);
+	if (notice || !state || !statePath) return notice?.message;
+	// Claude Codeが次のsessionまでに更新する間は、新しい版を示さない。
+	return noticeLine("claude-code-plugin", statePath, state, {
+		now: deps.now(),
+		env: deps.env,
+		isSuppressed: () => deps.isPluginAutoUpdateEffective(input.cwd),
+	});
 }
 
 // sourceや送信の結果によらず、session contextを必ず1回出す。resumeとcompactの後のcontextにもsession IDを残すためである。
@@ -507,8 +528,8 @@ async function onSessionStart(input: HookInput, deps: Deps): Promise<void> {
 			});
 	// 表示は登録を送るsourceだけとする（correlation.md「hookの警告」）。
 	const message = registers
-		? await withUpdateLine(sent, input, deps).catch(() => sent)
-		: sent;
+		? await withUpdateLine(sent, input, deps).catch(() => sent?.message)
+		: sent?.message;
 	if (usage)
 		await appendIfRecording(usage, {
 			at: startedAt.toISOString(),

@@ -75,6 +75,17 @@ describe("isPluginAutoUpdateEffective", () => {
 		}
 	});
 
+	it("is not effective when a higher-precedence file cannot be read", async () => {
+		const paths = await layout({
+			"user/settings.json": { extraKnownMarketplaces: entry(true) },
+		});
+		await mkdir(join(paths.projectDir, ".claude"), { recursive: true });
+		await writeFile(join(paths.projectDir, ".claude/settings.json"), "{");
+		expect(await isPluginAutoUpdateEffective({ ...paths, env: {} })).toBe(
+			false,
+		);
+	});
+
 	it("follows the variables that turn off Claude Code updates", async () => {
 		const paths = await layout({
 			"user/settings.json": { extraKnownMarketplaces: entry(true) },

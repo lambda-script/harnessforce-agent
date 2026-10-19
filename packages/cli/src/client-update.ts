@@ -1,12 +1,10 @@
 import { join } from "node:path";
 import {
 	type ClientIdentity,
-	markOutdatedShown,
+	noticeLine,
 	readUpdateState,
 	recheckClientStatus,
-	shouldShowOutdated,
 	type UpdateState,
-	updateLine,
 } from "@harnessforce/agent-core/client-update";
 import { ingestBaseFrom } from "@harnessforce/agent-core/ingest";
 import type { Env, Fetch } from "@harnessforce/agent-core/types";
@@ -68,10 +66,9 @@ export async function noticeUpdate(deps: CliUpdateDeps): Promise<void> {
 	const statePath = updateStatePath(deps.homeDir);
 	const state = await readUpdateState(statePath, deps.client.version);
 	if (!state) return;
-	if (state.status === "outdated") {
-		if (!shouldShowOutdated(state, deps.now(), deps.env)) return;
-		await markOutdatedShown(statePath, state, deps.now()).catch(() => {});
-	}
-	const line = updateLine("cli", state);
+	const line = await noticeLine("cli", statePath, state, {
+		now: deps.now(),
+		env: deps.env,
+	});
 	if (line) deps.stderr(`${line}\n`);
 }
