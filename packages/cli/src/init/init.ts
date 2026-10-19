@@ -35,6 +35,7 @@ import {
 	mergeUserSettings,
 	readUserSettings,
 	userSettingsPath,
+	withPluginAutoUpdate,
 	writeUserSettings,
 } from "../shared/settings.js";
 import { isStop, runUntilStop, stopWith } from "../shared/stop.js";
@@ -65,6 +66,8 @@ export type InitArgs = {
 	url: string | undefined;
 	port: number | undefined;
 	sendContent: boolean;
+	// `--no-plugin-auto-update`。Claude Codeのpluginの自動更新を止める。
+	noPluginAutoUpdate: boolean;
 };
 
 // apps/webがあらかじめ登録した固定のpublic client。
@@ -81,10 +84,8 @@ const sha256Hex = (value: string) =>
 
 export function init(args: InitArgs, deps: InitDeps): Promise<number> {
 	return runUntilStop(async () => {
-		const { codexPath, connection, isKernelKeyring } = await runInit(
-			args,
-			deps,
-		);
+		const { codexPath, connection, isKernelKeyring, isPluginAutoUpdateOn } =
+			await runInit(args, deps);
 		// 既定の本番以外へ向けた端末で、利用者が接続先に気づけるようにする。既定のときは何も足さない。
 		if (connection !== withoutExtras(new URL(deps.defaultUrl)))
 			deps.stdout(`${nonDefaultConnectionMessage(connection)}\n`);
@@ -92,6 +93,7 @@ export function init(args: InitArgs, deps: InitDeps): Promise<number> {
 		const lines = [
 			INIT_MESSAGES.success,
 			...(isKernelKeyring ? [INIT_MESSAGES.savedToKernelKeyring] : []),
+			...(isPluginAutoUpdateOn ? [INIT_MESSAGES.pluginAutoUpdateOn] : []),
 			codexNotes(codexPath),
 		];
 		deps.stdout(`${lines.join("\n")}\n`);
@@ -107,6 +109,7 @@ async function runInit(
 	codexPath: string;
 	connection: string;
 	isKernelKeyring: boolean;
+	isPluginAutoUpdateOn: boolean;
 }> {
 	const port = args.port ?? DEFAULT_PORT;
 	const base =
@@ -144,12 +147,16 @@ async function runInit(
 		deps.fetch,
 	);
 	const issued = issuedOrStop(outcome);
-	await save(issued, recordedUrl, settingsPath, args.sendContent, store).catch(
-		(error: unknown) => {
-			if (isStop(error)) throw error;
-			return stop("saveFailed");
-		},
-	);
+	const isPluginAutoUpdateOn = await save(
+		issued,
+		recordedUrl,
+		settingsPath,
+		args,
+		store,
+	).catch((error: unknown) => {
+		if (isStop(error)) throw error;
+		return stop("saveFailed");
+	});
 	const codexPath = codexConfigPath(deps.env, deps.homeDir);
 	await saveCodexConfig(issued, recordedUrl, codexPath, args.sendContent).catch(
 		() => stop("codexSaveFailed"),
@@ -163,6 +170,7 @@ async function runInit(
 		codexPath,
 		connection: recordedUrl,
 		isKernelKeyring: store.isKernelKeyring,
+		isPluginAutoUpdateOn,
 	};
 }
 
@@ -267,13 +275,14 @@ function issuedOrStop(outcome: CredentialOutcome): Issued {
 
 // correlation.md「CLI」の手順5と6。どちらかが失敗したら保存の失敗とする。
 // originを先に消し、途中で失敗しても前の接続先のoriginと新しいkeyやtokenの組を残さない。
+// pluginの自動更新が有効になったかを返す。
 async function save(
 	issued: Issued,
 	connection: string,
 	settingsPath: string,
-	sendContent: boolean,
+	args: Pick<InitArgs, "sendContent" | "noPluginAutoUpdate">,
 	store: InitKeychain,
-): Promise<void> {
+): Promise<boolean> {
 	await store.delete(ingestOriginAccount(issued.workspaceId));
 	await store.delete(urlOriginAccount(issued.workspaceId));
 	await store.set(ingestKeyAccount(issued.workspaceId), issued.ingestKey);
@@ -306,11 +315,13 @@ async function save(
 		OTEL_TRACES_EXPORTER: "otlp",
 		OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf",
 	};
-	if (sendContent && issued.contentOptIn) env.OTEL_LOG_USER_PROMPTS = "1";
-	await writeUserSettings(
-		settingsPath,
+	if (args.sendContent && issued.contentOptIn) env.OTEL_LOG_USER_PROMPTS = "1";
+	const { settings, isOn } = withPluginAutoUpdate(
 		mergeUserSettings(current.settings, env),
+		args.noPluginAutoUpdate,
 	);
+	await writeUserSettings(settingsPath, settings);
+	return isOn;
 }
 
 // correlation.md「Codex」: 利用者用のIngestKeyだけを書く。ApiTokenは書かない。

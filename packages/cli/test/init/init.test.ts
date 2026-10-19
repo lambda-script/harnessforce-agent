@@ -53,6 +53,8 @@ const M = {
 	noIngest:
 		"This environment does not receive telemetry, so an ingest key cannot be issued",
 	saveFailed: "Could not save the ingest key. Run `harnessforce init` again",
+	pluginAutoUpdateOn:
+		"Automatic updates for the Harnessforce plugin are on. To turn them off, run `harnessforce init --no-plugin-auto-update` or use /plugin",
 	contentNotOptedIn:
 		"This workspace has not opted in to prompts you typed, so sending content was not enabled. Opt in under Data retention in the workspace settings, then run `harnessforce init --send-content` again",
 };
@@ -64,7 +66,9 @@ const codexNotes = (home: string) =>
 		"Codex hooks do not run until you trust them in Codex's /hooks. Trust the harnessforce SessionStart hook in /hooks",
 		"To use the Harnessforce MCP server, log in with `codex mcp login harnessforce`",
 	].join("\n");
-const finished = (home: string) => `${M.success}\n${codexNotes(home)}\n`;
+// client-updates.md「Claude Codeのplugin」: pluginの自動更新を有効にした旨を、完了の表示に続けて示す。
+const finished = (home: string) =>
+	`${M.success}\n${M.pluginAutoUpdateOn}\n${codexNotes(home)}\n`;
 
 const contentEnabled =
 	"Sending the prompts you type is now enabled. Values that match known patterns for secrets and personal information are masked, but not everything can be detected. Within the workspace, only you can read your stored content, and it is deleted after the content retention period (at most 30 days)";
@@ -185,6 +189,15 @@ describe("harnessforce init", () => {
 			enabledPlugins: {
 				"other@market": true,
 				"harnessforce@harnessforce-agent": true,
+			},
+			extraKnownMarketplaces: {
+				"harnessforce-agent": {
+					source: {
+						source: "github",
+						repo: "lambda-script/harnessforce-agent",
+					},
+					autoUpdate: true,
+				},
 			},
 		});
 		expect(home.read()).not.toContain(issued.ingest_key);
@@ -326,7 +339,7 @@ describe("harnessforce init", () => {
 		});
 		expect(result).toEqual({
 			code: 0,
-			out: `${M.success}\n${M.kernelKeyring}\n${codexNotes(home.home)}\n`,
+			out: `${M.success}\n${M.kernelKeyring}\n${M.pluginAutoUpdateOn}\n${codexNotes(home.home)}\n`,
 			err: "",
 		});
 	});
@@ -499,18 +512,22 @@ describe("harnessforce init", () => {
 			});
 		});
 
-		it.each(["{", "[]", '{"env":[]}', '{"enabledPlugins":"x"}'])(
-			"stops when the user settings are %s",
-			async (content) => {
-				const server = await startCredentialsServer();
-				const home = makeHome(content);
-				expect(
-					await runInit([], { homeDir: home.home, defaultUrl: server.base }),
-				).toEqual(failed(M.settings));
-				expect(server.metadataRequests()).toEqual([]);
-				expect(home.read()).toBe(content);
-			},
-		);
+		it.each([
+			"{",
+			"[]",
+			'{"env":[]}',
+			'{"enabledPlugins":"x"}',
+			'{"extraKnownMarketplaces":"x"}',
+			'{"additionalMarketplaces":{"harnessforce-agent":true}}',
+		])("stops when the user settings are %s", async (content) => {
+			const server = await startCredentialsServer();
+			const home = makeHome(content);
+			expect(
+				await runInit([], { homeDir: home.home, defaultUrl: server.base }),
+			).toEqual(failed(M.settings));
+			expect(server.metadataRequests()).toEqual([]);
+			expect(home.read()).toBe(content);
+		});
 	});
 
 	describe("authorization server metadata", () => {
@@ -1065,6 +1082,60 @@ describe("harnessforce init", () => {
 			});
 			chmodSync(join(home.home, ".codex"), 0o700);
 			expect(result).toEqual(failed(codexSaveFailed));
+		});
+	});
+});
+
+// client-updates.md「Claude Codeのplugin」: init が書く marketplace の自動更新。
+describe("harnessforce init and plugin auto-update", () => {
+	const SOURCE = { source: "github", repo: "lambda-script/harnessforce-agent" };
+	async function initWith(settings: object, args: string[] = []) {
+		const server = await startCredentialsServer();
+		const home = makeHome(JSON.stringify(settings));
+		const result = await runInit(args, {
+			homeDir: home.home,
+			defaultUrl: server.base,
+			keychain: fakeKeychain({ items: EXISTING }).keychain,
+			openBrowser: fakeBrowser().open,
+		});
+		return { result, settings: JSON.parse(home.read() ?? "{}") };
+	}
+
+	it("writes autoUpdate false and says nothing with --no-plugin-auto-update", async () => {
+		const { result, settings } = await initWith({}, [
+			"--no-plugin-auto-update",
+		]);
+		expect(result.code).toBe(0);
+		expect(result.out).not.toContain(M.pluginAutoUpdateOn);
+		expect(settings.extraKnownMarketplaces).toEqual({
+			"harnessforce-agent": { source: SOURCE, autoUpdate: false },
+		});
+	});
+
+	it("keeps a value the user chose and the source already there", async () => {
+		const own = { source: "directory", path: "/opt/market" };
+		const { result, settings } = await initWith({
+			extraKnownMarketplaces: {
+				other: { source: SOURCE },
+				"harnessforce-agent": { source: own, autoUpdate: false },
+			},
+		});
+		expect(result.out).not.toContain(M.pluginAutoUpdateOn);
+		expect(settings.extraKnownMarketplaces).toEqual({
+			other: { source: SOURCE },
+			"harnessforce-agent": { source: own, autoUpdate: false },
+		});
+	});
+
+	it("writes into additionalMarketplaces when only the alias exists", async () => {
+		const { result, settings } = await initWith({
+			additionalMarketplaces: { other: { source: SOURCE } },
+		});
+		expect(result.out).toContain(M.pluginAutoUpdateOn);
+		expect(settings.extraKnownMarketplaces).toBeUndefined();
+		expect(settings.additionalMarketplaces).toEqual({
+			other: { source: SOURCE },
+			"harnessforce-agent": { source: SOURCE, autoUpdate: true },
 		});
 	});
 });

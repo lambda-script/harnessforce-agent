@@ -2,6 +2,9 @@
 export const INIT_MESSAGES = {
 	success:
 		"Connected to Harnessforce. Restart Claude Code to apply the settings",
+	// client-updates.md「Claude Codeのplugin」: 自動更新を有効にしたことと、止める手段を示す。
+	pluginAutoUpdateOn:
+		"Automatic updates for the Harnessforce plugin are on. To turn them off, run `harnessforce init --no-plugin-auto-update` or use /plugin",
 	invalidUrl: "The connection URL is invalid",
 	keychainUnavailable:
 		"The OS keychain is unavailable, so the ingest key cannot be saved",

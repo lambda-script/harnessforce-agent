@@ -127,3 +127,23 @@ export function runIssue(args: RunArgs, deps: RunDeps): Promise<number> {
 		return 1;
 	}, deps.stderr);
 }
+
+// client-updates.md「送信の停止」: CLIの版が対応外の間は、Issueを解決せず、Harnessforceのための環境を付けずにagentを起動する。
+export async function runWithoutHarnessforce(
+	args: RunArgs,
+	deps: Pick<RunDeps, "env" | "restoredEnv" | "launch" | "stderr">,
+): Promise<number> {
+	const env = Object.fromEntries(
+		Object.entries({ ...deps.env, ...deps.restoredEnv }).filter(
+			(entry): entry is [string, string] => entry[1] !== undefined,
+		),
+	);
+	const outcome = await deps.launch({
+		command: args.agent,
+		args: [...args.agentArgs],
+		env,
+	});
+	if (outcome.kind === "exited") return outcome.code;
+	deps.stderr(`${launchFailedMessage(args.agent)}\n`);
+	return 1;
+}

@@ -23,7 +23,10 @@ import { spawnUsageSender } from "./usage-limits/spawn-sender.js";
 
 // buildが書く既定の接続先（scripts/build-config.mjs）。distのbin.jsと同じdirectoryにある。
 const require = createRequire(import.meta.url);
-const { url: defaultUrl } = require("./build-config.json") as { url: string };
+const { url: defaultUrl, isDefault } = require("./build-config.json") as {
+	url: string;
+	isDefault: boolean;
+};
 // correlation.md「CLI」: 待ち受けを始めてから5分以内にcallbackが来なければ終える。
 const CALLBACK_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -67,6 +70,7 @@ process.exitCode =
 		homeDir: homedir(),
 		managedDir: managedDirFor(process.platform),
 		defaultUrl,
+		devBuild: !isDefault,
 		callbackTimeoutMs: CALLBACK_TIMEOUT_MS,
 		cwd: process.cwd(),
 		git: createGitRunner({

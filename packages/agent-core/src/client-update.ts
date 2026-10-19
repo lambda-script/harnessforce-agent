@@ -125,8 +125,11 @@ export function recordingFetch(
 	now: () => Date,
 ): Fetch {
 	return async (url, init) => {
-		const headers = new Headers(init.headers);
-		headers.set("user-agent", userAgentOf(client));
+		// headerはplainなobjectのまま渡す。呼び出し側と同じ形を保つためである。
+		const headers = {
+			...Object.fromEntries(new Headers(init.headers)),
+			"user-agent": userAgentOf(client),
+		};
 		const response = await fetchImpl(url, { ...init, headers });
 		const update = parseClientUpdateHeader(
 			response.headers.get(CLIENT_UPDATE_HEADER),

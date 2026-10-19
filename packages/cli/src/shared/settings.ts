@@ -11,6 +11,7 @@ import {
 import { dirname, join } from "node:path";
 import { absoluteEnv } from "@harnessforce/agent-core/config/scope";
 import { isObject } from "@harnessforce/agent-core/object";
+import { MARKETPLACE_NAME } from "@harnessforce/agent-core/plugin-auto-update";
 import type { Env } from "@harnessforce/agent-core/types";
 
 type Settings = Record<string, unknown>;
@@ -47,11 +48,61 @@ export async function readUserSettings(
 			isObject(settings) &&
 			(settings.env === undefined || isObject(settings.env)) &&
 			(settings.enabledPlugins === undefined ||
-				isObject(settings.enabledPlugins));
+				isObject(settings.enabledPlugins)) &&
+			MARKETPLACE_KEYS.every((key) => isMarketplacesValid(settings[key]));
 		return isValid ? { kind: "ok", settings } : { kind: "invalid" };
 	} catch {
 		return { kind: "invalid" };
 	}
+}
+
+// client-updates.md「Claude Codeのplugin」: 自動更新を書くmarketplaceの登録の鍵。別名だけがあるfileでは別名に書く。
+const MARKETPLACE_KEYS = ["extraKnownMarketplaces", "additionalMarketplaces"];
+const MARKETPLACE_SOURCE = {
+	source: "github",
+	repo: "lambda-script/harnessforce-agent",
+} as const;
+
+const isMarketplacesValid = (value: unknown) =>
+	value === undefined ||
+	(isObject(value) &&
+		(value[MARKETPLACE_NAME] === undefined ||
+			isObject(value[MARKETPLACE_NAME])));
+
+/**
+ * marketplaceの登録の鍵の`harnessforce-agent`に、sourceと自動更新を書く。sourceと、利用者が切り替えた真偽値は残し、
+ * turnOffのときだけ偽にする。自動更新が有効になったかも返す。
+ */
+export function withPluginAutoUpdate(
+	settings: Settings,
+	turnOff: boolean,
+): { settings: Settings; isOn: boolean } {
+	const key =
+		settings.additionalMarketplaces !== undefined &&
+		settings.extraKnownMarketplaces === undefined
+			? "additionalMarketplaces"
+			: "extraKnownMarketplaces";
+	const marketplaces = (settings[key] as Settings | undefined) ?? {};
+	const entry = (marketplaces[MARKETPLACE_NAME] as Settings | undefined) ?? {};
+	const autoUpdate = turnOff
+		? false
+		: typeof entry.autoUpdate === "boolean"
+			? entry.autoUpdate
+			: true;
+	return {
+		settings: {
+			...settings,
+			[key]: {
+				...marketplaces,
+				[MARKETPLACE_NAME]: {
+					...entry,
+					source: entry.source ?? MARKETPLACE_SOURCE,
+					autoUpdate,
+				},
+			},
+		},
+		isOn: autoUpdate,
+	};
 }
 
 // 最上位はenv、otelHeadersHelper、enabledPluginsだけを変え、envとenabledPluginsの他の鍵は残す。
