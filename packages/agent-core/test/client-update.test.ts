@@ -85,7 +85,9 @@ describe("update state file", () => {
 			path,
 			state({ status: "outdated", latest: "0.3.0" }),
 		);
-		expect((await stat(path)).mode & 0o777).toBe(0o600);
+		// Windowsのfileはpermissionのbitを持たない。
+		if (process.platform !== "win32")
+			expect((await stat(path)).mode & 0o777).toBe(0o600);
 		expect(await readUpdateState(path, "0.2.0")).toEqual(
 			state({ status: "outdated", latest: "0.3.0" }),
 		);
