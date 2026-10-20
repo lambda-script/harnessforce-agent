@@ -290,6 +290,12 @@ describe("reading the harnessforce otel-headers output", () => {
 			kind: "withheld",
 		}));
 
+	// client-updates.md「送信の停止」: CLIの版が対応外のとき、keyを出さずに終了コード5で終える。
+	it("reports exit code 5 as an unsupported CLI version", async () =>
+		expect(await readWith({ ok: false, stdout: "", exitCode: 5 })).toEqual({
+			kind: "cliUnsupported",
+		}));
+
 	it.each([
 		["another non-zero exit", { ok: false, stdout: "", exitCode: 1 }],
 		["a timeout", { ok: false, stdout: header("k") }],

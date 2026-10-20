@@ -7,6 +7,7 @@ import {
 	warningOnlyOutput,
 } from "@harnessforce/agent-core/hook-warning";
 import { managedDirFor } from "@harnessforce/agent-core/managed";
+import { isPluginAutoUpdateEffective } from "@harnessforce/agent-core/plugin-auto-update";
 import { createGitRunner } from "@harnessforce/agent-core/process/git";
 import {
 	relaunchWithoutRuntimeVariables,
@@ -15,6 +16,10 @@ import {
 import { isTelemetryConfigured } from "@harnessforce/agent-core/telemetry-settings";
 import { runHook } from "./hook.js";
 import { createUserKeyReader, execHf } from "./user-key.js";
+
+// buildがpackage.jsonの版と、接続先を与えたbuildかを埋め込む（build.mjs）。
+declare const __HF_PLUGIN_VERSION__: string;
+declare const __HF_DEV_BUILD__: boolean;
 
 // hookの取り除いた値を戻す子プロセスは無い。受け取った値は子へ渡さない（correlation.md「Node.jsの実行時の変数」）。
 delete process.env.HARNESSFORCE_RUNTIME_ENV;
@@ -75,6 +80,18 @@ async function main(): Promise<void> {
 		}),
 		isTelemetryConfigured: () =>
 			isTelemetryConfigured({ userSettingsPath, managedDir }),
+		client: {
+			component: "claude-code-plugin",
+			version: __HF_PLUGIN_VERSION__,
+			dev: __HF_DEV_BUILD__,
+		},
+		isPluginAutoUpdateEffective: (cwd) =>
+			isPluginAutoUpdateEffective({
+				userSettingsPath,
+				managedDir,
+				projectDir: absoluteEnv(process.env.CLAUDE_PROJECT_DIR) ?? cwd,
+				env: process.env,
+			}),
 	});
 }
 

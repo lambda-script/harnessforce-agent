@@ -58,7 +58,14 @@ type HarnessOptions = {
 	telemetryConfigured?: boolean;
 	// managed-settings.jsonのenv。既定のWorkspace用のkeyと送信先に重ね、undefinedの値は除く。nullならfileを置かない。
 	managed?: Env | null;
+	// 応答の`Harnessforce-Client-Update`（client-updates.md「応答のheader」）。
+	updateHeader?: string;
+	// Claude Codeがpluginを自動更新するとみなせるか。既定はみなせない。
+	pluginAutoUpdate?: boolean;
 };
+
+// testが使うpluginの版（client-updates.md「版の申告」）。
+export const PLUGIN_VERSION = "0.2.0";
 
 // managed settingsのfileが配るWorkspace用のkeyと送信先。
 export const MANAGED_ENV = {
@@ -97,8 +104,19 @@ export function harness(options: HarnessOptions = {}) {
 					),
 				);
 			const status = options.statusFor?.(url.href) ?? options.status ?? 200;
-			return new Response(null, { status });
+			return new Response(null, {
+				status,
+				headers: options.updateHeader
+					? { "harnessforce-client-update": options.updateHeader }
+					: {},
+			});
 		},
+		client: {
+			component: "claude-code-plugin",
+			version: PLUGIN_VERSION,
+			dev: false,
+		},
+		isPluginAutoUpdateEffective: async () => options.pluginAutoUpdate ?? false,
 		stdout: (text) => out.push(text),
 		stderr: (text) => err.push(text),
 		isTelemetryConfigured: async () => options.telemetryConfigured ?? true,

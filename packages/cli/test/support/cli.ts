@@ -124,6 +124,7 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}) {
 		homeDir: "/nonexistent/hf-home",
 		managedDir: "/nonexistent/hf-managed",
 		defaultUrl: "https://app.example.test",
+		devBuild: false,
 		callbackTimeoutMs: 5000,
 		restoredEnv: {},
 		cwd: "/nonexistent/hf-cwd",

@@ -1,5 +1,10 @@
 import { isAbsolute } from "node:path";
 import {
+	type ClientIdentity,
+	noticeLine,
+	updateLine,
+} from "@harnessforce/agent-core/client-update";
+import {
 	DESTINATION_MISMATCH_WARNING,
 	INVALID_ENDPOINT_WARNING,
 	keyMissingWarning,
@@ -19,6 +24,11 @@ import { sessionContext } from "@harnessforce/agent-core/session-context";
 import type { Env, Fetch } from "@harnessforce/agent-core/types";
 import { resolveVcs } from "@harnessforce/agent-core/vcs";
 import { isToken, type SessionRegistration } from "@harnessforce/semconv";
+import {
+	isSendingBlocked,
+	readCliUpdateState,
+	updateStatePath,
+} from "../client-update.js";
 import type { Keychain } from "../credentials/keychain.js";
 import {
 	resolveUserDestination,
@@ -37,6 +47,8 @@ export type SessionStartDeps = {
 	readStdin: (maxBytes: number) => Promise<Buffer>;
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
+	client: ClientIdentity;
+	defaultUrl: string;
 };
 
 // Codexが渡す入力は小さなJSONのobjectである。
@@ -168,6 +180,26 @@ async function register(
 	return { outcome };
 }
 
+// correlation.md「hookの警告」の順: 401、clientの版が対応外、送信の設定と失敗の警告、clientの更新の期限、新しい版がある。
+async function selectWarning(
+	registered: Registered,
+	deps: SessionStartDeps,
+): Promise<string | undefined> {
+	if (registered.outcome?.kind === "unauthorized") return REVOKED_MESSAGE;
+	const state = await readCliUpdateState(deps.homeDir, deps.client.version);
+	if (state?.status === "unsupported") return updateLine("cli", state);
+	const sending =
+		registered.warning ??
+		(registered.outcome?.kind === "failed"
+			? REGISTRATION_FAILED_WARNING
+			: undefined);
+	if (sending !== undefined || !state) return sending;
+	return noticeLine("cli", updateStatePath(deps.homeDir), state, {
+		now: deps.now(),
+		env: deps.env,
+	});
+}
+
 // correlation.md「Codexのhook」。CodexのSessionStartのhookが起動する。どの失敗でもsessionを止めず、常にexit 0で終える。
 export async function sessionStart(deps: SessionStartDeps): Promise<number> {
 	const raw = await deps
@@ -176,8 +208,12 @@ export async function sessionStart(deps: SessionStartDeps): Promise<number> {
 		.catch(() => "");
 	const input = parseInput(raw);
 	if (!input) return 0;
+	const registers =
+		input.source === undefined || REGISTERING_SOURCES.has(input.source);
+	// CLIの版が対応外の間は登録を送らない（client-updates.md「送信の停止」）。
+	const blocked = registers && (await isSendingBlocked(deps));
 	const registered =
-		input.source === undefined || REGISTERING_SOURCES.has(input.source)
+		registers && !blocked
 			? await register(input, deps).catch((error): Registered => {
 					report(
 						deps,
@@ -186,13 +222,7 @@ export async function sessionStart(deps: SessionStartDeps): Promise<number> {
 					return {};
 				})
 			: {};
-	const warning =
-		registered.outcome?.kind === "unauthorized"
-			? REVOKED_MESSAGE
-			: (registered.warning ??
-				(registered.outcome?.kind === "failed"
-					? REGISTRATION_FAILED_WARNING
-					: undefined));
+	const warning = registers ? await selectWarning(registered, deps) : undefined;
 	// CodexはSessionStartのJSONの`systemMessage`をUIの警告として示す（agent-telemetry.md「hook、MCP」）。
 	if (warning !== undefined) deps.stderr(`${warning}\n`);
 	deps.stdout(

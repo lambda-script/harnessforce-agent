@@ -27,8 +27,8 @@ harnessforce init
 
 | Command | What it does |
 | --- | --- |
-| `harnessforce init [--port <port>] [--send-content]` | Logs in with the browser, stores a user ingest key and an API token in the keychain, and configures Claude Code and Codex |
-| `harnessforce otel-headers` | Prints the `Authorization` header for Claude Code's `otelHeadersHelper`. Exits 3 when there is no key, 4 when the destination differs from the pinned origin, and 1 on other failures. On Linux, after printing a key read from the kernel keyring, it moves that Workspace's items to an unlocked Secret Service (not when the hook starts it), so a reboot does not lose them |
+| `harnessforce init [--port <port>] [--send-content] [--no-plugin-auto-update]` | Logs in with the browser, stores a user ingest key and an API token in the keychain, and configures Claude Code and Codex |
+| `harnessforce otel-headers` | Prints the `Authorization` header for Claude Code's `otelHeadersHelper`. Exits 3 when there is no key, 4 when the destination differs from the pinned origin, 5 while the CLI version is unsupported, and 1 on other failures. On Linux, after printing a key read from the kernel keyring, it moves that Workspace's items to an unlocked Secret Service (not when the hook starts it), so a reboot does not lose them |
 | `harnessforce run --issue <identifier> -- <agent> [args]` | Launches an agent with its session linked to an Issue |
 | `harnessforce import` | Sends the metadata of past Claude Code sessions in connected repositories |
 | `harnessforce tune [--all] [--no-send] [--show-report] [--json]` | Analyzes past sessions on this machine by public rules and sends the counts (analysis reports) |
@@ -106,7 +106,7 @@ tokens are sent only to the origins pinned by `harnessforce init`.
 
 ## CLI credentials (`harnessforce init`, `harnessforce otel-headers`)
 
-`harnessforce init [--port <port>] [--send-content]` connects this machine to a Harnessforce Workspace:
+`harnessforce init [--port <port>] [--send-content] [--no-plugin-auto-update]` connects this machine to a Harnessforce Workspace:
 
 1. It checks the OS keychain first: macOS Keychain or the Windows Credential Manager (through
    [`@napi-rs/keyring`](https://github.com/Brooooooklyn/keyring-node)). On Linux it writes and deletes
@@ -139,6 +139,9 @@ tokens are sent only to the origins pinned by `harnessforce init`.
      to content it also adds `OTEL_LOG_USER_PROMPTS=1`
    - `otelHeadersHelper`: `harnessforce otel-headers`
    - `enabledPlugins["harnessforce@harnessforce-agent"]`
+   - `extraKnownMarketplaces["harnessforce-agent"]` (or `additionalMarketplaces` when only that alias is
+     present): the GitHub source and `autoUpdate: true`, so Claude Code updates the plugin in the
+     background. `--no-plugin-auto-update` writes `false`; a value you set yourself is kept.
 6. It updates the Codex `config.toml` (`$CODEX_HOME` when it is an absolute path, otherwise `~/.codex`),
    changing only these three items and keeping every other key and comment:
    - `[otel].exporter`: OTLP/HTTP (`protocol = "binary"`) to the ingest endpoint with
@@ -174,6 +177,21 @@ origin. The new pair replaces `<workspace_id>:api-token`. A lock older than 60 s
 abandoned, and waiting more than 30 seconds for it counts as a failed refresh. If the refresh fails, or
 the refreshed token is also answered with 401, they stop with
 "Your login has expired. Run `harnessforce init`".
+
+## Updates
+
+Every request to Harnessforce carries `User-Agent: harnessforce-cli/<version>` and nothing else about
+the machine. The server answers with the update status, which is kept in
+`~/.harnessforce/update-status.json`:
+
+- A newer version is shown once a day after a command (not with `NO_UPDATE_NOTIFIER` or `CI`).
+- After a security fix, the date this version stops sending is shown after every command.
+- An unsupported version sends nothing: sending commands exit 1, `harnessforce run` starts the agent
+  without the Harnessforce environment, `harnessforce otel-headers` exits 5 without a key, and the Codex
+  hook registers nothing. After 24 hours it checks again with `GET /v1/client-status`, without
+  credentials.
+
+Update with `npm install -g @harnessforce/cli@latest`. The CLI never replaces itself.
 
 ## Launching an agent for an Issue (`harnessforce run`)
 

@@ -12,7 +12,7 @@ const SENDS_NOTHING_LOCAL =
 const COMMANDS = {
 	init: {
 		summary: "Connect this machine to a Harnessforce Workspace",
-		text: `Usage: harnessforce init [--port <port>] [--send-content]
+		text: `Usage: harnessforce init [--port <port>] [--send-content] [--no-plugin-auto-update]
 
 When to use:
   Once per machine, before anything else, and again whenever the login expires.
@@ -26,6 +26,9 @@ Options:
   --port <port>     Loopback port for the login callback, 1-65535 (default 8080).
   --send-content    Also send the text of the prompts you type. Takes effect only
                     when the Workspace has opted in. Off by default.
+  --no-plugin-auto-update
+                    Turn off automatic updates of the Harnessforce plugin in
+                    Claude Code. On by default; a value you set is kept.
 
 Sends:
   The login exchange with the Workspace. After init, the agents you run send
