@@ -107,7 +107,12 @@ type BrowserOptions = {
 // ブラウザとログインの画面の代わり。authorization requestのredirect_uriへcallbackを送る。
 export function fakeBrowser(options: BrowserOptions = {}) {
 	const opened: URL[] = [];
-	const pages: Promise<string>[] = [];
+	const pages: Promise<{
+		status: number;
+		location: string | null;
+		cacheControl: string | null;
+		body: string;
+	}>[] = [];
 	const open = async (url: string) => {
 		const authorization = new URL(url);
 		opened.push(authorization);
@@ -125,10 +130,17 @@ export function fakeBrowser(options: BrowserOptions = {}) {
 					const params = Object.entries(query).filter(
 						(entry): entry is [string, string] => entry[1] !== undefined,
 					);
+					// 完了画面への303を辿らず、応答そのものを返す。
 					const response = await fetch(
 						`${redirectUri}?${new URLSearchParams(params)}`,
+						{ redirect: "manual" },
 					);
-					return response.text();
+					return {
+						status: response.status,
+						location: response.headers.get("location"),
+						cacheControl: response.headers.get("cache-control"),
+						body: await response.text(),
+					};
 				})(),
 			);
 		}
