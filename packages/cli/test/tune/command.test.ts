@@ -460,6 +460,40 @@ describe("harnessforce tune", () => {
 		expect((await t.run(["record", "--all"])).code).toBe(2);
 	});
 
+	// 印字可能なASCII以外は端末の制御に使える。UTF-8の2バイト目が0x80-0x9Fになる文字も、8bitのC1を解釈する端末ではCSIになる。
+	it("writes server and model names to the terminal as printable ASCII only", async () => {
+		const t = await setupTune({ sessions: 1 });
+		const name = "a\u001b]52;c;eA==\u0007\u007f\u009b2J\u00db\u{1f600}";
+		writeFile(
+			join(t.cwd, ".mcp.json"),
+			JSON.stringify({ mcpServers: { [name]: { command: "x" } } }),
+		);
+		writeFileSync(
+			join(t.home.home, ".claude", "projects", "-work-web", "s000.jsonl"),
+			tuneTranscript("s000", t.cwd, NOW - 2 * 86_400_000).replaceAll(
+				"claude-opus-5-5",
+				JSON.stringify(`m${name}`).slice(1, -1),
+			),
+		);
+		// 表示の固定の文言は「—」を含みうる。
+		const isPrintable = (text: string) => /^[\n\x20-\x7e—]*$/.test(text);
+
+		const shown = await t.run(["--show-report"]);
+		expect(isPrintable(shown.out)).toBe(true);
+		expect(shown.out).toContain(
+			"  a\\u{1b}]52;c;eA==\\u{7}\\u{7f}\\u{9b}2J\\u{db}\\u{1f600}: 0 call(s)",
+		);
+		expect(shown.out).toContain("main ma\\u{1b}]52;c;eA==");
+		const reports = JSON.parse(shown.out.slice(shown.out.indexOf("\n[") + 1));
+		expect(reports[0].mcp_servers[0].server).toBe(name);
+
+		const json = await t.run(["--json", "--no-send"]);
+		expect(isPrintable(json.out)).toBe(true);
+		const output = JSON.parse(json.out);
+		expect(output.sessions[0].report.mcp_servers[0].server).toBe(name);
+		expect(output.sessions[0].usage.models[0].model).toBe(`m${name}`);
+	});
+
 	it("keeps each session's MCP servers from the first analysis", async () => {
 		const t = await setupTune({ sessions: 1 });
 		writeFile(

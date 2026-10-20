@@ -24,7 +24,7 @@ import { runUntilStop, stopWith } from "../shared/stop.js";
 import { ANALYZER_VERSION, analyzeSession } from "./analyze.js";
 import { detectApplied } from "./applied.js";
 import { collectMcpServers, type SnapshotDeps } from "./config-snapshot.js";
-import { localIso, renderAnalysis } from "./display.js";
+import { asciiJson, localIso, renderAnalysis } from "./display.js";
 import { computeFollowups } from "./followups.js";
 import { acquireTuneLock } from "./lock.js";
 import { mcpConfigOf } from "./mcp-config.js";
@@ -512,7 +512,7 @@ async function analyzeUnderLock(
 	);
 	if (!isWritten) notices.add("unwritable", TUNE_MESSAGES.unwritable, 1);
 
-	if (options.json) deps.stdout(`${JSON.stringify(output)}\n`);
+	if (options.json) deps.stdout(`${asciiJson(output)}\n`);
 	else {
 		deps.stdout(
 			renderAnalysis(
@@ -527,9 +527,8 @@ async function analyzeUnderLock(
 		);
 		if (options.showReport)
 			deps.stdout(
-				`${JSON.stringify(
+				`${asciiJson(
 					analyzed.filter((a) => a.sendable === true).map((a) => a.report),
-					null,
 					2,
 				)}\n`,
 			);

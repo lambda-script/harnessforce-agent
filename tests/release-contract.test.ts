@@ -115,6 +115,15 @@ describe("release workflow", () => {
 		expect(yml).toContain("id-token: write");
 		expect(yml).toMatch(/runs-on: ubuntu-/);
 	});
+	// npmがrepositoryとworkflowのfile名だけを照合すると、main以外のbranchに置いたrelease.ymlのOIDC tokenでも公開できる。
+	it("publishes only from the release environment that npm trusts", () => {
+		expect(parse(yml).jobs.release.environment).toBe("release");
+		const releasing = readRunbook();
+		expect(releasing).toContain(
+			"--file release.yml --environment release --allow-publish",
+		);
+		expect(releasing).toContain("single branch rule `main`");
+	});
 	it("publishes by trusted publishing instead of a long-lived npm token", () => {
 		expect(yml).not.toMatch(/NPM_TOKEN|NODE_AUTH_TOKEN|secrets: inherit/);
 		// setup-nodeのregistry-urlは環境変数のtokenを読む.npmrcを書き、OIDCで得たtokenと競合する。

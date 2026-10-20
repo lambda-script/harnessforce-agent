@@ -15,8 +15,13 @@ recorded, that spec keeps distributing the plugin and the CLI to the public out 
    placeholder: from an empty directory holding only a `package.json` with that `name`, the version
    `0.0.0-bootstrap.0` and the same `repository` as `packages/<name>/package.json`, run
    `npm publish --access public`.
-4. Attach the trusted publisher to each package (npm 11.15.0 or later, 2FA required):
-   `npm trust github @harnessforce/<name> --repository lambda-script/harnessforce-agent --file release.yml --allow-publish`
+4. In repository Settings → Environments, create the `release` environment that the `Release` job runs in, and
+   set its Deployment branches and tags to Selected branches and tags with the single branch rule `main`. Then
+   attach the trusted publisher to each package, bound to that environment (npm 11.15.0 or later, 2FA required):
+   `npm trust github @harnessforce/<name> --repository lambda-script/harnessforce-agent --file release.yml --environment release --allow-publish`
+   npm then accepts only an OIDC token from `release.yml` running in the `release` environment, and GitHub runs
+   that environment only from `main`, so a `release.yml` pushed to any other branch cannot publish. Do not attach
+   a trusted publisher without `--environment release`, and do not widen the environment's branch rule.
 5. In repository Settings → Actions → General, allow GitHub Actions to create pull requests.
 6. Do not set `HARNESSFORCE_BUILD_URL`. The `Release` workflow does not pass it, so the build bakes the
    production default `https://harnessforce.dev` into `@harnessforce/cli` and the plugin
