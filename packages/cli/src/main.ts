@@ -192,7 +192,7 @@ export async function run(
 		if (rest.length === 1 && (event === "post-tool-use" || event === "stop"))
 			return workLocationHook(event, {
 				...hookDeps,
-				temporaryDirectory: cli.hookTmpDir,
+				hookTmpDir: cli.hookTmpDir,
 			});
 		cli.stderr(HOOK_USAGE);
 		return 1;
