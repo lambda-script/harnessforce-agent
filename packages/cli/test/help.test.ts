@@ -92,7 +92,9 @@ describe("harnessforce <command> --help", () => {
 	it("does not treat --help as a hook invocation", async () => {
 		const r = await runCli(["hook", "--help"]);
 		expect(r.code).toBe(0);
-		expect(r.out).toContain("Usage: harnessforce hook session-start");
+		expect(r.out).toContain(
+			"Usage: harnessforce hook session-start|post-tool-use|stop",
+		);
 	});
 });
 

@@ -373,8 +373,9 @@ describe("harnessforce hook session-start", () => {
 		const { run } = setup();
 		for (const args of [
 			["hook"],
-			["hook", "stop"],
+			["hook", "session-end"],
 			["hook", "session-start", "x"],
+			["hook", "stop", "x"],
 		]) {
 			const result = await run(args);
 			expect(result.code).toBe(1);

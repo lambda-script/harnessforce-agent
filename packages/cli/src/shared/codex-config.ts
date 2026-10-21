@@ -25,9 +25,29 @@ export type CodexConfigInput = {
 	logUserPrompt: boolean;
 };
 
-const HOOK_COMMAND = "harnessforce hook session-start";
-const HOOK_COMMAND_WINDOWS = "harnessforce.cmd hook session-start";
 const HOOK_TIMEOUT_SECONDS = 10;
+
+type HookSpec = Readonly<{
+	event: "SessionStart" | "PostToolUse" | "Stop";
+	subcommand: string;
+	matcher?: string;
+	// correlation.md「sessionの作業位置」: 作業位置のhookはagentを待たせない。
+	isAsync?: boolean;
+}>;
+
+// correlation.md「Codex」: harnessforce initが`[hooks]`へ書くhandler。
+const HOOKS: readonly HookSpec[] = [
+	{ event: "SessionStart", subcommand: "session-start" },
+	{
+		event: "PostToolUse",
+		subcommand: "post-tool-use",
+		matcher: "^apply_patch$",
+		isAsync: true,
+	},
+	{ event: "Stop", subcommand: "stop", isAsync: true },
+];
+
+const hookCommand = (spec: HookSpec) => `harnessforce hook ${spec.subcommand}`;
 // keyを平文で持つfileであり、利用者のumaskに任せない（correlation.md「Codex」）。
 const FILE_MODE = 0o600;
 
@@ -48,8 +68,8 @@ export async function readCodexConfig(path: string): Promise<string> {
 	}
 }
 
-// 他のkeyと値、commentを残し、`[otel].exporter`、harnessforceのSessionStart handler、
-// `[mcp_servers].harnessforce`の3つだけを置き換える。書き込む内容は、読み直して期待どおりか確かめる。
+// 他のkeyと値、commentを残し、`[otel].exporter`、harnessforceのSessionStart、PostToolUse、Stopのhandler、
+// `[mcp_servers].harnessforce`の5つだけを置き換える。書き込む内容は、読み直して期待どおりか確かめる。
 // parserのerrorはfileの内容（以前のkeyなど）を含みうるため、内容を持たないerrorに置き換える。
 export function mergeCodexConfig(
 	text: string,
@@ -89,9 +109,11 @@ function withHarnessforce(config: Table, input: CodexConfigInput): Table {
 	if (input.logUserPrompt) otel.log_user_prompt = true;
 
 	const hooks = tableAt(config, "hooks");
-	const groups = hooks.SessionStart ?? [];
-	if (!Array.isArray(groups)) throw new Error("SessionStart");
-	hooks.SessionStart = withHandler(groups);
+	for (const spec of HOOKS) {
+		const groups = hooks[spec.event] ?? [];
+		if (!Array.isArray(groups)) throw new Error(spec.event);
+		hooks[spec.event] = withHandler(groups, spec);
+	}
 
 	const servers = tableAt(config, "mcp_servers");
 	const existing = servers.harnessforce;
@@ -107,21 +129,29 @@ function tableAt(parent: Table, key: string): Table {
 	return value;
 }
 
-const isOurs = (handler: unknown) =>
-	isObject(handler) && handler.command === HOOK_COMMAND;
-const hasOurs = (group: unknown) =>
-	isObject(group) && Array.isArray(group.hooks) && group.hooks.some(isOurs);
-
 // 前に書いたhandlerを新しい値で置き換える。groupのmatcherと他のhandlerは残す。無ければ新しいgroupを加える。
 // 要素を取り除く編集は、parserが入れ子のtableを落とすことがあるため行わない。
-function withHandler(groups: unknown[]): unknown[] {
+function withHandler(groups: unknown[], spec: HookSpec): unknown[] {
+	const command = hookCommand(spec);
+	const isOurs = (entry: unknown) =>
+		isObject(entry) && entry.command === command;
+	const hasOurs = (group: unknown) =>
+		isObject(group) && Array.isArray(group.hooks) && group.hooks.some(isOurs);
 	const handler = {
 		type: "command",
-		command: HOOK_COMMAND,
-		commandWindows: HOOK_COMMAND_WINDOWS,
+		command,
+		commandWindows: `harnessforce.cmd hook ${spec.subcommand}`,
 		timeout: HOOK_TIMEOUT_SECONDS,
+		...(spec.isAsync ? { async: true } : {}),
 	};
-	if (!groups.some(hasOurs)) return [...groups, { hooks: [handler] }];
+	if (!groups.some(hasOurs))
+		return [
+			...groups,
+			{
+				...(spec.matcher === undefined ? {} : { matcher: spec.matcher }),
+				hooks: [handler],
+			},
+		];
 	return groups.map((group) =>
 		hasOurs(group)
 			? {

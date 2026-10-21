@@ -41,6 +41,26 @@ const HANDLER = {
 	timeout: 10,
 };
 
+const POST_TOOL_USE_HANDLER = {
+	type: "command",
+	command: "harnessforce hook post-tool-use",
+	commandWindows: "harnessforce.cmd hook post-tool-use",
+	timeout: 10,
+	async: true,
+};
+const STOP_HANDLER = {
+	type: "command",
+	command: "harnessforce hook stop",
+	commandWindows: "harnessforce.cmd hook stop",
+	timeout: 10,
+	async: true,
+};
+// correlation.md「sessionの作業位置」: apply_patchの編集とturnの終わりを観測するhandler。
+const WORK_LOCATION_HOOKS = {
+	PostToolUse: [{ matcher: "^apply_patch$", hooks: [POST_TOOL_USE_HANDLER] }],
+	Stop: [{ hooks: [STOP_HANDLER] }],
+};
+
 const merged = (text: string, overrides: Partial<typeof input> = {}) =>
 	parse(mergeCodexConfig(text, { ...input, ...overrides })) as Config;
 
@@ -59,10 +79,10 @@ describe("Codex config.toml path", () => {
 });
 
 describe("merging the harnessforce items into config.toml", () => {
-	it("writes the three items into an empty file", () => {
+	it("writes the five items into an empty file", () => {
 		expect(merged("")).toEqual({
 			otel: { exporter: EXPORTER },
-			hooks: { SessionStart: [{ hooks: [HANDLER] }] },
+			hooks: { SessionStart: [{ hooks: [HANDLER] }], ...WORK_LOCATION_HOOKS },
 			mcp_servers: { harnessforce: { url: "https://hf.example.test/mcp" } },
 		});
 	});
@@ -76,7 +96,7 @@ environment = "prod" # keep
 log_user_prompt = false
 metrics_exporter = "none"
 
-[hooks.Stop]
+[hooks.UserPromptSubmit]
 x = 1
 
 [[hooks.SessionStart]]
@@ -97,7 +117,7 @@ theme = "dark"
 		const config = parse(result) as Config;
 		expect(config.model).toBe("gpt-5");
 		expect(config.tui).toEqual({ theme: "dark" });
-		expect(config.hooks.Stop).toEqual({ x: 1 });
+		expect(config.hooks.UserPromptSubmit).toEqual({ x: 1 });
 		expect(config.otel).toEqual({
 			environment: "prod",
 			log_user_prompt: false,
