@@ -35,7 +35,8 @@ import {
 	type UserDestination,
 } from "../credentials/user-destination.js";
 
-export const HOOK_USAGE = "Usage: harnessforce hook session-start\n";
+export const HOOK_USAGE =
+	"Usage: harnessforce hook session-start|post-tool-use|stop\n";
 
 export type SessionStartDeps = {
 	env: Env;
@@ -52,7 +53,7 @@ export type SessionStartDeps = {
 };
 
 // Codexが渡す入力は小さなJSONのobjectである。
-const MAX_INPUT_BYTES = 1024 * 1024;
+export const MAX_INPUT_BYTES = 1024 * 1024;
 // correlation.md「Codexのhook」: 登録を送るのはsourceが`startup`、`clear`、または無いときだけ。
 const REGISTERING_SOURCES = new Set(["startup", "clear"]);
 // correlation.md「Codex」: Codexのhookの上限時間は長く、ロックされたSecret Serviceの解錠の確認を待つと
@@ -127,7 +128,9 @@ function resolveWithinLimit(deps: SessionStartDeps): Promise<UserDestination> {
 	]).finally(() => clearTimeout(timer));
 }
 
-async function resolveDestination(deps: SessionStartDeps): Promise<Resolved> {
+export async function resolveDestination(
+	deps: SessionStartDeps,
+): Promise<Resolved> {
 	const resolved = await resolveWithinLimit(deps);
 	if (resolved.kind === "ok") return { destination: resolved.destination };
 	if (resolved.kind === "none") {

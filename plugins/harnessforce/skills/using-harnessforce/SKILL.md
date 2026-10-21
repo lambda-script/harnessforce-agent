@@ -10,6 +10,7 @@ This session has the Harnessforce hook installed. Harnessforce links the work of
 ## What is recorded
 
 - Session registration: agent, session ID, repository, branch, commit, start time, and the first prompt ID.
+- Work locations: the repository and branch of each Git working tree the session works in. Paths are not sent.
 - Config snapshot: the structure of the configuration in use (Claude Code only).
 - OTel telemetry: what the user chooses to send.
 - For work on an Issue, `record-run` registers the session as a Run and closes it. It records no Plan, Decision, or Definition of Done.
@@ -23,6 +24,7 @@ This session has the Harnessforce hook installed. Harnessforce links the work of
 
 - SessionStart: session registration and the config snapshot (Codex sends session registration only).
 - UserPromptSubmit: resends on the first prompt (Claude Code only).
+- Stop: sends the work locations at the end of a turn in which they changed.
 - A failing hook never stops the session. When the hook cannot send, it shows a one-line warning. Tell the user when a warning appears.
 
 ## Which skill and tool to use, and when
