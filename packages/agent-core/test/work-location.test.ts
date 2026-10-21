@@ -116,11 +116,7 @@ describe("observedDirectories", () => {
 				{ tool_name: "apply_patch", tool_input: { command } },
 				cwd,
 			),
-		).toEqual([
-			resolve(cwd, "src"),
-			resolve(cwd, "lib"),
-			resolve("/w/docs"),
-		]);
+		).toEqual([resolve(cwd, "src"), resolve(cwd, "lib"), resolve("/w/docs")]);
 		expect(
 			observedDirectories(
 				"codex",
