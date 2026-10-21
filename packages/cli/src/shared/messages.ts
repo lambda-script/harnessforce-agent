@@ -51,7 +51,7 @@ export const INIT_MESSAGES = {
 export const codexNotes = (configPath: string) =>
 	[
 		`Wrote the Codex configuration (${configPath}). Restart Codex to apply it`,
-		"Codex hooks do not run until you trust them in Codex's /hooks. Trust the harnessforce SessionStart hook in /hooks",
+		"Codex hooks do not run until you trust them in Codex's /hooks. Trust the harnessforce SessionStart, PostToolUse, and Stop hooks in /hooks",
 		"To use the Harnessforce MCP server, log in with `codex mcp login harnessforce`",
 	].join("\n");
 

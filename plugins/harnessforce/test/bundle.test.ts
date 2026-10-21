@@ -245,7 +245,6 @@ describe("built marketplace", () => {
 
 	// correlation.md「数えるhook」: agentを待たせないようasyncで動かす。
 	it.each([
-		["PostToolUse", "post-tool-use", "^(Skill|Agent|Task)$|^mcp__"],
 		[
 			"PostToolUseFailure",
 			"post-tool-use-failure",
@@ -263,6 +262,36 @@ describe("built marketplace", () => {
 				...(matcher === undefined ? {} : { matcher }),
 				hooks: [{ ...hookCommand(arg), async: true }],
 			},
+		]);
+	});
+
+	// correlation.md「数えるhook」「sessionの作業位置」: PostToolUseは数えるgroupと作業位置のgroupを分ける。
+	it("runs PostToolUse in a counting group and a work location group", () => {
+		const { hooks } = readJson(
+			join(marketplace, "plugins/harnessforce/hooks/hooks.json"),
+		);
+		expect(hooks.PostToolUse).toEqual([
+			{
+				matcher: "^(Skill|Agent|Task)$|^mcp__",
+				hooks: [{ ...hookCommand("post-tool-use"), async: true }],
+			},
+			{
+				matcher: "^(Write|Edit)$",
+				hooks: [{ ...hookCommand("work-location"), async: true }],
+			},
+		]);
+	});
+
+	// correlation.md「sessionの作業位置」: turnの終わりとworking directoryの移動をagentを待たせずに観測する。
+	it.each([
+		["CwdChanged", "cwd-changed"],
+		["Stop", "stop"],
+	])("observes work locations at %s with an async hook", (event, arg) => {
+		const { hooks } = readJson(
+			join(marketplace, "plugins/harnessforce/hooks/hooks.json"),
+		);
+		expect(hooks[event]).toEqual([
+			{ hooks: [{ ...hookCommand(arg), async: true }] },
 		]);
 	});
 

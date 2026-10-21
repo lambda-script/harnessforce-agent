@@ -96,6 +96,7 @@ process.exitCode =
 			processCwd: process.cwd(),
 			excludeTarget: true,
 		}),
+		hookTmpDir: tmpdir(),
 		sleep: (ms) => delay(ms),
 		top: createProcessIo(),
 		runOriginal: runOriginalCommand,

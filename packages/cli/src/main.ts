@@ -12,6 +12,7 @@ import {
 } from "./client-update.js";
 import { resolveHelp, UNKNOWN_COMMAND_HINT } from "./help.js";
 import { HOOK_USAGE, sessionStart } from "./hook/session-start.js";
+import { workLocationHook } from "./hook/work-location.js";
 import { type ImportDeps, importCommand } from "./import/command.js";
 import { type InitArgs, type InitDeps, init } from "./init/init.js";
 import { otelHeaders } from "./otel-headers.js";
@@ -40,6 +41,8 @@ export type CliDeps = InitDeps &
 		top: TopIo;
 		// hookが使うgit。hookのprocessの現在のdirectoryとsessionのrepositoryの外から解決する。
 		hookGit: RunGit;
+		// Codexのhookが作業位置の記録を置くOSの一時directory。
+		hookTmpDir: string;
 		// harnessforce usage-limits statusline: 元のstatusLineのcommandの実行と、切り離した送信の子process。
 		runOriginal: UsageLimitsDeps["runOriginal"];
 		spawnSender: UsageLimitsDeps["spawnSender"];
@@ -180,11 +183,8 @@ export async function run(
 			}),
 		);
 	if (command === "hook") {
-		if (rest.length !== 1 || rest[0] !== "session-start") {
-			cli.stderr(HOOK_USAGE);
-			return 1;
-		}
-		return sessionStart({
+		const [event] = rest;
+		const hookDeps = {
 			env: cli.env,
 			homeDir: cli.homeDir,
 			now: cli.now,
@@ -196,7 +196,16 @@ export async function run(
 			stderr: cli.stderr,
 			client,
 			defaultUrl: cli.defaultUrl,
-		});
+		};
+		if (rest.length === 1 && event === "session-start")
+			return sessionStart(hookDeps);
+		if (rest.length === 1 && (event === "post-tool-use" || event === "stop"))
+			return workLocationHook(event, {
+				...hookDeps,
+				hookTmpDir: cli.hookTmpDir,
+			});
+		cli.stderr(HOOK_USAGE);
+		return 1;
 	}
 	if (command === "top")
 		return topCommand(rest, {

@@ -35,6 +35,7 @@ harnessforce init
 | `harnessforce tune record` / `harnessforce tune --purge` | Records a proposal from stdin / deletes everything under `~/.harnessforce/tune/` |
 | `harnessforce top [--once] [--json] [--ascii] [--theme <auto\|light\|dark\|ansi>]` | Shows the Claude Code and Codex sessions on this machine in the terminal: state, tokens, context and tool failures. Reads only local files and never connects to Harnessforce |
 | `harnessforce hook session-start` | The entry of Codex's `SessionStart` hook: reads `session_id`, `cwd` and `source` from stdin, registers the session, and prints the session ID for the agent's context. Always exits 0 |
+| `harnessforce hook post-tool-use` / `stop` | The entries of Codex's `PostToolUse` (`apply_patch`) and `Stop` hooks: record the repository and branch of the working trees the session works in, and send them at the end of a turn in which they changed. Always exit 0 |
 | `harnessforce usage-limits on [--yes]` / `off` / `status` | Shares your usage limits with the workspace after you agree to the consent text (`on`), or withdraws the consent, deletes the stored values and restores your previous statusLine (`off`), or shows the consent, the workspace opt-in and whether the statusLine is wrapped (`status`). Not supported on Windows |
 | `harnessforce usage-limits statusline` | A statusLine command that wraps your existing one: it passes stdin to the original command, returns its output and exit code unchanged, then sends only the usage percentage and reset time of the 5-hour and 7-day windows. It sends nothing until you have consented |
 | `harnessforce --version` | Prints the version |
@@ -63,6 +64,20 @@ no context percentage.
 - The screen restores the alternate screen and the cursor on `q`, Ctrl-C, SIGTERM, SIGHUP and a normal exit. A console that does not understand VT escape sequences is not detected: use `--once` or `--ascii` there.
 - `~/.harnessforce/config.json` may set `{"top": {"ambiguous_width": 2, "braille": true}}`. An unreadable file or a
   value out of range falls back to the defaults and says so; the file is never written.
+
+## Codex work location hooks (`harnessforce hook post-tool-use` and `stop`)
+
+Codex has no event for a change of the working directory, so these hooks record the repository and branch
+of the working tree of each file named in an `apply_patch` patch (`*** Add File:`, `*** Update File:`,
+`*** Delete File:` and `*** Move to:` lines; relative paths are resolved from `cwd`) and of `cwd` at the end
+of each turn. At `Stop`, when the pairs differ from the pairs sent last, they are sent to
+`/v1/sessions/locations` with the same destination and key as the `SessionStart` hook. Only the agent, the
+session ID and up to 10 pairs of repository and branch are sent; paths, commits, file names and the content
+of patches are not. Codex gives hooks no scratchpad, so the record is kept in
+`<temporary directory>/harnessforce-locations/codex-<session_id>.json`; on macOS and Linux the directory
+must be owned by you with mode `0700`, or nothing is recorded. `stop` always prints `{}`, and both always
+exit 0. A machine set up with an earlier `harnessforce init` gets these hooks when you run it again and
+trust them in `/hooks`.
 
 ## Codex `SessionStart` hook (`harnessforce hook session-start`)
 
@@ -143,18 +158,21 @@ tokens are sent only to the origins pinned by `harnessforce init`.
      present): the GitHub source and `autoUpdate: true`, so Claude Code updates the plugin in the
      background. `--no-plugin-auto-update` writes `false`; a value you set yourself is kept.
 6. It updates the Codex `config.toml` (`$CODEX_HOME` when it is an absolute path, otherwise `~/.codex`),
-   changing only these three items and keeping every other key and comment:
+   changing only these five items and keeping every other key and comment:
    - `[otel].exporter`: OTLP/HTTP (`protocol = "binary"`) to the ingest endpoint with
      `Authorization = "Bearer <user ingest key>"`. Codex cannot take the header from a command or expand
      `${VAR}`, so this is the one place a key is written to a plain file. It is the user ingest key only
      (never the API token), and you can revoke it on the Workspace's send keys page. With `--send-content`
      and a Workspace that has opted in to content it also sets `log_user_prompt = true`
    - `[[hooks.SessionStart]]`: a handler that runs `harnessforce hook session-start`
+   - `[[hooks.PostToolUse]]`: a handler with `matcher = "^apply_patch$"` that runs `harnessforce hook post-tool-use`
+     asynchronously
+   - `[[hooks.Stop]]`: a handler that runs `harnessforce hook stop` asynchronously
    - `[mcp_servers.harnessforce]`: `url = "<base URL>/mcp"`
 
    The file is written through a temporary file in the same directory and renamed into place, with mode
-   `0600`. Running `harnessforce init` again replaces only these three items. Restart Codex afterwards,
-   trust the hook with `/hooks` (Codex runs an untrusted hook only after you review it), and run
+   `0600`. Running `harnessforce init` again replaces only these five items. Restart Codex afterwards,
+   trust the three hooks with `/hooks` (Codex runs an untrusted hook only after you review it), and run
    `codex mcp login harnessforce` to use the MCP server.
 
 `harnessforce otel-headers` prints `{"Authorization":"Bearer <key>"}`. The key is `HARNESSFORCE_INGEST_KEY` from
