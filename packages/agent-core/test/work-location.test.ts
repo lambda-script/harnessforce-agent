@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { chmodSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { describe, expect, it } from "vitest";
 import { createGitRunner } from "../src/process/git.js";
@@ -77,7 +77,7 @@ describe("observedDirectories", () => {
 					{ tool_name, tool_input: { file_path: "/w/src/a.ts", content: "x" } },
 					cwd,
 				),
-			).toEqual(["/w/src"]);
+			).toEqual([dirname("/w/src/a.ts")]);
 		expect(
 			observedDirectories(
 				"claude_code",
@@ -116,7 +116,11 @@ describe("observedDirectories", () => {
 				{ tool_name: "apply_patch", tool_input: { command } },
 				cwd,
 			),
-		).toEqual(["/repo/src", "/repo/lib", "/w/docs"]);
+		).toEqual([
+			resolve(cwd, "src"),
+			resolve(cwd, "lib"),
+			resolve("/w/docs"),
+		]);
 		expect(
 			observedDirectories(
 				"codex",
