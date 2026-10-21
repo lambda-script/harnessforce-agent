@@ -123,6 +123,23 @@ describe("session work locations from Claude Code", () => {
 		expect(JSON.stringify(sent(s.h))).not.toContain("someone-else");
 	});
 
+	it("writes nothing to stderr when the working directory changes, even if recording fails", async () => {
+		const repo = checkouts();
+		const h = harness({ git: repo.git });
+		await runHook(
+			"cwd-changed",
+			JSON.stringify({
+				session_id: "s-1",
+				cwd: repo.root,
+				scratchpad_dir: "/nonexistent/hf-scratch",
+				new_cwd: repo.worktree,
+			}),
+			h.deps,
+		);
+		expect(h.err()).toBe("");
+		expect(h.out()).toBe("");
+	});
+
 	it("records and sends nothing without a scratchpad", async () => {
 		const repo = checkouts();
 		const h = harness({ git: repo.git });

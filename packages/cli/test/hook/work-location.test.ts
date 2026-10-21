@@ -13,7 +13,7 @@ const WORKSPACE = "019f0000-0000-7000-8000-000000000001";
 const ENDPOINT = "https://ingest.example.test/base";
 const KEY = "hf_ik_secretkeyvalue";
 
-function codexSession(status = 202) {
+function codexSession(statusOf: () => number = () => 202) {
 	const root = tempDir("hf-codex-root-");
 	const worktree = join(root, ".worktrees", "eng-42-login");
 	mkdirSync(join(worktree, "src"), { recursive: true });
@@ -58,7 +58,7 @@ function codexSession(status = 202) {
 				),
 			fetch: async (url, init) => {
 				sent.push({ url: String(url), body: JSON.parse(String(init?.body)) });
-				return new Response(null, { status });
+				return new Response(null, { status: statusOf() });
 			},
 		});
 	return { root, worktree, run, sent };
@@ -114,13 +114,26 @@ describe("harnessforce hook post-tool-use and stop", () => {
 	});
 
 	it("stops sending for the session after a 401", async () => {
-		const s = codexSession(401);
+		const s = codexSession(() => 401);
 		const first = await s.run("stop", {});
 		await s.run("stop", { cwd: s.worktree });
 		expect(s.sent).toHaveLength(1);
 		expect(first.err).toContain(
 			"harnessforce: session location failed (unauthorized)",
 		);
+	});
+
+	it("writes the failure to stderr and sends again at the next turn", async () => {
+		let status = 503;
+		const s = codexSession(() => status);
+		const failed = await s.run("stop", {});
+		status = 202;
+		await s.run("stop", {});
+		await s.run("stop", {});
+		expect(failed.err).toContain(
+			"harnessforce: session location failed (HTTP 503)",
+		);
+		expect(s.sent).toHaveLength(2);
 	});
 
 	it("prints the empty object at Stop even for an input it cannot read", async () => {

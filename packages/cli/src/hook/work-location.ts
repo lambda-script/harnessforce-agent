@@ -4,7 +4,6 @@ import {
 	codexLocationStatePath,
 	type LocationEvent,
 	observedDirectories,
-	readLocationState,
 	recordObservedPairs,
 	sendLocations,
 } from "@harnessforce/agent-core/work-location";
@@ -18,7 +17,7 @@ import {
 
 export type WorkLocationDeps = SessionStartDeps & {
 	// OSの一時directory。Codexのhookは`scratchpad_dir`を受け取らないため、作業位置の記録をここに置く。
-	temporaryDirectory: string;
+	hookTmpDir: string;
 };
 
 type Input = {
@@ -56,7 +55,7 @@ async function observe(
 	deps: WorkLocationDeps,
 ): Promise<void> {
 	const statePath = await codexLocationStatePath(
-		deps.temporaryDirectory,
+		deps.hookTmpDir,
 		input.sessionId,
 	);
 	if (!statePath) return;
@@ -68,7 +67,7 @@ async function observe(
 	);
 	const state = await recordObservedPairs(statePath, directories, deps);
 	if (event !== "stop") return;
-	if ((await readLocationState(statePath)).unauthorized) return;
+	if (state.unauthorized) return;
 	if (await isSendingBlocked(deps)) return;
 	// 送信先が無い理由は、SessionStartのhookが警告する。
 	const { destination } = await resolveDestination({
