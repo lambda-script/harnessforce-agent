@@ -2,7 +2,7 @@
 	"name": "harnessforce-agent",
 	"private": true,
 	"type": "module",
-	"packageManager": "pnpm@12.11.2",
+	"packageManager": "pnpm@12.15.0",
 	"engines": {
 		"node": ">=22.21.1"
 	},
@@ -21,7 +21,7 @@
 		"release": "turbo run build && node scripts/check-publish-build.mjs && changeset publish"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.5.15",
+		"@biomejs/biome": "2.6.3",
 		"@changesets/cli": "^3.0.0",
 		"@types/node": "^24.0.0",
 		"knip": "^6.38.0",
