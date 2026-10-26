@@ -1,3 +1,4 @@
+import { isObject } from "@harnessforce/agent-core/object";
 import type { Fetch } from "@harnessforce/agent-core/types";
 import { parseAllowedUrl, underBase } from "@harnessforce/agent-core/url";
 import {
@@ -20,8 +21,48 @@ export type Issued = {
 	ingestKey: string;
 	apiToken: StoredApiToken;
 	ingestEndpoint: string;
-	contentOptIn: boolean;
+	content: ContentSettings;
 };
+
+// correlation.md「CLI」の手順4: 選ばれたWorkspaceの本文データの設定。
+export type ContentSettings = {
+	isPromptsStored: boolean;
+	isModelAndToolsStored: boolean;
+	visibility: ContentVisibility;
+	retentionDays: number;
+};
+type ContentVisibility =
+	| "all_members"
+	| "owners_admins_and_sender"
+	| "sender_only";
+
+const VISIBILITIES: ReadonlySet<string> = new Set([
+	"all_members",
+	"owners_admins_and_sender",
+	"sender_only",
+]);
+const RETENTION_DAYS: ReadonlySet<unknown> = new Set([7, 14, 30]);
+
+function parseContent(value: unknown): ContentSettings | undefined {
+	if (!isObject(value)) return undefined;
+	const { prompts, model_and_tools: modelAndTools, visibility } = value;
+	const retentionDays = value.retention_days;
+	if (
+		typeof prompts !== "boolean" ||
+		typeof modelAndTools !== "boolean" ||
+		typeof visibility !== "string" ||
+		!VISIBILITIES.has(visibility) ||
+		typeof retentionDays !== "number" ||
+		!RETENTION_DAYS.has(retentionDays)
+	)
+		return undefined;
+	return {
+		isPromptsStored: prompts,
+		isModelAndToolsStored: modelAndTools,
+		visibility: visibility as ContentVisibility,
+		retentionDays,
+	};
+}
 
 // correlation.md「CLI」の手順3と4の応答。unexpectedは「いずれにも当たらない応答」。
 export type CredentialOutcome =
@@ -44,24 +85,31 @@ function parseIssued(body: Record<string, unknown>): Issued | undefined {
 		workspace_id: workspaceId,
 		ingest_key: ingestKey,
 		ingest_endpoint: ingestEndpoint,
-		content_opt_in: contentOptIn,
+		content,
 	} = body;
 	if (
 		typeof workspaceId !== "string" ||
 		typeof ingestKey !== "string" ||
 		typeof ingestEndpoint !== "string" ||
-		typeof contentOptIn !== "boolean" ||
 		!WORKSPACE_ID.test(workspaceId)
 	)
 		return undefined;
 	const apiToken = parseTokenPair(body, workspaceId);
+	const parsedContent = parseContent(content);
 	const isValid =
 		ingestKey.startsWith(`hf_ik_${workspaceId}_`) &&
 		NO_WHITESPACE.test(ingestKey) &&
 		apiToken !== undefined &&
+		parsedContent !== undefined &&
 		parseAllowedUrl(ingestEndpoint) !== undefined;
-	return isValid && apiToken
-		? { workspaceId, ingestKey, apiToken, ingestEndpoint, contentOptIn }
+	return isValid && apiToken && parsedContent
+		? {
+				workspaceId,
+				ingestKey,
+				apiToken,
+				ingestEndpoint,
+				content: parsedContent,
+			}
 		: undefined;
 }
 

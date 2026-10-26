@@ -24,6 +24,7 @@ import {
 } from "../shared/codex-config.js";
 import {
 	codexNotes,
+	contentEnabledMessage,
 	INIT_MESSAGES,
 	type InitMessage,
 	keychainUnavailableMessage,
@@ -41,6 +42,7 @@ import {
 } from "../shared/settings.js";
 import { isStop, runUntilStop, stopWith } from "../shared/stop.js";
 import {
+	type ContentSettings,
 	type CredentialOutcome,
 	type Issued,
 	requestCredentials,
@@ -203,11 +205,8 @@ function finishInit(
 		isPluginAutoUpdateOn: boolean;
 	},
 ) {
-	// 発行と保存は済んでいるため、本文のopt-inが無いことを失敗とせず、opt-inの場所を示す。opt-in済みなら有効にした旨を示す。
-	if (args.sendContent)
-		deps.stdout(
-			`${issued.contentOptIn ? INIT_MESSAGES.contentEnabled : INIT_MESSAGES.contentNotOptedIn}\n`,
-		);
+	// 発行と保存は済んでいるため、Workspaceが本文を保存しないことを失敗とせず、設定の場所を示す。
+	deps.stdout(`${contentNotice(issued.content, args.sendContent)}\n`);
 	return result;
 }
 
@@ -368,13 +367,37 @@ async function save(
 		OTEL_TRACES_EXPORTER: "otlp",
 		OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf",
 	};
-	if (args.sendContent && issued.contentOptIn) env.OTEL_LOG_USER_PROMPTS = "1";
+	Object.assign(env, contentEnv(issued.content, args.sendContent));
 	const { settings, isOn } = withPluginAutoUpdate(
 		mergeUserSettings(current.settings, env),
 		args.noPluginAutoUpdate,
 	);
 	await writeUserSettings(settingsPath, settings);
 	return isOn;
+}
+
+// correlation.md「CLI」の手順6。送らない区分も明示に`0`で書く。
+// 未設定の変数がagentの既定や他の変数に従って、選んでいない区分の本文が届かないようにするため。
+// `OTEL_LOG_ASSISTANT_RESPONSES`は未設定だと`OTEL_LOG_USER_PROMPTS`に従う。
+function contentEnv(
+	content: ContentSettings,
+	sendContent: boolean,
+): Record<string, string> {
+	const flag = (isStored: boolean) => (sendContent && isStored ? "1" : "0");
+	const modelAndTools = flag(content.isModelAndToolsStored);
+	return {
+		OTEL_LOG_USER_PROMPTS: flag(content.isPromptsStored),
+		OTEL_LOG_ASSISTANT_RESPONSES: modelAndTools,
+		OTEL_LOG_TOOL_DETAILS: modelAndTools,
+		OTEL_LOG_TOOL_CONTENT: modelAndTools,
+	};
+}
+
+function contentNotice(content: ContentSettings, sendContent: boolean): string {
+	if (!sendContent) return INIT_MESSAGES.contentNotSent;
+	return content.isPromptsStored || content.isModelAndToolsStored
+		? contentEnabledMessage(content)
+		: INIT_MESSAGES.contentNotStored;
 }
 
 // correlation.md「Codex」: 利用者用のIngestKeyだけを書く。ApiTokenは書かない。
@@ -388,7 +411,8 @@ async function saveCodexConfig(
 		connection,
 		ingestEndpoint: issued.ingestEndpoint,
 		ingestKey: issued.ingestKey,
-		logUserPrompt: sendContent && issued.contentOptIn,
+		logUserPrompt: sendContent && issued.content.isPromptsStored,
+		logAgentResponses: sendContent && issued.content.isModelAndToolsStored,
 	});
 	await writeCodexConfig(path, merged);
 }

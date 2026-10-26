@@ -25,6 +25,7 @@ const input = {
 	ingestEndpoint: "https://ingest.example.test/base",
 	ingestKey: "hf_ik_ws1_new",
 	logUserPrompt: false,
+	logAgentResponses: false,
 };
 
 const EXPORTER = {
@@ -81,7 +82,11 @@ describe("Codex config.toml path", () => {
 describe("merging the harnessforce items into config.toml", () => {
 	it("writes the five items into an empty file", () => {
 		expect(merged("")).toEqual({
-			otel: { exporter: EXPORTER },
+			otel: {
+				exporter: EXPORTER,
+				log_user_prompt: false,
+				log_agent_responses: false,
+			},
 			hooks: { SessionStart: [{ hooks: [HANDLER] }], ...WORK_LOCATION_HOOKS },
 			mcp_servers: { harnessforce: { url: "https://hf.example.test/mcp" } },
 		});
@@ -121,6 +126,7 @@ theme = "dark"
 		expect(config.otel).toEqual({
 			environment: "prod",
 			log_user_prompt: false,
+			log_agent_responses: false,
 			metrics_exporter: "none",
 			exporter: EXPORTER,
 		});
@@ -148,6 +154,8 @@ theme = "dark"
 		const config = parse(second) as Config;
 		expect(config.otel).toEqual({
 			environment: "prod",
+			log_user_prompt: false,
+			log_agent_responses: false,
 			exporter: {
 				"otlp-http": {
 					endpoint: "https://ingest2.example.test",
@@ -209,17 +217,28 @@ startup_timeout_sec = 30
 		});
 	});
 
-	it("sets log_user_prompt only when asked, and never clears it", () => {
-		expect(merged("", { logUserPrompt: true }).otel.log_user_prompt).toBe(true);
-		expect(merged("").otel.log_user_prompt).toBeUndefined();
+	it("writes both content switches, false when not asked", () => {
+		expect(merged("").otel).toMatchObject({
+			log_user_prompt: false,
+			log_agent_responses: false,
+		});
 		expect(
-			merged("[otel]\nlog_user_prompt = true\n").otel.log_user_prompt,
-		).toBe(true);
+			merged("", { logUserPrompt: true, logAgentResponses: true }).otel,
+		).toMatchObject({ log_user_prompt: true, log_agent_responses: true });
 	});
 
-	it("does not set log_agent_responses or log_guardian_assessments", () => {
+	it("overwrites an earlier value so a re-run can stop sending", () => {
+		const { otel } = merged(
+			"[otel]\nlog_user_prompt = true\nlog_agent_responses = true\n",
+		);
+		expect(otel).toMatchObject({
+			log_user_prompt: false,
+			log_agent_responses: false,
+		});
+	});
+
+	it("does not set log_guardian_assessments", () => {
 		const { otel } = merged("", { logUserPrompt: true });
-		expect(otel.log_agent_responses).toBeUndefined();
 		expect(otel.log_guardian_assessments).toBeUndefined();
 	});
 

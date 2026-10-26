@@ -1,3 +1,5 @@
+import type { ContentSettings } from "../init/credentials-api.js";
+
 // correlation.md「CLI」の`harnessforce init`、control-plane.md「IngestKey と ApiToken」、telemetry-pipeline.mdが定める文言。
 export const INIT_MESSAGES = {
 	success:
@@ -41,10 +43,10 @@ export const INIT_MESSAGES = {
 	saveFailed: "Could not save the ingest key. Run `harnessforce init` again",
 	codexSaveFailed:
 		"Could not write the Codex configuration. Run `harnessforce init` again",
-	contentEnabled:
-		"Sending the prompts you type is now enabled. Values that match known patterns for secrets and personal information are masked, but not everything can be detected. Within the workspace, only you can read your stored content, and it is deleted after the content retention period (at most 30 days)",
-	contentNotOptedIn:
-		"This workspace has not opted in to prompts you typed, so sending content was not enabled. Opt in under Data retention in the workspace settings, then run `harnessforce init --send-content` again",
+	contentNotStored:
+		"This workspace does not store content, so sending content was not enabled. An owner or admin can turn it on under Collection & retention in the workspace settings, then run `harnessforce init --send-content` again",
+	contentNotSent:
+		"Content is not sent from this machine. Run `harnessforce init --send-content` to send it",
 } as const;
 
 // 手順8: Codexの`config.toml`を書いた後の案内。trustは利用者の操作で、`harnessforce init`は代行できない。
@@ -74,3 +76,20 @@ export const keychainUnavailableMessage = (
 	keychain.unavailableHint
 		? `${message}. ${keychain.unavailableHint}`
 		: message;
+
+const CONTENT_READERS = {
+	all_members: "Everyone in the workspace can read it",
+	owners_admins_and_sender: "Owners, admins and you can read it",
+	sender_only: "Within the workspace, only you can read it",
+} as const;
+
+// correlation.md「CLI」の手順6: `--send-content`で`1`にした区分、読める人、保持期間を示す。
+export function contentEnabledMessage(content: ContentSettings): string {
+	const categories = [
+		...(content.isPromptsStored ? ["the prompts you type"] : []),
+		...(content.isModelAndToolsStored
+			? ["model responses and tool input and output"]
+			: []),
+	].join(", ");
+	return `Sending ${categories} is now enabled. Values that match known patterns for secrets and personal information are masked, but not everything can be detected. ${CONTENT_READERS[content.visibility]}. It is deleted after ${content.retentionDays} days`;
+}

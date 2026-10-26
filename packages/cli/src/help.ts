@@ -24,8 +24,9 @@ What it does:
 
 Options:
   --port <port>     Loopback port for the login callback, 1-65535 (default 8080).
-  --send-content    Also send the text of the prompts you type. Takes effect only
-                    when the Workspace has opted in. Off by default.
+  --send-content    Also send the prompts you type, model responses and tool
+                    input and output. Takes effect only for the categories the
+                    Workspace stores. Without it, init turns all of them off.
   --no-plugin-auto-update
                     Turn off automatic updates of the Harnessforce plugin in
                     Claude Code. On by default; a value you set is kept.
@@ -35,9 +36,9 @@ Sends:
   telemetry (token counts, tool names, timings) with that key.
 
 Does not send:
-  Prompt text (unless --send-content and the Workspace opt-in), model responses,
-  tool input or output, code diffs, and secrets. The key is never written to a
-  plain file.
+  Prompt text, model responses and tool input or output (unless --send-content
+  and the Workspace stores that category), code diffs, and secrets. The key is
+  never written to a plain file.
 
 Exit codes:
   0  Connected and configured.
@@ -127,8 +128,8 @@ Sends:
   The same telemetry as an agent started directly, plus the Issue identifier.
 
 Does not send:
-  Anything beyond what init configured. Prompt text is sent only if you chose
-  --send-content at init.
+  Anything beyond what init configured. Prompt text, responses and tool input
+  and output are sent only if you chose --send-content at init.
 
 Exit codes:
   The agent's own exit code when it ran.

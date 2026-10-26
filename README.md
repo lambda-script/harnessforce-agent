@@ -63,8 +63,10 @@ the [plugin README](plugins/harnessforce/README.md#session-registration-hooks).
 
 ## Privacy
 
-- **Never sent:** prompts, responses, tool inputs and outputs, and file contents. `harnessforce run` never turns
-  on prompt or body logging, and `harnessforce import` sends only session and first prompt IDs, start and end times, repository,
+- **Sent only if you choose:** prompts, responses, and tool inputs and outputs, and only for the categories your
+  Workspace stores (`harnessforce init --send-content` or managed settings). Without that, `harnessforce init`
+  turns all of them off. File contents are never sent. `harnessforce run` never turns on prompt or body
+  logging, and `harnessforce import` sends no content, only session and first prompt IDs, start and end times, repository,
   branch, model, token counts and per-tool call and failure counts.
 - **Hashes only:** the config snapshot describes CLAUDE.md files, rules, skills, agents, commands,
   settings and MCP servers by kind, scope, identifier and SHA-256 hash. Their contents, settings
