@@ -20,7 +20,6 @@ If the command is not found, tell the user to run `/harnessforce:setup`. `harnes
 | `/harnessforce:setup` | Installs the CLI, connects to Harnessforce with `harnessforce init`, imports past sessions and confirms the first event. |
 | `/harnessforce:status` | Summarizes the sessions on this machine (read-only). |
 | `/harnessforce:import` | Imports past sessions. |
-| `/harnessforce:usage-limits` | Shows whether usage limits are shared. |
 | `/harnessforce:tune` | Analyzes your past sessions and proposes improvements. |
 | `/harnessforce:run <issue>` | Shows how to start an agent on an Issue. |
 

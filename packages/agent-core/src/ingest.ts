@@ -6,27 +6,15 @@ import type {
 import type { Fetch } from "./types.js";
 import { parseAllowedUrl, underBase } from "./url.js";
 
-// usage-limits.md「送信」。窓の消費率とresetの時刻だけを持つ。
-export type UsageLimitSummary = {
-	agent: "claude_code";
-	observed_at: string;
-	windows: {
-		window_minutes: number;
-		used_percent: number;
-		resets_at: string;
-	}[];
-};
 export type IngestItem =
 	| SessionRegistration
 	| ConfigSnapshot
-	| UsageLimitSummary
 	| SessionUsageSummary;
 export type KeyKind = "user" | "workspace";
 export type Destination = { ingestBase: URL; key: string; keyKind: KeyKind };
 export type IngestPath =
 	| "v1/sessions"
 	| "v1/config-snapshots"
-	| "v1/usage-limits"
 	| "v1/session-usage";
 export type SendOutcome =
 	| { kind: "accepted" }
