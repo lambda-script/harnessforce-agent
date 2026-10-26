@@ -12,7 +12,7 @@ This session has the Harnessforce hook installed. Harnessforce links the work of
 - Session registration: agent, session ID, repository, branch, commit, start time, and the first prompt ID.
 - Config snapshot: the structure of the configuration in use (Claude Code only).
 - OTel telemetry: what the user chooses to send.
-- For work on an Issue, `record-run` records the Plan, the Decision, Definition of Done items it adds (effective at once, and a person can delete them), and whether the Definition of Done is met. The Plan, the Decision and the met status are not final until a person approves them.
+- For work on an Issue, `record-run` registers the session as a Run and closes it. It records no Plan, Decision, or Definition of Done.
 
 ## What is not collected
 
@@ -27,7 +27,7 @@ This session has the Harnessforce hook installed. Harnessforce links the work of
 
 ## Which skill and tool to use, and when
 
-- For work on a specified Issue ID, or when the environment variable `HARNESSFORCE_ISSUE` is set, follow `record-run` and use `start_run`, `get_issue`, `record_definition_of_done_items` (only when the Definition of Done is empty), `record_plan`, `record_action`, and `complete_run`. An agent that cannot load the skill calls the tools in the same order.
+- For work on a specified Issue ID, or when the environment variable `HARNESSFORCE_ISSUE` is set, follow `record-run` and use `start_run`, `get_issue`, and `complete_run`. An agent that cannot load the skill calls the tools in the same order.
 - Pass the value of the `harnessforce session_id:` line in the context to `start_run`. If there are several, use the last one. If the line is missing, do not guess the session ID, and do not call `start_run` or `complete_run`.
 - Use `propose-improvements` for the analysis of `/harnessforce:tune`.
 - When no Issue is specified, do not start recording a Run.

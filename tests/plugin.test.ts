@@ -89,9 +89,6 @@ describe("run recording skill", () => {
 		const positions = indexesOf(body, [
 			"`start_run`",
 			"`get_issue`",
-			"`record_definition_of_done_items`",
-			"`record_plan`",
-			"`record_action`",
 			"`complete_run`",
 		]);
 		expect(positions.every((position) => position >= 0)).toBe(true);
@@ -118,137 +115,20 @@ describe("run recording skill", () => {
 			/do not guess[^\n]*do not call `start_run` or `complete_run`/,
 		));
 
-	it("records a plan only when neither a current nor a proposed plan exists", () =>
-		expect(body).toMatch(/neither a current Plan nor a `proposed` Plan/));
-
-	// control-plane.md「項目の提案」: 0件のときだけ、確認せずに、本文を含めず提案する。
-	describe("adding Definition of Done items", () => {
-		it("adds only when no items exist and once per session id", () =>
-			expect(body).toMatch(
-				/Add only when `get_issue` shows no Definition of Done items[\s\S]*at most once for the same value/,
-			));
-
-		it("adds without asking and without approval", () =>
-			expect(body).toMatch(/Do not ask the user first[^\n]*without approval/));
-
-		it("keeps prompts, diffs, paths, commands and secrets out of the item text", () =>
-			expect(body).toMatch(
-				/Do not copy the prompt[^\n]*diff[^\n]*file path[^\n]*command[^\n]*secret/,
-			));
-
-		it("uses add_definition_of_done_item only on an explicit instruction", () =>
-			expect(body).toMatch(
-				/`add_definition_of_done_item` only when the user explicitly/,
-			));
-	});
-
-	it("reports each Definition of Done item as met or unmet", () => {
-		expect(body).toContain("`met`");
-		expect(body).toContain("`unmet`");
-	});
-
-	// correlation.md "MCP": record the user's decisions without asking and do not paste the original text.
-	it("records the user's decisions as Actions without asking", () => {
+	it("records no Plan, Decision or Definition of Done and creates no Issue", () => {
+		for (const gone of [
+			"record_plan",
+			"record_action",
+			"record_decision",
+			"record_definition_of_done_items",
+			"add_definition_of_done_item",
+			"create_issue",
+			"update_issue",
+		])
+			expect(body).not.toContain(gone);
 		expect(body).toMatch(
-			/user states a decision[^\n]*approving or rejecting[^\n]*without asking[^\n]*/,
+			/does not record a Plan, a Decision, or a Definition of Done/,
 		);
-		expect(body).toMatch(
-			/in your own words[^\n]*do not paste the user's statement verbatim/,
-		);
-	});
-
-	it("tells the agent that its records stay proposed until a person approves them", () =>
-		expect(body).toMatch(/`proposed`[^\n]*until a person approves/));
-
-	// correlation.md「agentによるIssueの作成」
-	describe("creating an issue for unassigned work", () => {
-		it("treats an issue identifier in the branch name as given once get_issue resolves it", () =>
-			expect(body).toMatch(/branch name[^\n]*`get_issue` can resolve/));
-
-		it("asks once per session id and not again after a refusal", () => {
-			expect(body).toMatch(/Ask only once for the same value/);
-			expect(body).toMatch(/declines, do not ask again/);
-		});
-
-		it("asks only for work that commits changes", () =>
-			expect(body).toMatch(
-				/Do not ask for research, answers to questions, or conversations that only plan/,
-			));
-
-		it("treats an unresolved branch identifier as no identifier", () =>
-			expect(body).toMatch(
-				/If it is `not_found`, treat it the same as when there is no identifier/,
-			));
-
-		it("shows existing candidates from list_issues before proposing a new issue", () => {
-			const steps = body.slice(body.indexOf("Show existing Issues first"));
-			expect(steps).toMatch(/`-status:done,canceled \{word\}`/);
-			expect(steps.indexOf("`list_issues`")).toBeLessThan(
-				steps.indexOf("`create_issue`"),
-			);
-		});
-
-		it("keeps the prompt body, paths, commands and secrets out of the title and description", () =>
-			expect(body).toMatch(
-				/Do not copy the prompt text, file paths, commands, or secrets into the title or the description/,
-			));
-
-		it("calls create_issue only after the user explicitly agrees", () => {
-			expect(body).toMatch(/Only if the user accepts[^\n]*`create_issue`/);
-			expect(body).toMatch(/non-interactive[^\n]*do not create it/);
-		});
-
-		it("does not create an issue without an active project", () =>
-			expect(body).toMatch(/If there are 0, do not create the Issue/));
-
-		it("tells teams that the issue is created only in Harnessforce", () =>
-			expect(body).toContain("Created in Harnessforce only"));
-
-		it("never retries create_issue and recovers by an exact title match", () => {
-			expect(body).toContain("Do not retry `create_issue`");
-			expect(body).toMatch(
-				/title matches exactly and whose creation time is after the call/,
-			);
-			expect(body).toMatch(
-				/only `start_run` fails[^\n]*do not recreate the Issue/,
-			);
-		});
-
-		it("stops asking when the token cannot create issues", () =>
-			expect(body).toMatch(/`forbidden`[^\n]*do not ask again/));
-
-		it("leaves planning objects to the user", () =>
-			expect(body).toMatch(
-				/Do not call `create_project`, `create_milestone`, `create_cycle`, or `create_objective`/,
-			));
-	});
-
-	// correlation.md「agentによる状態の更新」
-	describe("updating the status of a native issue", () => {
-		it("tells native issues apart by a null external", () =>
-			expect(body).toContain("`external` in `get_issue` is `null`"));
-
-		it("asks before moving a native issue to started or done", () => {
-			expect(body).toMatch(
-				/only if the user agrees change the status to `started` with `update_issue`/,
-			);
-			expect(body).toMatch(
-				/only if the user agrees change the status to `done`/,
-			);
-		});
-
-		it("does not ask to complete an issue whose pull request is only opened", () =>
-			expect(body).toMatch(
-				/Do not ask when you only opened a Pull Request and it has not been merged/,
-			));
-
-		it("never changes the status of an issue from an external provider", () =>
-			expect(body).toContain(
-				"Do not change the status of an externally sourced Issue",
-			));
-
-		it("asks again only once after a conflict", () =>
-			expect(body).toMatch(/`conflict`[^\n]*ask once more/));
 	});
 });
 
@@ -333,18 +213,6 @@ describe("setup command", () => {
 			/set `OTEL_LOG_USER_PROMPTS` in the `env` of the user settings to `0`/,
 		);
 		expect(body).toMatch(/also takes effect in the project and local `env`/);
-	});
-
-	// onboarding.md「チェックリスト」の手順4: 利用枠の同意は利用者自身が文面に答える。agentは`--yes`で代行しない。
-	it("shows the usage limits choice only when the workspace opted in, and never answers the consent with --yes", () => {
-		expect(body).not.toContain("usage-limits on --yes");
-		expect(body).toContain("`harnessforce usage-limits status`");
-		expect(body).toMatch(
-			/is not "enabled"[^\n]*do not present the usage-limits option/,
-		);
-		expect(body).toMatch(
-			/so that the user answers the consent text themselves/,
-		);
 	});
 
 	it("relays what harnessforce init prints when the workspace has not opted in", () => {

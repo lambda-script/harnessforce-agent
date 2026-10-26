@@ -1,5 +1,5 @@
 ---
-description: Harnessforce setup. Walks through checking Node.js, choosing whether to send prompt content, installing the CLI, running harnessforce init, importing past sessions, choosing whether to share usage limits, and confirming the first event after the restart
+description: Harnessforce setup. Walks through checking Node.js, choosing whether to send prompt content, installing the CLI, running harnessforce init, importing past sessions, and confirming the first event after the restart
 disable-model-invocation: true
 ---
 
@@ -15,7 +15,7 @@ First run `node --version`. If the command is not found, or the version is below
 
 ## 2. Check whether this run is after the restart
 
-If `harnessforce --version` succeeds and the environment variable `HARNESSFORCE_WORKSPACE_ID` of this session is not empty, this is a session restarted after `harnessforce init`. Skip steps 3 to 8 and go to step 9.
+If `harnessforce --version` succeeds and the environment variable `HARNESSFORCE_WORKSPACE_ID` of this session is not empty, this is a session restarted after `harnessforce init`. Skip steps 3 to 7 and go to step 8.
 
 ## 3. Install the CLI
 
@@ -52,27 +52,13 @@ For a Workspace that has not opted in, `harnessforce init --send-content` does n
 
 Run `harnessforce import` and tell the user, as it is, the imported count it prints, along with the breakdown of sessions that were not imported and the guidance. Do not omit the printed reason and the next action even when the count is 0.
 
-## 7. Choose whether to share usage limits
-
-After `harnessforce init`, run `harnessforce usage-limits status`. If the Workspace opt-in in the output is not "enabled" (including "disabled" and "unknown"), do not present the usage-limits option and go to step 8. If it is "enabled", present the option to share the usage limits (the usage percentage and reset time of the Claude Code 5-hour and 7-day windows) with the members of this Workspace, not selected by default. If it is not selected, run nothing and go to step 8.
-
-Use the following option text as it is.
-
-> Show your usage limits (usage percentage and reset time only) to everyone in the workspace
->
-> Everyone in this workspace can see your usage limits together with your name (only the usage percentage and reset time of each window, such as 5 hours and 7 days). No prompt or other content is sent. You can stop at any time, and stopping deletes the stored values. They are not used to rank members.
->
-> Not shared (by default). You can set it up later with `harnessforce usage-limits on`.
-
-Only if the user chooses to share, ask the user to type `!harnessforce usage-limits on` so that the user answers the consent text themselves. Do not add `--yes`, and the agent does not consent on the user's behalf. When the user answers `y` to the consent text, an existing statusLine (such as claude-hud) is wrapped, and its output and exit code are left unchanged. On Windows, or with a statusLine that cannot be embedded, this command changes nothing, prints the reason, and exits non-zero. Show that output to the user as it is and continue with the other steps. To stop sharing, point the user to `harnessforce usage-limits off`.
-
-## 8. Ask for a restart
+## 7. Ask for a restart
 
 Tell the user the following and stop.
 
 > Harnessforce setup, part 1 of 2, is done. Restart Claude Code, then run `/harnessforce:setup` again in the new session. Part 2 checks that the first event arrived.
 
-## 9. Confirm the first event
+## 8. Confirm the first event
 
 At the start of this session, the plugin hook sent the session to Harnessforce. Tell the user to open the Harnessforce Home in the browser (the URL in the environment variable `HARNESSFORCE_URL`) and confirm on the waiting screen for the first Run that it was received. If nothing arrives after 15 minutes, tell the user to follow the checks for each cause shown on the waiting screen. Finish with the following line.
 

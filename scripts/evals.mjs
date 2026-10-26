@@ -1,12 +1,6 @@
 // Pure helpers for the plugin eval files: static validation and assertion evaluation over a recorded tool-call trace.
 
-export const TOOLS = [
-	"start_run",
-	"get_issue",
-	"record_plan",
-	"record_action",
-	"complete_run",
-];
+export const TOOLS = ["start_run", "get_issue", "complete_run"];
 
 const countOf = (calls, tool) => calls.filter((c) => c.tool === tool).length;
 const indexOf = (calls, tool) => calls.findIndex((c) => c.tool === tool);

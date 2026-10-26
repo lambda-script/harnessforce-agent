@@ -34,10 +34,6 @@ function parse(name: string) {
 const WRAPPED = {
 	status: { argumentHint: false, commands: ["harnessforce top --once --json"] },
 	import: { argumentHint: false, commands: ["harnessforce import"] },
-	"usage-limits": {
-		argumentHint: false,
-		commands: ["harnessforce usage-limits status"],
-	},
 	run: { argumentHint: true, commands: [] },
 	help: { argumentHint: false, commands: ["harnessforce --help"] },
 } as const;
@@ -73,12 +69,6 @@ describe("CLI-wrapping commands", () => {
 		const { body } = parse("run");
 		expect(body).toContain("harnessforce run --issue");
 		expect(body).toContain("HARNESSFORCE_ISSUE");
-	});
-
-	it("/harnessforce:usage-limits leaves on and off to the user", () => {
-		const { body, commands } = parse("usage-limits");
-		expect(commands.join("\n")).not.toMatch(/usage-limits (on|off)/);
-		expect(body).toContain("!harnessforce usage-limits on");
 	});
 
 	it("/harnessforce:help sends init to /harnessforce:setup", () => {

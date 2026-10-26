@@ -105,7 +105,7 @@ const systemMessageOf = (out: string) =>
 	(JSON.parse(out) as { systemMessage?: string }).systemMessage;
 
 describe("sending commands while the CLI version is unsupported", () => {
-	it.each([[["import"]], [["usage-limits", "status"]], [["init"]]])(
+	it.each([[["import"]], [["init"]]])(
 		"%j sends nothing, prints the update line and exits 1",
 		async (argv) => {
 			const fetch = vi.fn();
@@ -145,17 +145,6 @@ describe("sending commands while the CLI version is unsupported", () => {
 
 	it("rechecks without credentials after 24 hours and sends again when current", async () => {
 		const dir = home(unsupported("2026-10-31T00:00:00.000Z"));
-		// statusLineの送信の子processは確かめ直さず、何も送らずに終える。
-		const childFetch = vi.fn();
-		expect(
-			await runCli(["usage-limits", "send", "{}"], {
-				homeDir: dir,
-				now: () => NOW,
-				fetch: childFetch,
-			}),
-		).toEqual({ code: 0, out: "", err: "" });
-		expect(childFetch).not.toHaveBeenCalled();
-
 		const calls: { url: string; init: RequestInit }[] = [];
 		await hookRun(dir, async (url, init) => {
 			calls.push({ url: String(url), init });

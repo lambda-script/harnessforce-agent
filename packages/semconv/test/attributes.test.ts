@@ -13,7 +13,6 @@ describe("hf.* attributes", () => {
 				"hf.project.id",
 				"hf.project.key",
 				"hf.milestone.id",
-				"hf.cycle.id",
 				"hf.issue.id",
 				"hf.issue.identifier",
 				"hf.plan.id",

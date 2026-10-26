@@ -8,7 +8,6 @@ const COMMANDS = [
 	"run",
 	"tune",
 	"top",
-	"usage-limits",
 	"hook",
 ] as const;
 
@@ -56,7 +55,6 @@ describe("harnessforce <command> --help", () => {
 		[["help", "tune"], "tune"],
 		[["tune", "-h"], "tune"],
 		[["tune", "record", "--help"], "tune"],
-		[["usage-limits", "on", "--help"], "usage-limits"],
 		[["run", "--issue", "ABC-1", "--help"], "run"],
 	])("answers %j with the %s page", async (argv, command) => {
 		const r = await runCli(argv);
@@ -74,7 +72,6 @@ describe("harnessforce <command> --help", () => {
 		expect(await out("tune")).toContain("--no-send");
 		expect(await out("tune")).toContain("--purge");
 		expect(await out("run")).toContain("--issue");
-		expect(await out("usage-limits")).toContain("statusline");
 	});
 
 	it("passes --help after the separator to the launched agent", async () => {

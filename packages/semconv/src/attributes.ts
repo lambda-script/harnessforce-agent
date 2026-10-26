@@ -3,7 +3,6 @@ export const ATTR = {
 	projectId: "hf.project.id",
 	projectKey: "hf.project.key",
 	milestoneId: "hf.milestone.id",
-	cycleId: "hf.cycle.id",
 	issueId: "hf.issue.id",
 	issueIdentifier: "hf.issue.identifier",
 	planId: "hf.plan.id",

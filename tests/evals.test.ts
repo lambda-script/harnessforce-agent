@@ -34,11 +34,11 @@ describe("eval files", () => {
 		},
 	);
 
-	it("covers the three record-run examples of the plan", () => {
+	it("covers the three record-run examples", () => {
 		const text = JSON.stringify(readJson("evals/record-run.json"));
 		expect(text).toContain("no-session-id");
-		expect(text).toContain("user-decision");
-		expect(text).toContain("no-user-text");
+		expect(text).toContain("start-with-session-id");
+		expect(text).toContain("complete-at-end");
 	});
 
 	// evalはmaintainerのためのもので、利用者へ配るpluginに含めない。
@@ -91,7 +91,7 @@ describe("validateEvalFile", () => {
 describe("evaluateAssertions", () => {
 	const calls = [
 		{ tool: "start_run", arguments: { session_id: "s-1" } },
-		{ tool: "record_action", arguments: { decision: "Use option B" } },
+		{ tool: "get_issue", arguments: { identifier: "ENG-42 Use option B" } },
 	];
 	const run = (assertion: EvalAssertion) =>
 		evaluateAssertions([assertion], calls)[0]?.passed;
@@ -111,13 +111,13 @@ describe("evaluateAssertions", () => {
 			run({
 				type: "called_before",
 				first: "start_run",
-				second: "record_action",
+				second: "get_issue",
 			}),
 		).toBe(true);
 		expect(
 			run({
 				type: "called_before",
-				first: "record_action",
+				first: "get_issue",
 				second: "start_run",
 			}),
 		).toBe(false);
@@ -134,16 +134,16 @@ describe("evaluateAssertions", () => {
 		expect(
 			run({
 				type: "arg_excludes",
-				tool: "record_action",
-				field: "decision",
+				tool: "get_issue",
+				field: "identifier",
 				text: "secret",
 			}),
 		).toBe(true);
 		expect(
 			run({
 				type: "arg_excludes",
-				tool: "record_action",
-				field: "decision",
+				tool: "get_issue",
+				field: "identifier",
 				text: "option B",
 			}),
 		).toBe(false);
@@ -217,13 +217,7 @@ describe("stub MCP server", () => {
 			byId(2)
 				.result.tools.map((t: { name: string }) => t.name)
 				.sort(),
-		).toEqual([
-			"complete_run",
-			"get_issue",
-			"record_action",
-			"record_plan",
-			"start_run",
-		]);
+		).toEqual(["complete_run", "get_issue", "start_run"]);
 		expect(
 			readFileSync(log, "utf8")
 				.trim()

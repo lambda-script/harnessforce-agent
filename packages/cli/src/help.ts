@@ -1,5 +1,5 @@
 // `harnessforce --help`と`harnessforce <command> --help`の文面。送る／送らないの記述は
-// 実装（import/send.ts、tune、usage-limits、hook）とHarnessforce本体のspecが正である。
+// 実装（import/send.ts、tune、hook）とHarnessforce本体のspecが正である。
 
 type CommandHelp = {
 	summary: string;
@@ -218,43 +218,6 @@ Examples:
   harnessforce top --once --json
 `,
 	},
-	"usage-limits": {
-		summary: "Share your plan usage limits with the Workspace",
-		text: `Usage: harnessforce usage-limits on [--yes]
-       harnessforce usage-limits off
-       harnessforce usage-limits status
-       harnessforce usage-limits statusline
-
-When to use:
-  To let your Workspace members see how much of your Claude Code usage window
-  (for example 5 hours or 7 days) is used. Sharing is opt-in and reversible.
-
-What it does:
-  on          Shows the consent text, records your consent, and wraps your Claude
-              Code statusLine so it reports usage. Restart Claude Code after.
-              --yes skips the prompt (consent is still recorded).
-  off         Withdraws consent, restores your statusLine, and asks the
-              Workspace to delete the stored values.
-  status      Shows whether sharing is on.
-  statusline  Run by Claude Code as the statusLine command; do not run it by hand.
-
-Sends:
-  Your name with the usage percentage and reset time of each window.
-
-Does not send:
-  Prompt text or any other content. The values are not used to rank members.
-
-Exit codes:
-  0  Done.
-  1  Not logged in, not agreed, keychain or settings unavailable, a read-only
-     Workspace or role, or the Workspace could not be reached.
-
-Examples:
-  harnessforce usage-limits status
-  harnessforce usage-limits on
-  harnessforce usage-limits off
-`,
-	},
 	hook: {
 		summary: "Session-start hook (used by Codex)",
 		text: `Usage: harnessforce hook session-start
@@ -293,7 +256,6 @@ const ORDER: readonly CommandName[] = [
 	"run",
 	"tune",
 	"top",
-	"usage-limits",
 	"otel-headers",
 	"hook",
 ];

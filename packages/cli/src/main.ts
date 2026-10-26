@@ -24,10 +24,6 @@ import {
 import { topCommand } from "./top/command.js";
 import type { TopIo } from "./top/io.js";
 import { type TuneCommandDeps, tuneCommand } from "./tune/tune.js";
-import {
-	type UsageLimitsDeps,
-	usageLimitsCommand,
-} from "./usage-limits/command.js";
 
 // harnessforce tuneはharnessforce importと同じgitの呼び出しの上限でcwdのrepositoryを求める。
 // managedDirはharnessforce otel-headersがWorkspace用のkeyを読むfileと、harnessforce runが構成を集めるmanagedの基点のdirectory。
@@ -40,10 +36,6 @@ export type CliDeps = InitDeps &
 		top: TopIo;
 		// hookが使うgit。hookのprocessの現在のdirectoryとsessionのrepositoryの外から解決する。
 		hookGit: RunGit;
-		// harnessforce usage-limits statusline: 元のstatusLineのcommandの実行と、切り離した送信の子process。
-		runOriginal: UsageLimitsDeps["runOriginal"];
-		spawnSender: UsageLimitsDeps["spawnSender"];
-		ask: UsageLimitsDeps["ask"];
 		// stdoutを閉じ、書いた分が渡るのを待つ。otel-headersが出力の後に処理を続ける前に呼ぶ。
 		endStdout: () => Promise<void>;
 		// 接続先を与えたbuild（npmへ配らない）。`User-Agent`に`-dev`を付ける（client-updates.md「版の申告」）。
@@ -57,8 +49,6 @@ const { version } = createRequire(import.meta.url)("../package.json") as {
 
 // client-updates.md「送信の停止」: CLIの状態のfileがunsupportedの間、keyを出力しない終了コード。
 const EXIT_CLIENT_UNSUPPORTED = 5;
-// 資格情報を伴う要求を送るusage-limitsのsubcommand。
-const SENDING_USAGE_LIMITS = new Set(["on", "off", "status"]);
 
 // `harnessforce init`の引数。受け付けない形ならundefined。--portの値は1〜65535の整数（correlation.md「CLI」）。
 // --urlは検証者と開発者の接続先の上書きで、利用者向けのUSAGEには載せない。
@@ -209,13 +199,6 @@ export async function run(
 			git: cli.importGit,
 			top: cli.top,
 		});
-	if (command === "usage-limits") {
-		// statusLineから切り離した送信の子processは、何も送らずに終える。statusLineの表示と終了コードは変わらない。
-		if (rest[0] === "send" && (await unsupported())) return 0;
-		return SENDING_USAGE_LIMITS.has(rest[0] ?? "")
-			? guarded(() => usageLimitsCommand(rest, cli))
-			: usageLimitsCommand(rest, cli);
-	}
 	const initArgs = command === "init" ? parseInitArgs(rest) : undefined;
 	if (initArgs) return guarded(() => init(initArgs, cli));
 	const runArgs = command === "run" ? parseRunArgs(rest) : undefined;

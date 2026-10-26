@@ -1,4 +1,4 @@
-// Stub of the Harnessforce MCP server for evals: answers the handshake, serves the five record-run tools
+// Stub of the Harnessforce MCP server for evals: answers the handshake, serves the three record-run tools
 // and appends every call to the file named by HF_EVAL_CALL_LOG. It never reaches a network.
 import { appendFileSync } from "node:fs";
 import { createInterface } from "node:readline";
@@ -10,11 +10,7 @@ const RESULTS = {
 	get_issue: {
 		identifier: "ENG-42",
 		title: "Eval issue",
-		plan: null,
-		definition_of_done: [{ item_id: "dod-1", text: "Behavior is implemented" }],
 	},
-	record_plan: { status: "proposed" },
-	record_action: { status: "proposed" },
 	complete_run: { status: "completed" },
 };
 

@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import { createRequire } from "node:module";
 import { homedir, tmpdir } from "node:os";
-import { createInterface } from "node:readline/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import { managedDirFor } from "@harnessforce/agent-core/managed";
 import { createGitRunner } from "@harnessforce/agent-core/process/git";
@@ -18,8 +17,6 @@ import { run } from "./main.js";
 import { relaunchHf } from "./relaunch.js";
 import { launchAgent } from "./run/process.js";
 import { createProcessIo } from "./top/process-io.js";
-import { runOriginalCommand } from "./usage-limits/original.js";
-import { spawnUsageSender } from "./usage-limits/spawn-sender.js";
 
 // buildが書く既定の接続先（scripts/build-config.mjs）。distのbin.jsと同じdirectoryにある。
 const require = createRequire(import.meta.url);
@@ -98,19 +95,6 @@ process.exitCode =
 		}),
 		sleep: (ms) => delay(ms),
 		top: createProcessIo(),
-		runOriginal: runOriginalCommand,
-		spawnSender: spawnUsageSender,
-		ask: async (question) => {
-			const lines = createInterface({
-				input: process.stdin,
-				output: process.stdout,
-			});
-			try {
-				return await lines.question(question);
-			} finally {
-				lines.close();
-			}
-		},
 		readStdin: async (maxBytes) => {
 			const chunks: Buffer[] = [];
 			let size = 0;

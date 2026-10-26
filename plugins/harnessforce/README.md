@@ -12,14 +12,13 @@ and does not bundle the CLI (`/harnessforce:setup` installs `@harnessforce/cli` 
 | --- | --- |
 | `SessionStart` and `UserPromptSubmit` hooks | Register each session and its config snapshot with Harnessforce |
 | `PostToolUse`, `PostToolUseFailure`, `UserPromptExpansion`, `PermissionRequest`, `PostCompact` and `SessionEnd` hooks | Count the configured skills, commands, subagents and MCP servers a session uses, and send the session usage summary |
-| MCP server `harnessforce` (`<connection URL>/mcp`, HTTP) | Tools to start a run, read an Issue, and record plans, Actions and the Definition of Done |
+| MCP server `harnessforce` (`<connection URL>/mcp`, HTTP) | Tools to start a run, read an Issue, and complete a run |
 | Skill `using-harnessforce` | What Harnessforce records and does not collect, which hook sends what, and when to use the other skills. The `SessionStart` hook injects its body into the context of every session (the build embeds the same text into the hook and the CLI) |
-| Skill `record-run` | Tells the agent when to call those tools |
-| Command `/harnessforce:setup` | Checks Node.js, installs the `harnessforce` CLI, asks whether to send content, runs `harnessforce init` (`--send-content` when chosen) and `harnessforce import`, offers (unchecked by default) to share your usage limits with `harnessforce usage-limits on --yes`, and confirms the first event after a restart |
+| Skill `record-run` | Tells the agent when to start and complete a run |
+| Command `/harnessforce:setup` | Checks Node.js, installs the `harnessforce` CLI, asks whether to send content, runs `harnessforce init` (`--send-content` when chosen) and `harnessforce import`, and confirms the first event after a restart |
 | Command `/harnessforce:tune` | Tells you that the agent reads parts of your transcripts through your model provider, runs `harnessforce tune --json`, shows the analysis and the before and after of earlier applied proposals, and makes proposals for the targets with enough data |
 | Command `/harnessforce:status` | Runs `harnessforce top --once --json` and summarizes the sessions on this machine. Read-only |
 | Command `/harnessforce:import` | Runs `harnessforce import` and shows the imported count and why sessions were skipped |
-| Command `/harnessforce:usage-limits` | Runs `harnessforce usage-limits status`; turning sharing on or off is left to you (`!harnessforce usage-limits on`) |
 | Command `/harnessforce:run <issue>` | Shows how to start an agent on an Issue with `harnessforce run --issue <issue> -- <agent>` in a terminal, and how `HARNESSFORCE_ISSUE` ties a session to an Issue. Runs nothing |
 | Command `/harnessforce:help` | Lists the CLI commands (`harnessforce --help`) and these commands, and says which ones are not wrapped (`init`, the interactive `top`) |
 | Skill `propose-improvements` | How the agent writes a proposal (evidence, diff or pull request draft, expected effect, how to measure), keeps permissions minimal and loops bounded, and records it with `harnessforce tune record` before showing it |
