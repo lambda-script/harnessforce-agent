@@ -31,7 +31,7 @@ export const INIT_MESSAGES = {
 	viewer:
 		"The view-only role cannot issue an ingest key. Contact a Workspace administrator",
 	limitOwnerAdmin:
-		"The number of active ingest keys has reached the limit. Revoke unused keys on the ingest keys page",
+		"The number of active ingest keys has reached the limit. Ask members to revoke unused keys in My ingest keys on their account page",
 	limitMember:
 		"The ingest key limit has been reached. Contact a Workspace administrator",
 	gateUnavailable:

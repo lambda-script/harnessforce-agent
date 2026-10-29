@@ -46,7 +46,7 @@ const M = {
 	viewer:
 		"The view-only role cannot issue an ingest key. Contact a Workspace administrator",
 	limitAdmin:
-		"The number of active ingest keys has reached the limit. Revoke unused keys on the ingest keys page",
+		"The number of active ingest keys has reached the limit. Ask members to revoke unused keys in My ingest keys on their account page",
 	limitMember:
 		"The ingest key limit has been reached. Contact a Workspace administrator",
 	gate: "Could not apply the change on the receiving side. Nothing was changed. Try again",
