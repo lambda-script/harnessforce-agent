@@ -39,7 +39,8 @@ contains:
 - `skills/record-run/SKILL.md`: the skill that records a run through the MCP tools.
 - `skills/propose-improvements/`: the skill and script that `/harnessforce:tune` uses to judge and
   write proposals.
-- `commands/setup.md` (`/harnessforce:setup`) and `commands/tune.md` (`/harnessforce:tune`).
+- `commands/`: `/harnessforce:setup`, `/harnessforce:tune`, `/harnessforce:status`, `/harnessforce:import`,
+  `/harnessforce:run` and `/harnessforce:help`.
 - `cli/`: the `@harnessforce/cli` and `@harnessforce/semconv` tarballs from the same build.
   `/harnessforce:setup` in the build output installs these
   (`npm install -g <semconv tarball> <cli tarball>`) instead of the CLI on npm.
@@ -58,7 +59,8 @@ In Claude Code:
 ```
 
 `/harnessforce:setup` checks for Node.js 18 or later, installs the CLI from the build output, runs
-`harnessforce init` and `harnessforce import`, and asks you to restart Claude Code. Run it again after the restart to
+`harnessforce init` and `harnessforce import`, shows the remaining workspace steps from `harnessforce status`,
+and asks you to restart Claude Code. Run it again after the restart to
 confirm that the first event arrived.
 
 If the environment already registers a `harnessforce-agent` marketplace from another source (for example the

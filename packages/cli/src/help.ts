@@ -66,8 +66,10 @@ What it does:
   and what to do next.
 
 Sends:
-  Per session: agent, session ID, repository, branch, commit, start and end
-  time, model, input and output token counts, and tool call counts.
+  Per session: agent, session ID, repository, branch, start and end time,
+  model, input and output token counts, and tool call counts. Claude Code
+  sessions also send the first prompt ID; Codex sessions also send the commit
+  the session started on.
 
 Does not send:
   Prompt text, model responses, tool input or output, and code diffs. Sessions
@@ -132,8 +134,12 @@ Does not send:
 
 Exit codes:
   0  Header printed.
-  1  No usable key (not logged in, keychain unavailable, or the destination was
-     not verified). Nothing is printed to stdout.
+  3  No key for the Workspace (not logged in, or the keychain item is gone, for
+     example after a reboot cleared the kernel keyring).
+  4  The destination was not verified: it differs from the origin init pinned.
+  5  This CLI version is unsupported. The keychain is not read.
+  1  Any other failure (keychain unavailable, read failed, or timed out).
+  Nothing is printed to stdout unless the exit code is 0.
 
 Examples:
   harnessforce otel-headers

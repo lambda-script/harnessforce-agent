@@ -11,8 +11,8 @@ semantic conventions.
 Harnessforce links the work of coding agents to the Issues it was done for. This repository holds the
 open source parts that run on your machine: they register each Claude Code session with its git
 repository, branch and commit, point Claude Code's OpenTelemetry exporter at your Workspace, and give
-the agent MCP tools to start and complete a run for an Issue. They send metadata, never
-your prompts, responses or code.
+the agent MCP tools to start and complete a run for an Issue. They send metadata; prompts, responses
+and tool input and output are sent only if you choose to send them, and file contents never are.
 
 ## Packages
 
@@ -39,8 +39,14 @@ In Claude Code, with Node.js 18 or later installed:
 ```
 
 `/harnessforce:setup` installs the CLI (`npm install -g @harnessforce/cli`), runs `harnessforce init` to log in
-with the browser and pick a Workspace, and runs `harnessforce import` for your past sessions. Restart Claude Code
-and run `/harnessforce:setup` again to confirm that the first event arrived.
+with the browser and pick a Workspace, runs `harnessforce import` for your past sessions, and shows the remaining
+workspace steps from `harnessforce status`. Restart Claude Code and run `/harnessforce:setup` again to confirm
+that the first event arrived.
+
+With Codex only, set up through the CLI instead: install it with `npm install -g @harnessforce/cli`, run
+`harnessforce init` (or `harnessforce init --send-content`) and `harnessforce import`, restart Codex, trust the
+harnessforce `SessionStart`, `PostToolUse` and `Stop` hooks in `/hooks`, and check the remaining steps with
+`harnessforce status`.
 
 If `/plugin marketplace add` fails with `its source doesn't match its extraKnownMarketplaces entry`, the
 environment still registers an earlier local or git `harnessforce-agent` marketplace. Delete that marketplace
