@@ -105,7 +105,7 @@ const systemMessageOf = (out: string) =>
 	(JSON.parse(out) as { systemMessage?: string }).systemMessage;
 
 describe("sending commands while the CLI version is unsupported", () => {
-	it.each([[["import"]], [["init"]]])(
+	it.each([[["import"]], [["init"]], [["status"]], [["status", "--json"]]])(
 		"%j sends nothing, prints the update line and exits 1",
 		async (argv) => {
 			const fetch = vi.fn();

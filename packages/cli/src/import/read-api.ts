@@ -101,3 +101,72 @@ export async function fetchSessionImportDays(
 		? { kind: "ok", value: days }
 		: FAILED;
 }
+
+export type OnboardingStep = {
+	step: number;
+	status: "done" | "todo" | "unavailable";
+	url: string;
+};
+
+export type Onboarding = {
+	workspace_name: string;
+	role: "owner" | "admin" | "member" | "viewer";
+	has_seat: boolean;
+	steps: OnboardingStep[];
+	admin_steps?: OnboardingStep[];
+};
+
+const ROLES = new Set(["owner", "admin", "member", "viewer"]);
+const STEP_STATUSES = new Set(["done", "todo", "unavailable"]);
+
+function parseSteps(value: unknown): OnboardingStep[] | undefined {
+	if (!Array.isArray(value)) return undefined;
+	const steps = value.map((item: unknown) => {
+		if (typeof item !== "object" || item === null) return undefined;
+		const { step, status, url } = item as Json;
+		return Number.isInteger(step) &&
+			(step as number) >= 2 &&
+			(step as number) <= 5 &&
+			STEP_STATUSES.has(status as string) &&
+			typeof url === "string"
+			? ({ step, status, url } as OnboardingStep)
+			: undefined;
+	});
+	return steps.every((step) => step !== undefined) ? steps : undefined;
+}
+
+// onboarding.md「harnessforce status」: `GET /api/v1/onboarding`。形が違えば読めなかったものとする。
+export async function fetchOnboarding(
+	base: URL,
+	apiToken: string,
+	fetchImpl: Fetch,
+): Promise<ReadOutcome<Onboarding>> {
+	const outcome = await getJson(
+		underBase(base, "api/v1/onboarding"),
+		apiToken,
+		fetchImpl,
+	);
+	if (outcome.kind !== "ok") return outcome;
+	const body = outcome.value;
+	const steps = parseSteps(body.steps);
+	const adminSteps =
+		body.admin_steps === undefined ? undefined : parseSteps(body.admin_steps);
+	if (
+		typeof body.workspace_name !== "string" ||
+		!ROLES.has(body.role as string) ||
+		typeof body.has_seat !== "boolean" ||
+		!steps ||
+		(body.admin_steps !== undefined && !adminSteps)
+	)
+		return FAILED;
+	return {
+		kind: "ok",
+		value: {
+			workspace_name: body.workspace_name,
+			role: body.role as Onboarding["role"],
+			has_seat: body.has_seat,
+			steps,
+			...(adminSteps && { admin_steps: adminSteps }),
+		},
+	};
+}

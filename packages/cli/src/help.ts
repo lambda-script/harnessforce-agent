@@ -81,6 +81,38 @@ Examples:
   harnessforce import
 `,
 	},
+	status: {
+		summary: "Show the Workspace setup steps that remain",
+		text: `Usage: harnessforce status [--json]
+
+When to use:
+  After init, and any time you want to see which setup steps of the connected
+  Workspace remain and whether this repository is connected to the GitHub App.
+
+What it does:
+  Reads the setup checklist of the connected Workspace and the list of
+  connected repositories, and prints your role, each step (done, to do with its
+  URL, or "?" when it cannot be read), and whether the repository of the current
+  directory (its origin remote) is connected.
+
+Options:
+  --json   Print the checklist and the repository as one JSON object.
+
+Sends:
+  Read requests with the API token. It writes nothing.
+
+Does not send:
+  The URL of the origin remote: it is compared on this machine.
+
+Exit codes:
+  0  The status was read, whether or not steps remain.
+  1  Not logged in, the login expired, or communication failed.
+
+Examples:
+  harnessforce status
+  harnessforce status --json
+`,
+	},
 	"otel-headers": {
 		summary: "Print the telemetry auth header (used by Claude Code)",
 		text: `Usage: harnessforce otel-headers
@@ -260,6 +292,7 @@ type CommandName = keyof typeof COMMANDS;
 const ORDER: readonly CommandName[] = [
 	"init",
 	"import",
+	"status",
 	"run",
 	"tune",
 	"top",

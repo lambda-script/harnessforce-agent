@@ -22,6 +22,7 @@ import {
 	runIssue,
 	runWithoutHarnessforce,
 } from "./run/run.js";
+import { statusCommand } from "./status/command.js";
 import { topCommand } from "./top/command.js";
 import type { TopIo } from "./top/io.js";
 import { type TuneCommandDeps, tuneCommand } from "./tune/tune.js";
@@ -159,6 +160,14 @@ export async function run(
 	if (command === "import" && rest.length === 0)
 		return guarded(() =>
 			importCommand({
+				...cli,
+				git: cli.importGit,
+				now: () => cli.now().getTime(),
+			}),
+		);
+	if (command === "status")
+		return guarded(() =>
+			statusCommand(rest, {
 				...cli,
 				git: cli.importGit,
 				now: () => cli.now().getTime(),
