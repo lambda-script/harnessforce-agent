@@ -70,6 +70,8 @@ process.exitCode =
 		devBuild: !isDefault,
 		callbackTimeoutMs: CALLBACK_TIMEOUT_MS,
 		cwd: process.cwd(),
+		// shebangで起動されたとき、nodeへ渡るのはPATHから解決した`harnessforce`の絶対path。
+		selfPath: process.argv[1] as string,
 		git: createGitRunner({
 			platform: process.platform,
 			env: process.env,

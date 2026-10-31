@@ -31,7 +31,10 @@ harnessforce init
 | `harnessforce otel-headers` | Prints the `Authorization` header for Claude Code's `otelHeadersHelper`. Exits 3 when there is no key, 4 when the destination differs from the pinned origin, 5 while the CLI version is unsupported, and 1 on other failures. On Linux, after printing a key read from the kernel keyring, it moves that Workspace's items to an unlocked Secret Service (not when the hook starts it), so a reboot does not lose them |
 | `harnessforce run --issue <identifier> -- <agent> [args]` | Launches an agent with its session linked to an Issue |
 | `harnessforce import` | Sends the metadata of past Claude Code sessions in connected repositories |
+| `harnessforce status [--json]` | Shows the connected Workspace, your role, the setup steps that remain with their URLs, and whether the `origin` repository of the current directory is connected to the GitHub App. Reads only; the remote URL is compared on this machine and never sent. Exits 0 whenever the status was read |
 | `harnessforce tune [--all] [--no-send] [--show-report] [--json]` | Analyzes past sessions on this machine by public rules and sends the counts (analysis reports) |
+| `harnessforce tune --report-only [--all]` | Analyzes and sends like `harnessforce tune`, but writes nothing to stdout. Meant for your OS scheduler |
+| `harnessforce tune --print-schedule` | Prints one cron line that runs `harnessforce tune --report-only` every Monday at 9:00 local time. Changes nothing and makes no network request |
 | `harnessforce tune record` / `harnessforce tune --purge` | Records a proposal from stdin / deletes everything under `~/.harnessforce/tune/` |
 | `harnessforce top [--once] [--json] [--ascii] [--theme <auto\|light\|dark\|ansi>]` | Shows the Claude Code and Codex sessions on this machine in the terminal: state, tokens, context and tool failures. Reads only local files and never connects to Harnessforce |
 | `harnessforce hook session-start` | The entry of Codex's `SessionStart` hook: reads `session_id`, `cwd` and `source` from stdin, registers the session, and prints the session ID for the agent's context. Always exits 0 |
@@ -295,6 +298,9 @@ role cannot use it.
 - `--json` also lists, for each recorded proposal whose application was detected, the value of its
   category in the 14 days before and after the detection time (`followups`). The difference is not
   a cause. Once a `--json` run outputs a follow-up whose after period has ended, later runs omit it.
+- To send weekly without opening Claude Code, add the line that `harnessforce tune --print-schedule`
+  prints to your crontab yourself. Harnessforce never registers it. To stop, remove the line or set
+  `send_report` to `false`.
 - Everything it keeps is under `~/.harnessforce/tune/`; `harnessforce tune --purge` deletes it.
 
 ## License

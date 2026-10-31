@@ -455,10 +455,79 @@ describe("harnessforce tune", () => {
 		expect(await t.run(["--bogus"])).toEqual({
 			code: 2,
 			out: "",
-			err: "Usage: harnessforce tune [--all] [--no-send] [--show-report] [--json], harnessforce tune record, or harnessforce tune --purge\n",
+			err: "Usage: harnessforce tune [--all] [--no-send] [--show-report] [--json], harnessforce tune --report-only [--all], harnessforce tune --print-schedule, harnessforce tune record, or harnessforce tune --purge\n",
 		});
 		expect((await t.run(["record", "--all"])).code).toBe(2);
 	});
+
+	// improvement-loop.md「操作」: OSのschedulerから起動する定期の送信。
+	it("sends the analysis results without writing anything to stdout for --report-only", async () => {
+		const t = await setupTune();
+		const result = await t.run(["--report-only"]);
+		expect(result).toEqual({
+			code: 0,
+			out: "",
+			err: "Sent 10 analysis result(s)\n",
+		});
+		expect(t.reportBodies()[0]).toHaveLength(10);
+	});
+
+	it("sends nothing for --report-only when send_report is false", async () => {
+		const t = await setupTune();
+		writeFile(
+			join(t.home.home, ".harnessforce", "config.json"),
+			JSON.stringify({ tune: { send_report: false } }),
+		);
+		const result = await t.run(["--report-only"]);
+		expect(result.code).toBe(0);
+		expect(result.out).toBe("");
+		expect(t.reportBodies()).toEqual([]);
+	});
+
+	it.each([
+		[["--report-only", "--all"], 0],
+		[["--all", "--report-only"], 0],
+		[["--report-only", "--json"], 2],
+		[["--report-only", "--no-send"], 2],
+		[["--report-only", "--show-report"], 2],
+		[["--report-only", "--report-only"], 2],
+	])("combines --report-only only with --all: %j", async (args, code) => {
+		const t = await setupTune();
+		expect((await t.run(args)).code).toBe(code);
+	});
+
+	it("prints one cron line that runs --report-only weekly with the absolute path of harnessforce", async () => {
+		const t = await setupTune();
+		const result = await t.run(["--print-schedule"], {
+			selfPath: "/opt/hf/bin/harnessforce",
+		});
+		expect(result).toEqual({
+			code: 0,
+			out: "0 9 * * 1 /opt/hf/bin/harnessforce tune --report-only\n",
+			err: "",
+		});
+		expect(t.hf.requests).toEqual([]);
+		expect(existsSync(join(t.home.home, ".harnessforce"))).toBe(false);
+	});
+
+	it("quotes a path that the cron shell would split or expand", async () => {
+		const t = await setupTune();
+		const result = await t.run(["--print-schedule"], {
+			selfPath: "/home/a b/it's/50%/harnessforce",
+		});
+		expect(result.out).toBe(
+			"0 9 * * 1 '/home/a b/it'\\''s/50\\%/harnessforce' tune --report-only\n",
+		);
+	});
+
+	it.each([[["--print-schedule", "--all"]], [["--json", "--print-schedule"]]])(
+		"rejects other options with --print-schedule: %j",
+		async (args) => {
+			const t = await setupTune();
+			expect((await t.run(args)).code).toBe(2);
+			expect(t.hf.requests).toEqual([]);
+		},
+	);
 
 	// 印字可能なASCII以外は端末の制御に使える。UTF-8の2バイト目が0x80-0x9Fになる文字も、8bitのC1を解釈する端末ではCSIになる。
 	it("writes server and model names to the terminal as printable ASCII only", async () => {

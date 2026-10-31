@@ -65,6 +65,8 @@ export type AnalyzeOptions = {
 	noSend: boolean;
 	showReport: boolean;
 	json: boolean;
+	// OSのschedulerから起動する定期の送信。分析結果の表示をstdoutへ書かない。
+	reportOnly: boolean;
 };
 
 export type TuneDeps = {
@@ -513,7 +515,7 @@ async function analyzeUnderLock(
 	if (!isWritten) notices.add("unwritable", TUNE_MESSAGES.unwritable, 1);
 
 	if (options.json) deps.stdout(`${asciiJson(output)}\n`);
-	else {
+	else if (!options.reportOnly) {
 		deps.stdout(
 			renderAnalysis(
 				analyzed.map((a) => a.report),

@@ -18,6 +18,8 @@ import { ensureDir, tunePaths } from "./store.js";
 export type TuneCommandDeps = TuneDeps & {
 	// stdinを最大maxBytes+1 byteまで読む。
 	readStdin: (maxBytes: number) => Promise<Buffer>;
+	// 実行中の`harnessforce`の絶対path。`--print-schedule`の行のcommandに使う。
+	selfPath: string;
 };
 
 const FLAGS = {
@@ -25,31 +27,56 @@ const FLAGS = {
 	"--no-send": "noSend",
 	"--show-report": "showReport",
 	"--json": "json",
+	"--report-only": "reportOnly",
 } as const;
 
 type Parsed =
 	| { kind: "analyze"; options: AnalyzeOptions }
 	| { kind: "record" }
-	| { kind: "purge" };
+	| { kind: "purge" }
+	| { kind: "printSchedule" };
+
+const REPORT_ONLY = "--report-only";
 
 function parseArgs(args: readonly string[]): Parsed | undefined {
 	if (args.length === 1 && args[0] === "record") return { kind: "record" };
 	if (args.length === 1 && args[0] === "--purge") return { kind: "purge" };
+	if (args.length === 1 && args[0] === "--print-schedule")
+		return { kind: "printSchedule" };
 	const options: AnalyzeOptions = {
 		all: false,
 		noSend: false,
 		showReport: false,
 		json: false,
+		reportOnly: false,
 	};
 	for (const arg of args) {
 		const key = FLAGS[arg as keyof typeof FLAGS];
 		if (key === undefined || options[key]) return undefined;
 		options[key] = true;
 	}
+	// `--report-only`は`--all`とだけ組み合わせられる。
+	if (
+		options.reportOnly &&
+		(options.noSend || options.showReport || options.json)
+	)
+		return undefined;
 	return { kind: "analyze", options };
 }
 
-// tokenとkeyを送りうるのは`--no-send`を付けない分析だけ。`record`、`--purge`、`--no-send`を付けた分析、誤った引数は通信を行わない。
+// cronはcommandを`/bin/sh`へ渡し、`%`を改行として扱う。shellが分けたり展開したりする文字を含むpathは引用する。
+function cronCommandPath(path: string): string {
+	const quoted = /^[A-Za-z0-9_./-]+$/.test(path)
+		? path
+		: `'${path.replaceAll("'", "'\\''")}'`;
+	return quoted.replaceAll("%", "\\%");
+}
+
+// improvement-loop.md「操作」: 毎週月曜日の端末のtimezoneの9時に`--report-only`を起動するcronの1行。何も書き換えず、通信しない。
+const scheduleLine = (selfPath: string) =>
+	`0 9 * * 1 ${cronCommandPath(selfPath)} tune ${REPORT_ONLY}\n`;
+
+// tokenとkeyを送りうるのは`--no-send`を付けない分析だけ。`record`、`--purge`、`--print-schedule`、`--no-send`を付けた分析、誤った引数は通信を行わない。
 export function canTuneSend(args: readonly string[]): boolean {
 	const parsed = parseArgs(args);
 	return parsed?.kind === "analyze" && !parsed.options.noSend;
@@ -113,6 +140,10 @@ export async function tuneCommand(
 		return 2;
 	}
 	if (parsed.kind === "record") return record(deps);
+	if (parsed.kind === "printSchedule") {
+		deps.stdout(scheduleLine(deps.selfPath));
+		return 0;
+	}
 	if (parsed.kind === "purge")
 		return underLock(deps, TUNE_MESSAGES.purgeFailed, async (paths) => {
 			if (!(await purgeTuneFiles(paths)))

@@ -31,6 +31,8 @@ type HarnessforceOptions = {
 	// cursorごとのrepositoryの一覧。無ければ1ページで`github.com/acme/web`だけ。
 	repositories?: (cursor: string | null) => Reply;
 	workspace?: Reply;
+	// `GET /api/v1/onboarding`の応答。無ければ404。
+	onboarding?: Reply;
 	// ingestの要求ごとの応答。尽きたらすべて受け付ける。
 	ingest?: Reply[];
 	// `/v1/analysis-reports`の要求ごとの応答。尽きたらすべて受け付ける。
@@ -111,6 +113,8 @@ export async function startImportServer(options: HarnessforceOptions = {}) {
 			return reply(
 				options.workspace ?? { status: 200, body: { session_import_days: 30 } },
 			);
+		if (req.method === "GET" && url.pathname === "/app/api/v1/onboarding")
+			return reply(options.onboarding ?? { status: 404 });
 		if (req.method === "POST" && url.pathname === "/ingest/v1/imports/sessions")
 			return reply(
 				ingestReplies.shift() ?? {
@@ -154,11 +158,14 @@ export async function startImportServer(options: HarnessforceOptions = {}) {
 	};
 }
 
-// origin remoteを持つgitのrepository。sessionのcwdに使う。
-export function gitRepository(remote = "git@github.com:Acme/Web.git"): string {
+// remoteを1つ持つgitのrepository（既定はorigin）。sessionのcwdに使う。
+export function gitRepository(
+	remote = "git@github.com:Acme/Web.git",
+	remoteName = "origin",
+): string {
 	const dir = tempDir("hf-work-");
 	execFileSync("git", ["init", "-q", dir]);
-	execFileSync("git", ["-C", dir, "remote", "add", "origin", remote]);
+	execFileSync("git", ["-C", dir, "remote", "add", remoteName, remote]);
 	return dir;
 }
 

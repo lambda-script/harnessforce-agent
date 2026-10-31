@@ -22,6 +22,7 @@ import {
 	runIssue,
 	runWithoutHarnessforce,
 } from "./run/run.js";
+import { statusCommand } from "./status/command.js";
 import { topCommand } from "./top/command.js";
 import type { TopIo } from "./top/io.js";
 import { type TuneCommandDeps, tuneCommand } from "./tune/tune.js";
@@ -41,6 +42,8 @@ export type CliDeps = InitDeps &
 		hookTmpDir: string;
 		// stdoutを閉じ、書いた分が渡るのを待つ。otel-headersが出力の後に処理を続ける前に呼ぶ。
 		endStdout: () => Promise<void>;
+		// 実行中の`harnessforce`の絶対path。`harnessforce tune --print-schedule`が使う。
+		selfPath: string;
 		// 接続先を与えたbuild（npmへ配らない）。`User-Agent`に`-dev`を付ける（client-updates.md「版の申告」）。
 		devBuild: boolean;
 	};
@@ -159,6 +162,14 @@ export async function run(
 	if (command === "import" && rest.length === 0)
 		return guarded(() =>
 			importCommand({
+				...cli,
+				git: cli.importGit,
+				now: () => cli.now().getTime(),
+			}),
+		);
+	if (command === "status")
+		return guarded(() =>
+			statusCommand(rest, {
 				...cli,
 				git: cli.importGit,
 				now: () => cli.now().getTime(),
