@@ -132,7 +132,13 @@ describe("harnessforce init", () => {
 			code_challenge_method: "S256",
 			state: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
 		});
-		expect(await browser.pages[0]).toContain("Return to the terminal");
+		// 結果が決まってから、webの完了画面へ移す。code、stateは載せない。
+		expect(await browser.pages[0]).toMatchObject({
+			status: 303,
+			location: `${server.base}/cli/connected?status=connected&workspace=${issued.workspace_id}`,
+			cacheControl: "no-store",
+			body: "",
+		});
 
 		const [request] = server.credentialRequests;
 		expect(request?.headers["content-type"]).toBe("application/json");
@@ -599,41 +605,83 @@ describe("harnessforce init", () => {
 
 	describe("callback", () => {
 		it.each([
+			["access_denied", { error: "access_denied" }, M.denied, "denied"],
 			[
-				"a wrong state even with access_denied",
-				{ error: "access_denied", state: "forged" },
-				M.loginFailed,
+				"no_workspace",
+				{ error: "no_workspace" },
+				M.noWorkspace,
+				"no_workspace",
 			],
-			[
-				"a missing state with no_workspace",
-				{ error: "no_workspace", state: undefined },
-				M.loginFailed,
-			],
-			["access_denied", { error: "access_denied" }, M.denied],
-			["no_workspace", { error: "no_workspace" }, M.noWorkspace],
-			["another error", { error: "server_error" }, M.loginFailed],
-			["no code", {}, M.loginFailed],
-		])("ends on %s without sending the code", async (_, params, message) => {
+			["another error", { error: "server_error" }, M.loginFailed, "failed"],
+			["no code", {}, M.loginFailed, "failed"],
+		])(
+			"ends on %s without sending the code",
+			async (_, params, message, status) => {
+				const server = await startCredentialsServer();
+				const browser = fakeBrowser({
+					query: (authorization) => ({
+						state: authorization.searchParams.get("state") ?? "",
+						...params,
+					}),
+				});
+				const { keychain, items } = fakeKeychain({ items: EXISTING });
+				const home = makeHome();
+				expect(
+					await runInit([], {
+						homeDir: home.home,
+						defaultUrl: server.base,
+						keychain,
+						openBrowser: browser.open,
+					}),
+				).toEqual(failed(message));
+				expect(await browser.pages[0]).toMatchObject({
+					status: 303,
+					location: `${server.base}/cli/connected?status=${status}`,
+				});
+				expect(server.credentialRequests).toEqual([]);
+				expect(Object.fromEntries(items)).toEqual(EXISTING);
+				expect(home.read()).toBeUndefined();
+			},
+		);
+
+		// 期待したstateを持たないcallbackは他のprocessやWebページからでも送れるため、ログインを終わらせない。
+		it("ignores callbacks with a wrong or missing state and logs in with the real one", async () => {
 			const server = await startCredentialsServer();
-			const browser = fakeBrowser({
-				query: (authorization) => ({
-					state: authorization.searchParams.get("state") ?? "",
-					...params,
-				}),
-			});
-			const { keychain, items } = fakeKeychain({ items: EXISTING });
+			const browser = fakeBrowser();
+			const forged: { status: number; location: string | null }[] = [];
+			const openBrowser = async (url: string) => {
+				const redirectUri = new URL(url).searchParams.get("redirect_uri") ?? "";
+				for (const query of [
+					"error=access_denied&state=forged",
+					"error=no_workspace",
+				]) {
+					const response = await fetch(`${redirectUri}?${query}`, {
+						redirect: "manual",
+					});
+					forged.push({
+						status: response.status,
+						location: response.headers.get("location"),
+					});
+				}
+				return browser.open(url);
+			};
 			const home = makeHome();
 			expect(
 				await runInit([], {
 					homeDir: home.home,
 					defaultUrl: server.base,
-					keychain,
-					openBrowser: browser.open,
+					openBrowser,
 				}),
-			).toEqual(failed(message));
-			expect(server.credentialRequests).toEqual([]);
-			expect(Object.fromEntries(items)).toEqual(EXISTING);
-			expect(home.read()).toBeUndefined();
+			).toEqual({ code: 0, out: finished(home.home), err: "" });
+			expect(forged).toEqual([
+				{ status: 303, location: `${server.base}/cli/connected?status=failed` },
+				{ status: 303, location: `${server.base}/cli/connected?status=failed` },
+			]);
+			expect(server.credentialRequests).toEqual([
+				expect.objectContaining({
+					body: expect.objectContaining({ code: "code-1" }),
+				}),
+			]);
 		});
 
 		it("times out when no callback arrives", async () => {
@@ -757,14 +805,19 @@ describe("harnessforce init", () => {
 				});
 				const { keychain, items } = fakeKeychain({ items: EXISTING });
 				const home = makeHome('{"model":"opus"}');
+				const browser = fakeBrowser();
 				expect(
 					await runInit([], {
 						homeDir: home.home,
 						defaultUrl: server.base,
 						keychain,
-						openBrowser: fakeBrowser().open,
+						openBrowser: browser.open,
 					}),
 				).toEqual(failed(message));
+				// 発行できなかった結果は、viewerだけを区別し、それ以外は失敗の画面へ移す。
+				expect((await browser.pages[0])?.location).toBe(
+					`${server.base}/cli/connected?status=${message === M.viewer ? "viewer" : "failed"}`,
+				);
 				expect(Object.fromEntries(items)).toEqual(EXISTING);
 				expect(home.read()).toBe('{"model":"opus"}');
 			},
