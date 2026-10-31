@@ -128,6 +128,7 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}) {
 		callbackTimeoutMs: 5000,
 		restoredEnv: {},
 		cwd: "/nonexistent/hf-cwd",
+		selfPath: "/nonexistent/hf-bin/harnessforce",
 		git: async () => undefined,
 		now: () => new Date(),
 		platform: "linux",

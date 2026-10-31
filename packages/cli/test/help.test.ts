@@ -4,6 +4,7 @@ import { runCli } from "./support/cli.js";
 const COMMANDS = [
 	"init",
 	"import",
+	"status",
 	"otel-headers",
 	"run",
 	"tune",

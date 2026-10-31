@@ -70,7 +70,7 @@ export const TUNE_MESSAGES = {
 	recordInvalid: (field: string) =>
 		`The suggestion record input is invalid: ${field}`,
 	usage:
-		"Usage: harnessforce tune [--all] [--no-send] [--show-report] [--json], harnessforce tune record, or harnessforce tune --purge",
+		"Usage: harnessforce tune [--all] [--no-send] [--show-report] [--json], harnessforce tune --report-only [--all], harnessforce tune --print-schedule, harnessforce tune record, or harnessforce tune --purge",
 	purged:
 		"Deleted the analysis results, suggestions and unsent analysis results in `~/.harnessforce/tune/`",
 	purgeFailed: "Could not delete some files in `~/.harnessforce/tune/`",

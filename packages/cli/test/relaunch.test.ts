@@ -36,21 +36,23 @@ describe("relaunching harnessforce without Node runtime variables", () => {
 		},
 	);
 
-	it.each([["tune"], ["tune", "--json"], ["tune", "--all", "--show-report"]])(
-		"relaunches harnessforce %j",
-		async (...argv) => {
-			const seen: Record<string, string>[] = [];
-			const code = await relaunchHf(argv, {
-				platform: "linux",
-				env: { NODE_OPTIONS: "--x" },
-				spawnSelf: exitingWith(0, seen),
-				stdout: () => {},
-				stderr: () => {},
-			});
-			expect(code).toBe(0);
-			expect(seen[0]?.NODE_OPTIONS).toBeUndefined();
-		},
-	);
+	it.each([
+		["tune"],
+		["tune", "--json"],
+		["tune", "--all", "--show-report"],
+		["tune", "--report-only"],
+	])("relaunches harnessforce %j", async (...argv) => {
+		const seen: Record<string, string>[] = [];
+		const code = await relaunchHf(argv, {
+			platform: "linux",
+			env: { NODE_OPTIONS: "--x" },
+			spawnSelf: exitingWith(0, seen),
+			stdout: () => {},
+			stderr: () => {},
+		});
+		expect(code).toBe(0);
+		expect(seen[0]?.NODE_OPTIONS).toBeUndefined();
+	});
 
 	// tokenやkeyを送るcommandを足したとき、起動し直す集合へ入れ忘れると、TLSとproxyの変数を受け継いだまま送る。
 	const src = fileURLToPath(new URL("../src/", import.meta.url));
@@ -67,7 +69,7 @@ describe("relaunching harnessforce without Node runtime variables", () => {
 				),
 		);
 	it("finds the commands that send an ApiToken", () => {
-		expect(sendingDirs.sort()).toEqual(["import", "run", "tune"]);
+		expect(sendingDirs.sort()).toEqual(["import", "run", "status", "tune"]);
 	});
 	it.each(sendingDirs)(
 		"relaunches harnessforce %s, which sends an ApiToken",
@@ -89,6 +91,7 @@ describe("relaunching harnessforce without Node runtime variables", () => {
 		["otel-headers"],
 		["tune", "record"],
 		["tune", "--purge"],
+		["tune", "--print-schedule"],
 		["tune", "--no-send"],
 		["tune", "--json", "--no-send"],
 		["tune", "--unknown"],

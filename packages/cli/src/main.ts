@@ -42,6 +42,8 @@ export type CliDeps = InitDeps &
 		hookTmpDir: string;
 		// stdoutを閉じ、書いた分が渡るのを待つ。otel-headersが出力の後に処理を続ける前に呼ぶ。
 		endStdout: () => Promise<void>;
+		// 実行中の`harnessforce`の絶対path。`harnessforce tune --print-schedule`が使う。
+		selfPath: string;
 		// 接続先を与えたbuild（npmへ配らない）。`User-Agent`に`-dev`を付ける（client-updates.md「版の申告」）。
 		devBuild: boolean;
 	};

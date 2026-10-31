@@ -175,6 +175,8 @@ Examples:
 	tune: {
 		summary: "Analyze your past sessions and report counts",
 		text: `Usage: harnessforce tune [--all] [--no-send] [--show-report] [--json]
+       harnessforce tune --report-only [--all]
+       harnessforce tune --print-schedule
        harnessforce tune record
        harnessforce tune --purge
 
@@ -194,6 +196,11 @@ Options:
   --show-report   Print the exact values that would be sent.
   --json          Print the result as one JSON object on stdout. Messages go to
                   stderr.
+  --report-only   Analyze and send, writing nothing to stdout (for your OS
+                  scheduler). Combines with --all only.
+  --print-schedule
+                  Print a cron line that runs --report-only every Monday at
+                  9:00. It changes nothing and sends nothing.
   record          Read one proposal as JSON from stdin and store it locally.
   --purge         Delete the analysis, proposals, and unsent results.
 
@@ -215,6 +222,7 @@ Exit codes:
 Examples:
   harnessforce tune
   harnessforce tune --no-send --json
+  harnessforce tune --print-schedule
   harnessforce tune --purge
 `,
 	},
