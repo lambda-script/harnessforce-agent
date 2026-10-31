@@ -163,7 +163,7 @@ export async function runScreen(options: ScreenOptions): Promise<number> {
 	// 選択しているsessionの行の番号。消えていれば先頭にする。
 	const indexOfSelected = (rows: readonly TopRow[]): number => {
 		const index = rows.findIndex((row) => row.sessionId === selectedId);
-		return index >= 0 ? index : 0;
+		return Math.max(index, 0);
 	};
 
 	const select = (rows: readonly TopRow[], index: number) => {
