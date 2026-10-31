@@ -1,7 +1,8 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { afterEach, describe, expect, it } from "vitest";
+import type { SecretServiceLock } from "../../src/credentials/secret-service-lock.js";
 import { createSecretServiceProcess } from "../../src/credentials/secret-service-process.js";
 
 // @napi-rs/keyringの代わり。項目はfileに置き、子processの間で共有する。
@@ -52,8 +53,23 @@ afterEach(() => {
 	else process.env.HF_FAKE_KEYRING_FILE = previousFile;
 });
 
+// 解錠の状態の代わり。needsUnlockの結果を返し、呼ばれたoperationを記録する。
+function fakeLock(needsUnlock: boolean | Error = false) {
+	const checked: string[] = [];
+	const lock: SecretServiceLock = {
+		async needsUnlock(operation, account) {
+			checked.push(`${operation} ${account}`);
+			if (needsUnlock instanceof Error) throw needsUnlock;
+			return needsUnlock;
+		},
+		provider: async () => ({ isKWallet: true, walletLabel: "kdewallet" }),
+	};
+	return { lock, checked };
+}
+
 function secretService(
 	state: { items?: Record<string, string>; broken?: boolean } = {},
+	lock: SecretServiceLock = fakeLock().lock,
 ) {
 	const dir = tempDir("hf-secret-service-");
 	const modulePath = join(dir, "fake-keyring.cjs");
@@ -65,6 +81,7 @@ function secretService(
 		store: createSecretServiceProcess({
 			execPath: process.execPath,
 			resolveKeyring: () => modulePath,
+			lock,
 		}),
 		items: () =>
 			(JSON.parse(readFileSync(file, "utf8")) as { items: object }).items,
@@ -101,6 +118,7 @@ describe("Secret Service in a child process", () => {
 			resolveKeyring: () => {
 				throw new Error("cannot find module");
 			},
+			lock: fakeLock().lock,
 		});
 		await expect(store.get("ws1:ingest-key", 10_000)).rejects.toThrow();
 	});
@@ -113,5 +131,58 @@ describe("Secret Service in a child process", () => {
 		// 解錠の確認を待つ子processを残さない。
 		const pid = Number(readFileSync(`${hfFile()}.pid`, "utf8"));
 		expect(() => process.kill(pid, 0)).toThrow(/ESRCH/);
+	});
+
+	it("does not consult the lock state when unlock prompts are allowed", async () => {
+		const { lock, checked } = fakeLock(true);
+		const { store } = secretService({ items: { "harnessforce/a": "x" } }, lock);
+		expect(await store.get("a", 10_000)).toBe("x");
+		expect(checked).toEqual([]);
+	});
+});
+
+describe("Secret Service without unlock prompts", () => {
+	it("fails an operation that needs an unlock prompt without starting it", async () => {
+		const { lock, checked } = fakeLock(true);
+		const { store } = secretService({}, lock);
+		const started = Date.now();
+		await expect(
+			store.withoutUnlockPrompt().get("hang", 10_000),
+		).rejects.toThrow(/locked/);
+		expect(Date.now() - started).toBeLessThan(2_000);
+		expect(existsSync(`${hfFile()}.pid`)).toBe(false);
+		expect(checked).toEqual(["get hang"]);
+	});
+
+	it("runs an operation that needs no unlock prompt", async () => {
+		const { lock, checked } = fakeLock(false);
+		const { store, items } = secretService({}, lock);
+		const quiet = store.withoutUnlockPrompt();
+		await quiet.set("ws1:ingest-key", "hf_ik", 10_000);
+		expect(await quiet.get("ws1:ingest-key", 10_000)).toBe("hf_ik");
+		await quiet.delete("ws1:ingest-key", 10_000);
+		expect(items()).toEqual({});
+		expect(checked).toEqual([
+			"set ws1:ingest-key",
+			"get ws1:ingest-key",
+			"delete ws1:ingest-key",
+		]);
+	});
+
+	it("fails without starting the operation when the lock state cannot be read", async () => {
+		const { lock } = fakeLock(new Error("no D-Bus session bus"));
+		const { store } = secretService({}, lock);
+		await expect(
+			store.withoutUnlockPrompt().get("hang", 10_000),
+		).rejects.toThrow();
+		expect(existsSync(`${hfFile()}.pid`)).toBe(false);
+	});
+
+	it("reports the Secret Service provider", async () => {
+		const { store } = secretService();
+		await expect(store.provider(1_000)).resolves.toEqual({
+			isKWallet: true,
+			walletLabel: "kdewallet",
+		});
 	});
 });

@@ -50,6 +50,10 @@ export const INIT_MESSAGES = {
 } as const;
 
 // 手順8: Codexの`config.toml`を書いた後の案内。trustは利用者の操作で、`harnessforce init`は代行できない。
+// KWalletは解錠の確認を1つずつ順に出すため、前の確認が他のwindowの後ろで答えられずに残ると、initの確認は表示されない。
+export const kwalletUnlockHint = (walletLabel = "kdewallet") =>
+	`KWallet asks for the password of the wallet "${walletLabel}" in a "KDE Wallet Service" window. If no window appears, an earlier request may be waiting behind other windows: answer that window, or log out and back in, then run \`harnessforce init\` again`;
+
 export const codexNotes = (configPath: string) =>
 	[
 		`Wrote the Codex configuration (${configPath}). Restart Codex to apply it`,

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { homedir, tmpdir } from "node:os";
 import { setTimeout as delay } from "node:timers/promises";
@@ -9,6 +10,10 @@ import {
 	takeStashedRuntimeEnv,
 } from "@harnessforce/agent-core/process/runtime-env";
 import { createOsKeychain } from "./credentials/os-keychain.js";
+import {
+	createSecretServiceLock,
+	sessionBusAddress,
+} from "./credentials/secret-service-lock.js";
 import { createSecretServiceProcess } from "./credentials/secret-service-process.js";
 import { createImportGit } from "./import/repository.js";
 import { openBrowser } from "./init/browser.js";
@@ -49,6 +54,11 @@ process.exitCode =
 			secretService: createSecretServiceProcess({
 				execPath: process.execPath,
 				resolveKeyring: () => require.resolve("@napi-rs/keyring"),
+				lock: createSecretServiceLock({
+					address: sessionBusAddress(process.env),
+					uid: process.getuid?.() ?? 0,
+					readComm: (pid) => readFile(`/proc/${pid}/comm`, "utf8"),
+				}),
 			}),
 		}),
 		stdout: (text) => process.stdout.write(text),

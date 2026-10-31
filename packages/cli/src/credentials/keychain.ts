@@ -1,3 +1,5 @@
+import type { SecretServiceProvider } from "./secret-service-lock.js";
+
 // CLIの資格情報の保存先（correlation.md「実行環境」）。macOS Keychain、Windows Credential Manager、
 // LinuxではSecret Serviceとkernelのkeyringだけを使い、平文で保存しない。
 export type KeychainItem = { account: string; secret: string };
@@ -22,8 +24,8 @@ export type Keychain = {
 export type InitOpenOptions = {
 	// user settingsの`HARNESSFORCE_WORKSPACE_ID`。列挙できない保存先からは、このWorkspaceの項目だけを読む。
 	previousWorkspaceId: string | undefined;
-	// 保存先を確かめる操作が解錠の確認を待っているとき。
-	onWaiting: () => void;
+	// 保存先を確かめる操作が解錠の確認を待っているとき。providerは確認を出すSecret Serviceの提供者で、分からなければundefined。
+	onWaiting: (provider: SecretServiceProvider | undefined) => void;
 };
 
 export type InitKeychain = {
