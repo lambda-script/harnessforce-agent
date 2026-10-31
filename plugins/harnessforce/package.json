@@ -1,6 +1,6 @@
 {
 	"name": "@harnessforce/claude-code-plugin",
-	"version": "0.3.0",
+	"version": "0.3.1",
 	"description": "Harnessforce plugin for Claude Code",
 	"keywords": [
 		"harnessforce",
