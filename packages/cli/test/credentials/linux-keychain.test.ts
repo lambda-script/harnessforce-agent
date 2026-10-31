@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { KeychainItem } from "../../src/credentials/keychain.js";
 import {
 	type CredentialStore,
 	createLinuxKeychain,
+	type SecretServiceStore,
 } from "../../src/credentials/linux-keychain.js";
 
 type FakeStoreOptions = {
@@ -13,7 +13,11 @@ type FakeStoreOptions = {
 	failOn?: string;
 	// setを呼び出し側が解決するまで終わらせない。
 	holdWrites?: boolean;
+	// 解錠の確認が要る（確認を出さないstoreの操作は失敗する）。
+	isLocked?: boolean;
 };
+
+const KWALLET = { isKWallet: true, walletLabel: "kdewallet" };
 
 // 1つの保存先の代わり。操作とその上限時間を記録する。
 function fakeStore(options: FakeStoreOptions = {}) {
@@ -21,15 +25,15 @@ function fakeStore(options: FakeStoreOptions = {}) {
 	const calls: string[] = [];
 	const timeouts: number[] = [];
 	const held: (() => void)[] = [];
+	// 確認を出さないstoreで受けた操作。
+	const quiet: string[] = [];
 	const record = (call: string, account: string, timeoutMs: number) => {
 		calls.push(`${call} ${account}`);
 		timeouts.push(timeoutMs);
 		if (options.broken || account === options.failOn)
 			throw new Error("store failure");
 	};
-	const store: CredentialStore & {
-		list(timeoutMs: number): Promise<readonly KeychainItem[]>;
-	} = {
+	const store: SecretServiceStore = {
 		get: async (account, timeoutMs) => {
 			record("get", account, timeoutMs);
 			return items.get(account);
@@ -48,8 +52,29 @@ function fakeStore(options: FakeStoreOptions = {}) {
 			record("list", "*", timeoutMs);
 			return [...items].map(([account, secret]) => ({ account, secret }));
 		},
+		withoutUnlockPrompt: () => {
+			const refuse = (call: string, account: string) => {
+				quiet.push(`${call} ${account}`);
+				if (options.isLocked) throw new Error("the Secret Service is locked");
+			};
+			return {
+				get: async (account, timeoutMs) => {
+					refuse("get", account);
+					return store.get(account, timeoutMs);
+				},
+				set: async (account, secret, timeoutMs) => {
+					refuse("set", account);
+					return store.set(account, secret, timeoutMs);
+				},
+				delete: async (account, timeoutMs) => {
+					refuse("delete", account);
+					return store.delete(account, timeoutMs);
+				},
+			} satisfies CredentialStore;
+		},
+		provider: async () => KWALLET,
 	};
-	return { store, items, calls, timeouts, held };
+	return { store, items, calls, timeouts, held, quiet };
 }
 
 const HINT = "linux hint";
@@ -277,7 +302,7 @@ describe("Linux keychain", () => {
 			await vi.advanceTimersByTimeAsync(1_999);
 			expect(onWaiting).not.toHaveBeenCalled();
 			await vi.advanceTimersByTimeAsync(1);
-			expect(onWaiting).toHaveBeenCalledOnce();
+			expect(onWaiting).toHaveBeenCalledExactlyOnceWith(KWALLET);
 			for (const release of secretService.held) release();
 			expect((await opened)?.isKernelKeyring).toBe(false);
 		});
@@ -390,6 +415,36 @@ describe("Linux keychain", () => {
 			expect(Object.fromEntries(kernel.items)).toEqual(WS1);
 			// 途中だった書き込みも片付けの対象にし、keyの無い項目だけが残りうる。
 			expect(secretService.items.has("ws1:ingest-key")).toBe(false);
+		});
+	});
+
+	describe("unlock prompts", () => {
+		it("asks for an unlock only through the 60-second keychain that init, run and import use", async () => {
+			const secretService = fakeStore({ items: WS1 });
+			const { keychain } = linuxKeychain(fakeStore(), secretService);
+			expect(await keychain.get("ws1:ingest-key")).toBe("hf_ik_ws1_a");
+			await keychain.openForInit(openOptions);
+			expect(secretService.quiet).toEqual([]);
+		});
+
+		it("does not ask for an unlock from a keychain with a shorter timeout (hooks and the token lock)", async () => {
+			const secretService = fakeStore({ items: WS1, isLocked: true });
+			const { keychain } = linuxKeychain(fakeStore(), secretService);
+			const hook = keychain.withTimeout(1_000);
+			expect(await hook.isAvailable()).toBe(true);
+			expect(await hook.get("ws1:ingest-key")).toBeUndefined();
+			expect(secretService.quiet).toEqual(["get ws1:ingest-key"]);
+			expect(secretService.calls).toEqual([]);
+		});
+
+		it("does not ask for an unlock while moving the kernel keyring items", async () => {
+			const kernel = fakeStore({ items: WS1 });
+			const secretService = fakeStore({ isLocked: true });
+			const { keychain } = linuxKeychain(kernel, secretService);
+			await keychain.migrateFromKernel?.("ws1");
+			expect(secretService.quiet).toEqual(["get availability-probe"]);
+			expect(secretService.calls).toEqual([]);
+			expect(Object.fromEntries(kernel.items)).toEqual(WS1);
 		});
 	});
 });

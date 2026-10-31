@@ -9,6 +9,7 @@ import {
 	urlOriginAccount,
 	workspaceAccounts,
 } from "./keychain.js";
+import type { SecretServiceProvider } from "./secret-service-lock.js";
 
 // 1つの保存先。timeoutMsを超えた操作は失敗する（kernelのkeyringは待たないため使わない）。
 export type CredentialStore = {
@@ -19,6 +20,9 @@ export type CredentialStore = {
 
 export type SecretServiceStore = CredentialStore & {
 	list(timeoutMs: number): Promise<readonly KeychainItem[]>;
+	// 解錠の確認が要る操作を、確認を出さずに失敗させるstore。
+	withoutUnlockPrompt(): CredentialStore;
+	provider(timeoutMs: number): Promise<SecretServiceProvider>;
 };
 
 type Options = {
@@ -31,6 +35,8 @@ type Options = {
 // 60秒は、画面のある端末で利用者が解錠の確認に答えられる時間。
 const SECRET_SERVICE_TIMEOUT_MS = 60_000;
 const WAITING_NOTICE_DELAY_MS = 2_000;
+// 待っている表示に添える提供者の判定の上限。表示を遅らせない。
+const PROVIDER_TIMEOUT_MS = 500;
 // Harnessforceはこのaccountを読まないため、放棄した書き込みが後で残っても害は無い。
 const PROBE_ACCOUNT = "availability-probe";
 const PROBE_VALUE = "harnessforce";
@@ -56,11 +62,20 @@ const workspaceOf = (account: string) =>
 
 // correlation.md「実行環境」のLinuxの規則。kernelのkeyringを先に読み、Secret Serviceの各操作に上限時間を置く。
 export function createLinuxKeychain(options: Options): Keychain {
-	return build(options, SECRET_SERVICE_TIMEOUT_MS);
+	return build(options, SECRET_SERVICE_TIMEOUT_MS, true);
 }
 
-function build(options: Options, timeoutMs: number): Keychain {
-	const { kernel, secretService } = options;
+// 上限時間を短くしたkeychain（hookの読み出し、ApiTokenの失効のlockの中）は、解錠の確認を出さない。
+// 確認を出した子processを上限時間で止めても提供者に確認が残り、KWalletでは後のinitの確認がその後ろで待ち続けるためである。
+function build(
+	options: Options,
+	timeoutMs: number,
+	allowsUnlockPrompt: boolean,
+): Keychain {
+	const { kernel } = options;
+	const secretService = allowsUnlockPrompt
+		? options.secretService
+		: options.secretService.withoutUnlockPrompt();
 	// Workspaceごとの保存先。keyと送信先のoriginの組を、別の保存先の項目と混ぜない。
 	const locations = new Map<
 		string,
@@ -115,7 +130,7 @@ function build(options: Options, timeoutMs: number): Keychain {
 			if (location !== "kernel") return;
 			await migrate(options, workspaceId).catch(() => {});
 		},
-		withTimeout: (ms) => build(options, ms),
+		withTimeout: (ms) => build(options, ms, false),
 		openForInit: (init) => openForInit(options, timeoutMs, init),
 	};
 }
@@ -132,10 +147,19 @@ async function openForInit(
 			await store.set(PROBE_ACCOUNT, PROBE_VALUE, timeoutMs);
 			await store.delete(PROBE_ACCOUNT, timeoutMs);
 		});
-	const notice = setTimeout(onWaiting, WAITING_NOTICE_DELAY_MS);
-	const usesSecretService = await canWrite(secretService).finally(() =>
-		clearTimeout(notice),
-	);
+	let isWaiting = true;
+	const notify = (provider: SecretServiceProvider | undefined) => {
+		if (isWaiting) onWaiting(provider);
+	};
+	const notice = setTimeout(() => {
+		secretService
+			.provider(PROVIDER_TIMEOUT_MS)
+			.then(notify, () => notify(undefined));
+	}, WAITING_NOTICE_DELAY_MS);
+	const usesSecretService = await canWrite(secretService).finally(() => {
+		isWaiting = false;
+		clearTimeout(notice);
+	});
 	// kernelのkeyringは項目を列挙できないため、前回のinitのWorkspaceの項目だけを読む。
 	const readKernel = async () => {
 		if (!previousWorkspaceId) return [];
@@ -189,9 +213,11 @@ const MIGRATION_ORDER = (workspaceId: string) => [
 ];
 
 async function migrate(
-	{ kernel, secretService }: Options,
+	{ kernel, secretService: unlimited }: Options,
 	workspaceId: string,
 ): Promise<void> {
+	// correlation.md「CLI」: ロックされたSecret Serviceで解錠の確認を出さない。
+	const secretService = unlimited.withoutUnlockPrompt();
 	let isExpired = false;
 	const deadline = Date.now() + MIGRATION_BUDGET_MS;
 	const remaining = () => {

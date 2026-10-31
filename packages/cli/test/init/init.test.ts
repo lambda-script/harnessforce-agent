@@ -377,7 +377,7 @@ describe("harnessforce init", () => {
 		const { keychain } = fakeKeychain();
 		const open = keychain.openForInit;
 		keychain.openForInit = (options) => {
-			options.onWaiting();
+			options.onWaiting({ isKWallet: false, walletLabel: "Login" });
 			return open(options);
 		};
 		const result = await runInit([], {
@@ -388,6 +388,26 @@ describe("harnessforce init", () => {
 		});
 		expect(result.code).toBe(0);
 		expect(result.err).toBe(`${M.waiting}\n`);
+	});
+
+	it("tells the user where KWallet asks for the password while waiting", async () => {
+		const server = await startCredentialsServer();
+		const { keychain } = fakeKeychain();
+		const open = keychain.openForInit;
+		keychain.openForInit = (options) => {
+			options.onWaiting({ isKWallet: true, walletLabel: "kdewallet" });
+			return open(options);
+		};
+		const result = await runInit([], {
+			homeDir: makeHome().home,
+			defaultUrl: server.base,
+			keychain,
+			openBrowser: fakeBrowser().open,
+		});
+		expect(result.code).toBe(0);
+		expect(result.err).toBe(
+			`${M.waiting}\nKWallet asks for the password of the wallet "kdewallet" in a "KDE Wallet Service" window. If no window appears, an earlier request may be waiting behind other windows: answer that window, or log out and back in, then run \`harnessforce init\` again\n`,
+		);
 	});
 
 	it("honors CLAUDE_CONFIG_DIR for the user settings file", async () => {

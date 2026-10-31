@@ -86,6 +86,10 @@ const missingSecretService: SecretServiceStore = {
 	list: async () => {
 		throw new Error("The name is not activatable");
 	},
+	withoutUnlockPrompt: () => missingSecretService,
+	provider: async () => {
+		throw new Error("The name is not activatable");
+	},
 };
 
 const keychainOn = (platform: NodeJS.Platform, keyring = fakeKeyring()) => ({

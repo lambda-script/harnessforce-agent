@@ -28,6 +28,7 @@ import {
 	INIT_MESSAGES,
 	type InitMessage,
 	keychainUnavailableMessage,
+	kwalletUnlockHint,
 	listenFailedMessage,
 	nonDefaultConnectionMessage,
 } from "../shared/messages.js";
@@ -219,8 +220,11 @@ async function openKeychain(
 	const store = await deps.keychain
 		.openForInit({
 			previousWorkspaceId,
-			onWaiting: () =>
-				deps.stderr(`${INIT_MESSAGES.waitingForSecretService}\n`),
+			onWaiting: (provider) => {
+				deps.stderr(`${INIT_MESSAGES.waitingForSecretService}\n`);
+				if (provider?.isKWallet)
+					deps.stderr(`${kwalletUnlockHint(provider.walletLabel)}\n`);
+			},
 		})
 		.catch(() => stop("keychainUnavailable"));
 	return store ?? stopWith(keychainUnavailableMessage(deps.keychain));

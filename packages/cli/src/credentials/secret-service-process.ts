@@ -1,12 +1,17 @@
 import { spawn } from "node:child_process";
 import { KEYCHAIN_SERVICE } from "./keychain.js";
-import type { SecretServiceStore } from "./linux-keychain.js";
+import type { CredentialStore, SecretServiceStore } from "./linux-keychain.js";
+import type {
+	SecretServiceLock,
+	SecretServiceOperation,
+} from "./secret-service-lock.js";
 
 type Options = {
 	// 子processを起動するNode.jsの実行file。
 	execPath: string;
 	// @napi-rs/keyringのpath。解決できなければ操作の失敗とする。
 	resolveKeyring: () => string;
+	lock: SecretServiceLock;
 };
 
 // 子processで1つの操作を行う。秘密はstdinで受け取り、argvに載せない。
@@ -44,6 +49,7 @@ type Operation = "get" | "set" | "delete" | "list";
 export function createSecretServiceProcess({
 	execPath,
 	resolveKeyring,
+	lock,
 }: Options): SecretServiceStore {
 	const run = (
 		op: Operation,
@@ -88,17 +94,45 @@ export function createSecretServiceProcess({
 			child.stdin.end(input);
 		});
 
-	return {
+	const operations = (
+		perform: (
+			op: SecretServiceOperation,
+			account: string,
+			timeoutMs: number,
+			input?: string,
+		) => Promise<unknown>,
+	): CredentialStore => ({
 		async get(account, timeoutMs) {
-			const secret = await run("get", account, timeoutMs);
+			const secret = await perform("get", account, timeoutMs);
 			return typeof secret === "string" ? secret : undefined;
 		},
 		async set(account, secret, timeoutMs) {
-			await run("set", account, timeoutMs, secret);
+			await perform("set", account, timeoutMs, secret);
 		},
 		async delete(account, timeoutMs) {
-			await run("delete", account, timeoutMs);
+			await perform("delete", account, timeoutMs);
 		},
+	});
+	// 解錠の確認が要る操作は始めずに失敗させる。確認を出した子processを上限時間で止めても、
+	// 提供者には確認が残り、KWalletでは後の確認がその後ろで待ち続けるためである。
+	const withoutPrompt = async (
+		op: SecretServiceOperation,
+		account: string,
+		timeoutMs: number,
+		input?: string,
+	) => {
+		const startedAt = Date.now();
+		if (await lock.needsUnlock(op, account, timeoutMs))
+			throw new Error("the Secret Service is locked");
+		const remainingMs = timeoutMs - (Date.now() - startedAt);
+		if (remainingMs <= 0) throw new Error("Secret Service timed out");
+		return run(op, account, remainingMs, input);
+	};
+
+	return {
+		...operations(run),
+		withoutUnlockPrompt: () => operations(withoutPrompt),
+		provider: (timeoutMs) => lock.provider(timeoutMs),
 		async list(timeoutMs) {
 			const found = (await run("list", "", timeoutMs)) as {
 				account: string;

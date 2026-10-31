@@ -117,7 +117,9 @@ tokens are sent only to the origins pinned by `harnessforce init`.
 1. It checks the OS keychain first: macOS Keychain or the Windows Credential Manager (through
    [`@napi-rs/keyring`](https://github.com/Brooooooklyn/keyring-node)). On Linux it writes and deletes
    a non-secret `availability-probe` item in the Secret Service (GNOME Keyring or KWallet), waiting at
-   most 60 seconds for you to unlock it, and saves there when that works. Otherwise, as on a machine
+   most 60 seconds for you to unlock it, and saves there when that works. With KWallet it also says
+   which window asks for the password: KWallet shows one unlock window at a time, so an earlier
+   unanswered window behind other windows keeps the new one from appearing. Otherwise, as on a machine
    reached only over SSH, it saves to the kernel's persistent keyring, which lives in memory and is
    cleared on reboot or after a period of disuse; run `harnessforce init` again then. Without either
    store it stops. Keys are never written to a plain file.
@@ -137,7 +139,9 @@ tokens are sent only to the origins pinned by `harnessforce init`.
    them last, so a failure part way never pairs an old origin with a new key or token. After saving to
    the Secret Service it deletes the same Workspace's items from the kernel keyring. Later commands read
    a Workspace from the kernel keyring when it holds the ingest key there, and from the Secret Service
-   otherwise.
+   otherwise. Only `harnessforce init`, `run` and `import` ask a locked Secret Service for an unlock;
+   hooks and `harnessforce otel-headers` check the lock over D-Bus first and treat a locked item as
+   missing.
 5. It updates the Claude Code user settings (`~/.claude/settings.json`, or `$CLAUDE_CONFIG_DIR`),
    changing only these keys:
    - `env`: the OTel exporter variables, `HARNESSFORCE_URL`, `HARNESSFORCE_ENDPOINT` and
