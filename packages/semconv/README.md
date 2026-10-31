@@ -43,7 +43,6 @@ Each schema is a plain JSON Schema object (built with TypeBox) with a static Typ
 | `config-snapshot` | `ConfigSnapshotSchema` | `ConfigSnapshot` |
 | `analysis-report` | `AnalysisReportSchema` | `AnalysisReport` |
 | `session-usage-summary` | `SessionUsageSummarySchema` | `SessionUsageSummary` |
-| `ingest-issue` | `IngestIssueSchema` | `IngestIssue` |
 | `ingest-event` | `IngestEventSchema` | `IngestEvent` |
 
 Compile them with the JSON Schema validator of your choice. The schemas use the `date-time`, `date`

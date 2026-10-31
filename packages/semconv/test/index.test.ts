@@ -11,7 +11,6 @@ const examples: Record<keyof typeof semconv.SCHEMAS, unknown> = {
 	"analysis-report": fx.analysisReport,
 	"session-usage-summary": fx.sessionUsageSummary,
 	"session-work-location": fx.sessionWorkLocation,
-	"ingest-issue": fx.ingestIssue,
 	"ingest-event": fx.ingestEvent,
 };
 
