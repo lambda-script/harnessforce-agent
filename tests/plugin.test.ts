@@ -162,7 +162,7 @@ describe("setup command", () => {
 			"Check Node.js",
 			"Check whether this run is after the restart",
 			"Install the CLI",
-			"Choose whether to send prompt content",
+			"Choose whether to send content",
 			"Connect to Harnessforce",
 			"Import past sessions",
 			"`harnessforce import`",
@@ -173,53 +173,51 @@ describe("setup command", () => {
 		expect(positions).toEqual([...positions].sort((a, b) => a - b));
 	});
 
-	// onboarding.md「チェックリスト」の手順4「自分の端末で設定する」: harnessforce initの前に、本文データを送る設定の選択肢を、既定では選ばれない状態で示す。
-	it("shows the content choice before harnessforce init, unselected by default", () => {
-		const choice = "You can send the prompts you type for analysis";
+	// onboarding.md「チェックリスト」の手順4「自分の端末で設定する」: harnessforce initの前に、本文データを送る設定の選択肢を、「送る」を選んだ状態で示す。
+	it("shows the content choice before harnessforce init, selected by default", () => {
+		const choice = "Send the content of your sessions (on by default).";
 		expect(body).toMatch(
-			/Before `harnessforce init`, present the option[^\n]*not selected by default/,
+			/Before `harnessforce init`, present the option[^\n]*"send" selected by default/,
 		);
 		expect(body).toContain(choice);
-		expect(body).toContain(
-			"Content is not sent (by default). You can enable it later.",
-		);
 		expect(body.indexOf(choice)).toBeLessThan(
 			body.indexOf("Tell the user to log in to Harnessforce"),
 		);
 	});
 
-	it("shows what opting in stores, the two conditions, and how to stop", () => {
+	it("shows what sending stores, the two conditions, and how to stop", () => {
 		expect(body).toContain("`[REDACTED:kind]`");
-		expect(body).toContain("content retention period");
-		expect(body).toContain("content retention period (at most 30 days)");
+		expect(body).toContain(
+			"content retention period (30 days by default, at most 30 days)",
+		);
 		expect(body).toContain("not everything can be detected");
-		expect(body).toMatch(
-			/only the person who sent the stored content can read it; Owners and Admins cannot read it either/,
-		);
-		expect(body).toContain("only you can read it");
-		expect(body).not.toMatch(/only Owners and Admins/);
-		expect(body).not.toMatch(/body of (the )?(model )?responses/i);
-		expect(body).toMatch(
-			/both this setting on the device and the Workspace opt-in/,
+		expect(body).toContain(
+			"tool input and output (including Bash commands and file paths)",
 		);
 		expect(body).toMatch(
-			/opt-in is withdrawn, later content is discarded on receipt/,
+			/Who can read the stored content follows the Workspace setting/,
+		);
+		expect(body).not.toMatch(/Owners and Admins cannot read it either/);
+		expect(body).toMatch(
+			/both this setting on the device and the Workspace's storing of that category/,
+		);
+		expect(body).toMatch(
+			/stops storing a category, later content is discarded on receipt/,
 		);
 		expect(body).toContain("`harnessforce init --send-content`");
 		expect(body).toMatch(
 			/Write this setting to the `env` of the Claude Code user settings, and do not write it to the `env` of the project[^\n]*local/,
 		);
 		expect(body).toMatch(
-			/set `OTEL_LOG_USER_PROMPTS` in the `env` of the user settings to `0`/,
+			/run `harnessforce init` again without `--send-content`. It rewrites the content variables to `0`/,
 		);
-		expect(body).toMatch(/also takes effect in the project and local `env`/);
 	});
 
-	it("relays what harnessforce init prints when the workspace has not opted in", () => {
+	it("relays what harnessforce init prints when the workspace stores no content", () => {
 		expect(body).toMatch(
-			/`harnessforce init --send-content` does not write the content setting/,
+			/`harnessforce init --send-content` writes the content variables as `0`/,
 		);
-		expect(body).toContain("Data retention page of the Workspace settings");
+		expect(body).toContain("Collection & retention in the Workspace settings");
 		expect(body).toMatch(/exits with code 0/);
 	});
 });

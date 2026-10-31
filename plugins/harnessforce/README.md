@@ -73,8 +73,8 @@ running. `harnessforce init` turns on automatic updates for the `harnessforce-ag
 The `harnessforce` plugin registers each Claude Code session with Harnessforce so that runs can be
 linked to issues. On `SessionStart` (`startup`, `clear`, `fork`) it sends the session ID and the git
 repository, branch and commit of `cwd` to `POST <HARNESSFORCE_ENDPOINT>/v1/sessions`. On the first
-prompt it sends the same registration again with the prompt ID. Prompts, responses and file
-contents are never sent.
+prompt it sends the same registration again with the prompt ID. The hook never sends prompts,
+responses or file contents; they are sent only through the OTel settings you choose.
 
 - For an organization, set `HARNESSFORCE_ENDPOINT` (the ingest base URL, `https:`) and
   `HARNESSFORCE_INGEST_KEY` (a Workspace ingest key) in

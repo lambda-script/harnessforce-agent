@@ -17,7 +17,7 @@ This session has the Harnessforce hook installed. Harnessforce links the work of
 
 ## What is not collected
 
-- Prompts, responses, tool input and output, and the body of code diffs arrive only when the user opts in with `--send-content` and the Workspace has opted in. They are not collected by default.
+- Prompts, responses, tool input and output, and the body of code diffs arrive only when the user sends them (`--send-content` or managed settings) and the Workspace stores that category. The members the Workspace chooses can read them. `harnessforce import` never sends them.
 - Never put these contents, secrets, or environment variable values in MCP tool input or in a record.
 
 ## Which hook sends what

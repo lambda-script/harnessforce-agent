@@ -55,8 +55,10 @@ const M = {
 	saveFailed: "Could not save the ingest key. Run `harnessforce init` again",
 	pluginAutoUpdateOn:
 		"Automatic updates for the Harnessforce plugin are on. To turn them off, run `harnessforce init --no-plugin-auto-update` or use /plugin",
-	contentNotOptedIn:
-		"This workspace has not opted in to prompts you typed, so sending content was not enabled. Opt in under Data retention in the workspace settings, then run `harnessforce init --send-content` again",
+	contentNotStored:
+		"This workspace does not store content, so sending content was not enabled. An owner or admin can turn it on under Collection & retention in the workspace settings, then run `harnessforce init --send-content` again",
+	contentNotSent:
+		"Content is not sent from this machine. Run `harnessforce init --send-content` to send it",
 };
 
 // Codexの`config.toml`を書いた後の案内（correlation.md「CLI」の手順8）。
@@ -67,11 +69,30 @@ const codexNotes = (home: string) =>
 		"To use the Harnessforce MCP server, log in with `codex mcp login harnessforce`",
 	].join("\n");
 // client-updates.md「Claude Codeのplugin」: pluginの自動更新を有効にした旨を、完了の表示に続けて示す。
-const finished = (home: string) =>
+const afterContentNotice = (home: string) =>
 	`${M.success}\n${M.pluginAutoUpdateOn}\n${codexNotes(home)}\n`;
+// 本文の案内（手順6）は、完了の表示（手順8）より前に出る。`--send-content`の無い実行は送らない旨を示す。
+const finished = (home: string) =>
+	`${M.contentNotSent}\n${afterContentNotice(home)}`;
 
-const contentEnabled =
-	"Sending the prompts you type is now enabled. Values that match known patterns for secrets and personal information are masked, but not everything can be detected. Within the workspace, only you can read your stored content, and it is deleted after the content retention period (at most 30 days)";
+const contentEnabled = (categories: string, readers: string, days = 30) =>
+	`Sending ${categories} is now enabled. Values that match known patterns for secrets and personal information are masked, but not everything can be detected. ${readers}. It is deleted after ${days} days`;
+
+const content = (
+	overrides: Partial<{
+		prompts: boolean;
+		model_and_tools: boolean;
+		visibility: string;
+		retention_days: number;
+	}> = {},
+) => ({ ...issued.content, ...overrides });
+
+const NO_CONTENT_ENV = {
+	OTEL_LOG_USER_PROMPTS: "0",
+	OTEL_LOG_ASSISTANT_RESPONSES: "0",
+	OTEL_LOG_TOOL_DETAILS: "0",
+	OTEL_LOG_TOOL_CONTENT: "0",
+};
 
 const codexSaveFailed =
 	"Could not write the Codex configuration. Run `harnessforce init` again";
@@ -183,6 +204,7 @@ describe("harnessforce init", () => {
 				HARNESSFORCE_ENDPOINT: issued.ingest_endpoint,
 				OTEL_EXPORTER_OTLP_ENDPOINT: issued.ingest_endpoint,
 				HARNESSFORCE_WORKSPACE_ID: "ws1",
+				...NO_CONTENT_ENV,
 				CLAUDE_CODE_ENABLE_TELEMETRY: "1",
 				CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: "1",
 				OTEL_METRICS_INCLUDE_ENTRYPOINT: "true",
@@ -345,7 +367,7 @@ describe("harnessforce init", () => {
 		});
 		expect(result).toEqual({
 			code: 0,
-			out: `${M.success}\n${M.kernelKeyring}\n${M.pluginAutoUpdateOn}\n${codexNotes(home.home)}\n`,
+			out: `${M.contentNotSent}\n${M.success}\n${M.kernelKeyring}\n${M.pluginAutoUpdateOn}\n${codexNotes(home.home)}\n`,
 			err: "",
 		});
 	});
@@ -794,8 +816,23 @@ describe("harnessforce init", () => {
 				{ ...issued, ingest_endpoint: "http://ingest.example.test" },
 				M.network,
 			],
-			[201, { ...issued, content_opt_in: "true" }, M.network],
-			[201, { ...issued, content_opt_in: undefined }, M.network],
+			[201, { ...issued, content: undefined }, M.network],
+			[
+				201,
+				{ ...issued, content: content({ prompts: "true" as never }) },
+				M.network,
+			],
+			[
+				201,
+				{ ...issued, content: content({ model_and_tools: undefined }) },
+				M.network,
+			],
+			[
+				201,
+				{ ...issued, content: content({ visibility: "everyone" }) },
+				M.network,
+			],
+			[201, { ...issued, content: content({ retention_days: 60 }) }, M.network],
 			[201, "not an object", M.network],
 		])(
 			"maps %i %j to its terminal and changes nothing",
@@ -839,80 +876,98 @@ describe("harnessforce init", () => {
 	});
 
 	describe("--send-content", () => {
-		it("adds OTEL_LOG_USER_PROMPTS when the workspace has opted in to content", async () => {
+		const send = async (
+			argv: string[],
+			overrides: Parameters<typeof content>[0],
+			seed?: string,
+		) => {
 			const server = await startCredentialsServer({
 				credentials: {
 					status: 201,
-					body: { ...issued, content_opt_in: true },
+					body: { ...issued, content: content(overrides) },
 				},
 			});
-			const home = makeHome();
-			const result = await runInit(["--send-content"], {
+			const home = makeHome(seed);
+			const result = await runInit(argv, {
 				homeDir: home.home,
 				defaultUrl: server.base,
 				openBrowser: fakeBrowser().open,
+			});
+			return { result, home, env: JSON.parse(home.read() ?? "").env };
+		};
+
+		it("turns all four variables on for a workspace that stores both categories", async () => {
+			const { result, home, env } = await send(["--send-content"], {
+				prompts: true,
+				model_and_tools: true,
 			});
 			expect(result).toEqual({
 				code: 0,
-				out: `${contentEnabled}\n${finished(home.home)}`,
+				out: `${contentEnabled("the prompts you type, model responses and tool input and output", "Everyone in the workspace can read it")}\n${afterContentNotice(home.home)}`,
 				err: "",
 			});
-			expect(JSON.parse(home.read() ?? "").env.OTEL_LOG_USER_PROMPTS).toBe("1");
+			expect(env).toMatchObject({
+				OTEL_LOG_USER_PROMPTS: "1",
+				OTEL_LOG_ASSISTANT_RESPONSES: "1",
+				OTEL_LOG_TOOL_DETAILS: "1",
+				OTEL_LOG_TOOL_CONTENT: "1",
+			});
+			expect(env).not.toHaveProperty("OTEL_LOG_RAW_API_BODIES");
 		});
 
-		// opt-inしていないWorkspaceでは書き込まず、理由とopt-inの場所を示す。発行と保存は済んでいるため失敗としない。
-		it("keeps the setting as it was and explains why when the workspace has not opted in", async () => {
-			const server = await startCredentialsServer();
-			// 既存の値が`1`でも書き換えないことを確かめる（`0`を種にすると、書き込んだ`0`と見分けられない）。
-			const home = makeHome('{"env":{"OTEL_LOG_USER_PROMPTS":"1"}}');
-			const result = await runInit(["--send-content"], {
-				homeDir: home.home,
-				defaultUrl: server.base,
-				openBrowser: fakeBrowser().open,
+		it("turns only the prompt on for a workspace that stores prompts only", async () => {
+			const { result, home, env } = await send(["--send-content"], {
+				prompts: true,
+				visibility: "sender_only",
+				retention_days: 7,
 			});
+			expect(result.out).toBe(
+				`${contentEnabled("the prompts you type", "Within the workspace, only you can read it", 7)}\n${afterContentNotice(home.home)}`,
+			);
+			expect(env).toMatchObject({
+				...NO_CONTENT_ENV,
+				OTEL_LOG_USER_PROMPTS: "1",
+			});
+		});
+
+		it("names owners and admins as readers when the visibility says so", async () => {
+			const { result } = await send(["--send-content"], {
+				model_and_tools: true,
+				visibility: "owners_admins_and_sender",
+			});
+			expect(result.out).toContain(
+				"model responses and tool input and output is now enabled.",
+			);
+			expect(result.out).toContain("Owners, admins and you can read it. ");
+		});
+
+		// 発行と保存は済んでいるため失敗としない。既存の値が`1`でも`0`で書き直す。
+		it("writes 0 and explains why when the workspace stores no content", async () => {
+			const { result, home, env } = await send(
+				["--send-content"],
+				{},
+				'{"env":{"OTEL_LOG_USER_PROMPTS":"1"}}',
+			);
 			expect(result).toEqual({
 				code: 0,
-				out: `${M.contentNotOptedIn}\n${finished(home.home)}`,
+				out: `${M.contentNotStored}\n${afterContentNotice(home.home)}`,
 				err: "",
 			});
-			const env = JSON.parse(home.read() ?? "").env;
-			expect(env.HARNESSFORCE_WORKSPACE_ID).toBe("ws1");
-			expect(env.OTEL_LOG_USER_PROMPTS).toBe("1");
+			expect(env).toMatchObject(NO_CONTENT_ENV);
 		});
 
-		// キーを持つhomeを種にすると書き込んだ`1`と元の`1`を見分けられないため、キーの無いhomeでも確かめる。
-		it("adds no setting when the workspace has not opted in and the setting is absent", async () => {
-			const server = await startCredentialsServer();
-			const home = makeHome();
-			const result = await runInit(["--send-content"], {
-				homeDir: home.home,
-				defaultUrl: server.base,
-				openBrowser: fakeBrowser().open,
-			});
+		it("writes 0 for every variable without the flag, whatever the workspace stores", async () => {
+			const { result, home, env } = await send(
+				[],
+				{ prompts: true, model_and_tools: true },
+				'{"env":{"OTEL_LOG_USER_PROMPTS":"1"}}',
+			);
 			expect(result).toEqual({
 				code: 0,
-				out: `${M.contentNotOptedIn}\n${finished(home.home)}`,
+				out: `${M.contentNotSent}\n${afterContentNotice(home.home)}`,
 				err: "",
 			});
-			const env = JSON.parse(home.read() ?? "").env;
-			expect(env).not.toHaveProperty("OTEL_LOG_USER_PROMPTS");
-		});
-
-		it("leaves OTEL_LOG_USER_PROMPTS alone without the flag", async () => {
-			const server = await startCredentialsServer({
-				credentials: {
-					status: 201,
-					body: { ...issued, content_opt_in: true },
-				},
-			});
-			const home = makeHome('{"env":{"OTEL_LOG_USER_PROMPTS":"0"}}');
-			const result = await runInit([], {
-				homeDir: home.home,
-				defaultUrl: server.base,
-				openBrowser: fakeBrowser().open,
-			});
-			expect(result).toEqual({ code: 0, out: finished(home.home), err: "" });
-			expect(JSON.parse(home.read() ?? "").env.OTEL_LOG_USER_PROMPTS).toBe("0");
+			expect(env).toMatchObject(NO_CONTENT_ENV);
 		});
 	});
 
@@ -998,6 +1053,8 @@ describe("harnessforce init", () => {
 							protocol: "binary",
 						},
 					},
+					log_user_prompt: false,
+					log_agent_responses: false,
 				},
 				hooks: {
 					SessionStart: [
@@ -1099,15 +1156,17 @@ describe("harnessforce init", () => {
 			expect(readFileSync(codexPath(home.home), "utf8")).toBe(first);
 		});
 
-		it("enables log_user_prompt only with --send-content and an opted-in workspace", async () => {
-			const optedIn = await startCredentialsServer({
-				credentials: {
-					status: 201,
-					body: { ...issued, content_opt_in: true },
-				},
-			});
-			const notOptedIn = await startCredentialsServer();
-			const read = async (server: { base: string }, argv: string[]) => {
+		it("writes log_user_prompt and log_agent_responses per category, true only with --send-content", async () => {
+			const read = async (
+				argv: string[],
+				overrides: Parameters<typeof content>[0],
+			) => {
+				const server = await startCredentialsServer({
+					credentials: {
+						status: 201,
+						body: { ...issued, content: content(overrides) },
+					},
+				});
 				const home = makeHome();
 				await runInit(argv, {
 					homeDir: home.home,
@@ -1120,13 +1179,23 @@ describe("harnessforce init", () => {
 					}
 				).otel;
 			};
-			expect((await read(optedIn, ["--send-content"])).log_user_prompt).toBe(
-				true,
-			);
-			expect(await read(optedIn, [])).not.toHaveProperty("log_user_prompt");
-			expect(await read(notOptedIn, ["--send-content"])).not.toHaveProperty(
-				"log_user_prompt",
-			);
+			const both = { prompts: true, model_and_tools: true };
+			expect(await read(["--send-content"], both)).toMatchObject({
+				log_user_prompt: true,
+				log_agent_responses: true,
+			});
+			expect(await read(["--send-content"], { prompts: true })).toMatchObject({
+				log_user_prompt: true,
+				log_agent_responses: false,
+			});
+			expect(await read([], both)).toMatchObject({
+				log_user_prompt: false,
+				log_agent_responses: false,
+			});
+			expect(await read(["--send-content"], {})).toMatchObject({
+				log_user_prompt: false,
+				log_agent_responses: false,
+			});
 		});
 
 		it("fails with the Codex message and leaves config.toml alone when it cannot be updated", async () => {

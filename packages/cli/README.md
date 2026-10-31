@@ -97,10 +97,13 @@ Codex runs this command through the `[[hooks.SessionStart]]` entry that `harness
 ## What is never sent
 
 Harnessforce never turns on prompt or body logging by itself. `harnessforce run` never turns it on, and `harnessforce init`
-adds `OTEL_LOG_USER_PROMPTS=1` to the Claude Code user settings only with `--send-content`, and only
-when the credentials response says the Workspace has opted in to content. Without that, prompts,
-responses, tool inputs and outputs, and file contents are not sent. For a Workspace that has not opted
-in, `harnessforce init --send-content` leaves the setting alone, prints the reason, and still exits 0. `harnessforce run`
+sets `OTEL_LOG_USER_PROMPTS`, `OTEL_LOG_ASSISTANT_RESPONSES`, `OTEL_LOG_TOOL_DETAILS` and
+`OTEL_LOG_TOOL_CONTENT` in the Claude Code user settings to `1` only with `--send-content`, and only for
+the categories the Workspace stores (prompts, and model responses with tool input and output). Without that,
+`harnessforce init` writes all four as `0` (and Codex's `log_user_prompt` and `log_agent_responses` as
+`false`), so a value left from an earlier run cannot keep sending. `OTEL_LOG_RAW_API_BODIES` is never written.
+For a Workspace that stores no content, `harnessforce init --send-content` writes `0`, prints the reason, and
+still exits 0. `harnessforce import` never sends content. `harnessforce run`
 never puts the user key or the API token in the agent's environment, arguments or settings. Keys and
 tokens are sent only to the origins pinned by `harnessforce init`.
 
@@ -135,20 +138,21 @@ tokens are sent only to the origins pinned by `harnessforce init`.
 5. It updates the Claude Code user settings (`~/.claude/settings.json`, or `$CLAUDE_CONFIG_DIR`),
    changing only these keys:
    - `env`: the OTel exporter variables, `HARNESSFORCE_URL`, `HARNESSFORCE_ENDPOINT` and
-     `HARNESSFORCE_WORKSPACE_ID`, but no key. With `--send-content` and a Workspace that has opted in
-     to content it also adds `OTEL_LOG_USER_PROMPTS=1`
+     `HARNESSFORCE_WORKSPACE_ID`, but no key, and the four `OTEL_LOG_*` content variables: `1` for a category
+     you send with `--send-content` and the Workspace stores, `0` otherwise
    - `otelHeadersHelper`: `harnessforce otel-headers`
    - `enabledPlugins["harnessforce@harnessforce-agent"]`
    - `extraKnownMarketplaces["harnessforce-agent"]` (or `additionalMarketplaces` when only that alias is
      present): the GitHub source and `autoUpdate: true`, so Claude Code updates the plugin in the
      background. `--no-plugin-auto-update` writes `false`; a value you set yourself is kept.
 6. It updates the Codex `config.toml` (`$CODEX_HOME` when it is an absolute path, otherwise `~/.codex`),
-   changing only these five items and keeping every other key and comment:
+   changing only these items and keeping every other key and comment:
    - `[otel].exporter`: OTLP/HTTP (`protocol = "binary"`) to the ingest endpoint with
      `Authorization = "Bearer <user ingest key>"`. Codex cannot take the header from a command or expand
      `${VAR}`, so this is the one place a key is written to a plain file. It is the user ingest key only
-     (never the API token), and you can revoke it on the Workspace's send keys page. With `--send-content`
-     and a Workspace that has opted in to content it also sets `log_user_prompt = true`
+     (never the API token), and you can revoke it on the Workspace's send keys page. `log_user_prompt` and
+     `log_agent_responses` are set to `true` for a category you send with `--send-content` and the
+     Workspace stores, and `false` otherwise
    - `[[hooks.SessionStart]]`: a handler that runs `harnessforce hook session-start`
    - `[[hooks.PostToolUse]]`: a handler with `matcher = "^apply_patch$"` that runs `harnessforce hook post-tool-use`
      asynchronously
@@ -156,7 +160,7 @@ tokens are sent only to the origins pinned by `harnessforce init`.
    - `[mcp_servers.harnessforce]`: `url = "<base URL>/mcp"`
 
    The file is written through a temporary file in the same directory and renamed into place, with mode
-   `0600`. Running `harnessforce init` again replaces only these five items. Restart Codex afterwards,
+   `0600`. Running `harnessforce init` again replaces only these items. Restart Codex afterwards,
    trust the three hooks with `/hooks` (Codex runs an untrusted hook only after you review it), and run
    `codex mcp login harnessforce` to use the MCP server.
 

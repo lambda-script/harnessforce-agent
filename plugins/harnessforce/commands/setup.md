@@ -1,5 +1,5 @@
 ---
-description: Harnessforce setup. Walks through checking Node.js, choosing whether to send prompt content, installing the CLI, running harnessforce init, importing past sessions, and confirming the first event after the restart
+description: Harnessforce setup. Walks through checking Node.js, choosing whether to send session content, installing the CLI, running harnessforce init, importing past sessions, and confirming the first event after the restart
 disable-model-invocation: true
 ---
 
@@ -25,28 +25,26 @@ Run the following, then confirm the install with `harnessforce --version`.
 npm install -g @harnessforce/cli
 ```
 
-## 4. Choose whether to send prompt content
+## 4. Choose whether to send content
 
-Before `harnessforce init`, present the option to send prompt content to the user, not selected by default. The login is not done yet at this point, so neither the Workspace to connect nor its opt-in state is known. Do not change what you show depending on the opt-in.
+Before `harnessforce init`, present the option to send the content of the user's sessions, with "send" selected by default. The login is not done yet at this point, so neither the Workspace to connect nor what it stores is known. Do not change what you show depending on the Workspace; `harnessforce init` decides each category from the Workspace it connects, and writes `0` for a category the Workspace does not store.
 
 Present the option together with the following.
 
-- If selected, the body of the prompts the user types to the agent is delivered to this Workspace. Secret patterns, email addresses, and phone numbers are replaced with `[REDACTED:kind]` before storing, and the content is deleted after the content retention period (at most 30 days). Secrets and personal information that do not match a pattern are not masked, and not everything can be detected. Within the Workspace, only the person who sent the stored content can read it; Owners and Admins cannot read it either. That person can delete their own content at any time from My practices.
-- Content is stored only when both this setting on the device and the Workspace opt-in are in place. If the Workspace opt-in is withdrawn, later content is discarded on receipt and existing content data can no longer be read. This setting does not enable sending model responses or tool input and output.
-- If selected, run `harnessforce init --send-content`; if not, run `harnessforce init` (step 5). Write this setting to the `env` of the Claude Code user settings, and do not write it to the `env` of the project (`.claude/settings.json`) or local (`.claude/settings.local.json`) files, because the content variable is ignored in the `env` of those two files.
-- To stop after selecting it, set `OTEL_LOG_USER_PROMPTS` in the `env` of the user settings to `0`. The value that stops it also takes effect in the project and local `env`.
+- If selected, the prompts the user types, model responses, and tool input and output (including Bash commands and file paths) are delivered to this Workspace for the categories the Workspace stores. Secret patterns, email addresses, and phone numbers are replaced with `[REDACTED:kind]` before storing, and the content is deleted after the content retention period (30 days by default, at most 30 days). Secrets and personal information that do not match a pattern are not masked, and not everything can be detected. Who can read the stored content follows the Workspace setting (everyone in the Workspace by default); `harnessforce init` shows the setting of the Workspace it connects. The user can delete their own content from the account settings, and the sender, owners and admins can delete a session's content at any time.
+- Content is stored only when both this setting on the device and the Workspace's storing of that category are in place. If the Workspace stops storing a category, later content is discarded on receipt.
+- If selected, run `harnessforce init --send-content`; if not, run `harnessforce init` (step 5). Write this setting to the `env` of the Claude Code user settings, and do not write it to the `env` of the project (`.claude/settings.json`) or local (`.claude/settings.local.json`) files, because the content variables are ignored in the `env` of those two files. A restart is needed after `harnessforce init` for the setting to take effect.
+- To stop afterwards, run `harnessforce init` again without `--send-content`. It rewrites the content variables to `0`.
 
 Use the following option text as it is.
 
-> You can send the prompts you type for analysis (off by default; it takes effect only if the workspace has opted in to prompts you typed). If enabled, the prompts you type to the agent are delivered to this workspace and stored. Values that match known patterns for secrets and personal information are replaced with `[REDACTED:kind]`, but not everything can be detected. Content is deleted after the content retention period (at most 30 days), and within the workspace only you can read it. You can delete it at any time from My practices. Enable this?
->
-> Content is not sent (by default). You can enable it later.
+> Send the content of your sessions (on by default). The prompts you type, model responses and tool input and output (including Bash commands and file paths) are delivered to this workspace and stored for the categories the workspace stores. Values that match known patterns for secrets and personal information are replaced with `[REDACTED:kind]`, but not everything can be detected. Content is deleted after the content retention period (30 days by default, at most 30 days). Who can read it follows the workspace setting (everyone in the workspace by default); `harnessforce init` shows the setting of the workspace you connect. You can delete your own content from your account settings, and the sender, owners and admins can delete a session's content at any time.
 
 ## 5. Connect to Harnessforce
 
 Follow the choice in step 4: run `harnessforce init --send-content` if selected, or `harnessforce init` if not. Tell the user to log in to Harnessforce in the browser and choose one Workspace to connect. If the browser does not open, show the user the URL that `harnessforce init` prints. The command waits up to 5 minutes for the login to complete, so run it with a Bash timeout of 10 minutes.
 
-For a Workspace that has not opted in, `harnessforce init --send-content` does not write the content setting. It prints a message about that and about the Data retention page of the Workspace settings, and exits with code 0. Do not treat this as a failure; show the printed text to the user as it is.
+For a Workspace that stores no content, `harnessforce init --send-content` writes the content variables as `0`. It prints a message about that and about Collection & retention in the Workspace settings, and exits with code 0. Do not treat this as a failure; show the printed text to the user as it is.
 
 ## 6. Import past sessions
 

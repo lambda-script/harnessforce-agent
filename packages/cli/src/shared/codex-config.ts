@@ -21,8 +21,9 @@ export type CodexConfigInput = {
 	connection: string;
 	ingestEndpoint: string;
 	ingestKey: string;
-	// `--send-content`で、かつ応答の`content_opt_in`が`true`のとき。
+	// `--send-content`で、かつ応答の`content`でその区分が`true`のときだけ`true`。送らないときも`false`で書く。
 	logUserPrompt: boolean;
+	logAgentResponses: boolean;
 };
 
 const HOOK_TIMEOUT_SECONDS = 10;
@@ -106,7 +107,9 @@ function withHarnessforce(config: Table, input: CodexConfigInput): Table {
 			protocol: "binary",
 		},
 	};
-	if (input.logUserPrompt) otel.log_user_prompt = true;
+	// 未設定のときのCodexの既定に結果を依存させないため、送らない区分も明示に`false`で書く。
+	otel.log_user_prompt = input.logUserPrompt;
+	otel.log_agent_responses = input.logAgentResponses;
 
 	const hooks = tableAt(config, "hooks");
 	for (const spec of HOOKS) {
