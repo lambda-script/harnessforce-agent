@@ -121,7 +121,7 @@ describe("harnessforce status", () => {
 		});
 	});
 
-	it("shows the admin steps to a Member with the note to send the URL", async () => {
+	it("shows the unfinished admin steps to a Member in step order", async () => {
 		const { run } = await setup({
 			onboarding: {
 				status: 200,
@@ -138,7 +138,7 @@ describe("harnessforce status", () => {
 		expect(result.out).toBe(
 			[
 				"Acme (member)",
-				"・ Connect the GitHub App https://app.example.test/en/w/acme/step-2 (Send this URL to the person responsible.)",
+				"・ Connect the GitHub App https://app.example.test/en/w/acme/step-2",
 				"✓ Set up telemetry",
 				"・ Wait for your first run https://app.example.test/en/w/acme/step-5",
 				"This repository (github.com/acme/web) is connected to the GitHub App",
@@ -224,7 +224,10 @@ describe("harnessforce status", () => {
 
 	it("rejects unknown options with the usage", async () => {
 		const result = await runCli(["status", "--all"]);
-		expect(result.code).toBe(1);
-		expect(result.out).toBe("");
+		expect(result).toEqual({
+			code: 1,
+			out: "",
+			err: "Usage: harnessforce status [--json]\n",
+		});
 	});
 });

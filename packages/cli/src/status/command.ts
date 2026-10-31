@@ -1,4 +1,3 @@
-import { isAbsolute } from "node:path";
 import type { RunGit } from "@harnessforce/agent-core/process/git";
 import type { Env, Fetch } from "@harnessforce/agent-core/types";
 import { normalizeRepository } from "@harnessforce/semconv";
@@ -28,14 +27,13 @@ export type StatusDeps = {
 	sleep: (ms: number) => Promise<void>;
 };
 
-export const STATUS_USAGE = "Usage: harnessforce status [--json]\n";
+const STATUS_USAGE = "Usage: harnessforce status [--json]\n";
 
 // onboarding.md「harnessforce status」の文言。ログインの期限切れはharnessforce importと同じ文言。
 const MESSAGES = {
 	failed:
 		"Could not read the Harnessforce status. Run `harnessforce init` and try again.",
 	loginExpired: "Your login has expired. Run `harnessforce init`",
-	sendToResponsible: "(Send this URL to the person responsible.)",
 } as const;
 
 const ACCESS_MESSAGES: AccessMessages = {
@@ -66,17 +64,13 @@ async function originRepository(
 	cwd: string,
 	git: RunGit,
 ): Promise<string | undefined> {
-	// 空のpathを`git -C`へ渡すと、現在のdirectoryが対象になる。
-	if (!isAbsolute(cwd)) return undefined;
 	const url = await git(cwd, ["remote", "get-url", "origin"]);
 	return url === undefined ? undefined : normalizeRepository(url);
 }
 
-function stepLine(step: OnboardingStep, forSomeoneElse: boolean): string {
+function stepLine(step: OnboardingStep): string {
 	const parts = [STATUS_MARKS[step.status], STEP_TITLES[step.step]];
 	if (step.status === "todo") parts.push(step.url);
-	if (step.status === "todo" && forSomeoneElse)
-		parts.push(MESSAGES.sendToResponsible);
 	return parts.join(" ");
 }
 
@@ -113,13 +107,10 @@ async function runStatus(json: boolean, deps: StatusDeps): Promise<number> {
 		deps.stdout(`${JSON.stringify({ ...onboarding, repository })}\n`);
 		return 0;
 	}
-	// Memberの未完了の手順2と3（admin_steps）は、担当へURLを渡す旨を添えて番号の順に並べる。
-	const lines = [
-		...(onboarding.admin_steps ?? []).map((step) => ({ step, admin: true })),
-		...onboarding.steps.map((step) => ({ step, admin: false })),
-	]
-		.sort((a, b) => a.step.step - b.step.step)
-		.map(({ step, admin }) => stepLine(step, admin));
+	// Memberの未完了の手順2と3（admin_steps）も、自分の手順と同じ形で番号の順に並べる。
+	const lines = [...(onboarding.admin_steps ?? []), ...onboarding.steps]
+		.sort((a, b) => a.step - b.step)
+		.map(stepLine);
 	const repositoryLine =
 		repository &&
 		`This repository (${repository.name}) is ${repository.connected ? "connected" : "not connected"} to the GitHub App`;

@@ -27,6 +27,7 @@ const FLAGS = {
 	"--no-send": "noSend",
 	"--show-report": "showReport",
 	"--json": "json",
+	"--report-only": "reportOnly",
 } as const;
 
 type Parsed =
@@ -50,10 +51,6 @@ function parseArgs(args: readonly string[]): Parsed | undefined {
 		reportOnly: false,
 	};
 	for (const arg of args) {
-		if (arg === REPORT_ONLY && !options.reportOnly) {
-			options.reportOnly = true;
-			continue;
-		}
 		const key = FLAGS[arg as keyof typeof FLAGS];
 		if (key === undefined || options[key]) return undefined;
 		options[key] = true;
@@ -79,7 +76,7 @@ function cronCommandPath(path: string): string {
 const scheduleLine = (selfPath: string) =>
 	`0 9 * * 1 ${cronCommandPath(selfPath)} tune ${REPORT_ONLY}\n`;
 
-// tokenとkeyを送りうるのは`--no-send`を付けない分析だけ。`record`、`--purge`、`--no-send`を付けた分析、誤った引数は通信を行わない。
+// tokenとkeyを送りうるのは`--no-send`を付けない分析だけ。`record`、`--purge`、`--print-schedule`、`--no-send`を付けた分析、誤った引数は通信を行わない。
 export function canTuneSend(args: readonly string[]): boolean {
 	const parsed = parseArgs(args);
 	return parsed?.kind === "analyze" && !parsed.options.noSend;

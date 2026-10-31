@@ -7,7 +7,7 @@ import type { Env } from "@harnessforce/agent-core/types";
 import { canTuneSend } from "./tune/tune.js";
 
 // keyやtokenを送るsubcommand。`harnessforce otel-headers`は通信を行わないため起動し直さない（correlation.md「Node.jsの実行時の変数」）。
-// `harnessforce tune`は送りうる分析だけを起動し直し、通信を行わない`record`、`--purge`、`--no-send`を付けた分析は起動し直さない。
+// `harnessforce tune`は送りうる分析だけを起動し直し、通信を行わない`record`、`--purge`、`--print-schedule`、`--no-send`を付けた分析は起動し直さない。
 const SENDING_COMMANDS = new Set(["init", "run", "import", "status", "hook"]);
 const isSending = (argv: readonly string[]) =>
 	SENDING_COMMANDS.has(argv[0] ?? "") ||
