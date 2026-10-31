@@ -39,6 +39,13 @@ import type { RunGit } from "@harnessforce/agent-core/process/git";
 import { sessionContext } from "@harnessforce/agent-core/session-context";
 import type { Env, Fetch } from "@harnessforce/agent-core/types";
 import { resolveProjectRoot, resolveVcs } from "@harnessforce/agent-core/vcs";
+import {
+	claudeLocationStatePath,
+	type LocationEvent,
+	observedDirectories,
+	recordObservedPairs,
+	sendLocations,
+} from "@harnessforce/agent-core/work-location";
 import type {
 	ConfigSnapshot,
 	SessionRegistration,
@@ -612,11 +619,64 @@ const onCountingEvent =
 			});
 	};
 
+const locationStatePathOf = (input: HookInput) =>
+	input.scratchpad
+		? claudeLocationStatePath(input.scratchpad.dir, input.sessionId)
+		: undefined;
+
+/**
+ * correlation.md「sessionの作業位置」: 観測した時点のworking treeのrepositoryとbranchを記録する。`Stop`は加えて、記録した組の
+ * 集合が最後に送った集合と異なれば送る。stdoutへ何も書かず、`CwdChanged`ではstderrにも書かない。
+ */
+const onLocationEvent =
+	(event: LocationEvent) =>
+	async (input: HookInput, deps: Deps): Promise<void> => {
+		const statePath = locationStatePathOf(input);
+		if (!statePath) return;
+		const directories = observedDirectories(
+			"claude_code",
+			event,
+			input.fields,
+			input.cwd,
+		);
+		const state = await recordObservedPairs(statePath, directories, deps);
+		if (event !== "stop" || !input.scratchpad) return;
+		if (await isMarkedUnauthorized(input.scratchpad)) return;
+		if (await isPluginBlocked(deps, false)) return;
+		const { destination } = await resolveDestination(deps, input.cwd);
+		if (!destination) return;
+		const sent = await sendLocations(
+			statePath,
+			state,
+			{ agent: "claude_code", sessionId: input.sessionId },
+			destination,
+			deps.fetch,
+		);
+		if (sent.kind !== "sent" || sent.outcome.kind === "accepted") return;
+		if (sent.outcome.kind === "unauthorized") {
+			await markUnauthorized(input.scratchpad).catch(logError(deps));
+			deps.stderr("harnessforce: session location failed (unauthorized)\n");
+			return;
+		}
+		deps.stderr(
+			`harnessforce: session location failed (${sent.outcome.reason})\n`,
+		);
+	};
+
+// CwdChangedのstderrは利用者に示される（claude-code.md「作業位置に使うhook」）ため、失敗も書かない。
+const silently =
+	(handler: Handler): Handler =>
+	(input, deps) =>
+		handler(input, { ...deps, stderr: () => {} }).catch(() => {});
+
 type Handler = (input: HookInput, deps: Deps) => Promise<void>;
 const HANDLERS = new Map<string, Handler>([
 	["session-start", onSessionStart],
 	["user-prompt-submit", onUserPromptSubmit],
 	["session-end", onSessionEnd],
+	["cwd-changed", silently(onLocationEvent("cwd-changed"))],
+	["work-location", onLocationEvent("post-tool-use")],
+	["stop", onLocationEvent("stop")],
 	...COUNTING_EVENTS.map(
 		(event) => [event, onCountingEvent(event)] as [string, Handler],
 	),

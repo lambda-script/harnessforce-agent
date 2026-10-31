@@ -26,6 +26,15 @@ export const sessionImport = {
 };
 delete (sessionImport as Record<string, unknown>).issue_identifier;
 
+export const sessionWorkLocation = {
+	agent: "codex",
+	session_id: sessionRegistration.session_id,
+	locations: [
+		{ repository: "github.com/acme/web", branch: "main" },
+		{ repository: "github.com/acme/web", branch: "eng-42-login" },
+	],
+};
+
 export const configSnapshot = {
 	agent: "claude_code",
 	session_id: sessionRegistration.session_id,

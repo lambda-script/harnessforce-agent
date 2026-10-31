@@ -2,6 +2,7 @@ import type {
 	ConfigSnapshot,
 	SessionRegistration,
 	SessionUsageSummary,
+	SessionWorkLocation,
 } from "@harnessforce/semconv";
 import type { Fetch } from "./types.js";
 import { parseAllowedUrl, underBase } from "./url.js";
@@ -9,11 +10,13 @@ import { parseAllowedUrl, underBase } from "./url.js";
 export type IngestItem =
 	| SessionRegistration
 	| ConfigSnapshot
-	| SessionUsageSummary;
+	| SessionUsageSummary
+	| SessionWorkLocation;
 export type KeyKind = "user" | "workspace";
 export type Destination = { ingestBase: URL; key: string; keyKind: KeyKind };
 export type IngestPath =
 	| "v1/sessions"
+	| "v1/sessions/locations"
 	| "v1/config-snapshots"
 	| "v1/session-usage";
 export type SendOutcome =

@@ -11,6 +11,7 @@ and does not bundle the CLI (`/harnessforce:setup` installs `@harnessforce/cli` 
 | Part | Purpose |
 | --- | --- |
 | `SessionStart` and `UserPromptSubmit` hooks | Register each session and its config snapshot with Harnessforce |
+| `CwdChanged`, `Stop` and `PostToolUse` (`Write` and `Edit`) hooks | Record the repository and branch of the Git working trees a session works in, and send them at the end of a turn in which they changed |
 | `PostToolUse`, `PostToolUseFailure`, `UserPromptExpansion`, `PermissionRequest`, `PostCompact` and `SessionEnd` hooks | Count the configured skills, commands, subagents and MCP servers a session uses, and send the session usage summary |
 | MCP server `harnessforce` (`<connection URL>/mcp`, HTTP) | Tools to start a run, read an Issue, and complete a run |
 | Skill `using-harnessforce` | What Harnessforce records and does not collect, which hook sends what, and when to use the other skills. The `SessionStart` hook injects its body into the context of every session (the build embeds the same text into the hook and the CLI) |
@@ -93,6 +94,22 @@ contents are never sent.
 - If the key is revoked, Claude Code shows once per session:
   "The organization's ingest key has been revoked. Contact a Workspace administrator" (Workspace key) or
   "Your ingest key has been revoked. Run `harnessforce init`" (user key)
+
+## Work location hooks
+
+A session often starts in the repository's main checkout and then works in a worktree or on a new
+branch. To link such runs to their pull requests, the plugin records the repository and branch of
+each Git working tree the session works in, at the time it observes it: the new working directory on
+`CwdChanged`, the directory of the file on `PostToolUse` of `Write` and `Edit`, and `cwd` on `Stop`.
+At the end of each turn (`Stop`), when these pairs differ from the pairs sent last, it sends them to
+`POST <HARNESSFORCE_ENDPOINT>/v1/sessions/locations`.
+
+- It sends only the agent, the session ID and up to 10 pairs of repository and branch. Paths,
+  commits, file names and the content of edits are never sent. The record lives in
+  `scratchpad_dir` (`locations-<session_id>.json`); without `scratchpad_dir` nothing is recorded.
+- The hooks run asynchronously and never delay a turn. A failure writes
+  `harnessforce: session location failed (<reason>)` to stderr and is retried at the next turn; after a
+  `401` the session stops sending. `CwdChanged` writes nothing to stderr.
 
 ## Config snapshot
 

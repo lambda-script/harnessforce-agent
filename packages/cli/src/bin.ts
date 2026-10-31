@@ -93,6 +93,7 @@ process.exitCode =
 			processCwd: process.cwd(),
 			excludeTarget: true,
 		}),
+		hookTmpDir: tmpdir(),
 		sleep: (ms) => delay(ms),
 		top: createProcessIo(),
 		readStdin: async (maxBytes) => {

@@ -136,6 +136,7 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}) {
 		},
 		importGit: async () => undefined,
 		hookGit: async () => undefined,
+		hookTmpDir: "/nonexistent/hf-tmp",
 		sleep: async () => {},
 		readStdin: async () => Buffer.alloc(0),
 		endStdout: async () => {},

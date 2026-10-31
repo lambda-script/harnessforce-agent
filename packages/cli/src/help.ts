@@ -219,20 +219,26 @@ Examples:
 `,
 	},
 	hook: {
-		summary: "Session-start hook (used by Codex)",
-		text: `Usage: harnessforce hook session-start
+		summary: "Session hooks (used by Codex)",
+		text: `Usage: harnessforce hook session-start|post-tool-use|stop
 
 When to use:
-  You normally never run it. Codex runs it when a session starts.
+  You normally never run it. Codex runs session-start when a session starts,
+  post-tool-use after it edits files with apply_patch, and stop at the end of
+  each turn.
 
 What it does:
-  Reads the hook input from stdin, registers the session with the Workspace, and
-  prints context for the agent (the session ID, plus a one-line warning if
-  registration failed).
+  session-start reads the hook input from stdin, registers the session with the
+  Workspace, and prints context for the agent (the session ID, plus a one-line
+  warning if registration failed).
+  post-tool-use and stop record the repository and branch of the Git working
+  trees the session worked in, and stop sends them when they changed.
 
 Sends:
   Session registration: agent, session ID, repository, branch, commit, and
   start time.
+  Work locations: agent, session ID, and the repository and branch of each
+  working tree. Paths, commits, and file names are not sent.
 
 Does not send:
   Prompt text, model responses, tool input or output, and code diffs.

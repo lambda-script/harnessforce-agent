@@ -63,7 +63,7 @@ const M = {
 const codexNotes = (home: string) =>
 	[
 		`Wrote the Codex configuration (${join(home, ".codex", "config.toml")}). Restart Codex to apply it`,
-		"Codex hooks do not run until you trust them in Codex's /hooks. Trust the harnessforce SessionStart hook in /hooks",
+		"Codex hooks do not run until you trust them in Codex's /hooks. Trust the harnessforce SessionStart, PostToolUse, and Stop hooks in /hooks",
 		"To use the Harnessforce MCP server, log in with `codex mcp login harnessforce`",
 	].join("\n");
 // client-updates.md「Claude Codeのplugin」: pluginの自動更新を有効にした旨を、完了の表示に続けて示す。
@@ -1008,6 +1008,33 @@ describe("harnessforce init", () => {
 									command: "harnessforce hook session-start",
 									commandWindows: "harnessforce.cmd hook session-start",
 									timeout: 10,
+								},
+							],
+						},
+					],
+					PostToolUse: [
+						{
+							matcher: "^apply_patch$",
+							hooks: [
+								{
+									type: "command",
+									command: "harnessforce hook post-tool-use",
+									commandWindows: "harnessforce.cmd hook post-tool-use",
+									timeout: 10,
+									async: true,
+								},
+							],
+						},
+					],
+					Stop: [
+						{
+							hooks: [
+								{
+									type: "command",
+									command: "harnessforce hook stop",
+									commandWindows: "harnessforce.cmd hook stop",
+									timeout: 10,
+									async: true,
 								},
 							],
 						},

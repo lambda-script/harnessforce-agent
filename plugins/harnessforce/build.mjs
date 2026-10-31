@@ -25,41 +25,45 @@ const PLUGIN_ROOT = "${CLAUDE_PLUGIN_ROOT}";
 const HOOK_TIMEOUT_SECONDS = 10;
 // correlation.md「数えるhook」: Skill、Agent（旧名Task）とMCPのtoolだけを数える。src/usage/count.tsが数えるtoolと揃える。
 const COUNTED_TOOLS = "^(Skill|Agent|Task)$|^mcp__";
+// correlation.md「sessionの作業位置」: 作業位置を観測するtool。数えるhookとは別のgroupにする。
+const EDITING_TOOLS = "^(Write|Edit)$";
+// eventごとのgroupの配列。
 const EVENTS = {
-	SessionStart: { arg: "session-start" },
-	UserPromptSubmit: { arg: "user-prompt-submit" },
-	SessionEnd: { arg: "session-end" },
-	// 数えるhookはagentを待たせない。
-	PostToolUse: { arg: "post-tool-use", matcher: COUNTED_TOOLS, async: true },
-	PostToolUseFailure: {
-		arg: "post-tool-use-failure",
-		matcher: COUNTED_TOOLS,
-		async: true,
-	},
-	UserPromptExpansion: { arg: "user-prompt-expansion", async: true },
-	PermissionRequest: { arg: "permission-request", async: true },
-	PostCompact: { arg: "post-compact", async: true },
+	SessionStart: [{ arg: "session-start" }],
+	UserPromptSubmit: [{ arg: "user-prompt-submit" }],
+	SessionEnd: [{ arg: "session-end" }],
+	// 数えるhookと作業位置のhookはagentを待たせない。
+	PostToolUse: [
+		{ arg: "post-tool-use", matcher: COUNTED_TOOLS, async: true },
+		{ arg: "work-location", matcher: EDITING_TOOLS, async: true },
+	],
+	PostToolUseFailure: [
+		{ arg: "post-tool-use-failure", matcher: COUNTED_TOOLS, async: true },
+	],
+	UserPromptExpansion: [{ arg: "user-prompt-expansion", async: true }],
+	PermissionRequest: [{ arg: "permission-request", async: true }],
+	PostCompact: [{ arg: "post-compact", async: true }],
+	CwdChanged: [{ arg: "cwd-changed", async: true }],
+	Stop: [{ arg: "stop", async: true }],
 };
 
 const hooksJson = () => ({
 	description:
-		"Register Claude Code sessions with Harnessforce and send their usage summaries",
+		"Register Claude Code sessions with Harnessforce and send their usage summaries and work locations",
 	hooks: Object.fromEntries(
-		Object.entries(EVENTS).map(([event, { arg, matcher, async }]) => [
+		Object.entries(EVENTS).map(([event, groups]) => [
 			event,
-			[
-				{
-					...(matcher ? { matcher } : {}),
-					hooks: [
-						{
-							type: "command",
-							command: "node",
-							args: [`${PLUGIN_ROOT}/${HOOK_ENTRY}`, arg],
-							...(async ? { async } : { timeout: HOOK_TIMEOUT_SECONDS }),
-						},
-					],
-				},
-			],
+			groups.map(({ arg, matcher, async }) => ({
+				...(matcher ? { matcher } : {}),
+				hooks: [
+					{
+						type: "command",
+						command: "node",
+						args: [`${PLUGIN_ROOT}/${HOOK_ENTRY}`, arg],
+						...(async ? { async } : { timeout: HOOK_TIMEOUT_SECONDS }),
+					},
+				],
+			})),
 		]),
 	),
 });
