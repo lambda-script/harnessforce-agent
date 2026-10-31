@@ -270,8 +270,8 @@ describe("harnessforce import", () => {
 				code: 0,
 				out:
 					"Sessions imported: 0\n" +
-					"Sessions not imported: in a repository not connected to the Workspace 2\n" +
-					"No GitHub repository is connected to the Workspace. Connect the GitHub App in Harnessforce to import sessions with `harnessforce import`\n",
+					"Sessions not imported: in a repository not assigned to a project 2\n" +
+					"No GitHub repository is assigned to a project. Connect the GitHub App and assign repositories to a project in Harnessforce to import sessions with `harnessforce import`\n",
 				err: "",
 			});
 		});
@@ -410,8 +410,8 @@ describe("harnessforce import", () => {
 				code: 0,
 				out:
 					"Sessions imported: 0\n" +
-					"Sessions not imported: in a repository not connected to the Workspace 1\n" +
-					"No GitHub repository is connected to the Workspace. Connect the GitHub App in Harnessforce to import sessions with `harnessforce import`\n",
+					"Sessions not imported: in a repository not assigned to a project 1\n" +
+					"No GitHub repository is assigned to a project. Connect the GitHub App and assign repositories to a project in Harnessforce to import sessions with `harnessforce import`\n",
 				err: "",
 			});
 			expect(hf.sessionBodies()).toEqual([]);
@@ -431,8 +431,8 @@ describe("harnessforce import", () => {
 				code: 0,
 				out:
 					"Sessions imported: 0\n" +
-					"Sessions not imported: in a repository not connected to the Workspace 1\n" +
-					"The session's repository is not connected to the Workspace. Connect that repository to the GitHub App in Harnessforce to import it with `harnessforce import`\n",
+					"Sessions not imported: in a repository not assigned to a project 1\n" +
+					"The session's repository is not assigned to a project. Connect it to the GitHub App and assign it to a project in Harnessforce to import it with `harnessforce import`\n",
 				err: "",
 			});
 		});

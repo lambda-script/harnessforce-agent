@@ -61,8 +61,8 @@ When to use:
 
 What it does:
   Reads Claude Code and Codex session records on this machine, keeps the
-  sessions of repositories connected to the Workspace and inside its import
-  window, and sends a summary of each. When it imports nothing, it prints why
+  sessions of repositories assigned to a project and inside the Workspace's
+  import window, and sends a summary of each. When it imports nothing, it prints why
   and what to do next.
 
 Sends:

@@ -59,7 +59,7 @@ function parsePage(
 	return { repositories: repositories as string[], nextCursor };
 }
 
-// read-api.md `GET /api/v1/repositories`: GitHub Appで接続済みのrepositoryを、cursorを辿って全ページ取得する。
+// read-api.md `GET /api/v1/repositories`: GitHub Appで同期し、Projectに割り当てたrepositoryを、cursorを辿って全ページ取得する。
 export async function listConnectedRepositories(
 	base: URL,
 	apiToken: string,
