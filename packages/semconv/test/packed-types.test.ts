@@ -29,7 +29,6 @@ const PUBLIC_TYPES = [
 	"AttributeName",
 	"ConfigSnapshot",
 	"IngestEvent",
-	"IngestIssue",
 	"SessionImport",
 	"SessionRegistration",
 	"SessionUsageSummary",

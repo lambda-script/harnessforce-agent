@@ -1,9 +1,6 @@
 import { AnalysisReportSchema } from "./schemas/analysis-report.js";
 import { ConfigSnapshotSchema } from "./schemas/config-snapshot.js";
-import {
-	IngestEventSchema,
-	IngestIssueSchema,
-} from "./schemas/ingest-items.js";
+import { IngestEventSchema } from "./schemas/ingest-items.js";
 import { SessionImportSchema } from "./schemas/session-import.js";
 import { SessionRegistrationSchema } from "./schemas/session-registration.js";
 import { SessionUsageSummarySchema } from "./schemas/session-usage-summary.js";
@@ -42,6 +39,5 @@ export const SCHEMAS = {
 	"analysis-report": AnalysisReportSchema,
 	"session-usage-summary": SessionUsageSummarySchema,
 	"session-work-location": SessionWorkLocationSchema,
-	"ingest-issue": IngestIssueSchema,
 	"ingest-event": IngestEventSchema,
 } as const;
