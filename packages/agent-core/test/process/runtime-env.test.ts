@@ -1,5 +1,5 @@
 import { type ChildProcess, spawn } from "node:child_process";
-import { EventEmitter } from "node:events";
+import { EventEmitter, once } from "node:events";
 import { describe, expect, it } from "vitest";
 import {
 	relaunchWithoutRuntimeVariables,
@@ -136,6 +136,7 @@ describe("relaunching without the runtime variables", () => {
 
 	it("gives a real Node.js process an environment without the runtime variables", async () => {
 		let stdout = "";
+		let stdoutClosed: Promise<unknown> = Promise.resolve();
 		const outcome = await relaunchWithoutRuntimeVariables({
 			platform: process.platform,
 			env: { ...RUNTIME, NODE_OPTIONS: "", PATH: process.env.PATH ?? "" },
@@ -152,9 +153,12 @@ describe("relaunching without the runtime variables", () => {
 				child.stdout?.on("data", (chunk) => {
 					stdout += chunk;
 				});
+				// "exit"はpipeの残りを読み切る前に届きうる（macOSで再現）。"close"でstdoutの終端を待つ。
+				stdoutClosed = once(child, "close");
 				return child;
 			},
 		});
+		await stdoutClosed;
 		expect(outcome).toEqual({ kind: "exited", code: 0 });
 		const names: string[] = JSON.parse(stdout);
 		for (const name of Object.keys(RUNTIME))
