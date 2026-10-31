@@ -96,6 +96,24 @@ describe("harnessforce <command> --help", () => {
 	});
 });
 
+// correlation.md「CLI」: otel-headersの終了コード（3 keyが無い、4 送信先を確かめられない、5 版が対応外、1 それ以外）。
+describe("harnessforce otel-headers --help", () => {
+	it("lists the exit codes the command uses", async () => {
+		const r = await runCli(["otel-headers", "--help"]);
+		for (const code of ["0", "3", "4", "5", "1"])
+			expect(r.out).toMatch(new RegExp(`^  ${code}  \\S`, "m"));
+	});
+});
+
+// correlation.md「session import」: Claude Codeの取り込みはcommitを送らず、Codexだけが送る。
+describe("harnessforce import --help", () => {
+	it("says only Codex sessions send the commit", async () => {
+		const r = await runCli(["import", "--help"]);
+		expect(r.out).not.toMatch(/repository, branch, commit/);
+		expect(r.out).toMatch(/Codex sessions also send the commit/);
+	});
+});
+
 describe("harnessforce with an unknown command", () => {
 	it("points to --help on stderr and exits 1", async () => {
 		const r = await runCli(["bogus"]);

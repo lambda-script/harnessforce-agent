@@ -115,6 +115,20 @@ describe("run recording skill", () => {
 			/do not guess[^\n]*do not call `start_run` or `complete_run`/,
 		));
 
+	// correlation.md「skill」: 同じsessionをhookが登録し、空の項目を埋めるため、start_runにrepository等を渡さない。
+	it("does not pass the repository, branch or commit to start_run", () =>
+		expect(body).toMatch(
+			/Do not pass the repository, branch, or commit[^\n]*hook/,
+		));
+
+	// correlation.md「Issueを指定しない作業」: 既存のIssueから選ぶかを1回だけ尋ねる。
+	it("asks once to pick an existing Issue for committing work without one", () => {
+		expect(body).toContain("## When no Issue is specified");
+		expect(body).toContain("`-status:done,canceled <word>`");
+		expect(body).toMatch(/at most 5 Issues, most recently updated first/);
+		expect(body).toMatch(/do not ask again while the value stays the same/);
+	});
+
 	it("records no Plan, Decision or Definition of Done and creates no Issue", () => {
 		for (const gone of [
 			"record_plan",
@@ -212,6 +226,56 @@ describe("setup command", () => {
 			/run `harnessforce init` again without `--send-content`. It rewrites the content variables to `0`/,
 		);
 	});
+
+	// onboarding.md「呼び出し」: agentがskillとして呼び出しても動くよう、agentからの呼び出しを禁じない。
+	it("can be invoked by the agent as well as by the user", () =>
+		expect("disable-model-invocation" in frontmatter).toBe(false));
+
+	// onboarding.md「終わり方」: 終端2から5でだけ終わり、最後の1行に定めた文言を示す。
+	it("ends only at the defined endings with their exact last lines", () => {
+		for (const line of [
+			NODE_REQUIRED,
+			"Harnessforce setup stopped at step {n} ({name}). Fix the cause shown above, then run `/harnessforce:setup` again. Steps already done are safe to repeat.",
+			"Harnessforce setup, part 1 of 2, is done. Restart Claude Code, then run `/harnessforce:setup` again in the new session. Part 2 checks that the first event arrived.",
+			"Harnessforce setup is complete.",
+		])
+			expect(body).toContain(line);
+	});
+
+	// onboarding.md「setupの手順」の手順6、7、9と「`harnessforce status`」。
+	it("reads the remaining steps with harnessforce status --json after importing and after the restart", () => {
+		expect(body).toContain("`harnessforce status --json`");
+		expect(body).toContain(
+			"This repository is not connected to the GitHub App, so its sessions were not imported. After connecting it, restart Claude Code and run `/harnessforce:setup` to import them.",
+		);
+		expect(body).toContain("Send this URL to the person responsible.");
+		expect(body).toContain("Your workspace is ready.");
+		expect(body).toContain("Your first run arrived.");
+		const positions = indexesOf(body, [
+			"Import past sessions",
+			"Show the remaining steps",
+			"Ask for a restart",
+			"Confirm the first event",
+		]);
+		expect(positions).toEqual([...positions].sort((a, b) => a - b));
+	});
+
+	// onboarding.md「やり直しと失敗からの復旧」の表。
+	it("keeps going after a failed import and stops with a hint when npm cannot write", () => {
+		expect(body).toContain(
+			"Importing past sessions failed. Run `harnessforce import` later.",
+		);
+		expect(body).toContain(
+			"npm cannot write to its global install location. Use a Node.js installed with a version manager such as nvm, or change npm's prefix to your own directory, then try again.",
+		);
+		expect(body).toContain("npm install -g @harnessforce/cli@latest");
+	});
+
+	// onboarding.md「setupの手順」の手順8: Codexを使う端末には再起動と`/hooks`のtrustを案内する。
+	it("asks Codex users to restart Codex and trust the three hooks in /hooks", () =>
+		expect(body).toMatch(
+			/restart Codex[^\n]*`\/hooks`[^\n]*`SessionStart`, `PostToolUse`, and `Stop`/,
+		));
 
 	it("relays what harnessforce init prints when the workspace stores no content", () => {
 		expect(body).toMatch(
