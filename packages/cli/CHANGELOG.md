@@ -1,5 +1,21 @@
 # @harnessforce/cli
 
+## 0.3.0
+
+### Minor Changes
+
+- 8b348fd: Redirect the browser to the Harnessforce completion screen after `harnessforce init`. The loopback holds its response until the result is known, then answers with a 303 to `/cli/connected` with a fixed status. The code, the state, and the error description are never put in the URL.
+- 576af6c: `harnessforce init` now reads the Workspace's content settings (`content`) from the credentials response and writes the four Claude Code content variables (`OTEL_LOG_USER_PROMPTS`, `OTEL_LOG_ASSISTANT_RESPONSES`, `OTEL_LOG_TOOL_DETAILS`, `OTEL_LOG_TOOL_CONTENT`) as `1` for the categories you send with `--send-content` and the Workspace stores, and as an explicit `0` otherwise. It writes Codex's `log_user_prompt` and `log_agent_responses` the same way. It prints which categories are on, who can read them and the retention days. `/harnessforce:setup` now offers to send content with "send" selected by default.
+- a8d81f3: Link runs to the pull requests of the branches a session moves to. The Claude Code plugin hooks (`CwdChanged`, `Stop`, and `PostToolUse` for `Write` and `Edit`) and the Codex hooks (`harnessforce hook post-tool-use` for `apply_patch` and `harnessforce hook stop`) record the repository and branch of each Git working tree the session works in, and send them to `/v1/sessions/locations` at the end of a turn in which they changed. Only the agent, the session ID and up to 10 pairs of repository and branch are sent, never paths, commits, file names or the content of edits. `harnessforce init` now writes the two Codex hooks too; run it again and trust the hooks in `/hooks`. `@harnessforce/semconv` adds the `session-work-location` schema.
+
+### Patch Changes
+
+- 8e23e58: When the workspace has reached its ingest key limit, `harnessforce init` now tells owners and admins to ask members to revoke unused keys in My ingest keys on their account page. The workspace settings no longer list every key.
+- 8b348fd: `harnessforce init` no longer ends the login when its loopback receives a callback without the expected `state`, which another local process or a web page can send. That request is sent to the failure screen, and the loopback keeps waiting for the real callback until the timeout. A request the loopback cannot parse, such as `GET //`, now gets a 400 response instead of stopping the CLI.
+- Updated dependencies [1387922]
+- Updated dependencies [a8d81f3]
+  - @harnessforce/semconv@0.3.0
+
 ## 0.2.0
 
 ### Minor Changes
