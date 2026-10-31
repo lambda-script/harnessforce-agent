@@ -143,7 +143,11 @@ function lockFor(address: string, service: FakeSecretService) {
 	});
 }
 
-describe.each([
+// fakeのbusはunixのsocketで立てる。WindowsではSecret Serviceを使わず（correlation.md「実行環境」）、
+// 一時directoryのsocketのpathもlistenできないため、busを使うtestは走らせない。
+const describeOnUnix = describe.skipIf(process.platform === "win32");
+
+describeOnUnix.each([
 	["KDE (KWallet)", KDE],
 	["GNOME (GNOME Keyring)", GNOME],
 ])("ロックされたSecret Service: %s", (_, service) => {
@@ -174,7 +178,7 @@ describe.each([
 	});
 });
 
-describe("解錠されたSecret Service", () => {
+describeOnUnix("解錠されたSecret Service", () => {
 	it("解錠された項目とcollectionの操作は解錠の確認が要らない", async () => {
 		const service = {
 			...KDE,
@@ -201,7 +205,7 @@ describe("解錠されたSecret Service", () => {
 	});
 });
 
-describe("提供者", () => {
+describeOnUnix("提供者", () => {
 	it("KDEではKWalletとdefaultのwalletの名前を返す", async () => {
 		const bus = await fakeBus(KDE);
 		await expect(lockFor(bus.address, KDE).provider(1000)).resolves.toEqual({
@@ -219,7 +223,7 @@ describe("提供者", () => {
 	});
 });
 
-describe("届かないbus", () => {
+describeOnUnix("届かないbus", () => {
 	it("応答の無いbusは上限時間で失敗する", async () => {
 		const service = { ...KDE, isSilent: true };
 		const bus = await fakeBus(service);
