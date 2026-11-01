@@ -1,0 +1,27 @@
+{
+	"workspace_name": "Acme",
+	"role": "owner",
+	"has_seat": true,
+	"steps": [
+		{
+			"step": 2,
+			"status": "done",
+			"url": "https://app.example.test/en/w/acme/settings/connections"
+		},
+		{
+			"step": 3,
+			"status": "todo",
+			"url": "https://app.example.test/en/w/acme/projects/acme-web/settings/repositories"
+		},
+		{
+			"step": 4,
+			"status": "todo",
+			"url": "https://app.example.test/en/w/acme/settings/connections"
+		},
+		{
+			"step": 5,
+			"status": "todo",
+			"url": "https://app.example.test/en/w/acme"
+		}
+	]
+}

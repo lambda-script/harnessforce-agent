@@ -1,0 +1,7 @@
+{
+	"items": [
+		{ "repository": "github.com/acme/web" },
+		{ "repository": "github.com/acme/api" }
+	],
+	"next_cursor": "WyIyMDI2LTExLTAxVDAwOjAwOjAwLjAwMFoiLCJhY21lLWFwaSJd"
+}
