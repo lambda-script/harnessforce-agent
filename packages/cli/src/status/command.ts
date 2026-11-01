@@ -113,7 +113,7 @@ async function runStatus(json: boolean, deps: StatusDeps): Promise<number> {
 		.map(stepLine);
 	const repositoryLine =
 		repository &&
-		`This repository (${repository.name}) is ${repository.connected ? "connected" : "not connected"} to the GitHub App`;
+		`This repository (${repository.name}) is ${repository.connected ? "assigned" : "not assigned"} to a project`;
 	deps.stdout(
 		`${[
 			`${onboarding.workspace_name} (${onboarding.role})`,
