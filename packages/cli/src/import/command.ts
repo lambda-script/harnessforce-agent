@@ -56,9 +56,9 @@ const MESSAGES = {
 	loginExpired: "Your login has expired. Run `harnessforce init`",
 	stateFailed: "Could not save the import state",
 	connectNone:
-		"No GitHub repository is connected to the Workspace. Connect the GitHub App in Harnessforce to import sessions with `harnessforce import`",
+		"No GitHub repository is assigned to a project. Connect the GitHub App and assign repositories to a project in Harnessforce to import sessions with `harnessforce import`",
 	connectOther:
-		"The session's repository is not connected to the Workspace. Connect that repository to the GitHub App in Harnessforce to import it with `harnessforce import`",
+		"The session's repository is not assigned to a project. Connect it to the GitHub App and assign it to a project in Harnessforce to import it with `harnessforce import`",
 	nothingFound: "No session records to import were found",
 } as const;
 
@@ -91,7 +91,7 @@ const NOT_IMPORTED_LABELS = [
 	["alreadySent", "already sent"],
 	["outOfRange", "outside the period"],
 	["outsideGit", "outside a git repository"],
-	["notConnected", "in a repository not connected to the Workspace"],
+	["notConnected", "in a repository not assigned to a project"],
 ] as const;
 
 type Breakdown = Record<(typeof NOT_IMPORTED_LABELS)[number][0], number>;

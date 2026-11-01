@@ -264,7 +264,8 @@ so that work done before the plugin was installed can be linked to issues too. R
   Code sessions also send the first prompt ID and the number of failures per tool. Codex sessions also
   send the commit the session started on, and no failure counts, because a rollout does not keep whether
   every call succeeded. Prompts, responses and tool inputs and outputs are never sent.
-- Only sessions whose `cwd` is in a repository connected to the Workspace are sent. The connected
+- Only sessions whose `cwd` is in a repository that is connected to the GitHub App and assigned to a
+  project are sent, because Harnessforce does not store sessions of other repositories. These
   repositories come from `GET <HARNESSFORCE_URL>/api/v1/repositories` (all pages) and the import
   window from `session_import_days` (`GET <HARNESSFORCE_URL>/api/v1/workspace`), both with the API
   token. The API token is sent only when the origin of `HARNESSFORCE_URL` matches the one pinned by
@@ -273,9 +274,9 @@ so that work done before the plugin was installed can be linked to issues too. R
   ingest key, only when the endpoint origin matches the one pinned by `harnessforce init`. `429` and `503` are
   retried up to 3 times after `Retry-After` (at most 60 seconds).
 - Sessions that are not sent are counted by the first reason that applies (already sent, outside the
-  import window, outside a git repository, repository not connected to the Workspace) and printed on one line.
-  When nothing was imported because no repository is connected, it says to connect the repository
-  with the GitHub App in Harnessforce.
+  import window, outside a git repository, repository not assigned to a project) and printed on one line.
+  When nothing was imported because the repository is not assigned to a project, it says to connect it
+  to the GitHub App and assign it to a project in Harnessforce.
 - Sent sessions are recorded in `~/.harnessforce/import-state.json` per Workspace and ingest endpoint,
   so running it again continues where it stopped and never sends a session twice to the same place.
   Sessions dropped because of the monthly event limit or a read-only Workspace are not recorded and
