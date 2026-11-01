@@ -73,7 +73,7 @@ Sends:
 
 Does not send:
   Prompt text, model responses, tool input or output, and code diffs. Sessions
-  of repositories that are not connected are not sent.
+  of repositories not assigned to a project are not sent.
 
 Exit codes:
   0  Finished (including "nothing to import").
@@ -196,8 +196,8 @@ What it does:
   and prints the result. Files it writes live under ~/.harnessforce/tune/.
 
 Options:
-  --all           Analyze sessions of repositories not connected too (they are
-                  never sent).
+  --all           Analyze sessions of repositories not assigned to a project
+                  too (they are never sent).
   --no-send       Analyze only; send nothing.
   --show-report   Print the exact values that would be sent.
   --json          Print the result as one JSON object on stdout. Messages go to
@@ -211,7 +211,8 @@ Options:
   --purge         Delete the analysis, proposals, and unsent results.
 
 Sends:
-  Counts computed by public rules (no text), for connected repositories only.
+  Counts computed by public rules (no text), for repositories assigned to a
+  project only.
   It also runs the same session import as "harnessforce import".
 
 Does not send:

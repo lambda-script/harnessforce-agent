@@ -30,7 +30,7 @@ harnessforce init
 | `harnessforce init [--port <port>] [--send-content] [--no-plugin-auto-update]` | Logs in with the browser, stores a user ingest key and an API token in the keychain, and configures Claude Code and Codex |
 | `harnessforce otel-headers` | Prints the `Authorization` header for Claude Code's `otelHeadersHelper`. Exits 3 when there is no key, 4 when the destination differs from the pinned origin, 5 while the CLI version is unsupported, and 1 on other failures. On Linux, after printing a key read from the kernel keyring, it moves that Workspace's items to an unlocked Secret Service (not when the hook starts it), so a reboot does not lose them |
 | `harnessforce run --issue <identifier> -- <agent> [args]` | Launches an agent with its session linked to an Issue |
-| `harnessforce import` | Sends the metadata of past Claude Code and Codex sessions in connected repositories |
+| `harnessforce import` | Sends the metadata of past Claude Code and Codex sessions in repositories assigned to a project |
 | `harnessforce status [--json]` | Shows the connected Workspace, your role, the setup steps that remain with their URLs, and whether the `origin` repository of the current directory is connected to the GitHub App. Reads only; the remote URL is compared on this machine and never sent. Exits 0 whenever the status was read |
 | `harnessforce tune [--all] [--no-send] [--show-report] [--json]` | Analyzes past sessions on this machine by public rules and sends the counts (analysis reports) |
 | `harnessforce tune --report-only [--all]` | Analyzes and sends like `harnessforce tune`, but writes nothing to stdout. Meant for your OS scheduler |
@@ -298,8 +298,8 @@ role cannot use it.
 - Only the counts and medians of the analysis report are sent, to
   `POST <HARNESSFORCE_ENDPOINT>/v1/analysis-reports` with the user ingest key. Prompts, responses,
   commands, paths and error text never leave the machine.
-- By default it analyzes sessions started in the last 30 days in connected repositories. `--all`
-  analyzes every session, but still sends only sessions in connected repositories that started within
+- By default it analyzes sessions started in the last 30 days in repositories assigned to a project.
+  `--all` analyzes every session, but still sends only sessions in repositories assigned to a project that started within
   `session_import_days`. Sessions that were not imported yet are imported first, like `harnessforce import`.
 - Sending is fail-open: when Harnessforce cannot be reached, the reports stay in
   `~/.harnessforce/tune/unsent.json` and are sent by the next run. `401` and `403` delete the unsent

@@ -114,6 +114,15 @@ describe("harnessforce import --help", () => {
 	});
 });
 
+// correlation.md「session import」・read-api.md: 送る対象は、GET /api/v1/repositories が返すProjectに割り当てたrepositoryに限る。
+describe.each(["import", "tune"])("harnessforce %s --help", (command) => {
+	it("names the project assignment as the condition for sending", async () => {
+		const r = await runCli([command, "--help"]);
+		expect(r.out).not.toMatch(/\bconnected repositories\b|\bnot connected\b/);
+		expect(r.out).toMatch(/assigned to a\s+project/);
+	});
+});
+
 describe("harnessforce with an unknown command", () => {
 	it("points to --help on stderr and exits 1", async () => {
 		const r = await runCli(["bogus"]);
