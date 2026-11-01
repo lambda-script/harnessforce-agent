@@ -63,7 +63,7 @@ async function setup(
 
 // onboarding.md「harnessforce status」。
 describe("harnessforce status", () => {
-	it("prints the workspace, each step and whether this repository is connected", async () => {
+	it("prints the workspace, each step and whether this repository is assigned to a project", async () => {
 		const { run } = await setup();
 		const result = await run();
 		expect(result.code).toBe(0);
@@ -74,9 +74,26 @@ describe("harnessforce status", () => {
 				"・ Assign repositories to a project https://app.example.test/en/w/acme/step-3",
 				"? Set up telemetry",
 				"・ Wait for your first run https://app.example.test/en/w/acme/step-5",
-				"This repository (github.com/acme/web) is connected to the GitHub App",
+				"This repository (github.com/acme/web) is assigned to a project",
 				"",
 			].join("\n"),
+		);
+	});
+
+	it("says the repository is not assigned to a project when the repository list does not have it", async () => {
+		const { run } = await setup({
+			repositories: () => ({
+				status: 200,
+				body: {
+					items: [{ repository: "github.com/acme/api" }],
+					next_cursor: null,
+				},
+			}),
+		});
+		const result = await run();
+		expect(result.code).toBe(0);
+		expect(result.out).toContain(
+			"This repository (github.com/acme/web) is not assigned to a project\n",
 		);
 	});
 
@@ -141,7 +158,7 @@ describe("harnessforce status", () => {
 				"・ Connect the GitHub App https://app.example.test/en/w/acme/step-2",
 				"✓ Set up telemetry",
 				"・ Wait for your first run https://app.example.test/en/w/acme/step-5",
-				"This repository (github.com/acme/web) is connected to the GitHub App",
+				"This repository (github.com/acme/web) is assigned to a project",
 				"",
 			].join("\n"),
 		);

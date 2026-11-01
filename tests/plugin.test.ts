@@ -246,7 +246,7 @@ describe("setup command", () => {
 	it("reads the remaining steps with harnessforce status --json after importing and after the restart", () => {
 		expect(body).toContain("`harnessforce status --json`");
 		expect(body).toContain(
-			"This repository is not connected to the GitHub App, so its sessions were not imported. After connecting it, restart Claude Code and run `/harnessforce:setup` to import them.",
+			"This repository is not assigned to a project, so its sessions were not imported. After connecting it to the GitHub App and assigning it to a project in Harnessforce, restart Claude Code and run `/harnessforce:setup` to import them.",
 		);
 		expect(body).toContain("Send this URL to the person responsible.");
 		expect(body).toContain("Your workspace is ready.");

@@ -37,12 +37,13 @@ export const TUNE_MESSAGES = {
 	outOfRange: (days: number, count: number) =>
 		`Outside the sending range: ${count} session(s) that started more than ${days} days ago will not be sent`,
 	notConnected: (count: number) =>
-		`${count} session(s) in repositories that are not connected will not be sent`,
+		`${count} session(s) in repositories that are not assigned to a project will not be sent`,
 	partlyUnreadable: (lines: number, skipped: number) =>
 		`Some records could not be read: skipped ${skipped} of ${lines} lines read`,
 	savedList: (fetchedAt: string) =>
-		`Could not fetch the list of connected repositories, so the list saved at ${fetchedAt} is used`,
-	noList: "Could not verify the connected repositories, so nothing is sent",
+		`Could not fetch the list of repositories assigned to a project, so the list saved at ${fetchedAt} is used`,
+	noList:
+		"Could not verify the repositories assigned to a project, so nothing is sent",
 	noSend: "Sending is turned off, so the analysis results are not sent",
 	settingUnreadable:
 		"Cannot read the device settings (`~/.harnessforce/config.json`), so the analysis results are not sent",

@@ -188,12 +188,12 @@ describe("harnessforce tune", () => {
 		expect(t.reportBodies()[0]).toHaveLength(7);
 	});
 
-	it("never sends sessions of a repository that is not connected, even with --all", async () => {
+	it("never sends sessions of a repository that is not assigned to a project, even with --all", async () => {
 		const t = await setupTune({ remote: "git@github.com:acme/other.git" });
 		const result = await t.run(["--all"]);
 		expect(result.code).toBe(0);
 		expect(result.err).toContain(
-			"10 session(s) in repositories that are not connected will not be sent\n",
+			"10 session(s) in repositories that are not assigned to a project will not be sent\n",
 		);
 		expect(t.reportBodies()).toEqual([]);
 		// --allを付けなければ、未接続のsessionは分析しない。
@@ -206,7 +206,7 @@ describe("harnessforce tune", () => {
 		expect(result.code).toBe(0);
 		expect(result.out).toContain("Sessions analyzed: 10");
 		expect(result.err).toContain(
-			"Could not verify the connected repositories, so nothing is sent\n",
+			"Could not verify the repositories assigned to a project, so nothing is sent\n",
 		);
 		expect(
 			t.hf.requests.filter((r) => r.path.startsWith("POST /ingest/")),
@@ -233,7 +233,7 @@ describe("harnessforce tune", () => {
 		rmSync(join(t.home.home, ".harnessforce", "import-state.json"));
 		const result = await t.run();
 		expect(result.err).toMatch(
-			/Could not fetch the list of connected repositories, so the list saved at \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2} is used\n/,
+			/Could not fetch the list of repositories assigned to a project, so the list saved at \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2} is used\n/,
 		);
 		expect(t.reportBodies()).toHaveLength(2);
 		expect(t.hf.sessionBodies()).toHaveLength(1);

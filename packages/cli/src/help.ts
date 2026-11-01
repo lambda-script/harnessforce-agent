@@ -89,13 +89,13 @@ Examples:
 
 When to use:
   After init, and any time you want to see which setup steps of the connected
-  Workspace remain and whether this repository is connected to the GitHub App.
+  Workspace remain and whether this repository is assigned to a project.
 
 What it does:
   Reads the setup checklist of the connected Workspace and the list of
-  connected repositories, and prints your role, each step (done, to do with its
-  URL, or "?" when it cannot be read), and whether the repository of the current
-  directory (its origin remote) is connected.
+  repositories assigned to a project, and prints your role, each step (done, to
+  do with its URL, or "?" when it cannot be read), and whether the repository of
+  the current directory (its origin remote) is assigned to a project.
 
 Options:
   --json   Print the checklist and the repository as one JSON object.

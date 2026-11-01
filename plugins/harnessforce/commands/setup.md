@@ -66,9 +66,9 @@ If `harnessforce init` ends with the line saying the CLI version is unsupported 
 
 Run `harnessforce import` and tell the user, as it is, the imported count it prints, along with the breakdown of sessions that were not imported and the guidance. Do not omit the printed reason and the next action even when the count is 0.
 
-Then run `harnessforce status --json`. If `repository.connected` is `false` (the repository of the working directory is not connected), tell the user the following.
+Then run `harnessforce status --json`. If `repository.connected` is `false` (the repository of the working directory is not assigned to a project), tell the user the following.
 
-> This repository is not connected to the GitHub App, so its sessions were not imported. After connecting it, restart Claude Code and run `/harnessforce:setup` to import them.
+> This repository is not assigned to a project, so its sessions were not imported. After connecting it to the GitHub App and assigning it to a project in Harnessforce, restart Claude Code and run `/harnessforce:setup` to import them.
 
 If `harnessforce import` fails, show its output and go on; importing is not needed for telemetry and can be run later. Before the last line of the ending, show "Importing past sessions failed. Run `harnessforce import` later." If `harnessforce status --json` fails, show its output and go on.
 
@@ -88,7 +88,7 @@ Then end with the following.
 
 ## 9. Confirm the first event
 
-At the start of this session, the plugin hook sent the session to Harnessforce. Run `harnessforce import` again to import the sessions of repositories connected to the GitHub App after step 6; sessions already imported are not sent twice. Tell the user the result as in step 6.
+At the start of this session, the plugin hook sent the session to Harnessforce. Run `harnessforce import` again to import the sessions of repositories assigned to a project after step 6; sessions already imported are not sent twice. Tell the user the result as in step 6.
 
 Then run `harnessforce status --json`. If step 5 is `done`, show "Your first run arrived." with the URL of the Harnessforce Home (the environment variable `HARNESSFORCE_URL`). If not, show the Home URL and tell the user to check on the waiting screen for the first run that it was received; if nothing arrives after 15 minutes, follow the checks for each cause shown on the waiting screen. Show the steps that are not done in the same way as step 7.
 
