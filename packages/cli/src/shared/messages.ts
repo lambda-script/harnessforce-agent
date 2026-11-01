@@ -38,8 +38,6 @@ export const INIT_MESSAGES = {
 		"The ingest key limit has been reached. Contact a Workspace administrator",
 	gateUnavailable:
 		"Could not apply the change on the receiving side. Nothing was changed. Try again",
-	ingestUnavailable:
-		"This environment does not receive telemetry, so an ingest key cannot be issued",
 	saveFailed: "Could not save the ingest key. Run `harnessforce init` again",
 	codexSaveFailed:
 		"Could not write the Codex configuration. Run `harnessforce init` again",

@@ -50,8 +50,6 @@ const M = {
 	limitMember:
 		"The ingest key limit has been reached. Contact a Workspace administrator",
 	gate: "Could not apply the change on the receiving side. Nothing was changed. Try again",
-	noIngest:
-		"This environment does not receive telemetry, so an ingest key cannot be issued",
 	saveFailed: "Could not save the ingest key. Run `harnessforce init` again",
 	pluginAutoUpdateOn:
 		"Automatic updates for the Harnessforce plugin are on. To turn them off, run `harnessforce init --no-plugin-auto-update` or use /plugin",
@@ -805,7 +803,7 @@ describe("harnessforce init", () => {
 			[409, { code: "ingest_key_limit", role: "viewer" }, M.network],
 			[409, { code: "conflict" }, M.network],
 			[503, { code: "gate_unavailable" }, M.gate],
-			[503, { code: "ingest_unavailable" }, M.noIngest],
+			[503, { code: "ingest_unavailable" }, M.network],
 			[503, { code: "maintenance" }, M.network],
 			[400, { code: "invalid_request" }, M.network],
 			[403, { code: "forbidden" }, M.network],
