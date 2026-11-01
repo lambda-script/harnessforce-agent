@@ -1,5 +1,6 @@
 import { compileSchema } from "@harnessforce/test-support/validator";
 import { Type } from "@sinclair/typebox";
+import { Value } from "@sinclair/typebox/value";
 import { describe, expect, it } from "vitest";
 import {
 	CalendarDate,
@@ -105,6 +106,19 @@ describe("Token by Unicode White_Space and code points", () => {
 		expect(isToken("a".repeat(300), 300)).toBe(true);
 		expect(isToken("a".repeat(301), 300)).toBe(false);
 		expect(isToken("")).toBe(false);
+	});
+	// TypeBoxのValue.Checkはpatternをu flag無しでcompileし、maxLengthをUTF-16の単位で数える。長さをpatternに持たせる
+	// ことで、schemaをそのままValue.Checkへ渡す利用者もcode pointで数えた結果を得る。
+	it("counts the same code points in TypeBox's Value.Check", () => {
+		const emoji = "\u{1F600}";
+		const checkToken = (value: string, maxLength = 256) =>
+			Value.Check(Token(maxLength), value);
+		expect(checkToken(emoji.repeat(256))).toBe(true);
+		expect(checkToken(emoji.repeat(257))).toBe(false);
+		expect(checkToken("a".repeat(128), 128)).toBe(true);
+		expect(checkToken("a".repeat(129), 128)).toBe(false);
+		expect(checkToken("a b")).toBe(false);
+		expect(checkToken("")).toBe(false);
 	});
 });
 

@@ -27,6 +27,11 @@ describe("ingest event", () => {
 			"evaluation.recorded",
 		]));
 	it("accepts the example", () => expect(event(ingestEvent)).toBe(true));
+	it("requires project_key", () => {
+		const withoutProjectKey: Record<string, unknown> = { ...ingestEvent };
+		delete withoutProjectKey.project_key;
+		expect(event(withoutProjectKey)).toBe(false);
+	});
 	it.each([
 		["unknown event_type", { event_type: "deploy.done" }],
 		["unknown actor_type", { actor_type: "bot" }],

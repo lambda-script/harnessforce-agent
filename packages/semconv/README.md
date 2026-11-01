@@ -67,6 +67,10 @@ Every schema's `$id` is `urn:harnessforce:semconv:<major>:<name>` (`schemaId(nam
 A token is a string of 1 to 256 (or the stated maximum) Unicode code points with no character of the
 Unicode `White_Space` property. `isToken(value, maxLength)` checks the same rule as the schemas.
 
+The token schemas keep the length limit in their `pattern` and not in `maxLength`, because some
+validators count `maxLength` in UTF-16 code units and would reject a 256 code point token of astral
+characters. The pattern counts code points whether or not the validator compiles it with the `u` flag.
+
 An instant is an ISO 8601 date-time with `Z` or a `±hh:mm` offset (`hh` 00 to 23, `mm` 00 to 59) from
 1677-09-21T00:12:44Z to 2262-04-11T23:47:16Z. The schemas check the shape, the offset and the year;
 JSON Schema cannot compare the instant after its offset, so use `isInstant(value)` for the exact range.
