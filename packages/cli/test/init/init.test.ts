@@ -1371,7 +1371,8 @@ describe("harnessforce init and the retired usage-limits status line", () => {
 		expect(settings.statusLine).toEqual(HUD);
 		expect(settings.model).toBe("opus");
 		expect(JSON.parse(readFileSync(home.backupPath, "utf8"))).toEqual(before);
-		expect(statSync(home.backupPath).mode & 0o777).toBe(0o600);
+		if (process.platform !== "win32")
+			expect(statSync(home.backupPath).mode & 0o777).toBe(0o600);
 		expect(existsSync(home.markPath)).toBe(false);
 		expect(existsSync(home.statePath)).toBe(false);
 	});
@@ -1430,6 +1431,7 @@ describe("harnessforce init and the retired usage-limits status line", () => {
 	});
 
 	it("says nothing about the status line and keeps the backup when the save fails", async () => {
+		if (process.platform === "win32" || process.getuid?.() === 0) return;
 		const home = homeWith(
 			{ statusLine: RETIRED },
 			{ consented: true, text_version: 1, original: HUD },
