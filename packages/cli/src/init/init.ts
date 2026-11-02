@@ -55,6 +55,11 @@ import type {
 	startLoopback,
 } from "./loopback.js";
 import { createLoginSecrets, type LoginSecrets } from "./pkce.js";
+import {
+	hasRetiredStatusLine,
+	removeRetiredUsageLimitsFiles,
+	repairRetiredStatusLine,
+} from "./retired-statusline.js";
 
 export type InitDeps = {
 	env: Env;
@@ -68,6 +73,7 @@ export type InitDeps = {
 	// buildの入力で与えた既定の接続先（correlation.md「接続先」）。
 	defaultUrl: string;
 	callbackTimeoutMs: number;
+	now: () => Date;
 };
 
 // `harnessforce init`の引数。portが無ければloopbackのcallback portの既定を使う。
@@ -165,12 +171,13 @@ async function runInit(
 		);
 		if (outcome.kind === "viewer") completion = "viewer";
 		const issued = issuedOrStop(outcome);
-		const isPluginAutoUpdateOn = await save(
+		const saved = await save(
 			issued,
 			recordedUrl,
 			settingsPath,
 			args,
 			store,
+			deps,
 		).catch((error: unknown) => {
 			if (isStop(error)) throw error;
 			return stop("saveFailed");
@@ -184,11 +191,17 @@ async function runInit(
 		).catch(() => stop("codexSaveFailed"));
 		completion = "connected";
 		loopback.finish({ status: completion, workspaceId: issued.workspaceId });
+		// 手順6の書き込みがすべて成功した後に限り、修復の行を出し、退役した利用枠のfileを消す。
+		if (saved.statusLineNotice !== undefined)
+			deps.stdout(`${saved.statusLineNotice}\n`);
+		// backupを写せずにstatusLineを残した場合は、次のinitで戻せるよう記録を残す。
+		if (!saved.hasRetiredStatusLine)
+			await removeRetiredUsageLimitsFiles(deps.homeDir);
 		return finishInit(issued, args, deps, {
 			codexPath,
 			connection: recordedUrl,
 			isKernelKeyring: store.isKernelKeyring,
-			isPluginAutoUpdateOn,
+			isPluginAutoUpdateOn: saved.isPluginAutoUpdateOn,
 		});
 	} finally {
 		loopback.finish({ status: completion });
@@ -330,14 +343,19 @@ function issuedOrStop(outcome: CredentialOutcome): Issued {
 
 // correlation.md「CLI」の手順5と6。どちらかが失敗したら保存の失敗とする。
 // originを先に消し、途中で失敗しても前の接続先のoriginと新しいkeyやtokenの組を残さない。
-// pluginの自動更新が有効になったかを返す。
+// pluginの自動更新が有効になったかと、退役した利用枠のstatusLineの修復の結果を返す。
 async function save(
 	issued: Issued,
 	connection: string,
 	settingsPath: string,
 	args: Pick<InitArgs, "sendContent" | "noPluginAutoUpdate">,
 	store: InitKeychain,
-): Promise<boolean> {
+	deps: Pick<InitDeps, "homeDir" | "now">,
+): Promise<{
+	isPluginAutoUpdateOn: boolean;
+	statusLineNotice: string | undefined;
+	hasRetiredStatusLine: boolean;
+}> {
 	await store.delete(ingestOriginAccount(issued.workspaceId));
 	await store.delete(urlOriginAccount(issued.workspaceId));
 	await store.set(ingestKeyAccount(issued.workspaceId), issued.ingestKey);
@@ -372,12 +390,22 @@ async function save(
 		OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf",
 	};
 	Object.assign(env, contentEnv(issued.content, args.sendContent));
+	const repair = await repairRetiredStatusLine(
+		current.settings,
+		settingsPath,
+		deps.homeDir,
+		deps.now(),
+	);
 	const { settings, isOn } = withPluginAutoUpdate(
-		mergeUserSettings(current.settings, env),
+		mergeUserSettings(repair.settings, env),
 		args.noPluginAutoUpdate,
 	);
 	await writeUserSettings(settingsPath, settings);
-	return isOn;
+	return {
+		isPluginAutoUpdateOn: isOn,
+		statusLineNotice: repair.notice,
+		hasRetiredStatusLine: hasRetiredStatusLine(settings),
+	};
 }
 
 // correlation.md「CLI」の手順6。送らない区分も明示に`0`で書く。

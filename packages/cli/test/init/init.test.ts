@@ -1,5 +1,6 @@
 import {
 	chmodSync,
+	existsSync,
 	mkdirSync,
 	readFileSync,
 	statSync,
@@ -1306,5 +1307,141 @@ describe("harnessforce init and plugin auto-update", () => {
 			other: { source: SOURCE },
 			"harnessforce-agent": { source: SOURCE, autoUpdate: true },
 		});
+	});
+});
+
+// correlation.md「CLI」の手順6: 退役した利用枠のstatusLineの修復。
+describe("harnessforce init and the retired usage-limits status line", () => {
+	const RETIRED = {
+		type: "command",
+		command: "harnessforce usage-limits statusline",
+	};
+	const HUD = { type: "command", command: "node ~/hud.js", padding: 0 };
+	const NOW = new Date("2026-11-02T03:04:05.678Z");
+	const BACKUP_NAME = "settings.json.harnessforce-backup-20261102T030405Z";
+	const restored = (backup: string) =>
+		`Restored the Claude Code status line that the retired \`harnessforce usage-limits\` command had replaced. The previous settings are backed up at ${backup}`;
+	const removed = (backup: string) =>
+		`Removed the Claude Code status line of the retired \`harnessforce usage-limits\` command because the status line it replaced was not recorded. The previous settings are backed up at ${backup}`;
+	const backupFailed =
+		"Could not back up the Claude Code user settings, so the status line left by the retired `harnessforce usage-limits` command was not changed. Run `harnessforce init` again to retry";
+
+	function homeWith(settings: object, mark?: object) {
+		const home = makeHome(JSON.stringify(settings));
+		const dir = join(home.home, ".harnessforce");
+		const markPath = join(dir, "usage-limits.json");
+		const statePath = join(dir, "usage-limits-state.json");
+		if (mark !== undefined) {
+			mkdirSync(dir);
+			writeFileSync(markPath, JSON.stringify(mark));
+			writeFileSync(statePath, JSON.stringify({ sent_at: 1, resets_at: {} }));
+		}
+		return {
+			...home,
+			backupPath: join(home.home, ".claude", BACKUP_NAME),
+			markPath,
+			statePath,
+		};
+	}
+
+	async function initIn(home: { home: string }) {
+		const server = await startCredentialsServer();
+		return runInit([], {
+			homeDir: home.home,
+			defaultUrl: server.base,
+			keychain: fakeKeychain({ items: EXISTING }).keychain,
+			openBrowser: fakeBrowser().open,
+			now: () => NOW,
+		});
+	}
+
+	it("restores the recorded status line, backs up the settings and removes the retired files", async () => {
+		const before = { model: "opus", statusLine: RETIRED };
+		const home = homeWith(before, {
+			consented: true,
+			text_version: 1,
+			original: HUD,
+		});
+		const result = await initIn(home);
+		expect(result.code).toBe(0);
+		expect(result.out).toBe(
+			`${restored(home.backupPath)}\n${finished(home.home)}`,
+		);
+		const settings = JSON.parse(home.read() ?? "{}");
+		expect(settings.statusLine).toEqual(HUD);
+		expect(settings.model).toBe("opus");
+		expect(JSON.parse(readFileSync(home.backupPath, "utf8"))).toEqual(before);
+		expect(statSync(home.backupPath).mode & 0o777).toBe(0o600);
+		expect(existsSync(home.markPath)).toBe(false);
+		expect(existsSync(home.statePath)).toBe(false);
+	});
+
+	it.each([
+		["the record is missing", undefined],
+		[
+			"the recorded status line is null",
+			'{"consented":true,"text_version":1,"original":null}',
+		],
+		["the record cannot be read", "{"],
+	])("removes the status line when %s", async (_case, mark) => {
+		const home = homeWith({ statusLine: RETIRED });
+		if (mark !== undefined) {
+			mkdirSync(join(home.home, ".harnessforce"));
+			writeFileSync(home.markPath, mark);
+			writeFileSync(home.statePath, "{}");
+		}
+		const result = await initIn(home);
+		expect(result.out).toBe(
+			`${removed(home.backupPath)}\n${finished(home.home)}`,
+		);
+		expect(JSON.parse(home.read() ?? "{}")).not.toHaveProperty("statusLine");
+		expect(existsSync(home.backupPath)).toBe(true);
+		expect(existsSync(home.markPath)).toBe(false);
+		expect(existsSync(home.statePath)).toBe(false);
+	});
+
+	it("leaves another status line alone and still removes the retired files", async () => {
+		const home = homeWith(
+			{ statusLine: HUD },
+			{ consented: false, text_version: 1, original: null },
+		);
+		const result = await initIn(home);
+		expect(result.out).toBe(finished(home.home));
+		expect(JSON.parse(home.read() ?? "{}").statusLine).toEqual(HUD);
+		expect(existsSync(home.backupPath)).toBe(false);
+		expect(existsSync(home.markPath)).toBe(false);
+		expect(existsSync(home.statePath)).toBe(false);
+	});
+
+	it("keeps the status line and the record when the settings cannot be backed up", async () => {
+		const home = homeWith(
+			{ statusLine: RETIRED },
+			{ consented: true, text_version: 1, original: HUD },
+		);
+		// 同じ名前のdirectoryがあると、backupのfileを作れない。
+		mkdirSync(home.backupPath);
+		const result = await initIn(home);
+		expect(result.code).toBe(0);
+		expect(result.out).toBe(`${backupFailed}\n${finished(home.home)}`);
+		const settings = JSON.parse(home.read() ?? "{}");
+		expect(settings.statusLine).toEqual(RETIRED);
+		expect(settings.otelHeadersHelper).toBe("harnessforce otel-headers");
+		expect(existsSync(home.markPath)).toBe(true);
+	});
+
+	it("says nothing about the status line and keeps the backup when the save fails", async () => {
+		const home = homeWith(
+			{ statusLine: RETIRED },
+			{ consented: true, text_version: 1, original: HUD },
+		);
+		mkdirSync(join(home.home, ".codex"));
+		chmodSync(join(home.home, ".codex"), 0o500);
+		const result = await initIn(home);
+		chmodSync(join(home.home, ".codex"), 0o700);
+		expect(result).toEqual(failed(codexSaveFailed));
+		// user settingsはCodexの設定より先に書くため、statusLineは戻っている。
+		expect(JSON.parse(home.read() ?? "{}").statusLine).toEqual(HUD);
+		expect(existsSync(home.backupPath)).toBe(true);
+		expect(existsSync(home.markPath)).toBe(true);
 	});
 });

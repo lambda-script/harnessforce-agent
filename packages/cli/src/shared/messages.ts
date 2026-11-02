@@ -63,6 +63,14 @@ export const codexNotes = (configPath: string) =>
 
 export type InitMessage = keyof typeof INIT_MESSAGES;
 
+// correlation.md「CLI」の手順6「退役した利用枠のstatusLineの修復」の1行。
+export const retiredStatusLineRestoredMessage = (backupPath: string) =>
+	`Restored the Claude Code status line that the retired \`harnessforce usage-limits\` command had replaced. The previous settings are backed up at ${backupPath}`;
+export const retiredStatusLineRemovedMessage = (backupPath: string) =>
+	`Removed the Claude Code status line of the retired \`harnessforce usage-limits\` command because the status line it replaced was not recorded. The previous settings are backed up at ${backupPath}`;
+export const retiredStatusLineBackupFailedMessage =
+	"Could not back up the Claude Code user settings, so the status line left by the retired `harnessforce usage-limits` command was not changed. Run `harnessforce init` again to retry";
+
 // buildの既定以外の接続先へ向けたときに、利用者が気づくための1行。
 export const nonDefaultConnectionMessage = (url: string) =>
 	`Connecting to ${url} (not the default production endpoint)`;

@@ -58,6 +58,8 @@ Use the following option text as it is.
 
 Follow the choice in step 4: run `harnessforce init --send-content` if selected, or `harnessforce init` if not. Tell the user to log in to Harnessforce in the browser, or sign up, and choose one Workspace to connect. A user without a Workspace can create one on the same page and continue. If the browser does not open, show the user the URL that `harnessforce init` prints. The command waits up to 5 minutes for the login to complete, so run it with a Bash timeout of 10 minutes.
 
+If `harnessforce init` prints a line about the status line of the retired `harnessforce usage-limits` command, tell the user that line as it is. On a machine where an early CLI wrapped the status line with that command, `harnessforce init` restores the original status line, or removes it when the original was not recorded, after backing up the user settings.
+
 For a Workspace that stores no content, `harnessforce init --send-content` writes the content variables as `0`. It prints a message about that and about Collection & retention in the Workspace settings, and exits with code 0. Do not treat this as a failure; show the printed text to the user as it is.
 
 If `harnessforce init` ends with the line saying the CLI version is unsupported and exit code 1, run `npm install -g @harnessforce/cli@latest`, then run this step again. If `harnessforce init` fails for any other reason, show what it printed and stop at this step; a failed `harnessforce init` changes neither the keychain nor the settings files.
