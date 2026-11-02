@@ -6,3 +6,4 @@ coverage/
 .env
 .turbo/
 .worktrees/
+plugins/harnessforce/evals/results/

@@ -1,0 +1,58 @@
+{
+	"tools": [
+		{
+			"name": "get_issue",
+			"description": "Returns the issue.",
+			"inputSchema": {
+				"type": "object",
+				"properties": { "identifier": { "type": "string" } },
+				"required": ["identifier"],
+				"additionalProperties": false
+			}
+		},
+		{
+			"name": "start_run",
+			"description": "Registers the run of this agent session for the issue and returns its run_id.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"issue_identifier": { "type": "string" },
+					"agent": { "type": "string", "enum": ["claude_code", "codex"] },
+					"session_id": { "type": "string" },
+					"repository": { "type": ["string", "null"] },
+					"branch": { "type": ["string", "null"] },
+					"commit": { "type": ["string", "null"] }
+				},
+				"required": ["issue_identifier", "agent", "session_id"],
+				"additionalProperties": false
+			}
+		},
+		{
+			"name": "complete_run",
+			"description": "Ends the run.",
+			"inputSchema": {
+				"type": "object",
+				"properties": { "run_id": { "type": "string", "format": "uuid" } },
+				"required": ["run_id"],
+				"additionalProperties": false
+			}
+		},
+		{
+			"name": "list_issues",
+			"description": "Returns the issues that match the query.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"q": { "type": "string", "maxLength": 2000 },
+					"sort": {
+						"type": "string",
+						"enum": ["updated", "created", "sessions", "agent_time", "cost"]
+					},
+					"cursor": { "type": ["string", "null"], "maxLength": 1000 },
+					"limit": { "type": ["integer", "null"], "minimum": 1, "maximum": 100 }
+				},
+				"additionalProperties": false
+			}
+		}
+	]
+}

@@ -73,6 +73,10 @@ describe("@harnessforce/claude-code-plugin", () => {
 			source.version,
 		));
 
+	// evalはmaintainerのためのsuiteであり、利用者へ配るpluginに含めない。
+	it("does not ship the eval suite", () =>
+		expect(existsSync(join(npmDir, "evals"))).toBe(false));
+
 	it("does not ship the CLI tarballs, and setup installs the CLI from npm", () => {
 		expect(existsSync(join(npmDir, "cli"))).toBe(false);
 		expect(readFileSync(join(npmDir, "commands/setup.md"), "utf8")).toBe(

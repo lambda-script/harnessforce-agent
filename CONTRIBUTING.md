@@ -60,6 +60,12 @@ directly in `plugins/harnessforce`, run `pnpm build` first.
   `packages/agent-core`.
 - **Node.js 18.** `@harnessforce/cli`, `@harnessforce/semconv` and the plugin hook run on Node.js 18,
   so do not use APIs added later.
+- **Measure skill and command wording.** The tests pin the wording of the skills and commands, but only
+  the [plugin evals](plugins/harnessforce/evals/README.md) show whether the agent follows it. A pull
+  request that changes that wording pastes the eval summaries of `main` and of the branch.
+- **Keep what a fix teaches.** When a fix shows a rule that must keep holding, add it where it will be
+  checked again: a test, an eval case, or the product specification when the rule is part of the
+  agreed behavior.
 
 ## Commits and branches
 
