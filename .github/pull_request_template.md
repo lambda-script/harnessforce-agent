@@ -10,6 +10,8 @@
 
 - [ ] `HARNESSFORCE_BUILD_URL=http://localhost:3000 pnpm check` passes
 - [ ] Behavior changes have tests that failed before the change
+- [ ] Changed skill or command wording: the plugin eval summaries before and after are pasted above
+- [ ] A rule this fix revealed is kept in a test, an eval case or the specification
 - [ ] A changeset is added if users of `@harnessforce/cli` or `@harnessforce/semconv` see the change
 - [ ] The title follows Conventional Commits (`<type>(<scope>): <description>`)
 - [ ] Documentation (README or `docs/`) matches the new behavior
