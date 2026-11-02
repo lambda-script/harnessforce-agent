@@ -1,5 +1,21 @@
 # @harnessforce/cli
 
+## 0.5.0
+
+### Minor Changes
+
+- 648b256: `harnessforce init` now writes `OTEL_LOGS_EXPORT_INTERVAL`, `OTEL_TRACES_EXPORT_INTERVAL` and `OTEL_METRIC_EXPORT_INTERVAL` as `60000` in the Claude Code user settings, replacing values already there, so Claude Code sends logs and traces once a minute instead of every 5 seconds. Events reach Harnessforce up to a minute later. What is not sent within the exit wait (2 seconds for Claude Code, 500 ms for Codex) can be lost, and so can the last minute when the agent stops without exiting normally. `harnessforce run -- codex` now sets `OTEL_BLRP_SCHEDULE_DELAY=60000` for Codex, replacing the shell's value, so Codex sends logs once a minute instead of every second. A Codex started without `harnessforce run` keeps its default or the shell's value. Codex's `config.toml` is not changed, because it has no key for the interval.
+
+### Patch Changes
+
+- 90bd73a: The `harnessforce import` and `harnessforce tune` help and the README now say that only sessions of repositories assigned to a project are sent, instead of "connected repositories".
+- 847ea81: `harnessforce import` now says that sessions were not imported because their repository is not assigned to a project, since Harnessforce stores only sessions of repositories that are connected to the GitHub App and assigned to a project. When nothing was imported for that reason, it asks you to connect the repository to the GitHub App and assign it to a project.
+- 9a23ee7: `harnessforce init` now repairs the Claude Code status line left by the retired `harnessforce usage-limits` command. When the user settings' `statusLine.command` starts with `harnessforce usage-limits`, it backs up the settings file (mode 0600), restores the status line recorded in `~/.harnessforce/usage-limits.json`, or removes it when nothing was recorded, and prints one line saying what it did. It then removes the leftover `usage-limits.json` and `usage-limits-state.json`. Other status lines are not touched.
+- 57ce086: `harnessforce init` now prints the line about the repaired Claude Code status line, and removes the leftover `usage-limits.json` and `usage-limits-state.json`, as soon as the user settings are written. Before, a failure to write the Codex `config.toml` hid the line and kept the files, even though the status line had already been changed.
+- 096da9e: `harnessforce status` now says whether the repository of the current directory is assigned to a project, and the `harnessforce tune` messages about which sessions are not sent now name the repositories assigned to a project, instead of "connected". The `/harnessforce:setup` command tells you to connect the repository to the GitHub App and assign it to a project when its sessions were not imported.
+- Updated dependencies [343f205]
+  - @harnessforce/semconv@0.4.0
+
 ## 0.4.1
 
 ### Patch Changes
