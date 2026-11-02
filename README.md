@@ -1,3 +1,19 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/lockup-horizontal-dark.svg">
+    <img alt="Harnessforce" src=".github/assets/lockup-horizontal-light.svg" width="360">
+  </picture>
+</p>
+
+<p align="center">
+  <strong>Handle AI development with confidence.</strong>
+</p>
+
+[Harnessforce](https://harnessforce.dev) shows, for every issue, how many times AI agents ran, what
+they did, what it cost, and how CI and review went, down to traces, logs and metrics. It works with
+Claude Code and Codex. To start in Claude Code, install the plugin from this repository and run
+`/harnessforce:setup`; with Codex, use the CLI. Both are in the [Quickstart](#quickstart).
+
 # harnessforce-agent
 
 [![CI](https://github.com/lambda-script/harnessforce-agent/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lambda-script/harnessforce-agent/actions/workflows/ci.yml)
@@ -147,9 +163,22 @@ To develop, see [docs/development.md](docs/development.md).
 [Changesets](https://github.com/changesets/changesets) and published to npm through trusted
 publishing with provenance. See [Releasing](docs/runbooks/releasing.md).
 
+## Community & support
+
+- Questions: [Discussions Q&A](https://github.com/lambda-script/harnessforce-agent/discussions/categories/q-a)
+- Feature requests: [Discussions Ideas](https://github.com/lambda-script/harnessforce-agent/discussions/categories/ideas)
+- Bugs you can reproduce: [open an issue](https://github.com/lambda-script/harnessforce-agent/issues/new?template=bug_report.yml)
+- Billing, your account or your Workspace data: [support@lambdascript.dev](mailto:support@lambdascript.dev)
+- Vulnerabilities: [SECURITY.md](SECURITY.md)
+
+Discussions and issues are public; do not post Workspace data, keys, tokens or prompts. See
+[SUPPORT.md](SUPPORT.md) for every channel and the response time. To contribute code, read
+[Contributing](CONTRIBUTING.md).
+
 ## Links
 
 - [Contributing](CONTRIBUTING.md)
+- [Support](SUPPORT.md)
 - [Security policy](SECURITY.md)
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Building the local marketplace](docs/runbooks/local-marketplace.md)

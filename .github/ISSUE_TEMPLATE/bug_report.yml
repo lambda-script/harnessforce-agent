@@ -1,11 +1,21 @@
 name: Bug report
-description: Something in the plugin, the harnessforce CLI or the semantic conventions does not work as documented
-labels: [bug]
+description: Something in the plugin, the harnessforce CLI or the semantic conventions does not work as documented, and you can reproduce it
+labels: [bug, needs-triage]
 body:
   - type: markdown
     attributes:
       value: |
-        Do not report vulnerabilities here; see SECURITY.md. Remove keys, tokens, prompts and other private data from logs before posting.
+        Issues are public. Do not post Workspace data, ingest keys, API tokens or prompts (session content); remove them from logs and output before posting.
+        Ask questions in [Discussions Q&A](https://github.com/lambda-script/harnessforce-agent/discussions/categories/q-a), and start there if you are not sure the bug is reproducible. Do not report vulnerabilities here; see [SECURITY.md](https://github.com/lambda-script/harnessforce-agent/blob/main/SECURITY.md).
+  - type: checkboxes
+    id: searched
+    attributes:
+      label: Before you report
+      options:
+        - label: I searched existing issues and discussions and found no report of this bug.
+          required: true
+        - label: I removed keys, tokens, prompts and Workspace data from everything I paste below.
+          required: true
   - type: dropdown
     id: component
     attributes:
@@ -17,11 +27,42 @@ body:
         - Build or development tooling
     validations:
       required: true
-  - type: textarea
-    id: what-happened
+  - type: input
+    id: version
     attributes:
-      label: What happened
-      description: What you did, what you expected, and what happened instead.
+      label: Package version
+      description: "`harnessforce --version`, the plugin version shown by `/plugin`, or the commit you built."
+    validations:
+      required: true
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Agent
+      options:
+        - Claude Code
+        - Codex
+        - Not agent specific
+    validations:
+      required: true
+  - type: input
+    id: agent-version
+    attributes:
+      label: Agent version
+      description: "`claude --version` or `codex --version`."
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: macOS 15.1, Ubuntu 24.04, Windows 11 (WSL 2)
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Node.js version
+      description: "`node --version`."
     validations:
       required: true
   - type: textarea
@@ -34,22 +75,28 @@ body:
     validations:
       required: true
   - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: status
+    attributes:
+      label: "`harnessforce status --json`"
+      description: Paste the output after replacing any key, token or private value with `***`.
+      render: json
+    validations:
+      required: true
+  - type: textarea
     id: logs
     attributes:
-      label: Output
-      description: Relevant output, such as `harnessforce` stderr or lines starting with `harnessforce:` in the Claude Code debug log.
+      label: Other output
+      description: Relevant output, such as `harnessforce` stderr or lines starting with `harnessforce:` in the Claude Code debug log. Mask private values the same way.
       render: text
-  - type: input
-    id: version
-    attributes:
-      label: Version
-      description: "`harnessforce --version`, the plugin version, or the commit you built."
-    validations:
-      required: true
-  - type: input
-    id: environment
-    attributes:
-      label: Environment
-      description: Operating system, `node --version` and `claude --version`.
-    validations:
-      required: true

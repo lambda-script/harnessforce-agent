@@ -1,0 +1,20 @@
+title: "[Idea] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Discussions are public. Do not post Workspace data, ingest keys, API tokens or prompts (session content). See [SUPPORT.md](https://github.com/lambda-script/harnessforce-agent/blob/main/SUPPORT.md) for every channel.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Current workaround
+      description: How you work around the problem today, if at all.
+    validations:
+      required: true

@@ -6,10 +6,13 @@ Thank you for helping improve harnessforce-agent. By participating you agree to 
 
 ## Before you start
 
-- For a bug, open an issue with the bug report template unless one already exists.
-- For a new feature or a change in behavior, open an issue first. The behavior of the plugin, the CLI
-  and the semantic conventions follows the Harnessforce product specification, so a change that
-  departs from it has to be agreed before it is implemented.
+- Ask questions in [Discussions Q&A](https://github.com/lambda-script/harnessforce-agent/discussions/categories/q-a),
+  not in issues. [SUPPORT.md](SUPPORT.md) lists every channel.
+- Issues are for bugs you can reproduce. Open one with the bug report form unless one already exists.
+- For a new feature or a large change in behavior, start a discussion in
+  [Ideas](https://github.com/lambda-script/harnessforce-agent/discussions/categories/ideas) before you
+  write code. The behavior of the plugin, the CLI and the semantic conventions follows the Harnessforce
+  product specification, so a change that departs from it has to be agreed before it is implemented.
 
 ## Setup
 
