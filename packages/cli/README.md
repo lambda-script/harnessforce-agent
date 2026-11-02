@@ -152,6 +152,14 @@ tokens are sent only to the origins pinned by `harnessforce init`.
    - `extraKnownMarketplaces["harnessforce-agent"]` (or `additionalMarketplaces` when only that alias is
      present): the GitHub source and `autoUpdate: true`, so Claude Code updates the plugin in the
      background. `--no-plugin-auto-update` writes `false`; a value you set yourself is kept.
+   - `statusLine`, only when its `command` starts with `harnessforce usage-limits`: an early CLI wrapped
+     your status line with this command, which no longer exists, so the status line shows nothing. It
+     first copies the settings file to `settings.json.harnessforce-backup-<UTC time>` (mode `0600`),
+     then restores the status line recorded in `~/.harnessforce/usage-limits.json`, or removes the key
+     when none was recorded, and prints one line saying which. If the backup cannot be written, the
+     status line and the record are left as they are so that the next run can retry. Every successful
+     run that leaves no such status line also deletes the leftover `~/.harnessforce/usage-limits.json`
+     and `usage-limits-state.json`.
 6. It updates the Codex `config.toml` (`$CODEX_HOME` when it is an absolute path, otherwise `~/.codex`),
    changing only these items and keeping every other key and comment:
    - `[otel].exporter`: OTLP/HTTP (`protocol = "binary"`) to the ingest endpoint with

@@ -264,6 +264,17 @@ describe("setup command", () => {
 		expect(positions).toEqual([...positions].sort((a, b) => a - b));
 	});
 
+	// onboarding.md「setupの手順」の手順5: initが退役した利用枠のstatusLineを直した1行を、そのまま利用者へ伝える。
+	it("passes on the line about the retired usage-limits status line in the connect step", () => {
+		const connectStep = body.slice(
+			body.indexOf("## 5. Connect to Harnessforce"),
+			body.indexOf("## 6. Import past sessions"),
+		);
+		expect(connectStep).toContain(
+			"If `harnessforce init` prints a line about the status line of the retired `harnessforce usage-limits` command, tell the user that line as it is.",
+		);
+	});
+
 	// onboarding.md「やり直しと失敗からの復旧」の表。
 	it("keeps going after a failed import and stops with a hint when npm cannot write", () => {
 		expect(body).toContain(
