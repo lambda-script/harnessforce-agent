@@ -182,6 +182,13 @@ async function runInit(
 			if (isStop(error)) throw error;
 			return stop("saveFailed");
 		});
+		// user settingsは書き換わっているため、後でCodexの設定だけが失敗しても修復の行を出し、退役した利用枠のfileを消す。
+		// 行を出さないと、次のinitはstatusLineを修復の対象と見なさず、利用者が修復を知る機会が無くなる。
+		if (saved.statusLineNotice !== undefined)
+			deps.stdout(`${saved.statusLineNotice}\n`);
+		// backupを写せずにstatusLineを残した場合は、次のinitで戻せるよう記録を残す。
+		if (!saved.hasRetiredStatusLine)
+			await removeRetiredUsageLimitsFiles(deps.homeDir);
 		const codexPath = codexConfigPath(deps.env, deps.homeDir);
 		await saveCodexConfig(
 			issued,
@@ -191,12 +198,6 @@ async function runInit(
 		).catch(() => stop("codexSaveFailed"));
 		completion = "connected";
 		loopback.finish({ status: completion, workspaceId: issued.workspaceId });
-		// 手順6の書き込みがすべて成功した後に限り、修復の行を出し、退役した利用枠のfileを消す。
-		if (saved.statusLineNotice !== undefined)
-			deps.stdout(`${saved.statusLineNotice}\n`);
-		// backupを写せずにstatusLineを残した場合は、次のinitで戻せるよう記録を残す。
-		if (!saved.hasRetiredStatusLine)
-			await removeRetiredUsageLimitsFiles(deps.homeDir);
 		return finishInit(issued, args, deps, {
 			codexPath,
 			connection: recordedUrl,
