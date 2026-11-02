@@ -321,8 +321,6 @@ function issuedOrStop(outcome: CredentialOutcome): Issued {
 			);
 		case "gate_unavailable":
 			return stop("gateUnavailable");
-		case "ingest_unavailable":
-			return stop("ingestUnavailable");
 		case "unexpected":
 			return stop("network");
 	}

@@ -71,7 +71,6 @@ export type CredentialOutcome =
 	| { kind: "viewer" }
 	| { kind: "limit"; role: LimitRole }
 	| { kind: "gate_unavailable" }
-	| { kind: "ingest_unavailable" }
 	| { kind: "unexpected" };
 type LimitRole = "owner" | "admin" | "member";
 
@@ -136,8 +135,6 @@ function classify(
 		return { kind: "limit", role: role as LimitRole };
 	if (status === 503 && code === "gate_unavailable")
 		return { kind: "gate_unavailable" };
-	if (status === 503 && code === "ingest_unavailable")
-		return { kind: "ingest_unavailable" };
 	return { kind: "unexpected" };
 }
 
