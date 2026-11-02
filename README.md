@@ -5,6 +5,16 @@
   </picture>
 </p>
 
+<p align="center">
+  <strong>Handle AI development with confidence.</strong><br>
+  See every AI session, what it cost, and whether it shipped.
+</p>
+
+[Harnessforce](https://harnessforce.dev) shows, for every issue, how many times AI agents ran, what
+they did, what it cost, and how CI and review went, down to traces, logs and metrics. It works with
+Claude Code and Codex. To start in Claude Code, install the plugin from this repository and run
+`/harnessforce:setup`; with Codex, use the CLI. Both are in the [Quickstart](#quickstart).
+
 # harnessforce-agent
 
 [![CI](https://github.com/lambda-script/harnessforce-agent/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lambda-script/harnessforce-agent/actions/workflows/ci.yml)
