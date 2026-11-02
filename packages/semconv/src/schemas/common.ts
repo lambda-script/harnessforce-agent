@@ -1,5 +1,5 @@
 import { Type } from "@sinclair/typebox";
-import { INSTANT_PATTERN, TOKEN_PATTERN } from "../values.js";
+import { INSTANT_PATTERN, tokenPattern } from "../values.js";
 
 // 互換性の単位はmajor（semantic-conventions.md「互換性」）。$idにはmajorだけを含める。
 export const SEMCONV_MAJOR = 0;
@@ -25,9 +25,10 @@ export const RepositorySlug = Type.String({
 export const SemVer = Type.String({
 	pattern: "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$",
 });
-// minLengthとmaxLengthは、JSON Schemaの定義どおりcode pointで数える。
+// 長さの上限と下限はmaxLengthとminLengthではなくpatternに持たせる。maxLengthを併せて置くと、UTF-16の単位で数える
+// validatorでは256 code pointのtokenを拒否してしまうため（values.tsのtokenPattern）。
 export const Token = (maxLength = 256) =>
-	Type.String({ minLength: 1, maxLength, pattern: TOKEN_PATTERN });
+	Type.String({ pattern: tokenPattern(maxLength) });
 export const Count = Type.Integer({ minimum: 0 });
 export const Agent = Type.Union([
 	Type.Literal("claude_code"),

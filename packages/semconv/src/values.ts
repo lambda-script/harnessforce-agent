@@ -5,8 +5,15 @@
 // U+0085を含みU+FEFFを含まない。u flagの有無に依らず同じに解釈されるよう、BMPの文字の範囲だけで書く。
 const WHITE_SPACE =
 	"\\t-\\r \\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000";
-export const TOKEN_PATTERN = `^[^${WHITE_SPACE}]+$`;
-const NO_WHITE_SPACE = new RegExp(TOKEN_PATTERN);
+const NO_WHITE_SPACE = new RegExp(`^[^${WHITE_SPACE}]+$`);
+// 1 code point分。u flagの無い実装（TypeBoxのValue.Check）はサロゲートペアを2単位で読むため、対を先に1単位として読む。
+// 2つ目の選択肢からサロゲートを除くのは、対の先頭でも単独の単位としても読めてしまうと、長さの上限を超えた値で
+// 組み合わせが爆発するため。単独のサロゲートはcode pointではないので、どちらのflagでも一致しない。
+const CODE_POINT = `(?:[\\uD800-\\uDBFF][\\uDC00-\\uDFFF]|[^${WHITE_SPACE}\\uD800-\\uDFFF])`;
+// tokenの長さはmaxLengthではなくpatternに持たせる。maxLengthは、u flagの無い実装ではUTF-16の単位で数えてしまう。
+// このpatternはu flagの有無に依らず、1 code pointを1文字として数える。
+export const tokenPattern = (maxLength: number) =>
+	`^${CODE_POINT}{1,${maxLength}}$`;
 
 // Tokenと同じ制約を、schemaをcompileせずに確かめる。文字数はcode pointで数える。
 export const isToken = (value: string, maxLength = 256): boolean => {
