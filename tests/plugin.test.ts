@@ -95,6 +95,10 @@ describe("run recording skill", () => {
 		expect(positions).toEqual([...positions].sort((a, b) => a - b));
 	});
 
+	// correlation.md「MCP」: ログインの画面で対象のWorkspaceとProjectを1つずつ選ぶ。
+	it("says the first MCP login chooses a Workspace and a Project", () =>
+		expect(body).toContain("choose a Workspace and a Project"));
+
 	it("passes the session_id from the context to start_run", () =>
 		expect(body).toMatch(/`session_id`[^\n]*`start_run`/));
 
@@ -124,7 +128,7 @@ describe("run recording skill", () => {
 	// correlation.md「Issueを指定しない作業」: 既存のIssueから選ぶかを1回だけ尋ねる。
 	it("asks once to pick an existing Issue for committing work without one", () => {
 		expect(body).toContain("## When no Issue is specified");
-		expect(body).toContain("`-status:done,canceled <word>`");
+		expect(body).toContain("`-status:resolved,not_planned <word>`");
 		expect(body).toMatch(/at most 5 Issues, most recently updated first/);
 		expect(body).toMatch(/do not ask again while the value stays the same/);
 	});
