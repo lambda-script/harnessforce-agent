@@ -6,8 +6,7 @@
 </p>
 
 <p align="center">
-  <strong>Handle AI development with confidence.</strong><br>
-  See every AI session, what it cost, and whether it shipped.
+  <strong>Handle AI development with confidence.</strong>
 </p>
 
 [Harnessforce](https://harnessforce.dev) shows, for every issue, how many times AI agents ran, what
