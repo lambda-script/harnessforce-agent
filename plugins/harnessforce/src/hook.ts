@@ -1,6 +1,7 @@
 import { isAbsolute, join } from "node:path";
 import {
 	type ClientIdentity,
+	cliBelowRequiredLine,
 	noticeLine,
 	readSavedUpdateState,
 	readUpdateState,
@@ -93,6 +94,10 @@ export type HookDeps = {
 	client: ClientIdentity;
 	// Claude Codeがpluginを自動更新するとみなせるか。sessionのcwdのrepositoryの設定も見る。
 	isPluginAutoUpdateEffective: (cwd: string) => Promise<boolean>;
+	// pluginが起動するCLIのcommandとoptionをすべて持つ最も古いCLIの版（client-updates.md「pluginが必要とするCLIの版」）。
+	requiredCliVersion: string;
+	// `harnessforce --version`の出力。起動できない、上限時間を超えた、0以外で終わった場合はundefined。
+	readCliVersion: (cwd: string) => Promise<string | undefined>;
 };
 
 // runHookが、要求に版を申告するfetchへ差し替えた依存。baseFetchは差し替える前のfetchとする。
@@ -497,9 +502,26 @@ async function isPluginBlocked(deps: Deps, recheck: boolean): Promise<boolean> {
 	return checked?.status === "unsupported";
 }
 
-// correlation.md「hookの警告」の順: 401、clientの版が対応外、送信の設定と失敗の警告、clientの更新の期限、新しい版がある。
+/**
+ * client-updates.md「pluginが必要とするCLIの版」: 導入済みのCLIが古ければその1行。接続先を与えたbuildは、同じbuildの
+ * CLIと組で使うため判定しない。NO_UPDATE_NOTIFIERとCIでは抑止しない。新しい版の案内ではないためである。
+ */
+async function cliVersionLine(
+	input: HookInput,
+	deps: Deps,
+): Promise<string | undefined> {
+	if (deps.client.dev) return undefined;
+	const output = await deps.readCliVersion(input.cwd);
+	return output === undefined
+		? undefined
+		: cliBelowRequiredLine(output, deps.requiredCliVersion);
+}
+
+// correlation.md「hookの警告」の順: 401、clientの版が対応外、送信の設定と失敗の警告、CLIがpluginの必要とする版より古い、
+// clientの更新の期限、新しい版がある。
 async function withUpdateLine(
 	notice: Notice | undefined,
+	cliLine: Promise<string | undefined>,
 	input: HookInput,
 	deps: Deps,
 ): Promise<string | undefined> {
@@ -510,7 +532,9 @@ async function withUpdateLine(
 		: undefined;
 	if (state?.status === "unsupported")
 		return updateLine("claude-code-plugin", state);
-	if (notice || !state || !statePath) return notice?.message;
+	if (notice) return notice.message;
+	const cliTooOld = await cliLine;
+	if (cliTooOld || !state || !statePath) return cliTooOld;
 	// Claude Codeが次のsessionまでに更新する間は、新しい版を示さない。
 	return noticeLine("claude-code-plugin", statePath, state, {
 		now: deps.now(),
@@ -526,6 +550,10 @@ async function onSessionStart(input: HookInput, deps: Deps): Promise<void> {
 	if (usage) await removeExpiredFiles(usage, startedAt).catch(logError(deps));
 	const registers =
 		input.source === undefined || REGISTERING_SOURCES.has(input.source);
+	// `harnessforce otel-headers`を起動するかによらず、登録を送るsourceで並行して起動する。
+	const cliLine = registers
+		? cliVersionLine(input, deps).catch(() => undefined)
+		: Promise.resolve(undefined);
 	const blocked = await isPluginBlocked(deps, true).catch(() => false);
 	const sent = blocked
 		? undefined
@@ -535,7 +563,9 @@ async function onSessionStart(input: HookInput, deps: Deps): Promise<void> {
 			});
 	// 表示は登録を送るsourceだけとする（correlation.md「hookの警告」）。
 	const message = registers
-		? await withUpdateLine(sent, input, deps).catch(() => sent?.message)
+		? await withUpdateLine(sent, cliLine, input, deps).catch(
+				() => sent?.message,
+			)
 		: sent?.message;
 	if (usage)
 		await appendIfRecording(usage, {

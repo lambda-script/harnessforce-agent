@@ -212,6 +212,29 @@ export function updateLine(
 	}
 }
 
+// `<major>.<minor>.<patch>`の1行。semverと同じく先頭の0を許さず、prereleaseなど他の形は判定しない。
+const MAJOR_MINOR_PATCH = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)\r?\n?$/;
+
+const versionParts = (version: string) =>
+	MAJOR_MINOR_PATCH.exec(version)?.slice(1).map(Number);
+
+/**
+ * client-updates.md「pluginが必要とするCLIの版」: 導入済みのCLIが必要な版より古いときの1行。出力が読めなければ判定しない。
+ * 送信の可否はserverの判定だけで決まるため、この1行は送信を止めない。
+ */
+export function cliBelowRequiredLine(
+	versionOutput: string,
+	required: string,
+): string | undefined {
+	const installed = versionParts(versionOutput);
+	const needed = versionParts(required);
+	if (!installed || !needed) return undefined;
+	const differing = installed.findIndex((part, i) => part !== needed[i]);
+	if (differing < 0 || (installed[differing] ?? 0) > (needed[differing] ?? 0))
+		return undefined;
+	return `Harnessforce plugin needs CLI ${required} or later, but CLI ${installed.join(".")} is installed. Update it: \`${UPDATE_COMMANDS.cli}\``;
+}
+
 // outdatedは24時間に1回まで。update-notifierと同じく、NO_UPDATE_NOTIFIERとCIの中では示さない。
 export function shouldShowOutdated(
 	state: UpdateState,

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
 	type ClientIdentity,
+	cliBelowRequiredLine,
 	parseClientUpdateHeader,
 	readUpdateState,
 	recheckClientStatus,
@@ -313,5 +314,31 @@ describe("recheckClientStatus", () => {
 			now: () => NOW,
 		});
 		expect(result).toEqual(stale);
+	});
+});
+
+describe("cliBelowRequiredLine", () => {
+	const line = (installed: string) =>
+		`Harnessforce plugin needs CLI 0.4.0 or later, but CLI ${installed} is installed. Update it: \`npm install -g @harnessforce/cli@latest\``;
+
+	it("words a CLI older than the plugin needs, by semver precedence", () => {
+		expect(cliBelowRequiredLine("0.3.9\n", "0.4.0")).toBe(line("0.3.9"));
+		expect(cliBelowRequiredLine("0.3.10\n", "0.4.0")).toBe(line("0.3.10"));
+		expect(cliBelowRequiredLine("0.10.0\n", "0.4.0")).toBeUndefined();
+		expect(cliBelowRequiredLine("0.4.0\n", "0.4.0")).toBeUndefined();
+		expect(cliBelowRequiredLine("1.0.0\r\n", "0.4.0")).toBeUndefined();
+	});
+
+	it("does not judge output that is not one major.minor.patch line", () => {
+		for (const output of [
+			"",
+			"0.3\n",
+			"v0.3.0\n",
+			"0.3.0-beta.1\n",
+			"00.3.0\n",
+			"0.3.0\n0.3.0\n",
+			"harnessforce 0.3.0\n",
+		])
+			expect(cliBelowRequiredLine(output, "0.4.0")).toBeUndefined();
 	});
 });
