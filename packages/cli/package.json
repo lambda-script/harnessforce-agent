@@ -41,7 +41,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.6.4",
-		"@decimalturn/toml-patch": "3.3.1",
+		"@decimalturn/toml-patch": "3.3.2",
 		"@harnessforce/agent-core": "workspace:*",
 		"@harnessforce/test-support": "workspace:*",
 		"@types/node": "^26.0.0",
