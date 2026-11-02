@@ -5,7 +5,8 @@ import { managedDir } from "@harnessforce/test-support/managed-dir";
 import { afterEach, describe, expect, it } from "vitest";
 import { isTelemetryConfigured } from "../src/telemetry-settings.js";
 
-// `harnessforce init`の手順6が書くテレメトリの設定（correlation.md「CLI」）。
+// `harnessforce init`の手順6が書くテレメトリの設定（correlation.md「CLI」）。送信間隔の3つは除く。
+// 無くてもテレメトリは届き、送信の健全性の判定に含めないため（correlation.md「CLI」の手順6の送信間隔）。
 const INIT_ENV = {
 	CLAUDE_CODE_ENABLE_TELEMETRY: "1",
 	OTEL_METRICS_EXPORTER: "otlp",
@@ -36,7 +37,7 @@ const check = (configDir: string, managed: Record<string, string> | null) =>
 	});
 
 describe("telemetry settings (correlation.md「送信の健全性」)", () => {
-	it("is configured when user settings hold what harnessforce init writes", async () =>
+	it("is configured when user settings hold what harnessforce init writes, even without the export intervals", async () =>
 		expect(
 			await check(
 				await homeWith({

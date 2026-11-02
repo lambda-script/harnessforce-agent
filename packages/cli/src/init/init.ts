@@ -387,6 +387,7 @@ async function save(
 		OTEL_LOGS_EXPORTER: "otlp",
 		OTEL_TRACES_EXPORTER: "otlp",
 		OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf",
+		...EXPORT_INTERVAL_ENV,
 	};
 	Object.assign(env, contentEnv(issued.content, args.sendContent));
 	const repair = await repairRetiredStatusLine(
@@ -406,6 +407,14 @@ async function save(
 		hasRetiredStatusLine: hasRetiredStatusLine(settings),
 	};
 }
+
+// correlation.md「CLI」の手順6の送信間隔。ingestの受信の費用は受信の回数にほぼ比例するため、logsとtracesを
+// 既定の5秒から60秒に延ばす。metricsは既定と同じ60秒でも書き、shellに残った別の値を置き換えて3つを揃える。
+const EXPORT_INTERVAL_ENV = {
+	OTEL_LOGS_EXPORT_INTERVAL: "60000",
+	OTEL_TRACES_EXPORT_INTERVAL: "60000",
+	OTEL_METRIC_EXPORT_INTERVAL: "60000",
+};
 
 // correlation.md「CLI」の手順6。送らない区分も明示に`0`で書く。
 // 未設定の変数がagentの既定や他の変数に従って、選んでいない区分の本文が届かないようにするため。

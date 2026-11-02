@@ -86,9 +86,10 @@ export function buildLaunch(request: LaunchRequest): Launch {
 	};
 	// Codexは`CLAUDE_CODE_*`と`OTEL_RESOURCE_ATTRIBUTES`を読まず、`OTEL_EXPORTER_OTLP_ENDPOINT`を設定すると
 	// `[otel]`のexporterのendpointの代わりに使われ、headerが付かないおそれがある。送信先は`harnessforce init`が書いた
-	// `config.toml`に任せ、環境にはHARNESSFORCE_*の3つだけを置く。
+	// `config.toml`に任せ、環境にはHARNESSFORCE_*の3つとlogsの送信間隔だけを置く。
+	// `[otel]`は送信間隔のkeyを持たず、既定の1秒をClaude Codeと同じ60秒にできるのは環境変数だけである。
 	const injectedEnv: Record<string, string> = isCodex(request.agent)
-		? harnessforceEnv
+		? { ...harnessforceEnv, OTEL_BLRP_SCHEDULE_DELAY: "60000" }
 		: {
 				...harnessforceEnv,
 				OTEL_EXPORTER_OTLP_ENDPOINT: request.ingestEndpoint,
