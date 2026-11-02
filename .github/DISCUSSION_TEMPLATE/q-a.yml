@@ -1,0 +1,31 @@
+title: "[Q&A] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Discussions are public. Do not post Workspace data, ingest keys, API tokens or prompts (session content). For billing, your account or your Workspace data, email support@lambdascript.dev instead. See [SUPPORT.md](https://github.com/lambda-script/harnessforce-agent/blob/main/SUPPORT.md) for every channel.
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      description: "`harnessforce --version` or the plugin version shown by `/plugin`. Leave empty if you have not installed it yet."
+
+  - type: input
+    id: agent
+    attributes:
+      label: Agent and version
+      placeholder: Claude Code 2.1.0, Codex 0.50.0
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you did
+      description: The commands you ran and the steps you followed. Mask private values with `***`.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
