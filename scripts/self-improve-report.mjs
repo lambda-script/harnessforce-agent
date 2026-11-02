@@ -8,7 +8,6 @@ const run = promisify(execFile);
 // better: 良い方向。前回値より逆へ動いた指標だけを改善候補として挙げる。
 export const METRICS = [
 	{ id: "correlation_rate", better: "higher" },
-	{ id: "actions_per_run", better: "higher" },
 	{ id: "permission_prompts_per_run", better: "lower" },
 	{ id: "ci_first_pass", better: "higher" },
 ];
