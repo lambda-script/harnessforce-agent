@@ -1,6 +1,5 @@
 {
 	"name": "harnessforce",
-	"version": "0.1.0",
 	"description": "Harnessforce plugin for Claude Code",
 	"author": { "name": "Lambda Script" },
 	"homepage": "https://github.com/lambda-script/harnessforce-agent",

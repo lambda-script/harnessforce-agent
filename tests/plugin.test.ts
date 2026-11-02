@@ -47,6 +47,10 @@ describe("plugin skeleton", () => {
 			existsSync(new URL("../plugins/harnessforce/.mcp.json", import.meta.url)),
 		).toBe(false));
 
+	// buildがpackage.jsonの版を書く。sourceに版を置くと、sourceを直接読む開発とevalに古い版が見える。
+	it("leaves the version to the build", () =>
+		expect(plugin).not.toHaveProperty("version"));
+
 	it("declares the public license and repository", () => {
 		expect(plugin.license).toBe("Apache-2.0");
 		expect(plugin.repository).toBe(

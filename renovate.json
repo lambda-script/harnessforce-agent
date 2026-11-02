@@ -13,5 +13,16 @@
 			"matchDepNames": ["node"],
 			"enabled": false
 		}
+	],
+	"customManagers": [
+		{
+			"description": "The CI validates the plugin with a pinned Claude Code run through npx",
+			"customType": "regex",
+			"managerFilePatterns": ["/^\\.github/workflows/ci\\.yml$/"],
+			"matchStrings": [
+				"npx --yes (?<depName>@anthropic-ai/claude-code)@(?<currentValue>\\d+\\.\\d+\\.\\d+)"
+			],
+			"datasourceTemplate": "npm"
+		}
 	]
 }
