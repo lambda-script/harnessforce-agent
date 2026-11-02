@@ -15,7 +15,12 @@ import {
 } from "@harnessforce/agent-core/process/runtime-env";
 import { isTelemetryConfigured } from "@harnessforce/agent-core/telemetry-settings";
 import { runHook } from "./hook.js";
-import { createUserKeyReader, execHf } from "./user-key.js";
+import { REQUIRED_CLI_VERSION } from "./required-cli-version.js";
+import {
+	createCliVersionReader,
+	createUserKeyReader,
+	execHf,
+} from "./user-key.js";
 
 // buildがpackage.jsonの版と、接続先を与えたbuildかを埋め込む（build.mjs）。
 declare const __HF_PLUGIN_VERSION__: string;
@@ -51,6 +56,12 @@ async function main(): Promise<void> {
 	if (relaunch.kind !== "not-needed") return;
 	const raw = await readStdin().catch(() => "");
 	const managedDir = managedDirFor(process.platform);
+	const hfOptions = {
+		platform: process.platform,
+		env: process.env,
+		exec: execHf,
+		processCwd: process.cwd(),
+	};
 	// `harnessforce init`が書くuser settingsと同じfile（correlation.md「CLIの宛先の決め方」）。
 	const userSettingsPath = join(
 		absoluteEnv(process.env.CLAUDE_CONFIG_DIR) ?? join(homedir(), ".claude"),
@@ -72,12 +83,9 @@ async function main(): Promise<void> {
 		stderr: (text) => process.stderr.write(text),
 		homeDir: homedir(),
 		managedDir,
-		readUserKey: createUserKeyReader({
-			platform: process.platform,
-			env: process.env,
-			exec: execHf,
-			processCwd: process.cwd(),
-		}),
+		readUserKey: createUserKeyReader(hfOptions),
+		requiredCliVersion: REQUIRED_CLI_VERSION,
+		readCliVersion: createCliVersionReader(hfOptions),
 		isTelemetryConfigured: () =>
 			isTelemetryConfigured({ userSettingsPath, managedDir }),
 		client: {

@@ -58,14 +58,20 @@ type ReaderOptions = {
 	fs?: LookupFileSystem;
 };
 
-export function createUserKeyReader({
+type ExecResult = Awaited<ReturnType<ExecHf>>;
+
+// correlation.md「実行環境」の見つけ方と子プロセスの環境で`harnessforce <args>`を起動する。起動しなければundefined。
+function createHfRunner({
 	platform,
 	env,
 	exec,
 	processCwd,
 	fs,
-}: ReaderOptions): (cwd: string) => Promise<UserKeyRead> {
-	return async (cwd) => {
+}: ReaderOptions): (
+	cwd: string,
+	args: readonly string[],
+) => Promise<ExecResult | undefined> {
+	return async (cwd, args) => {
 		const context = {
 			platform,
 			env,
@@ -77,16 +83,24 @@ export function createUserKeyReader({
 		const command =
 			file === undefined
 				? undefined
-				: await commandLineFor(file, ["otel-headers"], context, {
-						quoteArgs: false,
-					});
-		if (!command) return { kind: "missing" };
+				: await commandLineFor(file, args, context, { quoteArgs: false });
+		if (!command) return undefined;
 		// hookの上限時間を、kernelのkeyringからSecret Serviceへ移す処理で使わせない（correlation.md「CLI」）。
-		const result = await exec(command.file, command.args, {
+		return exec(command.file, command.args, {
 			timeoutMs: HF_TIMEOUT_MS,
 			windowsVerbatimArguments: command.verbatim,
 			env: { ...env, HARNESSFORCE_NO_MIGRATE: "1" },
 		});
+	};
+}
+
+export function createUserKeyReader(
+	options: ReaderOptions,
+): (cwd: string) => Promise<UserKeyRead> {
+	const run = createHfRunner(options);
+	return async (cwd) => {
+		const result = await run(cwd, ["otel-headers"]);
+		if (!result) return { kind: "missing" };
 		const key = result.ok ? parseKey(result.stdout) : undefined;
 		if (key) return { kind: "found", key };
 		return (
@@ -94,6 +108,17 @@ export function createUserKeyReader({
 				kind: "unreadable",
 			}
 		);
+	};
+}
+
+// client-updates.md「pluginが必要とするCLIの版」: `harnessforce --version`の出力。上限時間内に0で終わったときだけ返す。
+export function createCliVersionReader(
+	options: ReaderOptions,
+): (cwd: string) => Promise<string | undefined> {
+	const run = createHfRunner(options);
+	return async (cwd) => {
+		const result = await run(cwd, ["--version"]);
+		return result?.ok ? result.stdout : undefined;
 	};
 }
 

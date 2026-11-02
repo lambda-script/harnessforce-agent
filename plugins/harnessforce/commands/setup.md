@@ -25,11 +25,11 @@ First run `node --version`. If the command is not found, or the version is below
 
 ## 2. Check whether this run is after the restart
 
-If `harnessforce --version` succeeds and the environment variable `HARNESSFORCE_WORKSPACE_ID` of this session is not empty, this is a session restarted after `harnessforce init`. Skip steps 3 to 8 and go to step 9.
+If `harnessforce --version` succeeds and the environment variable `HARNESSFORCE_WORKSPACE_ID` of this session is not empty, this is a session restarted after `harnessforce init`. Skip steps 3 to 8 and go to step 9. Before step 9, do only the check in "CLI version this plugin needs" (in step 3) with the version that `harnessforce --version` printed: the plugin may have been updated after `harnessforce init` while the CLI was not.
 
 ## 3. Install the CLI
 
-If `harnessforce --version` succeeds, do not install anything. Otherwise run the following, then confirm the install with `harnessforce --version`.
+If `harnessforce --version` succeeds, do not install anything, and do the check in "CLI version this plugin needs" below with the version it printed. Otherwise run the following, then confirm the install with `harnessforce --version`.
 
 ```sh
 npm install -g @harnessforce/cli
@@ -38,6 +38,12 @@ npm install -g @harnessforce/cli
 If the install fails, show its output and stop at this step. When npm cannot write to its global install location (`EACCES`), also show the following before the last line.
 
 > npm cannot write to its global install location. Use a Node.js installed with a version manager such as nvm, or change npm's prefix to your own directory, then try again.
+
+### CLI version this plugin needs
+
+This plugin needs CLI 0.4.0 or later. If the version that `harnessforce --version` printed is lower than that, show the following line with the printed version in place of `<installed>`, do not update the CLI, and stop at step 3 (Install the CLI). Whether to replace the installed CLI is the user's choice. After the user updates the CLI with the command in the line and runs setup again, the check passes and setup goes on.
+
+> Harnessforce plugin needs CLI 0.4.0 or later, but CLI <installed> is installed. Update it: `npm install -g @harnessforce/cli@latest`
 
 ## 4. Choose whether to send content
 

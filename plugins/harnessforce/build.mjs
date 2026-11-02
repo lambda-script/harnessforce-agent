@@ -120,6 +120,26 @@ function packCli(destination) {
 // public（repositoryのcopy）はnpmのCLIを導入する。buildの出力のsetupは、同梱したtarballを導入する。
 const NPM_INSTALL = "npm install -g @harnessforce/cli";
 
+const CLI_VERSION_CHECK = "### CLI version this plugin needs";
+const SHIPPED_CLI_VERSION_CHECK = `${CLI_VERSION_CHECK}
+
+This build of the plugin installs the CLI from the same build, so it does not check the CLI version. Go on.
+`;
+
+/**
+ * client-updates.md「pluginが必要とするCLIの版」: 同じbuildのCLIと組で使うbuildは、CLIの版を判定しない。
+ * 判定の節の本文だけを置き換え、手順2と3からの参照は残す。
+ */
+function withoutCliVersionCheck(source) {
+	const start = source.indexOf(CLI_VERSION_CHECK);
+	const end = source.indexOf("\n## ", start);
+	if (start < 0 || end < 0)
+		throw new Error(
+			`commands/setup.md must have "${CLI_VERSION_CHECK}" followed by a step`,
+		);
+	return `${source.slice(0, start)}${SHIPPED_CLI_VERSION_CHECK}${source.slice(end)}`;
+}
+
 function writeSetupCommand(to, tarballs) {
 	const source = readFileSync(join(pluginDir, "commands/setup.md"), "utf8");
 	if (!source.includes(NPM_INSTALL))
@@ -128,7 +148,13 @@ function writeSetupCommand(to, tarballs) {
 		.map((tarball) => `"${PLUGIN_ROOT}/cli/${tarball}"`)
 		.join(" ");
 	mkdirSync(dirname(to), { recursive: true });
-	writeFileSync(to, source.replace(NPM_INSTALL, `npm install -g ${shipped}`));
+	writeFileSync(
+		to,
+		withoutCliVersionCheck(source).replace(
+			NPM_INSTALL,
+			`npm install -g ${shipped}`,
+		),
+	);
 }
 
 function copy(from, to) {

@@ -243,3 +243,106 @@ describe("while the CLI version is unsupported", () => {
 		).toBe("current");
 	});
 });
+
+// client-updates.md「pluginが必要とするCLIの版」、correlation.md「hookの警告」の順。
+describe("when the CLI is older than the plugin needs", () => {
+	const CLI_TOO_OLD =
+		"Harnessforce plugin needs CLI 0.4.0 or later, but CLI 0.3.0 is installed. Update it: `npm install -g @harnessforce/cli@latest`";
+
+	it("shows the line at every start, even with NO_UPDATE_NOTIFIER and CI, and keeps sending", async () => {
+		// 2回の起動で同じdata directoryを使い、1回目の表示が2回目を抑えないことを確かめる。
+		const data = pluginData();
+		for (let start = 0; start < 2; start += 1) {
+			const h = harness({
+				env: { CLAUDE_PLUGIN_DATA: data, NO_UPDATE_NOTIFIER: "1", CI: "1" },
+				updateHeader: 'status=outdated, latest="9.9.9"',
+				cliVersion: "0.3.0\n",
+			});
+			await run("session-start", h);
+			expect(messageOf(h)).toBe(CLI_TOO_OLD);
+			expect(
+				h.requests.some((request) => request.url.endsWith("/v1/sessions")),
+			).toBe(true);
+		}
+	});
+
+	it("shows nothing for the version the plugin needs or an unreadable one", async () => {
+		for (const cliVersion of [
+			"0.4.0\n",
+			"1.2.3\n",
+			"0.3.0-beta\n",
+			undefined,
+		]) {
+			const h = harness({ ...(cliVersion ? { cliVersion } : {}) });
+			await run("session-start", h);
+			expect(messageOf(h)).toBeUndefined();
+		}
+	});
+
+	it("checks only on the sources that register, and not in a build given a destination", async () => {
+		for (const source of ["resume", "compact"]) {
+			const h = harness({ cliVersion: "0.3.0\n" });
+			await run("session-start", h, { source });
+			expect(h.cliVersionReads()).toBe(0);
+			expect(messageOf(h)).toBeUndefined();
+		}
+		const dev = harness({ cliVersion: "0.3.0\n", dev: true });
+		await run("session-start", dev);
+		expect(dev.cliVersionReads()).toBe(0);
+		expect(messageOf(dev)).toBeUndefined();
+	});
+
+	it("checks with the organization's key, where otel-headers does not start", async () => {
+		const h = harness({ cliVersion: "0.3.0\n" });
+		await run("session-start", h);
+		expect(h.userKeyReads()).toBe(0);
+		expect(messageOf(h)).toBe(CLI_TOO_OLD);
+	});
+
+	it("comes after a failed registration and an unsupported CLI or plugin", async () => {
+		const failed = harness({ status: 500, cliVersion: "0.3.0\n" });
+		await run("session-start", failed);
+		expect(messageOf(failed)).toBe(
+			"Harnessforce session registration failed. Check your network connection",
+		);
+
+		const unsupported = harness({
+			managed: null,
+			env: USER_ENV,
+			userKey: { kind: "cliUnsupported" },
+			cliVersion: "0.3.0\n",
+		});
+		await run("session-start", unsupported);
+		expect(messageOf(unsupported)).toBe(CLI_UNSUPPORTED);
+
+		const plugin = harness({
+			env: {
+				CLAUDE_PLUGIN_DATA: withState(pluginData(), {
+					status: "unsupported",
+					reason: "security",
+					receivedAt: NOW.toISOString(),
+				}),
+			},
+			cliVersion: "0.3.0\n",
+		});
+		await run("session-start", plugin);
+		expect(messageOf(plugin)).toBe(PLUGIN_UNSUPPORTED);
+	});
+
+	it("comes before a plugin deadline and a newer plugin", async () => {
+		for (const updateHeader of [
+			'status=outdated, latest="9.9.9"',
+			"status=deprecated, reason=compatibility, deadline=@1798761600",
+		]) {
+			const data = pluginData();
+			const h = harness({
+				env: { CLAUDE_PLUGIN_DATA: data },
+				updateHeader,
+				cliVersion: "0.3.0\n",
+			});
+			await run("session-start", h);
+			expect(messageOf(h)).toBe(CLI_TOO_OLD);
+			expect(readState(data).outdatedShownAt).toBeUndefined();
+		}
+	});
+});

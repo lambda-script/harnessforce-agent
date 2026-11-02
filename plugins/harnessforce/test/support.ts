@@ -62,7 +62,14 @@ type HarnessOptions = {
 	updateHeader?: string;
 	// Claude Codeがpluginを自動更新するとみなせるか。既定はみなせない。
 	pluginAutoUpdate?: boolean;
+	// `harnessforce --version`の出力。既定は読めない（PATHに無い、失敗した）場合とする。
+	cliVersion?: string;
+	// 接続先を与えたbuildのpluginか（client-updates.md「版の申告」）。
+	dev?: boolean;
 };
+
+// testのpluginが必要とするCLIの版（client-updates.md「pluginが必要とするCLIの版」）。
+const REQUIRED_CLI_VERSION = "0.4.0";
 
 // testが使うpluginの版（client-updates.md「版の申告」）。
 export const PLUGIN_VERSION = "0.2.0";
@@ -81,6 +88,7 @@ export function harness(options: HarnessOptions = {}) {
 	const out: string[] = [];
 	const err: string[] = [];
 	let userKeyReads = 0;
+	let cliVersionReads = 0;
 	const deps: HookDeps = {
 		// processの環境変数。repositoryのsettingsが書けるため、Workspace用のkeyには使われない。
 		env: { ...options.env },
@@ -114,7 +122,12 @@ export function harness(options: HarnessOptions = {}) {
 		client: {
 			component: "claude-code-plugin",
 			version: PLUGIN_VERSION,
-			dev: false,
+			dev: options.dev ?? false,
+		},
+		requiredCliVersion: REQUIRED_CLI_VERSION,
+		readCliVersion: async () => {
+			cliVersionReads += 1;
+			return options.cliVersion;
 		},
 		isPluginAutoUpdateEffective: async () => options.pluginAutoUpdate ?? false,
 		stdout: (text) => out.push(text),
@@ -129,6 +142,7 @@ export function harness(options: HarnessOptions = {}) {
 		deps,
 		requests,
 		userKeyReads: () => userKeyReads,
+		cliVersionReads: () => cliVersionReads,
 		bodies: () =>
 			requests.map((r) => JSON.parse(String(r.init.body)) as unknown[]),
 		bodiesTo: (path: string) =>

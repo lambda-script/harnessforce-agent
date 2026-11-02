@@ -68,6 +68,11 @@ date a version stops sending after a security fix, or for an unsupported version
 sends nothing until you run `claude plugin update harnessforce@harnessforce-agent`; the session keeps
 running. `harnessforce init` turns on automatic updates for the `harnessforce-agent` marketplace.
 
+The plugin runs CLI commands, so it needs CLI 0.4.0 or later. At a session start that registers, the
+hook runs `harnessforce --version` (up to 1 second) and, when the CLI is older, shows one line with
+`npm install -g @harnessforce/cli@latest` at every start, even with `NO_UPDATE_NOTIFIER` or `CI` set.
+Neither the hook nor `/harnessforce:setup` updates the CLI for you, and sending does not stop.
+
 ## Session registration hooks
 
 The `harnessforce` plugin registers each Claude Code session with Harnessforce so that runs can be

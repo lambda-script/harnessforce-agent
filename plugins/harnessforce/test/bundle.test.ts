@@ -380,24 +380,28 @@ describe("built marketplace", () => {
 			).toMatchObject({ name: "@harnessforce/semconv" });
 		});
 
-		// onboarding.md: `staging_build`で案内するbuildの`/harnessforce:setup`は、CLIを同じbuildの出力から導入する。
-		it("makes /harnessforce:setup install the shipped CLI instead of the npm one", () => {
+		// onboarding.md: `staging_build`で案内するbuildの`/harnessforce:setup`は、CLIを同じbuildの出力から導入し、
+		// client-updates.md「pluginが必要とするCLIの版」の判定をしない。
+		it("makes /harnessforce:setup install the shipped CLI instead of the npm one, without the version check", () => {
 			const pluginRoot = ["$", "{CLAUDE_PLUGIN_ROOT}"].join("");
+			// Windowsのcheckoutは改行をCRLFへ変えるため、LFへ揃えてから比べる。
 			const source = readFileSync(
 				new URL("../commands/setup.md", import.meta.url),
 				"utf8",
+			).replaceAll("\r\n", "\n");
+			const shipped = readFileSync(
+				join(marketplace, "plugins/harnessforce/commands/setup.md"),
+				"utf8",
+			).replaceAll("\r\n", "\n");
+			expect(source).toContain("npm install -g @harnessforce/cli\n");
+			expect(shipped).not.toContain("npm install -g @harnessforce/cli\n");
+			expect(shipped).toContain(
+				`npm install -g "${pluginRoot}/cli/${semconvTarball}" "${pluginRoot}/cli/${cliTarball}"\n`,
 			);
-			expect(
-				readFileSync(
-					join(marketplace, "plugins/harnessforce/commands/setup.md"),
-					"utf8",
-				),
-			).toBe(
-				source.replace(
-					"npm install -g @harnessforce/cli",
-					`npm install -g "${pluginRoot}/cli/${semconvTarball}" "${pluginRoot}/cli/${cliTarball}"`,
-				),
+			expect(shipped).toContain(
+				"### CLI version this plugin needs\n\nThis build of the plugin installs the CLI from the same build, so it does not check the CLI version. Go on.\n",
 			);
+			expect(shipped).not.toContain("Harnessforce plugin needs CLI");
 		});
 
 		it("carries the same connection URL as the MCP server", () => {

@@ -3,7 +3,12 @@ import { join } from "node:path";
 import type { LookupFileSystem } from "@harnessforce/agent-core/process/lookup";
 import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { describe, expect, it } from "vitest";
-import { createUserKeyReader, type ExecHf, execHf } from "../src/user-key.js";
+import {
+	createCliVersionReader,
+	createUserKeyReader,
+	type ExecHf,
+	execHf,
+} from "../src/user-key.js";
 
 type Call = { file: string; args: readonly string[]; verbatim: boolean };
 
@@ -324,6 +329,71 @@ describe("reading the harnessforce otel-headers output", () => {
 				HARNESSFORCE_NO_MIGRATE: "1",
 			},
 		]);
+	});
+});
+
+// client-updates.md「pluginが必要とするCLIの版」: 見つけ方と子プロセスの環境は`harnessforce otel-headers`と同じとする。
+describe("reading the harnessforce --version output", () => {
+	const versionReader = (
+		exec: ExecHf,
+		options: { platform?: NodeJS.Platform; dir?: string; name?: string } = {},
+	) => {
+		const dir = options.dir ?? "/bin";
+		return createCliVersionReader({
+			platform: options.platform ?? "linux",
+			env: { PATH: dir, PATHEXT: ".CMD", SystemRoot: "C:\\Windows" },
+			fs: memoryFs({
+				[`${dir}${options.platform === "win32" ? "\\" : "/"}${options.name ?? "harnessforce"}`]:
+					"",
+			}),
+			exec,
+			processCwd: "/claude-cwd",
+		});
+	};
+
+	it("runs harnessforce --version within 1 second with the otel-headers environment", async () => {
+		const { exec, calls, envs } = fakeExec({ ok: true, stdout: "0.3.0\n" });
+		expect(await versionReader(exec)("/work/web")).toBe("0.3.0\n");
+		expect(calls).toEqual([
+			{ file: "/bin/harnessforce", args: ["--version"], verbatim: false },
+		]);
+		expect(envs).toEqual([
+			{
+				PATH: "/bin",
+				PATHEXT: ".CMD",
+				SystemRoot: "C:\\Windows",
+				HARNESSFORCE_NO_MIGRATE: "1",
+			},
+		]);
+	});
+
+	it.each([
+		["a non-zero exit", { ok: false, stdout: "0.3.0\n", exitCode: 1 }],
+		["a timeout", { ok: false, stdout: "0.3.0\n" }],
+	])("reads nothing after %s", async (_, result) =>
+		expect(
+			await versionReader(fakeExec(result).exec)("/work/web"),
+		).toBeUndefined(),
+	);
+
+	it("starts nothing when harnessforce is not on PATH or its .cmd path has % or !", async () => {
+		for (const options of [
+			{ name: "other" },
+			{
+				platform: "win32" as const,
+				dir: "C:\\a%b\\npm",
+				name: "harnessforce.cmd",
+			},
+			{
+				platform: "win32" as const,
+				dir: "C:\\a!b\\npm",
+				name: "harnessforce.cmd",
+			},
+		]) {
+			const { exec, calls } = fakeExec({ ok: true, stdout: "0.3.0\n" });
+			expect(await versionReader(exec, options)("/work/web")).toBeUndefined();
+			expect(calls).toEqual([]);
+		}
 	});
 });
 
