@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { isIssueIdentifier } from "../src/issue.js";
 
-// semantic-conventions.md「値の形」のtoken(300): Unicodeの`White_Space`を含まず、code pointで1〜300文字。
+// semantic-conventions.md「要素の形」のtoken(300): Unicodeの`White_Space`を含まず、code pointで1〜300文字。
 describe("isIssueIdentifier", () => {
 	it.each(["ENG-42", "acme/web#12", "\u{1F600}".repeat(300)])(
 		"accepts %s",
