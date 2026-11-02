@@ -166,6 +166,7 @@ export const ingestEvent = {
 	occurred_at: "2026-09-26T04:00:00Z",
 	actor_type: "integration",
 	actor_id: "ci-bot",
+	project_key: "api",
 	entity: { type: "ci_run", id: "build-1842" },
 	payload: { conclusion: "success" },
 };

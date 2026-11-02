@@ -1,7 +1,7 @@
-// schemaの値の形（semantic-conventions.md「値の形」）を、TypeBoxに依存せずに表す。
+// schemaの値の形（semantic-conventions.md「要素の形」）を、TypeBoxに依存せずに表す。
 // hookのbundleがschemaの実装を読み込まずに使えるよう、schemasから分けて置く。
 
-// semantic-conventions.md「値の形」のtoken。Unicodeの`White_Space` propertyを持つ文字の一覧であり、JSの\sと違い
+// semantic-conventions.md「要素の形」のtoken。Unicodeの`White_Space` propertyを持つ文字の一覧であり、JSの\sと違い
 // U+0085を含みU+FEFFを含まない。u flagの有無に依らず同じに解釈されるよう、BMPの文字の範囲だけで書く。
 const WHITE_SPACE =
 	"\\t-\\r \\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000";
@@ -14,7 +14,7 @@ export const isToken = (value: string, maxLength = 256): boolean => {
 	return length >= 1 && length <= maxLength && NO_WHITE_SPACE.test(value);
 };
 
-// semantic-conventions.md「値の形」のinstant。APIはoffsetの無い日時を受け付けない。format(date-time)だけでは
+// semantic-conventions.md「要素の形」のinstant。APIはoffsetの無い日時を受け付けない。format(date-time)だけでは
 // 実装によりoffsetが任意になるため、patternでoffsetの範囲（hhは00〜23、mmは00〜59）と年（1677〜2262）も固定する。
 // JSON Schemaはoffsetを引いた瞬間を比べられないため、境界の年の中の範囲はisInstantが確かめる。
 const INSTANT_YEAR =

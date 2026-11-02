@@ -37,6 +37,7 @@ export const IngestEventSchema = Type.Object(
 		occurred_at: Instant,
 		actor_type: literals(EXECUTION_ACTOR_TYPES),
 		actor_id: Type.Optional(Token()),
+		project_key: Token(),
 		// idは内部IDではなく送信元でのID（sender-side）。解決はingest APIで届いたExternalRefの中だけで行う。
 		entity: Type.Object({ type: literals(ENTITY_TYPES), id: Token() }, closed),
 		payload: Type.Optional(Type.Record(Type.String(), Type.Unknown())),

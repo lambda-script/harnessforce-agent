@@ -127,7 +127,7 @@ describe("SessionStart hook", () => {
 		},
 	);
 
-	// semantic-conventions.md「値の形」: 文字数はcode pointで数える。
+	// semantic-conventions.md「要素の形」: 文字数はcode pointで数える。
 	it("accepts a session id of 256 code points beyond 256 UTF-16 units", async () => {
 		const sessionId = "\u{1F600}".repeat(256);
 		const h = harness();

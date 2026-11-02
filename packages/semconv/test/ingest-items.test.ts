@@ -32,7 +32,13 @@ describe("ingest event", () => {
 		["unknown actor_type", { actor_type: "bot" }],
 		["unknown entity type", { entity: { type: "ticket", id: "1" } }],
 		["offset-less occurred_at", { occurred_at: "2026-09-26T04:00:00" }],
+		["project_key with white space", { project_key: "api key" }],
 	])("rejects %s", (_, patch) =>
 		expect(event({ ...ingestEvent, ...patch })).toBe(false),
 	);
+	// semantic-conventions.md「Event」: project_keyは必須。出来事が属するProjectを受信時に決めるため。
+	it("rejects an event without project_key", () => {
+		const { project_key: _, ...withoutProjectKey } = ingestEvent;
+		expect(event(withoutProjectKey)).toBe(false);
+	});
 });

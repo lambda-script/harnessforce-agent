@@ -33,7 +33,7 @@ describe("Instant", () => {
 	);
 });
 
-// semantic-conventions.md「値の形」のinstant: offsetのhhは00〜23、mmは00〜59。1677-09-21T00:12:44Zから
+// semantic-conventions.md「要素の形」のinstant: offsetのhhは00〜23、mmは00〜59。1677-09-21T00:12:44Zから
 // 2262-04-11T23:47:16Zまでの瞬間。
 describe("Instant range", () => {
 	const check = one(Instant);
@@ -79,7 +79,7 @@ describe("Instant range", () => {
 	])("accepts %s in isInstant", (v) => expect(isInstant(v)).toBe(true));
 });
 
-// semantic-conventions.md「値の形」のtoken: Unicodeの`White_Space`を含まない。文字数はcode pointで数える。
+// semantic-conventions.md「要素の形」のtoken: Unicodeの`White_Space`を含まない。文字数はcode pointで数える。
 describe("Token by Unicode White_Space and code points", () => {
 	const check = one(Token());
 	it.each([
