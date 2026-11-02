@@ -5,7 +5,7 @@ description: For work on a Harnessforce Issue (an identifier such as ENG-42), us
 
 # Record work on a Harnessforce Issue
 
-Use the tools of the Harnessforce MCP server to link the work to the Issue. The first time you use a tool, you are asked to log in in the browser and choose a Workspace.
+Use the tools of the Harnessforce MCP server to link the work to the Issue. The first time you use a tool, you are asked to log in in the browser and choose a Workspace and a Project.
 
 ## At the start of the work
 
@@ -25,7 +25,7 @@ Ask the user once whether to link the work to an existing Issue, only when all o
 - The context has a `harnessforce session_id:` line.
 - You have not asked yet for the last `harnessforce session_id:` value in the context. If the user declines, do not ask again while the value stays the same. After a fork or `/clear` changes the value, you may ask again.
 
-To show the candidates, pick up to 3 words from the summary of the work that are likely to appear in an Issue title, and call `list_issues` once per word with `q` set to `-status:done,canceled <word>` and `sort` set to `updated`. Merge the results, remove duplicates, and show at most 5 Issues, most recently updated first. If the user picks one, call `start_run` with that Issue. If there is no candidate or the user picks none, continue the work without calling `start_run`.
+To show the candidates, pick up to 3 words from the summary of the work that are likely to appear in an Issue title, and call `list_issues` once per word with `q` set to `-status:resolved,not_planned <word>` and `sort` set to `updated`. Merge the results, remove duplicates, and show at most 5 Issues, most recently updated first. If the user picks one, call `start_run` with that Issue. If there is no candidate or the user picks none, continue the work without calling `start_run`.
 
 If `start_run` returns `forbidden` (a view-only token or a view-only Workspace), tell the user the reason as it is, and do not ask again for that session ID.
 
