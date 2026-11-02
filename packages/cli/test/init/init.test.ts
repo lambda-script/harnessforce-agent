@@ -1428,7 +1428,7 @@ describe("harnessforce init and the retired usage-limits status line", () => {
 		expect(existsSync(home.markPath)).toBe(true);
 	});
 
-	it("says nothing about the status line and keeps the backup when the save fails", async () => {
+	it("still says it restored the status line and removes the retired files when only the Codex configuration fails", async () => {
 		if (process.platform === "win32" || process.getuid?.() === 0) return;
 		const home = homeWith(
 			{ statusLine: RETIRED },
@@ -1438,10 +1438,15 @@ describe("harnessforce init and the retired usage-limits status line", () => {
 		chmodSync(join(home.home, ".codex"), 0o500);
 		const result = await initIn(home);
 		chmodSync(join(home.home, ".codex"), 0o700);
-		expect(result).toEqual(failed(codexSaveFailed));
+		expect(result).toEqual({
+			code: 1,
+			out: `${restored(home.backupPath)}\n`,
+			err: `${codexSaveFailed}\n`,
+		});
 		// user settingsはCodexの設定より先に書くため、statusLineは戻っている。
 		expect(JSON.parse(home.read() ?? "{}").statusLine).toEqual(HUD);
 		expect(existsSync(home.backupPath)).toBe(true);
-		expect(existsSync(home.markPath)).toBe(true);
+		expect(existsSync(home.markPath)).toBe(false);
+		expect(existsSync(home.statePath)).toBe(false);
 	});
 });
