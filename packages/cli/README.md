@@ -146,7 +146,13 @@ tokens are sent only to the origins pinned by `harnessforce init`.
    changing only these keys:
    - `env`: the OTel exporter variables, `HARNESSFORCE_URL`, `HARNESSFORCE_ENDPOINT` and
      `HARNESSFORCE_WORKSPACE_ID`, but no key, and the four `OTEL_LOG_*` content variables: `1` for a category
-     you send with `--send-content` and the Workspace stores, `0` otherwise
+     you send with `--send-content` and the Workspace stores, `0` otherwise. It also sets
+     `OTEL_LOGS_EXPORT_INTERVAL`, `OTEL_TRACES_EXPORT_INTERVAL` and `OTEL_METRIC_EXPORT_INTERVAL` to `60000`,
+     replacing values you set there, so Claude Code sends each signal once a minute instead of logs and traces
+     every 5 seconds. Events therefore reach Harnessforce up to a minute later. What Claude Code has not sent
+     within its exit wait (`CLAUDE_CODE_OTEL_SHUTDOWN_TIMEOUT_MS`, 2 seconds by default) can be lost, and so can the
+     last minute when it stops without exiting normally. Codex's `config.toml` has no key for this; see
+     `harnessforce run` below.
    - `otelHeadersHelper`: `harnessforce otel-headers`
    - `enabledPlugins["harnessforce@harnessforce-agent"]`
    - `extraKnownMarketplaces["harnessforce-agent"]` (or `additionalMarketplaces` when only that alias is
@@ -240,12 +246,16 @@ Update with `npm install -g @harnessforce/cli@latest`. The CLI never replaces it
    `--settings <absolute path>` before your arguments, because settings files can override the shell.
    The file is created with mode 0600 in the temp directory and deleted when the agent exits.
    `HARNESSFORCE_ISSUE` tells the plugin hook to register the session with `source=cli`.
-   For Codex (`codex`, `codex.exe`, `codex.cmd`), only `HARNESSFORCE_WORKSPACE_ID`, `HARNESSFORCE_ENDPOINT` and
-   `HARNESSFORCE_ISSUE` are set, and no settings file is passed. Codex does not read `CLAUDE_CODE_*` or
+   For Codex (`codex`, `codex.exe`, `codex.cmd`), only `HARNESSFORCE_WORKSPACE_ID`, `HARNESSFORCE_ENDPOINT`,
+   `HARNESSFORCE_ISSUE` and `OTEL_BLRP_SCHEDULE_DELAY=60000` are set, and no settings file is passed. The last
+   one replaces your shell's value and makes Codex send logs once a minute instead of every second, as Claude
+   Code does. Codex waits at most 500 ms to send at exit, so what it has not sent by then, or the last minute when
+   it stops without exiting normally, can be lost. A Codex started without `harnessforce run` keeps its default,
+   or the value of `OTEL_BLRP_SCHEDULE_DELAY` in your shell. Codex does not read `CLAUDE_CODE_*` or
    `OTEL_RESOURCE_ATTRIBUTES`, and an `OTEL_EXPORTER_OTLP_ENDPOINT` would replace the endpoint of the `[otel]`
    exporter that `harnessforce init` writes into Codex's `config.toml`, so the request could go out without its
-   header. The Issue is linked by the Codex `SessionStart` hook, which reads `HARNESSFORCE_ISSUE`. The variables
-   of your own shell are left as they are for Codex.
+   header. The Issue is linked by the Codex `SessionStart` hook, which reads `HARNESSFORCE_ISSUE`. The other
+   variables of your own shell are left as they are for Codex.
 6. The agent is found on `PATH` (with `PATHEXT` on Windows), or used as given when the command contains a
    path separator. On Windows, `.cmd` and `.bat` files (such as npm's `claude.cmd`) are started through
    `%ComSpec% /d /s /c` with every argument quoted; arguments containing `"`, `%`, `!` or a newline are

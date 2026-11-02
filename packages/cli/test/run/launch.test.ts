@@ -207,7 +207,7 @@ describe("buildLaunch", () => {
 	});
 });
 
-// correlation.md「`harnessforce run -- codex`」手順3と5: CodexはHARNESSFORCE_*の3つだけを受け取る。
+// correlation.md「`harnessforce run -- codex`」手順3と5: CodexはHARNESSFORCE_*の3つとlogsの送信間隔だけを受け取る。
 // CodexはCLAUDE_CODE_*とOTEL_RESOURCE_ATTRIBUTESを読まず、OTEL_EXPORTER_OTLP_ENDPOINTを設定すると
 // [otel]のexporterのendpointの代わりに使われ、headerが付かないおそれがある。
 describe("buildLaunch for Codex", () => {
@@ -215,6 +215,7 @@ describe("buildLaunch for Codex", () => {
 		HARNESSFORCE_WORKSPACE_ID: "ws1",
 		HARNESSFORCE_ENDPOINT: "https://ingest.example.test/base",
 		HARNESSFORCE_ISSUE: "ENG-1",
+		OTEL_BLRP_SCHEDULE_DELAY: "60000",
 	};
 	const request = (overrides: object = {}) => ({
 		agent: "codex",
@@ -226,7 +227,7 @@ describe("buildLaunch for Codex", () => {
 		...overrides,
 	});
 
-	it("sets only the three HARNESSFORCE variables, never an OTLP, Claude Code or resource variable", () => {
+	it("sets only the three HARNESSFORCE variables and the logs export delay, never an OTLP, Claude Code or resource variable", () => {
 		const launch = buildLaunch(request());
 		expect(launch).toEqual({
 			command: "codex",
@@ -266,6 +267,14 @@ describe("buildLaunch for Codex", () => {
 			OTEL_METRICS_EXPORTER: "otlp",
 			...codexEnv,
 		});
+	});
+
+	// correlation.md「`harnessforce run -- codex`」手順3: shellの短い間隔を60秒に置き換える。
+	it("replaces the shell's logs export delay with 60 seconds", () => {
+		const launch = buildLaunch(
+			request({ shellEnv: { PATH: "/bin", OTEL_BLRP_SCHEDULE_DELAY: "1000" } }),
+		);
+		expect(launch.env.OTEL_BLRP_SCHEDULE_DELAY).toBe("60000");
 	});
 
 	it("overrides the HARNESSFORCE variables regardless of case on Windows only", () => {

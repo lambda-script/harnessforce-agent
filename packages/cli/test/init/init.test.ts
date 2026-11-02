@@ -125,7 +125,8 @@ describe("harnessforce init", () => {
 		const home = makeHome(
 			JSON.stringify({
 				model: "opus",
-				env: { EDITOR: "vim" },
+				// 利用者が書いた短い送信間隔も、init が60秒に置き換える。
+				env: { EDITOR: "vim", OTEL_LOGS_EXPORT_INTERVAL: "5000" },
 				enabledPlugins: { "other@market": true },
 			}),
 		);
@@ -199,6 +200,7 @@ describe("harnessforce init", () => {
 			model: "opus",
 			env: {
 				EDITOR: "vim",
+				OTEL_LOGS_EXPORT_INTERVAL: "60000",
 				HARNESSFORCE_URL: server.base,
 				HARNESSFORCE_ENDPOINT: issued.ingest_endpoint,
 				OTEL_EXPORTER_OTLP_ENDPOINT: issued.ingest_endpoint,
@@ -211,6 +213,8 @@ describe("harnessforce init", () => {
 				OTEL_LOGS_EXPORTER: "otlp",
 				OTEL_TRACES_EXPORTER: "otlp",
 				OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf",
+				OTEL_TRACES_EXPORT_INTERVAL: "60000",
+				OTEL_METRIC_EXPORT_INTERVAL: "60000",
 			},
 			otelHeadersHelper: "harnessforce otel-headers",
 			enabledPlugins: {
