@@ -36,6 +36,29 @@ describe("ci workflow", () => {
 		expect(runs(check)).toContain("pnpm check");
 	});
 
+	// client-updates.md「pluginが必要とするCLIの版」: その版のCLIが、pluginの起動するcommandとoptionをすべて持つ。
+	it("checks the plugin against the CLI version it requires", () =>
+		expect(runs(ci.jobs.check as Job)).toContain(
+			"node scripts/check-required-cli.mjs",
+		));
+
+	// manifest、skill、commandのfrontmatterの不正は、Claude Codeが黙って読み飛ばすためtestでは見えない。
+	it("validates the marketplace and the published plugin strictly after the build", () => {
+		const check = runs(ci.jobs.check as Job);
+		const validate = (path: string) =>
+			expect.stringMatching(
+				new RegExp(
+					`^npx --yes @anthropic-ai/claude-code@\\d+\\.\\d+\\.\\d+ plugin validate --strict ${path}$`,
+				),
+			);
+		expect(check).toContainEqual(validate("\\."));
+		expect(check).toContainEqual(validate("plugins/harnessforce/dist/npm"));
+		const firstValidate = check.findIndex((run) =>
+			run.includes("plugin validate"),
+		);
+		expect(firstValidate).toBeGreaterThan(check.indexOf("pnpm check"));
+	});
+
 	it("tests the cli, the plugin and their shared core on macOS, Windows and Node.js 24", () => {
 		const test = ci.jobs.test as Job;
 		expect(test.strategy?.["fail-fast"]).toBe(false);

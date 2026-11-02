@@ -27,7 +27,16 @@ HARNESSFORCE_BUILD_URL=http://localhost:3000 pnpm check
 `pnpm check` runs lint (Biome), knip, typecheck, tests and build through Turborepo, the same gate as
 CI. `HARNESSFORCE_BUILD_URL` is the optional `apps/web` base URL baked into the CLI and the plugin as
 their default (`https://harnessforce.dev` when unset); any `https:` URL, or `http:` for localhost, works for
-development. Useful narrower commands:
+development. After `pnpm check`, CI also runs two checks that need the network:
+
+- `node scripts/check-required-cli.mjs` (Linux and macOS) installs `@harnessforce/cli` at the plugin's
+  `REQUIRED_CLI_VERSION` from npm and checks, through `--help` only, that it has every command and option
+  the plugin's commands, skills and hook run. When the plugin starts using a newer command or option, raise
+  `REQUIRED_CLI_VERSION` (and the version in `commands/setup.md`) to the first CLI release that has it.
+- `npx @anthropic-ai/claude-code@<version> plugin validate --strict` validates the marketplace and the
+  built plugin (`plugins/harnessforce/dist/npm`). It needs no login.
+
+Useful narrower commands:
 
 ```sh
 pnpm format                                   # format with Biome
