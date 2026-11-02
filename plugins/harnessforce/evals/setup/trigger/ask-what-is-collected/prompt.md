@@ -1,5 +1,5 @@
 ---
-description: The setup skill is not invoked
+description: The setup command is not invoked
 tags: [trigger]
 max_turns: 3
 allowed_tools: [Read, Glob, Grep, Skill]

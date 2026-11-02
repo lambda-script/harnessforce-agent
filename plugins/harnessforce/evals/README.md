@@ -20,7 +20,8 @@ the model on your account, so CI does not run it.
 
 The plugin in this directory declares no MCP server and no hook (the build adds them), so a run serves
 the mocks as a standalone server named `harnessforce`: the tools are `mcp__harnessforce__<tool>` in both
-arms. The `harnessforce session_id:` line that the SessionStart hook adds is given with
+arms. The documentation does not describe this naming; it was observed with Claude Code 2.1.316, so
+check the `mocked:` progress line and the grader results after updating Claude Code. The `harnessforce session_id:` line that the SessionStart hook adds is given with
 `append_system_prompt`.
 
 Each case has one tag:

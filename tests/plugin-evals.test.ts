@@ -71,16 +71,26 @@ const cases = caseDirs(evalDir).map((dir) => {
 const mockedTools = readdirSync(mockDir)
 	.filter((f) => f.endsWith(".md"))
 	.map((f) => basename(f, ".md"));
-const toolSchemas: { name: string }[] = JSON.parse(
-	readFileSync(join(mockDir, "_tools.json"), "utf8"),
-).tools;
+const toolSchemas: {
+	name: string;
+	inputSchema: { properties: Record<string, unknown> };
+}[] = JSON.parse(readFileSync(join(mockDir, "_tools.json"), "utf8")).tools;
 const skills = readdirSync(join(pluginDir, "skills"));
 
 const skillOf = (grader: Frontmatter) =>
 	/\(\?:\[\\w-\]\+:\)\?([\w-]+)"/.exec(String(grader.input_match))?.[1];
 const triggerCases = cases.filter((c) =>
-	(c.prompt.data.tags as string[]).includes("trigger"),
+	((c.prompt.data.tags as string[] | undefined) ?? []).includes("trigger"),
 );
+const mocks = mockedTools.map((tool) => ({
+	tool,
+	...frontmatterOf(join(mockDir, `${tool}.md`)),
+}));
+const MOCK_KEYS = ["type", "expect", "error", "abort_when"];
+// expectの`/.../`は独自のdialectで、groupと選言を持つとcaseが読み込めず0点になる。
+const UNSUPPORTED_EXPECT_REGEX = /[()|]/;
+const expectRegex = (value: string) =>
+	new RegExp(value.slice(1, value.lastIndexOf("/")));
 
 describe("plugin eval cases", () => {
 	it("finds the suite", () => expect(cases.length).toBeGreaterThan(0));
@@ -141,6 +151,8 @@ describe("plugin eval cases", () => {
 				expect(mockedTools).toContain(tool.slice(MCP_PREFIX.length));
 	});
 
+	// `arm: both`が効くのは採点から外れるgrader（`tool: Skill`）だけだが、「呼ばれない」検査はすべて
+	// 両方の腕で採点する意図を明示するため、一律に付ける。
 	it.each(cases)("$id asserts absence in both arms", (c) => {
 		for (const g of c.graders)
 			if (g.data.type === "tool_used" && g.data.max === 0)
@@ -149,7 +161,8 @@ describe("plugin eval cases", () => {
 
 	// 発火の誤りは、呼ばれるべきpromptと、近いが呼ばれるべきでないpromptの両方で測る。
 	// using-harnessforceはSessionStartのhookが文脈へ入れるため、modelが選ぶskillではない。
-	it.each(skills.filter((s) => s !== "using-harnessforce"))(
+	// setupは副作用を持つcommandであり、modelが選べるため、skillと同じく組で測る。
+	it.each([...skills.filter((s) => s !== "using-harnessforce"), "setup"])(
 		"%s has trigger cases that should and should not invoke it",
 		(skill) => {
 			const graders = triggerCases.flatMap((c) =>
@@ -184,10 +197,14 @@ describe("plugin eval cases", () => {
 			(c) => c.id === "record-run/lists-candidates-without-issue",
 		);
 		expect(regression).toBeDefined();
-		expect(frontmatterOf(join(mockDir, "list_issues.md")).data.expect).toEqual({
-			q: "/^-status:resolved,not_planned [^ ]+$/",
-			sort: "updated",
-		});
+		const guard = mocks.find((m) => m.tool === "list_issues")?.data
+			.expect as Record<string, string>;
+		expect(guard.sort).toBe("updated");
+		const q = expectRegex(guard.q ?? "");
+		expect(q.test("-status:resolved,not_planned export")).toBe(true);
+		expect(q.test("-status:done,canceled export")).toBe(false);
+		expect(q.test("-status:resolved,not_planned ")).toBe(false);
+		expect(q.test("export")).toBe(false);
 	});
 });
 
@@ -196,4 +213,20 @@ describe("Harnessforce MCP mocks", () => {
 		expect(toolSchemas.map((t) => t.name).sort()).toEqual(
 			[...mockedTools].sort(),
 		));
+
+	it.each(mocks)("$tool guards only fields of its input schema", (m) => {
+		expect(Object.keys(m.data).filter((k) => !MOCK_KEYS.includes(k))).toEqual(
+			[],
+		);
+		const schema = toolSchemas.find((t) => t.name === m.tool);
+		for (const [field, value] of Object.entries(
+			(m.data.expect ?? {}) as Record<string, unknown>,
+		)) {
+			expect(Object.keys(schema?.inputSchema.properties ?? {})).toContain(
+				field,
+			);
+			if (typeof value === "string" && value.startsWith("/"))
+				expect(value, field).not.toMatch(UNSUPPORTED_EXPECT_REGEX);
+		}
+	});
 });
