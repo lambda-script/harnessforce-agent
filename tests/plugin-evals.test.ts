@@ -96,6 +96,20 @@ describe("plugin eval cases", () => {
 		expect(TAGS.has(tags[0] ?? "")).toBe(true);
 	});
 
+	// 先頭の`/`はslash commandとして実行され、skillの発火も規則も測れなくなる。
+	it.each(cases)("$id does not start the prompt with a slash command", (c) =>
+		expect(c.prompt.body.trimStart().startsWith("/")).toBe(false),
+	);
+
+	it.each(cases)("$id has the scaffold script it names", (c) => {
+		const caseYaml = join(c.dir, "case.yaml");
+		if (!existsSync(caseYaml)) return;
+		const script = parse(readFileSync(caseYaml, "utf8")).context
+			?.scaffold_script;
+		if (script !== undefined)
+			expect(existsSync(join(c.dir, script))).toBe(true);
+	});
+
 	it.each(cases)("$id has graders of known types and options", (c) => {
 		expect(c.graders.length).toBeGreaterThan(0);
 		for (const g of c.graders) {

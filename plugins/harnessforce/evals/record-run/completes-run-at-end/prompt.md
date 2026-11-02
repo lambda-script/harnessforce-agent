@@ -6,4 +6,4 @@ allowed_tools: [Read, Glob, Grep, Skill]
 append_system_prompt: "harnessforce session_id: eval-session-1"
 ---
 
-I finished the Harnessforce issue ENG-42 (the --verbose flag for the export command) and the tests pass. Record this work on the issue and close it out.
+I finished the Harnessforce issue ENG-42 (the --verbose flag for the export command) and the tests pass. Wrap it up.

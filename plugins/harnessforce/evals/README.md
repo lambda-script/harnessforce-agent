@@ -28,10 +28,11 @@ Each case has one tag:
 | Tag | Measures | Command |
 | --- | --- | --- |
 | `trigger` | Whether the skill or command is invoked | `claude plugin eval . --tag trigger --ablation none` |
-| `rules` | A rule of a skill, with read-only tools | `claude plugin eval . --tag rules` |
-| `granted` | A rule that needs Bash, Write and Edit to be measurable | `claude plugin eval . --tag granted --allow-tools Bash Write Edit` |
+| `rules` | A rule of a skill, with read-only tools | `claude plugin eval . --tag rules --scaffold` |
+| `granted` | A rule that needs Bash, Write and Edit to be measurable. A run has no `harnessforce` CLI, so `harnessforce tune record` always fails | `claude plugin eval . --tag granted --allow-tools Bash Write Edit` |
 
-Run them from `plugins/harnessforce`. Add `--model <model>` to pin the model and `--no-publish` to keep
+Run them from `plugins/harnessforce`. `--scaffold` runs the `fixture.sh` of a case, which only creates a git
+repository in the run's empty workspace. Add `--model <model>` to pin the model and `--no-publish` to keep
 the report local. A suite run costs about cases × runs (3) × arms (2 for `rules` and `granted`) agent
 runs; no grader calls a judge model.
 
