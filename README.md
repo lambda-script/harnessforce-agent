@@ -168,7 +168,7 @@ publishing with provenance. See [Releasing](docs/runbooks/releasing.md).
 - Questions: [Discussions Q&A](https://github.com/lambda-script/harnessforce-agent/discussions/categories/q-a)
 - Feature requests: [Discussions Ideas](https://github.com/lambda-script/harnessforce-agent/discussions/categories/ideas)
 - Bugs you can reproduce: [open an issue](https://github.com/lambda-script/harnessforce-agent/issues/new?template=bug_report.yml)
-- Billing, your account or your Workspace data: [support@lambdascript.dev](mailto:support@lambdascript.dev)
+- Billing, your account or your Workspace data: [support@harnessforce.dev](mailto:support@harnessforce.dev)
 - Vulnerabilities: [SECURITY.md](SECURITY.md)
 
 Discussions and issues are public; do not post Workspace data, keys, tokens or prompts. See
