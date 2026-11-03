@@ -7,8 +7,8 @@ contact_links:
     url: https://github.com/lambda-script/harnessforce-agent/discussions/categories/ideas
     about: Share a feature request in Discussions Ideas.
   - name: Billing, account or Workspace data
-    url: mailto:support@harnessforce.dev
-    about: Email support@harnessforce.dev. Do not post Workspace data in public issues or discussions.
+    url: mailto:support@lambdascript.dev
+    about: Email support@lambdascript.dev. Do not post Workspace data in public issues or discussions.
   - name: Report a security vulnerability
     url: https://github.com/lambda-script/harnessforce-agent/security/advisories/new
     about: Report vulnerabilities privately through GitHub Security Advisories, not in a public issue.
