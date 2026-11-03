@@ -167,7 +167,7 @@ export const sessionContext = (
 ) => ({
 	hookSpecificOutput: {
 		hookEventName: "SessionStart",
-		additionalContext: `harnessforce session_id: ${sessionId}\n\n${usingHarnessforceBody}`,
+		additionalContext: `harnessforce agent_session_id: ${sessionId}\n\n${usingHarnessforceBody}`,
 	},
 	...extra,
 });

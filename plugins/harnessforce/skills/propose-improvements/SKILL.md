@@ -83,7 +83,7 @@ Before showing a suggestion, run `harnessforce tune record` for each suggestion 
 
 ```sh
 harnessforce tune record <<'HF_TUNE_RECORD_7f3c'
-{"category": "...", "change_type": "...", "scope": "...", "path": "...", "evidence_session_ids": ["..."], "body": "..."}
+{"category": "...", "change_type": "...", "scope": "...", "path": "...", "evidence_agent_session_ids": ["..."], "body": "..."}
 HF_TUNE_RECORD_7f3c
 ```
 
@@ -97,7 +97,7 @@ HF_TUNE_RECORD_7f3c
 | `component` | required for a change that has a component in the table above | `kind`, `source`, `id` |
 | `content` | required when the `kind` of `component` is `rule`, `skill`, `agent`, or `command`, and when there is no component | The whole content of the file at `path` after applying |
 | `value` | required when the `kind` of `component` is `hook`, `permissions`, or `mcp_server` | The settings value (JSON) of that component after applying |
-| `evidence_session_ids` | yes | The session IDs of the evidence sessions (at least 1). Use only those shown in the evidence sessions |
+| `evidence_agent_session_ids` | yes | The session IDs of the evidence sessions (at least 1). Use only those shown in the evidence sessions |
 | `body` | yes | The body of the suggestion (markdown): the evidence, the change, the expected effect, and how to measure |
 
 - Show only the suggestions for which `harnessforce tune record` ended with exit code 0. Do not show a suggestion that ended with a non-zero code, and tell the user the message on stderr.

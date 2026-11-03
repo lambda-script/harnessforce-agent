@@ -95,7 +95,7 @@ describe("harnessforce hook post-tool-use and stop", () => {
 				body: [
 					{
 						agent: "codex",
-						session_id: "sess-1",
+						agent_session_id: "sess-1",
 						locations: [
 							{ repository: "github.com/acme/web", branch: "eng-42-login" },
 							{ repository: "github.com/acme/web", branch: "main" },

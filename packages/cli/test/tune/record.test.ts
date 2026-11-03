@@ -17,12 +17,12 @@ const skillProposal = (home: string, evidence: string[]) => ({
 	path: join(home, ".claude", "skills", "fix-ci", "SKILL.md"),
 	component: { kind: "skill", source: "user", id: "fix-ci" },
 	content: "a\r\nb",
-	evidence_session_ids: evidence,
+	evidence_agent_session_ids: evidence,
 	body: "## Evidence\n...",
 });
 
 type Report = {
-	session_id: string;
+	agent_session_id: string;
 	proposals: Record<string, { shown: number; applied_detected: number }>;
 };
 
@@ -36,13 +36,13 @@ describe("harnessforce tune record", () => {
 		const recorded = JSON.parse(first.out);
 		expect(recorded).toMatchObject({
 			created: true,
-			attributed_session_id: "s003",
+			attributed_agent_session_id: "s003",
 		});
 		const second = await t.run(["record"], {
 			readStdin: stdin({
 				...input,
 				body: "changed",
-				evidence_session_ids: ["s009"],
+				evidence_agent_session_ids: ["s009"],
 			}),
 		});
 		expect(JSON.parse(second.out)).toEqual({ ...recorded, created: false });
@@ -57,7 +57,7 @@ describe("harnessforce tune record", () => {
 		await t.run();
 		for (const reports of t.reportBodies().slice(1) as unknown as Report[][]) {
 			const shown = reports.filter((r) => r.proposals.skill?.shown === 1);
-			expect(shown.map((r) => r.session_id)).toEqual(["s003"]);
+			expect(shown.map((r) => r.agent_session_id)).toEqual(["s003"]);
 		}
 	});
 
@@ -76,7 +76,7 @@ describe("harnessforce tune record", () => {
 		await t.run();
 		const reports = t.reportBodies().at(-1) as unknown as Report[];
 		expect(
-			reports.find((r) => r.session_id === "s000")?.proposals.skill,
+			reports.find((r) => r.agent_session_id === "s000")?.proposals.skill,
 		).toEqual({
 			shown: 1,
 			applied_detected: 1,
@@ -231,7 +231,7 @@ describe("harnessforce tune record", () => {
 		await t.run();
 		const input = skillProposal(t.home.home, ["nope"]);
 		expect((await t.run(["record"], { readStdin: stdin(input) })).err).toBe(
-			"The suggestion record input is invalid: evidence_session_ids\n",
+			"The suggestion record input is invalid: evidence_agent_session_ids\n",
 		);
 		expect(
 			(

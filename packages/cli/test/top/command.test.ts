@@ -54,7 +54,7 @@ describe("harnessforce top --json and --once", () => {
 		const [session] = JSON.parse(result.out).sessions;
 		expect(session).toEqual({
 			agent: "claude_code",
-			session_id: "sess-aaa",
+			agent_session_id: "sess-aaa",
 			state: "active",
 			repository: "github.com/acme/web",
 			branch: "feature/ENG-42",
@@ -80,7 +80,10 @@ describe("harnessforce top --json and --once", () => {
 		const { run } = setup({ a: transcript("a", -59), b: transcript("b", -61) });
 		const states = Object.fromEntries(
 			JSON.parse((await run(["--json"])).out).sessions.map(
-				(s: { session_id: string; state: string }) => [s.session_id, s.state],
+				(s: { agent_session_id: string; state: string }) => [
+					s.agent_session_id,
+					s.state,
+				],
 			),
 		);
 		expect(states).toEqual({ a: "active", b: "idle" });
@@ -92,7 +95,7 @@ describe("harnessforce top --json and --once", () => {
 			b: transcript("b", -86_401),
 		});
 		const ids = JSON.parse((await run(["--json"])).out).sessions.map(
-			(s: { session_id: string }) => s.session_id,
+			(s: { agent_session_id: string }) => s.agent_session_id,
 		);
 		expect(ids).toEqual(["a"]);
 	});
@@ -236,7 +239,7 @@ describe("harnessforce top with Codex rollouts", () => {
 		const [session] = JSON.parse(result.out).sessions;
 		expect(session).toEqual({
 			agent: "codex",
-			session_id: "codex-aa",
+			agent_session_id: "codex-aa",
 			state: "active",
 			repository: "github.com/acme/web",
 			branch: "feature/ENG-42",
@@ -294,7 +297,10 @@ describe("harnessforce top with Codex rollouts", () => {
 		p.writeCodex(rollout("d"), codexRollout("codex-d", -86_401));
 		const states = Object.fromEntries(
 			JSON.parse((await run(["--json"])).out).sessions.map(
-				(s: { session_id: string; state: string }) => [s.session_id, s.state],
+				(s: { agent_session_id: string; state: string }) => [
+					s.agent_session_id,
+					s.state,
+				],
 			),
 		);
 		expect(states).toEqual({
@@ -346,7 +352,7 @@ describe("harnessforce top with Codex rollouts", () => {
 		);
 		const ids = async (env: Record<string, string>) =>
 			JSON.parse((await run(["--json"], { env })).out).sessions.map(
-				(s: { session_id: string }) => s.session_id,
+				(s: { agent_session_id: string }) => s.agent_session_id,
 			);
 		expect(await ids({ CODEX_HOME: elsewhere })).toEqual(["codex-el"]);
 		expect(await ids({ CODEX_HOME: "relative/dir" })).toEqual(["codex-ho"]);

@@ -11,29 +11,29 @@
 			}
 		},
 		{
-			"name": "start_run",
-			"description": "Registers the run of this agent session for the issue and returns its run_id.",
+			"name": "start_session",
+			"description": "Registers this agent session as a Session of the issue and returns its session_id.",
 			"inputSchema": {
 				"type": "object",
 				"properties": {
 					"issue_identifier": { "type": "string" },
 					"agent": { "type": "string", "enum": ["claude_code", "codex"] },
-					"session_id": { "type": "string" },
+					"agent_session_id": { "type": "string" },
 					"repository": { "type": ["string", "null"] },
 					"branch": { "type": ["string", "null"] },
 					"commit": { "type": ["string", "null"] }
 				},
-				"required": ["issue_identifier", "agent", "session_id"],
+				"required": ["issue_identifier", "agent", "agent_session_id"],
 				"additionalProperties": false
 			}
 		},
 		{
-			"name": "complete_run",
-			"description": "Ends the run.",
+			"name": "complete_session",
+			"description": "Ends the session.",
 			"inputSchema": {
 				"type": "object",
-				"properties": { "run_id": { "type": "string", "format": "uuid" } },
-				"required": ["run_id"],
+				"properties": { "session_id": { "type": "string", "format": "uuid" } },
+				"required": ["session_id"],
 				"additionalProperties": false
 			}
 		},

@@ -42,7 +42,7 @@ const CommandList = Type.Object(
 export const SessionUsageSummarySchema = Type.Object(
 	{
 		agent: Agent,
-		session_id: Token(),
+		agent_session_id: Token(),
 		first_prompt_id: Type.Optional(Token()),
 		started_at: Instant,
 		last_event_at: Instant,

@@ -27,7 +27,7 @@ semantic conventions.
 Harnessforce links the work of coding agents to the Issues it was done for. This repository holds the
 open source parts that run on your machine: they register each Claude Code session with its git
 repository, branch and commit, point Claude Code's OpenTelemetry exporter at your Workspace, and give
-the agent MCP tools to start and complete a run for an Issue. They send metadata; prompts, responses
+the agent MCP tools to start and complete a session for an Issue. They send metadata; prompts, responses
 and tool input and output are sent only if you choose to send them, and file contents never are.
 
 ## Packages
@@ -36,7 +36,7 @@ and tool input and output are sent only if you choose to send them, and file con
 | --- | --- | --- |
 | [`@harnessforce/cli`](packages/cli) | `harnessforce`: connects a machine to a Workspace, launches an agent for an Issue, imports past sessions | npm |
 | [`@harnessforce/semconv`](packages/semconv) | `hf.*` attribute names and the JSON Schemas of the ingest API | npm |
-| [`harnessforce` plugin](plugins/harnessforce) | Claude Code hooks, MCP server declaration, `record-run` and `propose-improvements` skills, `/harnessforce:setup` and `/harnessforce:tune` | npm (`@harnessforce/claude-code-plugin`), installed through the Claude Code marketplace in this repository |
+| [`harnessforce` plugin](plugins/harnessforce) | Claude Code hooks, MCP server declaration, `record-session` and `propose-improvements` skills, `/harnessforce:setup` and `/harnessforce:tune` | npm (`@harnessforce/claude-code-plugin`), installed through the Claude Code marketplace in this repository |
 | `@harnessforce/agent-core` | Logic shared by `harnessforce` and the plugin hook, bundled into both | private |
 | `@harnessforce/test-support` | Test helpers | private |
 
@@ -69,7 +69,7 @@ environment still registers an earlier local or git `harnessforce-agent` marketp
 in `/plugin`, then add it again, or change its `source` in the `extraKnownMarketplaces` setting to the
 repository above.
 
-To work on an Issue, either let the agent use the `record-run` skill, or launch it through the CLI:
+To work on an Issue, either let the agent use the `record-session` skill, or launch it through the CLI:
 
 ```sh
 harnessforce run --issue ENG-42 -- claude
@@ -115,7 +115,7 @@ flowchart LR
   subgraph machine["Your machine"]
     cc["Claude Code"]
     hook["plugin hooks<br/>SessionStart, UserPromptSubmit,<br/>tool and command counts, SessionEnd"]
-    skill["record-run skill"]
+    skill["record-session skill"]
     harnessforce["harnessforce CLI"]
     keychain[("OS keychain")]
   end

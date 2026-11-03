@@ -86,7 +86,7 @@ describe("session usage summary at SessionEnd", () => {
 		});
 		const summary = {
 			agent: "claude_code",
-			session_id: "s-1",
+			agent_session_id: "s-1",
 			first_prompt_id: "p-1",
 			started_at: "2026-09-26T00:00:00.000Z",
 			last_event_at: "2026-09-26T00:01:00.000Z",
@@ -111,7 +111,7 @@ describe("session usage summary at SessionEnd", () => {
 			[
 				{
 					agent: "claude_code",
-					session_id: "s-1",
+					agent_session_id: "s-1",
 					started_at: "2026-09-26T00:00:00.000Z",
 					last_event_at: "2026-09-26T00:00:00.000Z",
 					collector_version: "0.1.0",
@@ -170,7 +170,7 @@ describe("session usage summary at SessionEnd", () => {
 			await run(end, "session-end");
 			const next = await nextSessionStart(data);
 			expect(next.bodiesTo("/v1/session-usage")).toEqual([
-				[expect.objectContaining({ session_id: "s-1" })],
+				[expect.objectContaining({ agent_session_id: "s-1" })],
 			]);
 		},
 	);

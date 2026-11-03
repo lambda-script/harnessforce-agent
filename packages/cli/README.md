@@ -90,7 +90,7 @@ Codex runs this command through the `[[hooks.SessionStart]]` entry that `harness
   Workspace and the endpoint come from `HARNESSFORCE_WORKSPACE_ID` and `HARNESSFORCE_ENDPOINT`, or from the
   Claude Code user settings that `harnessforce init` wrote. When `HARNESSFORCE_ISSUE` is a valid identifier
   (`harnessforce run --issue` sets it), the registration claims `source=cli` with that Issue.
-- prints `{"hookSpecificOutput": {...}}` carrying `harnessforce session_id: <id>` so the agent knows its session
+- prints `{"hookSpecificOutput": {...}}` carrying `harnessforce agent_session_id: <id>` so the agent knows its session
   ID. When it cannot send, it adds one warning as `systemMessage`, which Codex shows in its UI, and writes it to
   stderr: a revoked key (401), sending not set up, an invalid endpoint, no key in the keychain, a destination
   that differs from the pinned origin, a keychain that could not be read within 1 second, or a failed

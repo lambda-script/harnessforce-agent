@@ -72,7 +72,7 @@ function report(
 	}
 	return {
 		agent: "claude_code",
-		session_id: id,
+		agent_session_id: id,
 		started_at: startedAt,
 		analyzer_version: "1.0.0",
 		parser_version: "1.1.0",
@@ -114,7 +114,7 @@ const session = (
 	r: ReturnType<typeof report>,
 	usage: Partial<Usage> = {},
 ) => ({
-	session_id: id,
+	agent_session_id: id,
 	started_at: at(day),
 	transcript_path: `/home/u/.claude/projects/p/${id}.jsonl`,
 	repository: "github.com/acme/web",
@@ -308,9 +308,9 @@ describe.skipIf(process.platform === "win32")("tune summary script", () => {
 		const sessions = sufficientSessions().map((s, i) =>
 			i === 2
 				? session(
-						s.session_id,
+						s.agent_session_id,
 						3,
-						report(s.session_id, s.started_at, {
+						report(s.agent_session_id, s.started_at, {
 							loops: { ci_fix: [1, 0, 50] },
 						}),
 					)
@@ -327,9 +327,9 @@ describe.skipIf(process.platform === "win32")("tune summary script", () => {
 	it("does not treat an MCP server whose calls and failures are not measured as a target", () => {
 		const sessions = sufficientSessions().map((s) =>
 			session(
-				s.session_id,
-				Number(s.session_id.slice(1)),
-				report(s.session_id, s.started_at, {
+				s.agent_session_id,
+				Number(s.agent_session_id.slice(1)),
+				report(s.agent_session_id, s.started_at, {
 					mcp: [
 						{
 							server: "github",
@@ -357,7 +357,7 @@ describe.skipIf(process.platform === "win32")("tune summary script", () => {
 	// improvement-loop.md「作る条件」: 使い方のfrequent_compactionとlow_cache_reuseは、当たるsessionが3以上。
 	it("offers a usage kind with 3 matching sessions and says how many more are needed otherwise", () => {
 		const sessions = sufficientSessions().map((s, i) =>
-			session(s.session_id, i + 1, s.report, {
+			session(s.agent_session_id, i + 1, s.report, {
 				kinds: [
 					...(i < 3 ? ["frequent_compaction"] : []),
 					...(i < 2 ? ["low_cache_reuse"] : []),
@@ -382,7 +382,7 @@ describe.skipIf(process.platform === "win32")("tune summary script", () => {
 	it("offers model_choice only when one model has 90% of the main output tokens over 10 sessions", () => {
 		const withModels = (tokens: [number, number]) =>
 			sufficientSessions().map((s, i) =>
-				session(s.session_id, i + 1, s.report, {
+				session(s.agent_session_id, i + 1, s.report, {
 					models: [
 						{
 							model: "claude-opus-5-5",

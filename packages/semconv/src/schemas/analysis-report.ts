@@ -118,7 +118,7 @@ const ProposalCount = Type.Object(
 export const AnalysisReportSchema = Type.Object(
 	{
 		agent: Agent,
-		session_id: Token(),
+		agent_session_id: Token(),
 		// 記録から取れなければ省略（session registrationのfirst_prompt_idと同じ意味）。
 		first_prompt_id: Type.Optional(Token()),
 		started_at: Instant,

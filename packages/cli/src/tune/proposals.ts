@@ -6,7 +6,7 @@ import { readJsonFile, writeJsonFile } from "./store.js";
 export type ChangeType = (typeof PROPOSAL_KINDS)[number];
 export type ProposalComponent = { kind: string; source: string; id: string };
 
-// improvement-loop.md「提案の記録」の記録。`evidence_session_ids`は、帰属が決まっていない提案の帰属を
+// improvement-loop.md「提案の記録」の記録。`evidence_agent_session_ids`は、帰属が決まっていない提案の帰属を
 // 後の分析の実行で決めるために持つ。
 export type ProposalRecord = {
 	proposal_id: string;
@@ -19,10 +19,10 @@ export type ProposalRecord = {
 	expected_hash: string;
 	detects_applied: boolean;
 	recorded_at: string;
-	evidence_session_ids: string[];
+	evidence_agent_session_ids: string[];
 	// `pending`は一覧が無く帰属を決めていない、`decided`は決めた（帰属先が無い場合を含む）。
 	attribution: "pending" | "decided";
-	attributed_session_id: string | null;
+	attributed_agent_session_id: string | null;
 	applied_detected_at: string | null;
 	// 「前回の提案の前後」を後の期間の満了の後に出力した時刻。以後の実行で出力しない。
 	followup_output_at: string | null;
@@ -33,7 +33,7 @@ const isRecord = (value: unknown): value is ProposalRecord =>
 	typeof value.proposal_id === "string" &&
 	typeof value.change_type === "string" &&
 	(PROPOSAL_KINDS as readonly string[]).includes(value.change_type) &&
-	Array.isArray(value.evidence_session_ids) &&
+	Array.isArray(value.evidence_agent_session_ids) &&
 	(value.attribution === "pending" || value.attribution === "decided");
 
 export async function readProposals(path: string): Promise<ProposalRecord[]> {
@@ -91,7 +91,7 @@ export function countProposals(
 		{ shown: number; applied_detected: number }
 	>;
 	for (const proposal of proposals) {
-		if (proposal.attributed_session_id !== sessionId) continue;
+		if (proposal.attributed_agent_session_id !== sessionId) continue;
 		const count = counts[proposal.change_type];
 		counts[proposal.change_type] = {
 			shown: count.shown + 1,

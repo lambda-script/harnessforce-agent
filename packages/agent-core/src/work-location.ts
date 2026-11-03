@@ -243,7 +243,7 @@ export async function sendLocations(
 	const outcome = await postItem(
 		destination,
 		"v1/sessions/locations",
-		{ agent: item.agent, session_id: item.sessionId, locations },
+		{ agent: item.agent, agent_session_id: item.sessionId, locations },
 		fetchImpl,
 	);
 	if (outcome.kind === "accepted")

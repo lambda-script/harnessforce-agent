@@ -41,7 +41,8 @@ export async function loadRegistration(
 		const isThisSession =
 			typeof saved === "object" &&
 			saved !== null &&
-			(saved as { session_id?: unknown }).session_id === pad.sessionId;
+			(saved as { agent_session_id?: unknown }).agent_session_id ===
+				pad.sessionId;
 		return isThisSession ? (saved as SessionRegistration) : undefined;
 	} catch {
 		return undefined;

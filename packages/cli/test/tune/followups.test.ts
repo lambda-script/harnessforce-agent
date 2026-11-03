@@ -27,9 +27,9 @@ const proposal = (
 	expected_hash: "h",
 	detects_applied: true,
 	recorded_at: iso(ORIGIN - 3 * DAY_MS),
-	evidence_session_ids: ["s0"],
+	evidence_agent_session_ids: ["s0"],
 	attribution: "decided",
-	attributed_session_id: null,
+	attributed_agent_session_id: null,
 	applied_detected_at: iso(ORIGIN),
 	followup_output_at: null,
 	...fields,
@@ -63,7 +63,7 @@ function report(
 	});
 	return {
 		agent: "claude_code",
-		session_id: "x",
+		agent_session_id: "x",
 		started_at: iso(ORIGIN),
 		analyzer_version: "1.1.0",
 		parser_version: "1.1.0",

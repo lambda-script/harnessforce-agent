@@ -42,7 +42,7 @@ describe("collectInvocations", () => {
 		expect(
 			collectInvocations({
 				markdown: [
-					"`harnessforce session_id: <session_id>`",
+					"`harnessforce agent_session_id: <agent_session_id>`",
 					"`harnessforce <command> --help`",
 					"the retired `harnessforce usage-limits` command",
 					"`harnessforce: session usage failed (<reason>)`",

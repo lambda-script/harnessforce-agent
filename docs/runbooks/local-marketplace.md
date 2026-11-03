@@ -36,7 +36,7 @@ contains:
   `env` (`harnessforce init --url` writes it), so a build can be pointed elsewhere without rebuilding. See
   [Pointing `harnessforce` at another environment](../development.md#pointing-harnessforce-at-another-environment).
   Claude Code asks you to log in with the browser and pick a Workspace the first time a tool is used.
-- `skills/record-run/SKILL.md`: the skill that records a run through the MCP tools.
+- `skills/record-session/SKILL.md`: the skill that records a session through the MCP tools.
 - `skills/propose-improvements/`: the skill and script that `/harnessforce:tune` uses to judge and
   write proposals.
 - `commands/`: `/harnessforce:setup`, `/harnessforce:tune`, `/harnessforce:status`, `/harnessforce:import`,

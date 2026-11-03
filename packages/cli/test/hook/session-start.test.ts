@@ -130,7 +130,7 @@ function setup(
 const context = (id: string) => ({
 	hookSpecificOutput: {
 		hookEventName: "SessionStart",
-		additionalContext: `harnessforce session_id: ${id}\n\n${usingHarnessforceBody}`,
+		additionalContext: `harnessforce agent_session_id: ${id}\n\n${usingHarnessforceBody}`,
 	},
 });
 
@@ -147,7 +147,7 @@ describe("harnessforce hook session-start", () => {
 		const [registration] = body;
 		expect(registration).toEqual({
 			agent: "codex",
-			session_id: "sess-1",
+			agent_session_id: "sess-1",
 			repository: "github.com/acme/web",
 			branch: "feature/ENG-42",
 			commit: "a".repeat(40),

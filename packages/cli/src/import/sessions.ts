@@ -75,7 +75,7 @@ export function toSessionImport(
 	return {
 		agent: "claude_code",
 		source: "import",
-		session_id: session.sessionId,
+		agent_session_id: session.sessionId,
 		...(session.firstPromptId
 			? { first_prompt_id: session.firstPromptId }
 			: {}),
@@ -96,7 +96,11 @@ const sortedSessions = (sessions: ReadonlyMap<string, SessionImport>) =>
 	[...sessions.values()].sort(
 		(a, b) =>
 			Date.parse(a.started_at) - Date.parse(b.started_at) ||
-			(a.session_id < b.session_id ? -1 : a.session_id > b.session_id ? 1 : 0),
+			(a.agent_session_id < b.agent_session_id
+				? -1
+				: a.agent_session_id > b.agent_session_id
+					? 1
+					: 0),
 	);
 
 const cachedRepositoryOf = (git: RunGit) => {
@@ -228,7 +232,7 @@ function toCodexSessionImport(
 	return {
 		agent: "codex",
 		source: "import",
-		session_id: session.sessionId,
+		agent_session_id: session.sessionId,
 		repository,
 		...(session.branch ? { branch: session.branch } : {}),
 		...(session.commit ? { commit: session.commit } : {}),

@@ -31,7 +31,7 @@ const built = fileURLToPath(new URL("../dist/marketplace", import.meta.url));
 const SESSION_CONTEXT = `${JSON.stringify({
 	hookSpecificOutput: {
 		hookEventName: "SessionStart",
-		additionalContext: `harnessforce session_id: s-1\n\n${usingHarnessforceBody}`,
+		additionalContext: `harnessforce agent_session_id: s-1\n\n${usingHarnessforceBody}`,
 	},
 })}\n`;
 // Claude Codeが展開する`${HARNESSFORCE_URL:-<既定の接続先>}`の形。
@@ -318,15 +318,18 @@ describe("built marketplace", () => {
 		});
 	});
 
-	it("bundles the run recording skill unchanged", () =>
+	it("bundles the session recording skill unchanged", () =>
 		expect(
 			readFileSync(
-				join(marketplace, "plugins/harnessforce/skills/record-run/SKILL.md"),
+				join(
+					marketplace,
+					"plugins/harnessforce/skills/record-session/SKILL.md",
+				),
 				"utf8",
 			),
 		).toBe(
 			readFileSync(
-				new URL("../skills/record-run/SKILL.md", import.meta.url),
+				new URL("../skills/record-session/SKILL.md", import.meta.url),
 				"utf8",
 			),
 		));
@@ -474,7 +477,7 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 			);
 			const registration = {
 				agent: "claude_code",
-				session_id: "s-1",
+				agent_session_id: "s-1",
 				repository: "github.com/acme/web",
 				branch: "eng-42-login",
 				commit: repo.head,
@@ -760,7 +763,7 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 			]).toEqual([
 				{
 					agent: "claude_code",
-					session_id: "s-1",
+					agent_session_id: "s-1",
 					components: [
 						expect.objectContaining({
 							kind: "rule",
@@ -855,7 +858,7 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 			expect(usage.map((r) => r.url)).toEqual(["/base/v1/session-usage"]);
 			expect(usage[0]?.body).toEqual([
 				expect.objectContaining({
-					session_id: "s-1",
+					agent_session_id: "s-1",
 					skills: {
 						items: [{ name: "ship", calls: 1, failures: 0 }],
 						other: { calls: 0, failures: 0 },

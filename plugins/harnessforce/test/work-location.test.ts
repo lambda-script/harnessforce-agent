@@ -85,7 +85,7 @@ describe("session work locations from Claude Code", () => {
 			[
 				{
 					agent: "claude_code",
-					session_id: "s-1",
+					agent_session_id: "s-1",
 					locations: [pair("eng-42-login"), pair("main")],
 				},
 			],

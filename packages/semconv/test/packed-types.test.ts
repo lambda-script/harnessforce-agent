@@ -47,9 +47,9 @@ ${PUBLIC_TYPES.map((name) => `export const is${name}Typed: IsAny<${name}> = fals
 export const isSchemasTyped: IsAny<(typeof SCHEMAS)["session-registration"]> = false;
 export const isNormalizeTyped: IsAny<typeof normalizeRepository> = false;
 
-export const sessionId: NotAny<SessionRegistration["session_id"]> = "s-1";
-// @ts-expect-error session_idは文字列である。
-export const wrongSessionId: SessionRegistration["session_id"] = 1;
+export const sessionId: NotAny<SessionRegistration["agent_session_id"]> = "s-1";
+// @ts-expect-error agent_session_idは文字列である。
+export const wrongSessionId: SessionRegistration["agent_session_id"] = 1;
 `;
 
 // npmへ公開するtarballを、利用者と同じようにnode_modulesから読む。

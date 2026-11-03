@@ -13,7 +13,7 @@ This session has the Harnessforce hook installed. Harnessforce links the work of
 - Work locations: the repository and branch of each Git working tree the session works in. Paths are not sent.
 - Config snapshot: the structure of the configuration in use (Claude Code only).
 - OTel telemetry: what the user chooses to send.
-- For work on an Issue, `record-run` registers the session as a Run and closes it. It records no Plan, Decision, or Definition of Done.
+- For work on an Issue, `record-session` registers the session as a Session and closes it. It records no Plan, Decision, or Definition of Done.
 
 ## What is not collected
 
@@ -29,10 +29,10 @@ This session has the Harnessforce hook installed. Harnessforce links the work of
 
 ## Which skill and tool to use, and when
 
-- For work on a specified Issue ID, or when the environment variable `HARNESSFORCE_ISSUE` is set, follow `record-run` and use `start_run`, `get_issue`, and `complete_run`. An agent that cannot load the skill calls the tools in the same order.
-- Pass the value of the `harnessforce session_id:` line in the context to `start_run`. If there are several, use the last one. If the line is missing, do not guess the session ID, and do not call `start_run` or `complete_run`.
+- For work on a specified Issue ID, or when the environment variable `HARNESSFORCE_ISSUE` is set, follow `record-session` and use `start_session`, `get_issue`, and `complete_session`. An agent that cannot load the skill calls the tools in the same order.
+- Pass the value of the `harnessforce agent_session_id:` line in the context to `start_session`. If there are several, use the last one. If the line is missing, do not guess the session ID, and do not call `start_session` or `complete_session`.
 - Use `propose-improvements` for the analysis of `/harnessforce:tune`.
-- When no Issue is specified, do not start recording a Run on your own. For work that commits changes, follow "When no Issue is specified" in `record-run` and ask the user once whether to link it to an existing Issue.
+- When no Issue is specified, do not start recording a Session on your own. For work that commits changes, follow "When no Issue is specified" in `record-session` and ask the user once whether to link it to an existing Issue.
 
 ## Red Flags
 
@@ -41,16 +41,16 @@ Stop when one of these thoughts comes up.
 | Thought | Reality |
 | --- | --- |
 | An Issue was specified, but the work is small, so recording is unnecessary | Work on a specified Issue is recorded regardless of its size |
-| The session ID line is missing, so I will guess it and call `start_run` | Do not guess. The Run would no longer be linked to the session |
+| The session ID line is missing, so I will guess it and call `start_session` | Do not guess. The Session would no longer be linked to the agent session |
 | Summarizing the content before recording would help | Do not pass content to the tool. It goes beyond what is collected |
 | A warning appeared, but I can ignore it | Sending is not working. Tell the user |
 
 ## Priority
 
-1. The user's instructions (CLAUDE.md, AGENTS.md, direct requests). If the user tells you to stop recording, stop recording the Run.
+1. The user's instructions (CLAUDE.md, AGENTS.md, direct requests). If the user tells you to stop recording, stop recording the Session.
 2. This introduction.
 3. Default behavior.
 
 ## Subagents
 
-A subagent that was delegated only a specific task by its parent does not register a Run by following this introduction. The parent registers the Run.
+A subagent that was delegated only a specific task by its parent does not register a Session by following this introduction. The parent registers the Session.

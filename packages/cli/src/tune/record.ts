@@ -116,7 +116,7 @@ type RecordInput = Omit<
 	| "proposal_id"
 	| "recorded_at"
 	| "attribution"
-	| "attributed_session_id"
+	| "attributed_agent_session_id"
 	| "applied_detected_at"
 	| "followup_output_at"
 > & { body: string };
@@ -166,13 +166,13 @@ function parseRecordInput(text: string): RecordInput {
 	)
 		return invalid("content");
 	const hash = expectedHash(input, component);
-	const evidence = input.evidence_session_ids;
+	const evidence = input.evidence_agent_session_ids;
 	if (
 		!Array.isArray(evidence) ||
 		evidence.length === 0 ||
 		!evidence.every((id) => typeof id === "string" && isToken(id))
 	)
-		return invalid("evidence_session_ids");
+		return invalid("evidence_agent_session_ids");
 	if (typeof input.body !== "string" || input.body.trim() === "")
 		return invalid("body");
 	return {
@@ -184,7 +184,7 @@ function parseRecordInput(text: string): RecordInput {
 		component,
 		expected_hash: hash,
 		detects_applied: component !== null && !UNDETECTED_CHANGES.has(changeType),
-		evidence_session_ids: [...new Set(evidence as string[])],
+		evidence_agent_session_ids: [...new Set(evidence as string[])],
 		body: input.body,
 	};
 }
@@ -208,7 +208,7 @@ const proposalIdOf = (input: {
 export type RecordResult = {
 	proposal_id: string;
 	created: boolean;
-	attributed_session_id: string | null;
+	attributed_agent_session_id: string | null;
 };
 
 export class RecordWriteError extends Error {}
@@ -221,8 +221,8 @@ export async function recordProposal(
 ): Promise<RecordResult> {
 	const input = parseRecordInput(text);
 	const sessions = await readAnalysisSessions(paths.analysis);
-	if (!input.evidence_session_ids.every((id) => sessions.has(id)))
-		return invalid("evidence_session_ids");
+	if (!input.evidence_agent_session_ids.every((id) => sessions.has(id)))
+		return invalid("evidence_agent_session_ids");
 	const proposals = await readProposals(paths.proposals);
 	const proposalId = proposalIdOf(input);
 	const existing = proposals.find((p) => p.proposal_id === proposalId);
@@ -230,13 +230,16 @@ export async function recordProposal(
 	const record: ProposalRecord =
 		existing ??
 		(() => {
-			const decided = decideAttribution(input.evidence_session_ids, sessions);
+			const decided = decideAttribution(
+				input.evidence_agent_session_ids,
+				sessions,
+			);
 			return {
 				...fields,
 				proposal_id: proposalId,
 				recorded_at: new Date(now()).toISOString(),
 				attribution: decided.attribution,
-				attributed_session_id: decided.sessionId,
+				attributed_agent_session_id: decided.sessionId,
 				applied_detected_at: null,
 				followup_output_at: null,
 			};
@@ -252,6 +255,6 @@ export async function recordProposal(
 	return {
 		proposal_id: proposalId,
 		created: !existing,
-		attributed_session_id: record.attributed_session_id,
+		attributed_agent_session_id: record.attributed_agent_session_id,
 	};
 }

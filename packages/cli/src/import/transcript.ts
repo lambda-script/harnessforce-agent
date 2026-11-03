@@ -184,7 +184,7 @@ class Accumulator {
 		if (row.type === "system" && row.subtype === "compact_boundary")
 			this.addCompaction(row);
 		if (row.type !== "user" && row.type !== "assistant") return;
-		// branchとcwdはsessionの開始時点の値とする（correlation.md「Run→Pull Request」）。
+		// branchとcwdはsessionの開始時点の値とする（correlation.md「Session→Pull Request」）。
 		if (this.cwd === undefined && typeof row.cwd === "string")
 			this.cwd = row.cwd;
 		if (this.branch === undefined && isToken(row.gitBranch))

@@ -13,9 +13,9 @@ and does not bundle the CLI (`/harnessforce:setup` installs `@harnessforce/cli` 
 | `SessionStart` and `UserPromptSubmit` hooks | Register each session and its config snapshot with Harnessforce |
 | `CwdChanged`, `Stop` and `PostToolUse` (`Write` and `Edit`) hooks | Record the repository and branch of the Git working trees a session works in, and send them at the end of a turn in which they changed |
 | `PostToolUse`, `PostToolUseFailure`, `UserPromptExpansion`, `PermissionRequest`, `PostCompact` and `SessionEnd` hooks | Count the configured skills, commands, subagents and MCP servers a session uses, and send the session usage summary |
-| MCP server `harnessforce` (`<connection URL>/mcp`, HTTP) | Tools to start a run, read an Issue, and complete a run |
+| MCP server `harnessforce` (`<connection URL>/mcp`, HTTP) | Tools to start a session, read an Issue, and complete a session |
 | Skill `using-harnessforce` | What Harnessforce records and does not collect, which hook sends what, and when to use the other skills. The `SessionStart` hook injects its body into the context of every session (the build embeds the same text into the hook and the CLI) |
-| Skill `record-run` | Tells the agent when to start and complete a run |
+| Skill `record-session` | Tells the agent when to start and complete a session |
 | Command `/harnessforce:setup` | Checks Node.js, installs the `harnessforce` CLI, asks whether to send content, runs `harnessforce init` (`--send-content` when chosen) and `harnessforce import`, and confirms the first event after a restart |
 | Command `/harnessforce:tune` | Tells you that the agent reads parts of your transcripts through your model provider, runs `harnessforce tune --json`, shows the analysis and the before and after of earlier applied proposals, and makes proposals for the targets with enough data |
 | Command `/harnessforce:status` | Runs `harnessforce top --once --json` and summarizes the sessions on this machine. Read-only |

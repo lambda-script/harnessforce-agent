@@ -174,7 +174,7 @@ async function register(
 	if (!vcs) return {};
 	const registration: SessionRegistration = {
 		agent: "codex",
-		session_id: input.sessionId,
+		agent_session_id: input.sessionId,
 		...vcs,
 		...registrationSource(deps.env),
 		started_at: deps.now().toISOString(),

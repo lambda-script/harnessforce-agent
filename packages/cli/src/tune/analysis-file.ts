@@ -13,13 +13,13 @@ export async function readAnalysisSessions(
 	for (const session of sessions) {
 		if (
 			!isObject(session) ||
-			typeof session.session_id !== "string" ||
+			typeof session.agent_session_id !== "string" ||
 			typeof session.started_at !== "string" ||
 			!(typeof session.sendable === "boolean" || session.sendable === null)
 		)
 			continue;
-		found.set(session.session_id, {
-			sessionId: session.session_id,
+		found.set(session.agent_session_id, {
+			sessionId: session.agent_session_id,
 			startedAt: session.started_at,
 			sendable: session.sendable,
 		});

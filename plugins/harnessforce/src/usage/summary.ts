@@ -72,7 +72,7 @@ export function buildSummary(
 	const firstPromptId = ordered.find((line) => line.promptId)?.promptId;
 	return {
 		agent: "claude_code",
-		session_id: sessionId,
+		agent_session_id: sessionId,
 		...(firstPromptId === undefined ? {} : { first_prompt_id: firstPromptId }),
 		started_at: first.at,
 		last_event_at: last.at,
