@@ -3,7 +3,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Discussions are public. Do not post Workspace data, ingest keys, API tokens or prompts (session content). For billing, your account or your Workspace data, email support@lambdascript.dev instead. See [SUPPORT.md](https://github.com/lambda-script/harnessforce-agent/blob/main/SUPPORT.md) for every channel.
+        Discussions are public. Do not post Workspace data, ingest keys, API tokens or prompts (session content). For billing, your account or your Workspace data, email support@harnessforce.dev instead. See [SUPPORT.md](https://github.com/lambda-script/harnessforce-agent/blob/main/SUPPORT.md) for every channel.
   - type: input
     id: version
     attributes:
