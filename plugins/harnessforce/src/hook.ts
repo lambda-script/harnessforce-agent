@@ -43,6 +43,7 @@ import { resolveProjectRoot, resolveVcs } from "@harnessforce/agent-core/vcs";
 import {
 	claudeLocationStatePath,
 	type LocationEvent,
+	locationsToSend,
 	observedDirectories,
 	recordObservedPairs,
 	sendLocations,
@@ -671,6 +672,8 @@ const onLocationEvent =
 		);
 		const state = await recordObservedPairs(statePath, directories, deps);
 		if (event !== "stop" || !input.scratchpad) return;
+		// 送る組が無いturnでは、`harnessforce otel-headers`の起動を伴う送信先の解決をしない。
+		if (!locationsToSend(state)) return;
 		if (await isMarkedUnauthorized(input.scratchpad)) return;
 		if (await isPluginBlocked(deps, false)) return;
 		const { destination } = await resolveDestination(deps, input.cwd);

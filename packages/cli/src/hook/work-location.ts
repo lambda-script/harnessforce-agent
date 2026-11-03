@@ -3,6 +3,7 @@ import { isObject } from "@harnessforce/agent-core/object";
 import {
 	codexLocationStatePath,
 	type LocationEvent,
+	locationsToSend,
 	observedDirectories,
 	recordObservedPairs,
 	sendLocations,
@@ -67,7 +68,8 @@ async function observe(
 	);
 	const state = await recordObservedPairs(statePath, directories, deps);
 	if (event !== "stop") return;
-	if (state.unauthorized) return;
+	// 送る組が無いturnでは、keychainの読み出しを伴う送信先の解決をしない。
+	if (!locationsToSend(state)) return;
 	if (await isSendingBlocked(deps)) return;
 	// 送信先が無い理由は、SessionStartのhookが警告する。
 	const { destination } = await resolveDestination({

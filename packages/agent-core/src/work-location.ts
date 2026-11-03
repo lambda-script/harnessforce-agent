@@ -111,7 +111,7 @@ export function withObservedPair(
 	return { ...state, pairs: [...state.pairs, pair] };
 }
 
-/** 記録した組の集合が、最後に送った集合と異なる場合だけ送る組。 */
+/** 記録した組の集合が、最後に送った集合と異なる場合だけ送る組。401を受けた後のsessionでは送らない。 */
 export function locationsToSend(
 	state: LocationState,
 ): WorkLocationPair[] | undefined {

@@ -42,7 +42,7 @@ export function fakeGit(
 	};
 }
 
-type HarnessOptions = {
+export type HarnessOptions = {
 	status?: number;
 	// URLごとに応答のstatusを変える。無ければstatusを使う。
 	statusFor?: (url: string) => number | undefined;
