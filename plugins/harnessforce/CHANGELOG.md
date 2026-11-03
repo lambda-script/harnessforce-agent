@@ -1,5 +1,16 @@
 # @harnessforce/claude-code-plugin
 
+## 0.4.0
+
+### Minor Changes
+
+- ac0d2e0: Show one line when the installed CLI is older than the plugin needs (CLI 0.4.0 or later). At a session start that registers, the hook runs `harnessforce --version` (up to 1 second) and shows "Harnessforce plugin needs CLI 0.4.0 or later, but CLI <version> is installed. Update it: `npm install -g @harnessforce/cli@latest`" at every start, even with `NO_UPDATE_NOTIFIER` or `CI` set. `/harnessforce:setup` does the same check in step 3, and before step 9 after the restart, and stops at step 3 with the same line. Neither updates the CLI, and sending does not stop. The local marketplace build, which installs the CLI from the same build, does not check.
+
+### Patch Changes
+
+- 8823919: The `record-run` skill now searches candidate Issues with `-status:resolved,not_planned <word>`. The previous `-status:done,canceled` used statuses that Issues no longer have, so `list_issues` rejected the query and no candidate was shown. The skill also says that the first MCP login chooses a Workspace and a Project.
+- 9a23ee7: `/harnessforce:setup` passes on, as it is, the line `harnessforce init` prints when it repairs the status line left by the retired `harnessforce usage-limits` command.
+
 ## 0.3.1
 
 ### Patch Changes
