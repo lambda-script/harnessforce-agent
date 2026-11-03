@@ -18,6 +18,21 @@ const ENDPOINT = "https://ingest.example.test/base";
 const KEY = "hf_ik_secretkeyvalue";
 const NOW = new Date("2026-10-09T12:00:00Z");
 const REVOKED = "Your ingest key has been revoked. Run `harnessforce init`";
+// `harnessforce init`が`config.toml`に書く`[otel]`のexporter（correlation.md「Codex」）。
+const HARNESSFORCE_EXPORTER = `[otel.exporter.otlp-http]
+endpoint = "${ENDPOINT}"
+protocol = "binary"
+
+[otel.exporter.otlp-http.headers]
+Authorization = "Bearer hf_ik_${WORKSPACE}_secret"
+`;
+const OTHER_EXPORTER = `[otel.exporter.otlp-http]
+endpoint = "https://otel.example.test"
+protocol = "binary"
+
+[otel.exporter.otlp-http.headers]
+Authorization = "Bearer other-token"
+`;
 
 const gitRepo = async (cwd: string, args: readonly string[]) => {
 	if (cwd !== "/work/web") return undefined;
@@ -46,9 +61,15 @@ function setup(
 		status?: number;
 		fetchFails?: boolean;
 		git?: typeof gitRepo;
+		codexConfig?: string;
+		updateHeader?: string;
 	} = {},
 ) {
 	const home = tempDir("hf-hook-home-");
+	if (options.codexConfig !== undefined) {
+		mkdirSync(join(home, ".codex"), { recursive: true });
+		writeFileSync(join(home, ".codex", "config.toml"), options.codexConfig);
+	}
 	if (options.userSettingsEnv) {
 		mkdirSync(join(home, ".claude"), { recursive: true });
 		writeFileSync(
@@ -94,7 +115,12 @@ function setup(
 					body: JSON.parse(String(init?.body)),
 					...(init?.redirect ? { redirect: init.redirect } : {}),
 				});
-				return new Response(null, { status: options.status ?? 202 });
+				return new Response(null, {
+					status: options.status ?? 202,
+					headers: options.updateHeader
+						? { "harnessforce-client-update": options.updateHeader }
+						: {},
+				});
 			},
 			...extra,
 		});
@@ -352,6 +378,81 @@ describe("harnessforce hook session-start", () => {
 			expect(JSON.parse(result.out)).toEqual(warned(REGISTRATION_FAILED));
 		},
 	);
+
+	// correlation.md「hookの警告」: Codexの送信の間隔が短い。
+	const EVERY_SECOND =
+		"Codex is sending telemetry to Harnessforce every second. Start Codex with `harnessforce run -- codex` to send it every minute";
+
+	it("warns that Codex started without harnessforce run sends every second, and still registers", async () => {
+		const { run, sent } = setup({ codexConfig: HARNESSFORCE_EXPORTER });
+		const result = await run();
+		expect(result.code).toBe(0);
+		expect(sent).toHaveLength(1);
+		expect(JSON.parse(result.out)).toEqual(warned(EVERY_SECOND));
+	});
+
+	it.each(["1000", "59999", "60000.5", "1e5", "every minute"])(
+		"warns when OTEL_BLRP_SCHEDULE_DELAY is %s",
+		async (delay) => {
+			const { run } = setup({
+				codexConfig: HARNESSFORCE_EXPORTER,
+				env: { OTEL_BLRP_SCHEDULE_DELAY: delay },
+			});
+			expect(JSON.parse((await run()).out)).toEqual(warned(EVERY_SECOND));
+		},
+	);
+
+	it.each(["60000", "120000"])(
+		"does not warn when OTEL_BLRP_SCHEDULE_DELAY is %s",
+		async (delay) => {
+			const { run } = setup({
+				codexConfig: HARNESSFORCE_EXPORTER,
+				env: { OTEL_BLRP_SCHEDULE_DELAY: delay },
+			});
+			expect(JSON.parse((await run()).out)).toEqual(context("sess-1"));
+		},
+	);
+
+	it.each([
+		["no config.toml", undefined],
+		["an exporter to another destination", OTHER_EXPORTER],
+		["a config.toml it cannot parse", "[otel"],
+	])("does not warn about the interval with %s", async (_, codexConfig) => {
+		const { run } = setup({ codexConfig });
+		expect(JSON.parse((await run()).out)).toEqual(context("sess-1"));
+	});
+
+	it("shows the failed registration before the interval", async () => {
+		const { run } = setup({
+			codexConfig: HARNESSFORCE_EXPORTER,
+			fetchFails: true,
+		});
+		expect(JSON.parse((await run()).out)).toEqual(warned(REGISTRATION_FAILED));
+	});
+
+	it("shows the interval before the deadline of a client update", async () => {
+		const updateHeader =
+			'status=deprecated, latest="9.9.9", reason=security, deadline=@1794268800';
+		const updated = setup({ updateHeader });
+		expect(JSON.parse((await updated.run()).out).systemMessage).toContain(
+			"A security update for Harnessforce CLI is available",
+		);
+		const { run } = setup({ codexConfig: HARNESSFORCE_EXPORTER, updateHeader });
+		expect(JSON.parse((await run()).out)).toEqual(warned(EVERY_SECOND));
+	});
+
+	it("does not warn about the interval for a resumed session", async () => {
+		const { run } = setup({
+			codexConfig: HARNESSFORCE_EXPORTER,
+			input: {
+				session_id: "sess-1",
+				cwd: "/work/web",
+				source: "resume",
+				hook_event_name: "SessionStart",
+			},
+		});
+		expect(JSON.parse((await run()).out)).toEqual(context("sess-1"));
+	});
 
 	it("exits 0 with no output for an input it cannot use", async () => {
 		for (const input of [
