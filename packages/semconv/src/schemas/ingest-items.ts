@@ -16,8 +16,8 @@ export const ACTIVITY_EVENT_TYPES = [
 	"review.submitted",
 	"commit.pushed",
 	"ci.completed",
-	"run.started",
-	"run.completed",
+	"session.started",
+	"session.completed",
 	"config.changed",
 	"evaluation.recorded",
 ] as const;
@@ -25,7 +25,7 @@ export const ENTITY_TYPES = [
 	"issue",
 	"pull_request",
 	"ci_run",
-	"run",
+	"session",
 	"trace",
 	"artifact",
 ] as const;

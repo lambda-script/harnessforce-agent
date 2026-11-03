@@ -7,7 +7,7 @@ const ENDPOINT = new URL("https://ingest.example.test/base");
 const session = (id: string): SessionImport => ({
 	agent: "claude_code",
 	source: "import",
-	session_id: id,
+	agent_session_id: id,
 	repository: "github.com/acme/web",
 	started_at: "2026-09-20T00:00:00.000Z",
 	ended_at: "2026-09-20T01:00:00.000Z",
@@ -40,7 +40,7 @@ function server(...replies: (Response | Error)[]) {
 		requests.push({ url: url.href, init });
 		bodies.push(
 			(JSON.parse(String(init.body)) as SessionImport[]).map(
-				(s) => s.session_id,
+				(s) => s.agent_session_id,
 			),
 		);
 		const batchSize = bodies.at(-1)?.length ?? 0;
@@ -138,7 +138,7 @@ describe("sendSessions", () => {
 			expect(recorded[1]).toEqual(
 				sessions(200)
 					.slice(101)
-					.map((s) => s.session_id),
+					.map((s) => s.agent_session_id),
 			);
 		},
 	);

@@ -13,7 +13,7 @@ export const REGISTRATION_SOURCES = ["hook", "cli", "mcp", "import"] as const;
 
 export const registrationProperties = {
 	agent: Agent,
-	session_id: Token(),
+	agent_session_id: Token(),
 	first_prompt_id: Type.Optional(Token()),
 	repository: Type.Optional(RepositorySlug),
 	branch: Type.Optional(Token()),

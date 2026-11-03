@@ -98,7 +98,7 @@ Then end with the following.
 
 At the start of this session, the plugin hook sent the session to Harnessforce. Run `harnessforce import` again to import the sessions of repositories assigned to a project after step 6; sessions already imported are not sent twice. Tell the user the result as in step 6.
 
-Then run `harnessforce status --json`. If step 5 is `done`, show "Your first run arrived." with the URL of the Harnessforce Home (the environment variable `HARNESSFORCE_URL`). If not, show the Home URL and tell the user to check on the waiting screen for the first run that it was received; if nothing arrives after 15 minutes, follow the checks for each cause shown on the waiting screen. Show the steps that are not done in the same way as step 7.
+Then run `harnessforce status --json`. If step 5 is `done`, show "Your first session arrived." with the URL of the Harnessforce Home (the environment variable `HARNESSFORCE_URL`). If not, show the Home URL and tell the user to check on the waiting screen for the first session that it was received; if nothing arrives after 15 minutes, follow the checks for each cause shown on the waiting screen. Show the steps that are not done in the same way as step 7.
 
 If `harnessforce import` fails, show its output, go on, and show "Importing past sessions failed. Run `harnessforce import` later." before the last line. If `harnessforce status --json` fails, show its output and the Home URL, and still end with the line below: the settings were made in step 5, so not being able to read the status is not a failure of setup.
 

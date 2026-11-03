@@ -320,7 +320,7 @@ describe("harnessforce tune", () => {
 			sufficient: true,
 		});
 		expect(output.sessions[0]).toMatchObject({
-			session_id: "s000",
+			agent_session_id: "s000",
 			repository: "github.com/acme/web",
 			sendable: true,
 		});
@@ -409,9 +409,9 @@ describe("harnessforce tune", () => {
 						expected_hash: "h",
 						detects_applied: true,
 						recorded_at: new Date(NOW - 16 * DAY_MS).toISOString(),
-						evidence_session_ids: ["s000"],
+						evidence_agent_session_ids: ["s000"],
 						attribution: "decided",
-						attributed_session_id: null,
+						attributed_agent_session_id: null,
 						applied_detected_at: detectedAt,
 					},
 				],

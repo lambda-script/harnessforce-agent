@@ -21,8 +21,8 @@ describe("ingest event", () => {
 			"review.submitted",
 			"commit.pushed",
 			"ci.completed",
-			"run.started",
-			"run.completed",
+			"session.started",
+			"session.completed",
 			"config.changed",
 			"evaluation.recorded",
 		]));

@@ -194,7 +194,7 @@ describe("plugin eval cases", () => {
 	// #112: list_issuesの`q`は、今のstatusの語彙だけを使う。
 	it("keeps the regression case of the list_issues query", () => {
 		const regression = cases.find(
-			(c) => c.id === "record-run/lists-candidates-without-issue",
+			(c) => c.id === "record-session/lists-candidates-without-issue",
 		);
 		expect(regression).toBeDefined();
 		const guard = mocks.find((m) => m.tool === "list_issues")?.data

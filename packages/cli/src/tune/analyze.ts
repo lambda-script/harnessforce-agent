@@ -315,7 +315,7 @@ export function analyzeSession(input: AnalyzeInput): AnalysisReport {
 	const interventions = findInterventions(input.events);
 	return {
 		agent: "claude_code",
-		session_id: input.session.sessionId,
+		agent_session_id: input.session.sessionId,
 		...(input.session.firstPromptId
 			? { first_prompt_id: input.session.firstPromptId }
 			: {}),

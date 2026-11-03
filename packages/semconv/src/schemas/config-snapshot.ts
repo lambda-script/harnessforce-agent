@@ -35,9 +35,9 @@ const Component = Type.Object(
 
 export const ConfigSnapshotSchema = Type.Object(
 	{
-		// 構成を収集したsession。RunとConfigSnapshotはこのagent/session_idで結ぶ。
+		// 構成を収集したsession。SessionとConfigSnapshotはこのagent/agent_session_idで結ぶ。
 		agent: Agent,
-		session_id: Token(),
+		agent_session_id: Token(),
 		components: Type.Array(Component, { minItems: 1 }),
 	},
 	{ $id: schemaId("config-snapshot"), ...closed },

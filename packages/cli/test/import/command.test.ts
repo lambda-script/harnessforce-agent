@@ -135,7 +135,7 @@ describe("harnessforce import", () => {
 			expect.objectContaining({
 				agent: "claude_code",
 				source: "import",
-				session_id: "s000",
+				agent_session_id: "s000",
 				first_prompt_id: "prompt-s000",
 				repository: "github.com/acme/web",
 				branch: "eng-42-login",
@@ -208,7 +208,7 @@ describe("harnessforce import", () => {
 				expect.objectContaining({
 					agent: "codex",
 					source: "import",
-					session_id: "c1",
+					agent_session_id: "c1",
 					repository: "github.com/acme/web",
 					branch: "eng-42-login",
 					model: "gpt-5-codex",

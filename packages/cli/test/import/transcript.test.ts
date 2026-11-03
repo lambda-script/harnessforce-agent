@@ -50,7 +50,7 @@ describe("parseTranscript", () => {
 				outputTokens: 31,
 				toolCalls: [
 					{ tool: "Bash", calls: 2, failures: 1 },
-					{ tool: "mcp__harnessforce__start_run", calls: 1, failures: 0 },
+					{ tool: "mcp__harnessforce__start_session", calls: 1, failures: 0 },
 				],
 			},
 		});

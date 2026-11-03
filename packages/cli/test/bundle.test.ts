@@ -108,7 +108,7 @@ describe("built harnessforce", () => {
 			},
 		).toString();
 		expect(JSON.parse(out).hookSpecificOutput.additionalContext).toBe(
-			`harnessforce session_id: s-1\n\n${usingHarnessforceBody}`,
+			`harnessforce agent_session_id: s-1\n\n${usingHarnessforceBody}`,
 		);
 	});
 });

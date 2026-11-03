@@ -97,7 +97,7 @@ export async function readUnsent(
 		(item): item is UnsentReport =>
 			isObject(item) &&
 			isObject(item.report) &&
-			typeof item.report.session_id === "string" &&
+			typeof item.report.agent_session_id === "string" &&
 			typeof item.report.analyzer_version === "string" &&
 			typeof item.report.started_at === "string" &&
 			typeof item.repository === "string",

@@ -52,7 +52,7 @@ const credentialsRequest = {
 const session = (id: string): SessionImport => ({
 	agent: "claude_code",
 	source: "import",
-	session_id: id,
+	agent_session_id: id,
 	repository: "github.com/acme/web",
 	started_at: "2026-09-20T00:00:00.000Z",
 	ended_at: "2026-09-20T01:00:00.000Z",
@@ -76,7 +76,7 @@ const unmeasured = (kinds: readonly string[], keys: readonly string[]) =>
 	);
 const report = {
 	agent: "claude_code",
-	session_id: "s0",
+	agent_session_id: "s0",
 	started_at: "2026-11-01T00:00:00.000Z",
 	analyzer_version: "1.1.0",
 	parser_version: "1.1.0",

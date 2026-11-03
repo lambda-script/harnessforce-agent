@@ -90,7 +90,7 @@ describe("analyzeSession", () => {
 		expect(isValid(report)).toBe(true);
 		expect(report).toMatchObject({
 			agent: "claude_code",
-			session_id: "s1",
+			agent_session_id: "s1",
 			first_prompt_id: "p1",
 			started_at: "2026-09-20T01:00:00.000Z",
 			analyzer_version: ANALYZER_VERSION,
@@ -274,7 +274,11 @@ describe("analyzeSession", () => {
 				...tool(0, "mcp__playwright__browser_click"),
 				...tool(2, "mcp__playwright__browser_close", true),
 				...tool(4, "mcp__linear__get_issue", true, true),
-				...tool(6, "mcp__plugin_harnessforce_harnessforce__start_run", true),
+				...tool(
+					6,
+					"mcp__plugin_harnessforce_harnessforce__start_session",
+					true,
+				),
 			],
 			mcp,
 		);

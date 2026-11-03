@@ -28,11 +28,11 @@ const FILE_MODE = 0o600;
 // （同じIDでもagentが違えば別のsessionである）。
 export const sessionStateKey = (session: {
 	agent: string;
-	session_id: string;
+	agent_session_id: string;
 }) =>
 	session.agent === "claude_code"
-		? session.session_id
-		: `${session.agent}:${session.session_id}`;
+		? session.agent_session_id
+		: `${session.agent}:${session.agent_session_id}`;
 
 export const importStatePath = (homeDir: string) =>
 	join(homeDir, ".harnessforce", "import-state.json");

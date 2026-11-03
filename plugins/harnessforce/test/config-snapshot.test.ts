@@ -65,7 +65,7 @@ describe("config snapshot from SessionStart", () => {
 			[
 				{
 					agent: "claude_code",
-					session_id: "s-1",
+					agent_session_id: "s-1",
 					components: [ruleComponent],
 				},
 			],

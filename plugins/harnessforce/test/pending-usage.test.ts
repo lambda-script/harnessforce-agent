@@ -86,7 +86,9 @@ const sentSessions = (h: Harness) =>
 	h
 		.bodiesTo("/v1/session-usage")
 		.map((body) =>
-			body.map((item) => (item as { session_id: string }).session_id),
+			body.map(
+				(item) => (item as { agent_session_id: string }).agent_session_id,
+			),
 		);
 
 describe("unsent session usage summaries at SessionStart", () => {
@@ -102,7 +104,7 @@ describe("unsent session usage summaries at SessionStart", () => {
 			[
 				expect.objectContaining({
 					agent: "claude_code",
-					session_id: "s-a",
+					agent_session_id: "s-a",
 					started_at: new Date(T0).toISOString(),
 				}),
 			],
@@ -192,7 +194,12 @@ describe("unsent session usage summaries at SessionStart", () => {
 		touch(data, "s-a", T0 + 13 * MINUTE);
 		const grown = await startAt(data, T0 + 30 * MINUTE);
 		expect(grown.bodiesTo("/v1/session-usage")).toEqual([
-			[expect.objectContaining({ session_id: "s-a", permission_requests: 1 })],
+			[
+				expect.objectContaining({
+					agent_session_id: "s-a",
+					permission_requests: 1,
+				}),
+			],
 		]);
 	});
 

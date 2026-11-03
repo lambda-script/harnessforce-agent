@@ -1,6 +1,6 @@
 export const sessionRegistration = {
 	agent: "claude_code",
-	session_id: "0b4c6c1e-6d7a-4a51-9f39-2f0e7f3a9c10",
+	agent_session_id: "0b4c6c1e-6d7a-4a51-9f39-2f0e7f3a9c10",
 	first_prompt_id: "5d2f0c3e-1111-4c7a-8e21-1f2a3b4c5d6e",
 	repository: "github.com/acme/web",
 	branch: "eng-42-login",
@@ -28,7 +28,7 @@ delete (sessionImport as Record<string, unknown>).issue_identifier;
 
 export const sessionWorkLocation = {
 	agent: "codex",
-	session_id: sessionRegistration.session_id,
+	agent_session_id: sessionRegistration.agent_session_id,
 	locations: [
 		{ repository: "github.com/acme/web", branch: "main" },
 		{ repository: "github.com/acme/web", branch: "eng-42-login" },
@@ -37,7 +37,7 @@ export const sessionWorkLocation = {
 
 export const configSnapshot = {
 	agent: "claude_code",
-	session_id: sessionRegistration.session_id,
+	agent_session_id: sessionRegistration.agent_session_id,
 	components: [
 		{
 			kind: "skill",
@@ -81,7 +81,7 @@ const zeroProposal = { shown: 0, applied_detected: 0 };
 
 export const analysisReport = {
 	agent: "claude_code",
-	session_id: sessionRegistration.session_id,
+	agent_session_id: sessionRegistration.agent_session_id,
 	first_prompt_id: sessionRegistration.first_prompt_id,
 	started_at: "2026-09-26T00:00:00Z",
 	analyzer_version: "0.1.0",
@@ -141,7 +141,7 @@ export const analysisReport = {
 
 export const sessionUsageSummary = {
 	agent: "claude_code",
-	session_id: sessionRegistration.session_id,
+	agent_session_id: sessionRegistration.agent_session_id,
 	first_prompt_id: sessionRegistration.first_prompt_id,
 	started_at: "2026-09-26T00:00:00Z",
 	last_event_at: "2026-09-26T10:30:00+09:00",

@@ -89,7 +89,7 @@ describe("scanSessions", () => {
 				{
 					agent: "claude_code",
 					source: "import",
-					session_id: "s1",
+					agent_session_id: "s1",
 					first_prompt_id: "p-s1",
 					repository: "github.com/acme/web",
 					branch: "main",
@@ -132,7 +132,7 @@ describe("scanSessions", () => {
 		});
 		const { git } = fakeGit({ "/work/web": "https://github.com/acme/web" });
 		const result = await scan(dir, git, 14);
-		expect(result.sessions.map((s) => s.session_id)).toEqual(["in"]);
+		expect(result.sessions.map((s) => s.agent_session_id)).toEqual(["in"]);
 		expect(result.skippedLines).toBe(0);
 	});
 
@@ -199,7 +199,7 @@ describe("scanSessions", () => {
 		});
 		const { git } = fakeGit({ "/work/web": "https://github.com/acme/web" });
 		const result = await scan(dir, git);
-		expect(result.sessions.map((s) => s.session_id)).toEqual(["s1"]);
+		expect(result.sessions.map((s) => s.agent_session_id)).toEqual(["s1"]);
 		expect(result).toMatchObject({ skippedLines: 3, skippedFiles: 0 });
 	});
 
@@ -216,7 +216,7 @@ describe("scanSessions", () => {
 			chmodSync(join(dir, "-work-web/locked.jsonl"), 0o000);
 			const { git } = fakeGit({ "/work/web": "https://github.com/acme/web" });
 			const result = await scan(dir, git);
-			expect(result.sessions.map((s) => s.session_id)).toEqual(["s1"]);
+			expect(result.sessions.map((s) => s.agent_session_id)).toEqual(["s1"]);
 			expect(result).toMatchObject({ skippedLines: 0, skippedFiles: 1 });
 		},
 	);
@@ -236,7 +236,7 @@ describe("scanSessions", () => {
 			"/work/web": "https://github.com/acme/web",
 		});
 		const result = await scan(dir, git);
-		expect(result.sessions.map((s) => s.session_id)).toEqual(["a", "b"]);
+		expect(result.sessions.map((s) => s.agent_session_id)).toEqual(["a", "b"]);
 		expect(calls.filter((call) => call.includes("rev-parse"))).toHaveLength(1);
 	});
 

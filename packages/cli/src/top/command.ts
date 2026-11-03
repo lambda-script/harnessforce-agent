@@ -28,7 +28,7 @@ const iso = (ms: number) => new Date(ms).toISOString();
 function toJson(row: TopRow, nowMs: number) {
 	return {
 		agent: row.agent === "codex" ? "codex" : "claude_code",
-		session_id: row.sessionId.slice(0, 8),
+		agent_session_id: row.sessionId.slice(0, 8),
 		state: sessionState(row.lastEventAtMs, nowMs),
 		repository: row.repository ?? null,
 		branch: row.branch ?? null,

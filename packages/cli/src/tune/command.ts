@@ -173,13 +173,16 @@ function resolvePendingAttributions(
 ): ProposalRecord[] {
 	return proposals.map((proposal) => {
 		if (proposal.attribution !== "pending") return proposal;
-		const decided = decideAttribution(proposal.evidence_session_ids, sessions);
+		const decided = decideAttribution(
+			proposal.evidence_agent_session_ids,
+			sessions,
+		);
 		return decided.attribution === "pending"
 			? proposal
 			: {
 					...proposal,
 					attribution: "decided",
-					attributed_session_id: decided.sessionId,
+					attributed_agent_session_id: decided.sessionId,
 				};
 	});
 }
@@ -275,7 +278,7 @@ async function importBeforeSending(
 }
 
 const reportKey = (report: AnalysisReport) =>
-	`${report.session_id} ${report.analyzer_version}`;
+	`${report.agent_session_id} ${report.analyzer_version}`;
 
 // improvement-loop.md「送信」の失敗の扱い。未送信の分はunsent.jsonに残し、次の実行で送る。
 async function sendAnalysis(
@@ -494,7 +497,7 @@ async function analyzeUnderLock(
 			? new Date(list.fetchedAtMs).toISOString()
 			: null,
 		sessions: analyzed.map((a) => ({
-			session_id: a.tune.session.sessionId,
+			agent_session_id: a.tune.session.sessionId,
 			started_at: a.tune.session.startedAt,
 			transcript_path: a.tune.transcriptPath,
 			repository: a.tune.repository,

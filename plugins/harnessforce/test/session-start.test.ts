@@ -39,7 +39,7 @@ const start = (h: Harness, input: Record<string, unknown> = {}) =>
 
 const registered = {
 	agent: "claude_code",
-	session_id: "s-1",
+	agent_session_id: "s-1",
 	repository: "github.com/acme/web",
 	branch: REPO.branch,
 	commit: REPO.commit,
@@ -140,7 +140,7 @@ describe("SessionStart hook", () => {
 		await start(h, { session_id: 'a"b\\c' });
 		expect(
 			JSON.parse(h.out()).hookSpecificOutput.additionalContext.split("\n")[0],
-		).toBe('harnessforce session_id: a"b\\c');
+		).toBe('harnessforce agent_session_id: a"b\\c');
 	});
 
 	it("passes the session id it received to the agent context", async () => {

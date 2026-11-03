@@ -100,7 +100,7 @@ describe("scanCodexSessions", () => {
 				{
 					agent: "codex",
 					source: "import",
-					session_id: "c1",
+					agent_session_id: "c1",
 					repository: "github.com/acme/web",
 					branch: "main",
 					started_at: "2026-01-01T00:00:00.000Z",
@@ -148,7 +148,7 @@ describe("scanCodexSessions", () => {
 				"/work/other": "git@github.com:Acme/Other.git",
 			}),
 		);
-		expect(result.sessions.map((s) => s.session_id)).toEqual(["in"]);
+		expect(result.sessions.map((s) => s.agent_session_id)).toEqual(["in"]);
 	});
 
 	it("counts the sessions whose model or token usage cannot be read, only after the range and repository checks", async () => {
@@ -237,6 +237,6 @@ describe("scanCodexSessions", () => {
 			skippedLines: 1,
 			compressed: 2,
 		});
-		expect(result.sessions.map((s) => s.session_id)).toEqual(["c2"]);
+		expect(result.sessions.map((s) => s.agent_session_id)).toEqual(["c2"]);
 	});
 });

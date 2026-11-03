@@ -76,13 +76,13 @@ const indexesOf = (text: string, words: string[]) =>
 	words.map((word) => text.indexOf(word));
 
 // correlation.md「MCP」: pluginに同梱し、agentへMCPのtoolの手順を示す。Agent Skillsの形式で書く。
-describe("run recording skill", () => {
+describe("session recording skill", () => {
 	const { frontmatter, body } = splitFrontmatter(
-		readText("plugins/harnessforce/skills/record-run/SKILL.md"),
+		readText("plugins/harnessforce/skills/record-session/SKILL.md"),
 	);
 
 	it("follows the Agent Skills frontmatter rules", () => {
-		expect(frontmatter.name).toBe("record-run");
+		expect(frontmatter.name).toBe("record-session");
 		expect(frontmatter.name).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
 		expect(typeof frontmatter.description).toBe("string");
 		expect(frontmatter.description.length).toBeGreaterThan(0);
@@ -91,9 +91,9 @@ describe("run recording skill", () => {
 
 	it("walks the agent through the MCP tools in the order of the spec", () => {
 		const positions = indexesOf(body, [
-			"`start_run`",
+			"`start_session`",
 			"`get_issue`",
-			"`complete_run`",
+			"`complete_session`",
 		]);
 		expect(positions.every((position) => position >= 0)).toBe(true);
 		expect(positions).toEqual([...positions].sort((a, b) => a - b));
@@ -103,28 +103,30 @@ describe("run recording skill", () => {
 	it("says the first MCP login chooses a Workspace and a Project", () =>
 		expect(body).toContain("choose a Workspace and a Project"));
 
-	it("passes the session_id from the context to start_run", () =>
-		expect(body).toMatch(/`session_id`[^\n]*`start_run`/));
+	it("passes the agent_session_id from the context to start_session", () =>
+		expect(body).toMatch(/`agent_session_id`[^\n]*`start_session`/));
 
 	// correlation.md「session context」: SessionStartのhookがadditionalContextへ書く文言と同じ形を読む。
 	it("reads the session id from the line the SessionStart hook adds", () =>
-		expect(body).toContain("`harnessforce session_id: <session_id>`"));
+		expect(body).toContain(
+			"`harnessforce agent_session_id: <agent_session_id>`",
+		));
 
 	it("uses the last session id in the context", () =>
 		expect(body).toMatch(/several[^\n]*last/));
 
-	it("calls start_run again when the latest session id changes", () =>
+	it("calls start_session again when the latest session id changes", () =>
 		expect(body).toMatch(
-			/differs[^\n]*call `start_run` once more[^\n]*`complete_run`/,
+			/differs[^\n]*call `start_session` once more[^\n]*`complete_session`/,
 		));
 
 	it("does not guess a session id missing from the context", () =>
 		expect(body).toMatch(
-			/do not guess[^\n]*do not call `start_run` or `complete_run`/,
+			/do not guess[^\n]*do not call `start_session` or `complete_session`/,
 		));
 
-	// correlation.md「skill」: 同じsessionをhookが登録し、空の項目を埋めるため、start_runにrepository等を渡さない。
-	it("does not pass the repository, branch or commit to start_run", () =>
+	// correlation.md「skill」: 同じsessionをhookが登録し、空の項目を埋めるため、start_sessionにrepository等を渡さない。
+	it("does not pass the repository, branch or commit to start_session", () =>
 		expect(body).toMatch(
 			/Do not pass the repository, branch, or commit[^\n]*hook/,
 		));
@@ -258,7 +260,7 @@ describe("setup command", () => {
 		);
 		expect(body).toContain("Send this URL to the person responsible.");
 		expect(body).toContain("Your workspace is ready.");
-		expect(body).toContain("Your first run arrived.");
+		expect(body).toContain("Your first session arrived.");
 		const positions = indexesOf(body, [
 			"Import past sessions",
 			"Show the remaining steps",
@@ -493,7 +495,7 @@ describe("propose improvements skill", () => {
 			"component",
 			"content",
 			"value",
-			"evidence_session_ids",
+			"evidence_agent_session_ids",
 			"body",
 		])
 			expect(body).toMatch(new RegExp(`^\\| \`${field}\` \\|`, "m"));

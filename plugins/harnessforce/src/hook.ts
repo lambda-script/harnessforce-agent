@@ -299,7 +299,7 @@ async function registerSession(
 	if (!vcs) return undefined;
 	const registration: SessionRegistration = {
 		agent: "claude_code",
-		session_id: input.sessionId,
+		agent_session_id: input.sessionId,
 		...vcs,
 		...registrationSource(destination, deps.env),
 		started_at: deps.now().toISOString(),
@@ -352,7 +352,7 @@ async function sendConfigSnapshot(
 	if (components.length === 0) return undefined;
 	const snapshot: ConfigSnapshot = {
 		agent: "claude_code",
-		session_id: input.sessionId,
+		agent_session_id: input.sessionId,
 		components,
 	};
 	return send(

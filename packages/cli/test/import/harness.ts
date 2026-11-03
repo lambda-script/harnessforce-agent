@@ -147,7 +147,9 @@ export async function startImportServer(options: HarnessforceOptions = {}) {
 		requests
 			.filter((r) => r.path === "POST /ingest/v1/imports/sessions")
 			.map((r) =>
-				(r.body as { session_id: string }[]).map((s) => s.session_id),
+				(r.body as { agent_session_id: string }[]).map(
+					(s) => s.agent_session_id,
+				),
 			);
 	return {
 		origin,

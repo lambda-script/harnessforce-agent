@@ -81,7 +81,12 @@ describe("UserPromptSubmit hook", () => {
 		const h = harness();
 		await submit(h, { scratchpad_dir: dir, prompt_id: "p-1" });
 		expect(h.bodies()).toEqual([
-			[expect.objectContaining({ session_id: "s-1", first_prompt_id: "p-1" })],
+			[
+				expect.objectContaining({
+					agent_session_id: "s-1",
+					first_prompt_id: "p-1",
+				}),
+			],
 		]);
 	});
 
@@ -97,10 +102,16 @@ describe("UserPromptSubmit hook", () => {
 			prompt_id: "p-9",
 		});
 		expect(h.bodies().map((body) => body[0])).toEqual([
-			expect.objectContaining({ session_id: "s-1" }),
-			expect.objectContaining({ session_id: "s-1", first_prompt_id: "p-1" }),
-			expect.objectContaining({ session_id: "s-2" }),
-			expect.objectContaining({ session_id: "s-2", first_prompt_id: "p-9" }),
+			expect.objectContaining({ agent_session_id: "s-1" }),
+			expect.objectContaining({
+				agent_session_id: "s-1",
+				first_prompt_id: "p-1",
+			}),
+			expect.objectContaining({ agent_session_id: "s-2" }),
+			expect.objectContaining({
+				agent_session_id: "s-2",
+				first_prompt_id: "p-9",
+			}),
 		]);
 	});
 
@@ -128,7 +139,7 @@ describe("UserPromptSubmit hook", () => {
 		const dir = scratchpad();
 		writeFileSync(
 			join(dir, "registration-s-1.json"),
-			JSON.stringify({ session_id: "other", agent: "claude_code" }),
+			JSON.stringify({ agent_session_id: "other", agent: "claude_code" }),
 		);
 		await submit(h, { scratchpad_dir: dir, prompt_id: "p-1" });
 		expect(h.requests).toEqual([]);

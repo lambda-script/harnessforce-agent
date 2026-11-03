@@ -61,7 +61,7 @@ const newestFirst = (a, b) =>
 		? 1
 		: a.session.started_at > b.session.started_at
 			? -1
-			: a.session.session_id.localeCompare(b.session.session_id);
+			: a.session.agent_session_id.localeCompare(b.session.agent_session_id);
 
 // 計測したsessionだけを合計する。1つも無ければundefined（未計測）とし、0と区別する。
 function measure(sessions, pick, countField, medianField) {
@@ -119,7 +119,7 @@ function evidenceLines(hits, unit) {
 	const lines = ["    Evidence sessions (newest first):"];
 	for (const { session, count } of sorted.slice(0, MAX_EVIDENCE))
 		lines.push(
-			`      ${session.session_id} ${session.started_at} ${session.repository ?? "-"} sendable=${session.sendable} ${count}${unit} ${session.transcript_path}`,
+			`      ${session.agent_session_id} ${session.started_at} ${session.repository ?? "-"} sendable=${session.sendable} ${count}${unit} ${session.transcript_path}`,
 		);
 	if (sorted.length > MAX_EVIDENCE)
 		lines.push(`      and ${sorted.length - MAX_EVIDENCE} more`);

@@ -14,7 +14,7 @@ export type WorkLocationPair = Static<typeof WorkLocationPairSchema>;
 export const SessionWorkLocationSchema = Type.Object(
 	{
 		agent: Agent,
-		session_id: Token(),
+		agent_session_id: Token(),
 		locations: Type.Array(WorkLocationPairSchema, {
 			minItems: 1,
 			maxItems: MAX_WORK_LOCATIONS,
