@@ -13,6 +13,7 @@ import {
 	codexConfigPath,
 	mergeCodexConfig,
 	readCodexConfig,
+	sendsToHarnessforce,
 	writeCodexConfig,
 } from "../../src/shared/codex-config.js";
 
@@ -294,5 +295,43 @@ describe("reading and writing config.toml", () => {
 			writeCodexConfig(join(dir, "config.toml"), "a = 1\n"),
 		).rejects.toThrow();
 		expect(readdirSync(dir)).toEqual(["config.toml"]);
+	});
+});
+
+describe("whether config.toml sends to Harnessforce", () => {
+	const exporter = (header: string) =>
+		`[otel.exporter.otlp-http]\nendpoint = "https://ingest.example.test"\n\n[otel.exporter.otlp-http.headers]\n${header}\n`;
+
+	it.each([
+		[
+			"the header written by harnessforce init",
+			'Authorization = "Bearer hf_ik_ws1_secret"',
+			true,
+		],
+		[
+			"a lower-case header name",
+			'authorization = "Bearer hf_ik_ws1_secret"',
+			true,
+		],
+		[
+			"a token of another service",
+			'Authorization = "Bearer other-token"',
+			false,
+		],
+		[
+			"an ingest key without the Bearer scheme",
+			'Authorization = "hf_ik_ws1_secret"',
+			false,
+		],
+	])("%s", (_, header, expected) => {
+		expect(sendsToHarnessforce(exporter(header))).toBe(expected);
+	});
+
+	it.each([
+		["an empty file", ""],
+		["no exporter", "[otel]\nlog_user_prompt = false\n"],
+		["a file it cannot parse", "[otel"],
+	])("is false for %s", (_, text) => {
+		expect(sendsToHarnessforce(text)).toBe(false);
 	});
 });

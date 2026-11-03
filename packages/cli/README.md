@@ -94,7 +94,10 @@ Codex runs this command through the `[[hooks.SessionStart]]` entry that `harness
   ID. When it cannot send, it adds one warning as `systemMessage`, which Codex shows in its UI, and writes it to
   stderr: a revoked key (401), sending not set up, an invalid endpoint, no key in the keychain, a destination
   that differs from the pinned origin, a keychain that could not be read within 1 second, or a failed
-  registration. Only `startup`, `clear` and a missing `source` show a warning.
+  registration. When none of these applies, it warns that Codex is sending every second if the `[otel]`
+  exporter in `config.toml` sends to Harnessforce and `OTEL_BLRP_SCHEDULE_DELAY` is missing or not an
+  integer of at least 60000, that is, when Codex was started without `harnessforce run`. Only `startup`,
+  `clear` and a missing `source` show a warning.
 - never fails the session: any error ends with exit code 0, and nothing is sent outside a git repository.
 
 ## What is never sent

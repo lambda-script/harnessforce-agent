@@ -11,6 +11,7 @@ import { dirname, join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { parse, patch } from "@decimalturn/toml-patch";
 import { absoluteEnv } from "@harnessforce/agent-core/config/scope";
+import { workspaceIdOf } from "@harnessforce/agent-core/ingest";
 import { isObject } from "@harnessforce/agent-core/object";
 import type { Env } from "@harnessforce/agent-core/types";
 
@@ -67,6 +68,29 @@ export async function readCodexConfig(path: string): Promise<string> {
 		if ((error as NodeJS.ErrnoException).code === "ENOENT") return "";
 		throw error;
 	}
+}
+
+// `[otel]`のexporterが、`harnessforce init`の書いたIngestKeyで送る設定か。読めないfileは送らない設定として扱う。
+export function sendsToHarnessforce(text: string): boolean {
+	let config: unknown;
+	try {
+		config = parse(text);
+	} catch {
+		return false;
+	}
+	const exporter =
+		isObject(config) && isObject(config.otel) && config.otel.exporter;
+	const otlp = isObject(exporter) && exporter["otlp-http"];
+	const headers = isObject(otlp) && otlp.headers;
+	if (!isObject(headers)) return false;
+	// HTTPのheader名は大文字と小文字を区別しない。
+	return Object.entries(headers).some(
+		([name, value]) =>
+			name.toLowerCase() === "authorization" &&
+			typeof value === "string" &&
+			value.startsWith("Bearer ") &&
+			workspaceIdOf(value.slice("Bearer ".length)) !== undefined,
+	);
 }
 
 // 他のkeyと値、commentを残し、`[otel].exporter`、harnessforceのSessionStart、PostToolUse、Stopのhandler、

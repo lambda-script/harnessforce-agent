@@ -36,7 +36,7 @@ function codexSession(statusOf: () => number = () => 202) {
 		return undefined;
 	};
 	const sent: unknown[] = [];
-	const { keychain } = fakeKeychain({
+	const { keychain, timeouts } = fakeKeychain({
 		items: {
 			[ingestKeyAccount(WORKSPACE)]: KEY,
 			[ingestOriginAccount(WORKSPACE)]: "https://ingest.example.test",
@@ -61,7 +61,9 @@ function codexSession(statusOf: () => number = () => 202) {
 				return new Response(null, { status: statusOf() });
 			},
 		});
-	return { root, worktree, run, sent };
+	// 送信先の解決（keychainのwithTimeoutの呼び出し）の回数。
+	const destinationResolutions = () => timeouts.length;
+	return { root, worktree, run, sent, destinationResolutions };
 }
 
 describe("harnessforce hook post-tool-use and stop", () => {
@@ -111,6 +113,14 @@ describe("harnessforce hook post-tool-use and stop", () => {
 		await s.run("stop", {});
 		await s.run("stop", {});
 		expect(s.sent).toHaveLength(1);
+	});
+
+	it("does not read the keychain in a turn whose pairs did not change", async () => {
+		const s = codexSession();
+		await s.run("stop", {});
+		await s.run("stop", {});
+		expect(s.sent).toHaveLength(1);
+		expect(s.destinationResolutions()).toBe(1);
 	});
 
 	it("stops sending for the session after a 401", async () => {

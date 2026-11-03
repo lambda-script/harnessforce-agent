@@ -6,7 +6,12 @@ import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { compileSchema } from "@harnessforce/test-support/validator";
 import { describe, expect, it } from "vitest";
 import { runHook } from "../src/hook.js";
-import { type Harness, harness, scratchpad } from "./support.js";
+import {
+	type Harness,
+	type HarnessOptions,
+	harness,
+	scratchpad,
+} from "./support.js";
 
 const isWorkLocation = compileSchema(SessionWorkLocationSchema);
 
@@ -36,10 +41,10 @@ function checkouts() {
 	return { root, worktree, branches, git };
 }
 
-function session() {
+function session(options: HarnessOptions = {}) {
 	const repo = checkouts();
 	const pad = scratchpad();
-	const h = harness({ git: repo.git });
+	const h = harness({ ...options, git: repo.git });
 	const run = (event: string, input: Record<string, unknown> = {}) =>
 		runHook(
 			event,
@@ -96,6 +101,21 @@ describe("session work locations from Claude Code", () => {
 		await s.run("stop");
 		await s.run("stop");
 		expect(sent(s.h)).toHaveLength(1);
+	});
+
+	it("does not read the user key in a turn whose pairs did not change", async () => {
+		const s = session({
+			managed: null,
+			env: {
+				HARNESSFORCE_ENDPOINT: "https://ingest.example.test",
+				HARNESSFORCE_WORKSPACE_ID: "ws1",
+			},
+			userKey: { kind: "found", key: "hf_ik_ws1_user" },
+		});
+		await s.run("stop");
+		await s.run("stop");
+		expect(sent(s.h)).toHaveLength(1);
+		expect(s.h.userKeyReads()).toBe(1);
 	});
 
 	it("sends the new branch after the working directory moves to another checkout", async () => {

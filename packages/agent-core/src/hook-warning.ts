@@ -39,6 +39,10 @@ export const DESTINATION_MISMATCH_WARNING: Record<Agent, string> = {
 		"Sessions are not being registered because the Harnessforce destination differs from the one saved by `harnessforce init`. Run `harnessforce init` again",
 };
 
+// Codexを`harnessforce run`を通さずに起動すると、logsが既定の1秒ごとに送られる（correlation.md「Codex」）。
+export const CODEX_EVERY_SECOND_WARNING =
+	"Codex is sending telemetry to Harnessforce every second. Start Codex with `harnessforce run -- codex` to send it every minute";
+
 export const TELEMETRY_NOT_CONFIGURED_WARNING =
 	"Claude Code telemetry for Harnessforce is not configured. Run `harnessforce init`";
 

@@ -5,6 +5,7 @@ import {
 	updateLine,
 } from "@harnessforce/agent-core/client-update";
 import {
+	CODEX_EVERY_SECOND_WARNING,
 	DESTINATION_MISMATCH_WARNING,
 	INVALID_ENDPOINT_WARNING,
 	keyMissingWarning,
@@ -34,6 +35,11 @@ import {
 	resolveUserDestination,
 	type UserDestination,
 } from "../credentials/user-destination.js";
+import {
+	codexConfigPath,
+	readCodexConfig,
+	sendsToHarnessforce,
+} from "../shared/codex-config.js";
 
 export const HOOK_USAGE =
 	"Usage: harnessforce hook session-start|post-tool-use|stop\n";
@@ -183,7 +189,25 @@ async function register(
 	return { outcome };
 }
 
-// correlation.md「hookの警告」の順: 401、clientの版が対応外、送信の設定と失敗の警告、clientの更新の期限、新しい版がある。
+// `harnessforce run -- codex`が渡す送信間隔（correlation.md「`harnessforce run -- codex`」）。
+const MIN_LOGS_DELAY_MS = 60_000;
+
+const isMinuteOrLonger = (delay: string | undefined) =>
+	delay !== undefined &&
+	/^\d+$/.test(delay) &&
+	Number(delay) >= MIN_LOGS_DELAY_MS;
+
+// hookのprocessはCodexの環境変数を受け継ぐため、Codex自身が使う送信間隔を判定できる（correlation.md「hookの警告」）。
+async function sendsEverySecond(deps: SessionStartDeps): Promise<boolean> {
+	if (isMinuteOrLonger(deps.env.OTEL_BLRP_SCHEDULE_DELAY)) return false;
+	const config = await readCodexConfig(
+		codexConfigPath(deps.env, deps.homeDir),
+	).catch(() => "");
+	return sendsToHarnessforce(config);
+}
+
+// correlation.md「hookの警告」の順: 401、clientの版が対応外、送信の設定と失敗の警告、Codexの送信の間隔が短い、
+// clientの更新の期限、新しい版がある。
 async function selectWarning(
 	registered: Registered,
 	deps: SessionStartDeps,
@@ -196,7 +220,9 @@ async function selectWarning(
 		(registered.outcome?.kind === "failed"
 			? REGISTRATION_FAILED_WARNING
 			: undefined);
-	if (sending !== undefined || !state) return sending;
+	if (sending !== undefined) return sending;
+	if (await sendsEverySecond(deps)) return CODEX_EVERY_SECOND_WARNING;
+	if (!state) return undefined;
 	return noticeLine("cli", updateStatePath(deps.homeDir), state, {
 		now: deps.now(),
 		env: deps.env,
