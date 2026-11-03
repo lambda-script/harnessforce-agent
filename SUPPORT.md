@@ -7,7 +7,7 @@ Choose the channel that matches your request.
 | A question about how to use Harnessforce | Discussions, Q&A | [Ask a question](https://github.com/lambda-script/harnessforce-agent/discussions/categories/q-a) |
 | A feature request | Discussions, Ideas | [Share an idea](https://github.com/lambda-script/harnessforce-agent/discussions/categories/ideas) |
 | A bug you can reproduce | Issue, bug report form | [Report a bug](https://github.com/lambda-script/harnessforce-agent/issues/new?template=bug_report.yml) |
-| Billing, your account or your Workspace data | Email | [support@harnessforce.dev](mailto:support@harnessforce.dev) |
+| Billing, your account or your Workspace data | Email | [support@lambdascript.dev](mailto:support@lambdascript.dev) |
 | An Enterprise contract | The contact form on the pricing page | [Talk to us](https://harnessforce.dev/en/pricing#enterprise) |
 | A security vulnerability | Private report | See [SECURITY.md](SECURITY.md) |
 
