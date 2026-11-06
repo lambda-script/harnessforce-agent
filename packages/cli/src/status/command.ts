@@ -47,7 +47,7 @@ const STEP_TITLES: Record<number, string> = {
 	2: "Connect the GitHub App",
 	3: "Assign repositories to a project",
 	4: "Set up telemetry",
-	5: "Wait for your first run",
+	5: "Wait for your first session",
 };
 
 const STATUS_MARKS = { done: "✓", todo: "・", unavailable: "?" } as const;

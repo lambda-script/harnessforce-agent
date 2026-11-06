@@ -15,7 +15,7 @@ import {
 const USER_KEY_REVOKED =
 	"Your ingest key has been revoked. Run `harnessforce init`";
 const WORKSPACE_KEY_REVOKED =
-	"The organization's ingest key has been revoked. Contact a Workspace administrator";
+	"The Workspace's ingest key has been revoked. Contact a Workspace administrator";
 
 // managed settingsのfileを持たず、harnessforce initで設定した端末。
 const userEnv = {

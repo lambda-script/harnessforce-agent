@@ -16,7 +16,7 @@ import {
 } from "./support.js";
 
 const WORKSPACE_KEY_REVOKED =
-	"The organization's ingest key has been revoked. Contact a Workspace administrator";
+	"The Workspace's ingest key has been revoked. Contact a Workspace administrator";
 const RULE = "# Always run the tests\n";
 
 function write(root: string, files: Record<string, string>) {

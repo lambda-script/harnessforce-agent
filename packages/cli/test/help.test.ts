@@ -75,6 +75,12 @@ describe("harnessforce <command> --help", () => {
 		expect(await out("run")).toContain("--issue");
 	});
 
+	it("names the Codex config.toml as the one file that holds the ingest key", async () => {
+		const out = (await runCli(["init", "--help"])).out;
+		expect(out).toContain("config.toml");
+		expect(out).not.toContain("never written to a plain file");
+	});
+
 	it("passes --help after the separator to the launched agent", async () => {
 		const r = await runCli([
 			"run",

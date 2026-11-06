@@ -118,7 +118,7 @@ const CLI_UNSUPPORTED_WARNING = unsupportedLine("cli");
 const REVOKED_KEY_MESSAGES: Record<KeyKind, string> = {
 	user: "Your ingest key has been revoked. Run `harnessforce init`",
 	workspace:
-		"The organization's ingest key has been revoked. Contact a Workspace administrator",
+		"The Workspace's ingest key has been revoked. Contact a Workspace administrator",
 };
 
 // resumeとcompactは同じsessionの継続なので送らない。未知のsourceも送らない。

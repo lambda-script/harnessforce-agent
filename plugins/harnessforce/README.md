@@ -97,7 +97,7 @@ responses or file contents; they are sent only through the OTel settings you cho
   configuration, on errors, or after 2 seconds it gives up quietly and writes the reason to stderr
   (Claude Code's debug log). Without Node.js, Claude Code shows a non-blocking `hook error`.
 - If the key is revoked, Claude Code shows once per session:
-  "The organization's ingest key has been revoked. Contact a Workspace administrator" (Workspace key) or
+  "The Workspace's ingest key has been revoked. Contact a Workspace administrator" (Workspace key) or
   "Your ingest key has been revoked. Run `harnessforce init`" (user key)
 
 ## Work location hooks

@@ -37,8 +37,9 @@ Sends:
 
 Does not send:
   Prompt text, model responses and tool input or output (unless --send-content
-  and the Workspace stores that category), code diffs, and secrets. The key is
-  never written to a plain file.
+  and the Workspace stores that category), code diffs, and secrets. The keys
+  stay in the OS keychain, except that Codex reads the user ingest key from
+  its config.toml, so that file holds it in plain text.
 
 Exit codes:
   0  Connected and configured.
