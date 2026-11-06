@@ -12,7 +12,8 @@ it. It is published on npm. To connect to a staging or local Harnessforce instea
 
 - Node.js 18 or later (the same Node.js the plugin hook uses).
 - An OS keychain: macOS Keychain, the Windows Credential Manager, or on Linux the Secret Service or the
-  kernel keyring (keyutils). Keys and tokens are never written to a plain file.
+  kernel keyring (keyutils). Keys and tokens are never written to a plain file, except the user ingest key
+  in the Codex `config.toml` (step 6 of [CLI credentials](#cli-credentials-harnessforce-init-harnessforce-otel-headers)).
 
 ## Install
 
@@ -125,7 +126,7 @@ tokens are sent only to the origins pinned by `harnessforce init`.
    unanswered window behind other windows keeps the new one from appearing. Otherwise, as on a machine
    reached only over SSH, it saves to the kernel's persistent keyring, which lives in memory and is
    cleared on reboot or after a period of disuse; run `harnessforce init` again then. Without either
-   store it stops. Keys are never written to a plain file.
+   store it stops. Apart from the Codex `config.toml` (step 6), keys are never written to a plain file.
 2. It logs in with the browser: OAuth 2.0 authorization code with PKCE, a `127.0.0.1:8080` loopback
    redirect (`--port <port>` changes the port), the endpoint discovered from
    `/.well-known/oauth-authorization-server`, and a 5 minute wait. When the port is already in use it

@@ -105,7 +105,7 @@ describe("the order of the session start line", () => {
 		});
 		await run("session-start", h);
 		expect(messageOf(h)).toBe(
-			"The organization's ingest key has been revoked. Contact a Workspace administrator",
+			"The Workspace's ingest key has been revoked. Contact a Workspace administrator",
 		);
 	});
 

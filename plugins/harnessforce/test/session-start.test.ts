@@ -15,7 +15,7 @@ import {
 
 // correlation.md「hook」の共通の規則が定める文言。
 const WORKSPACE_KEY_REVOKED =
-	"The organization's ingest key has been revoked. Contact a Workspace administrator";
+	"The Workspace's ingest key has been revoked. Contact a Workspace administrator";
 
 // correlation.md「hookの警告」の文言。
 const NOT_CONFIGURED =

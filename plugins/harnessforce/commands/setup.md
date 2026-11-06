@@ -82,7 +82,7 @@ If `harnessforce import` fails, show its output and go on; importing is not need
 
 ## 7. Show the remaining steps
 
-From the result of `harnessforce status --json` in step 6, show the steps that are not done (`status` other than `done` in `steps`, and every step in `admin_steps`) in the order of their numbers, each with its title, who does it, and the URL of its page. Use these titles: step 2 "Connect the GitHub App", step 3 "Assign repositories to a project", step 4 "Set up telemetry", step 5 "Wait for your first run". Steps 2 and 3 are done by an owner or admin, and steps 4 and 5 by the user. For a step the user is not responsible for (steps 2 and 3 when the user's `role` is `member`), add "Send this URL to the person responsible."
+From the result of `harnessforce status --json` in step 6, show the steps that are not done (`status` other than `done` in `steps`, and every step in `admin_steps`) in the order of their numbers, each with its title, who does it, and the URL of its page. Use these titles: step 2 "Connect the GitHub App", step 3 "Assign repositories to a project", step 4 "Set up telemetry", step 5 "Wait for your first session". Steps 2 and 3 are done by an owner or admin, and steps 4 and 5 by the user. For a step the user is not responsible for (steps 2 and 3 when the user's `role` is `member`), add "Send this URL to the person responsible."
 
 If `has_seat` is `false`, first show "You don't have a developer seat, so the telemetry you send is not stored." If no step remains, show only "Your workspace is ready." If `harnessforce status --json` failed in step 6, show the URL of the Harnessforce Home (the environment variable `HARNESSFORCE_URL`) instead of the steps.
 
