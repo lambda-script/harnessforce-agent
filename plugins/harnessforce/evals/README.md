@@ -31,6 +31,7 @@ Each case has one tag:
 | `trigger` | Whether the skill or command is invoked | `claude plugin eval . --tag trigger --ablation none` |
 | `rules` | A rule of a skill, with read-only tools | `claude plugin eval . --tag rules --scaffold` |
 | `granted` | A rule that needs Bash, Write and Edit to be measurable. A run has no `harnessforce` CLI, so `harnessforce tune record` always fails | `claude plugin eval . --tag granted --allow-tools Bash Write Edit` |
+| `injected` | A rule of the text the SessionStart hook injects (`using-harnessforce/`). Both arms would get the text, so there is one arm, and the comparison is between versions of the text | `claude plugin eval . --tag injected --ablation none --scaffold` |
 
 Run them from `plugins/harnessforce`. `--scaffold` runs the `fixture.sh` of a case, which only creates a git
 repository in the run's empty workspace. Add `--model <model>` to pin the model and `--no-publish` to keep
@@ -41,5 +42,9 @@ runs; no grader calls a judge model.
 
 - A pull request that changes the wording of a skill or a command: run the cases of that skill and its
   trigger cases on `main` and on the branch, and paste both summaries into the pull request.
+- A pull request that changes `skills/using-harnessforce/SKILL.md`: run `node evals/using-harnessforce/sync.mjs`
+  to copy the new text into the `injected` cases (a run loads no hook, so each case gives the text through
+  `append_system_prompt`; `pnpm test` fails on a stale copy). For the summary of `main`, run the same cases in
+  a copy of the plugin of `main` after `node evals/using-harnessforce/sync.mjs <that SKILL.md>`.
 - A release pull request: run every tag.
 - A bug in a skill: add a case that fails on the bug before fixing it, and keep it as a regression.

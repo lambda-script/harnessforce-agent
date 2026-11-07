@@ -22,27 +22,31 @@ describe("using-harnessforce body", () => {
 		expect(usingHarnessforceBody.split("\n").length).toBeLessThanOrEqual(80));
 
 	it.each([
-		"## What is recorded",
+		"## The rule",
+		"## Session ID",
+		"## What is sent, and when",
 		"## What is not collected",
-		"## Which hook sends what",
-		"## Which skill and tool to use, and when",
 		"## Red Flags",
 		"## Priority",
-		"## Subagents",
 	])("has the section %s in order", (heading) =>
 		expect(usingHarnessforceBody).toContain(heading),
 	);
 
+	// correlation.md「using-harnessforce」: 第三者のpluginの文として、強調で利用者の指示より強く読ませない。
+	it("states the rules without emphasis", () =>
+		expect(usingHarnessforceBody).not.toMatch(
+			/<[A-Z_]+>|\b(MUST|NEVER|ALWAYS|IMPORTANT)\b/,
+		));
+
 	it("keeps the sections in the specified order", () => {
 		const headings = usingHarnessforceBody.match(/^## .+$/gm);
 		expect(headings).toEqual([
-			"## What is recorded",
+			"## The rule",
+			"## Session ID",
+			"## What is sent, and when",
 			"## What is not collected",
-			"## Which hook sends what",
-			"## Which skill and tool to use, and when",
 			"## Red Flags",
 			"## Priority",
-			"## Subagents",
 		]);
 	});
 });

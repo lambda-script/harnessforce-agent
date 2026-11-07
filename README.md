@@ -166,8 +166,9 @@ flowchart LR
   `PermissionRequest`, `PostCompact`, `SessionEnd`); and record the repository and branch the session works
   in, sending them at the end of a turn (`CwdChanged`, `PostToolUse` of `Write` and `Edit`, `Stop`). They use
   the Workspace key from managed settings, or the user key that `harnessforce otel-headers` reads from the
-  keychain. The `using-harnessforce`, `record-session` and `propose-improvements` skills tell the agent what
-  is recorded, when to start and complete a session for an Issue, and how to write a proposal.
+  keychain. The `using-harnessforce` skill tells the agent which skill fits a request and what is
+  recorded; `record-session` says when to start and complete a session for an Issue, and
+  `propose-improvements` how to write a proposal.
 - **Codex** is configured by `harnessforce init`: its `SessionStart`, `PostToolUse` and `Stop` hooks run
   `harnessforce hook` to register sessions and send work locations, and its OpenTelemetry exporter sends
   to the ingest API.
