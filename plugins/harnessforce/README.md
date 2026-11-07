@@ -166,7 +166,7 @@ commands and file paths, so the hooks count the names themselves.
 
 The `diagram` skill is experimental and renders on macOS and Linux. It sends nothing to Harnessforce. To render, it runs mermaid-cli
 12.2.0 with `npx` (or the `mmdc` that `MMDC` names), which downloads mermaid-cli from npm and Chromium on
-first use, so rendering fails without network access. It fetches each logo it draws from a public
+first use (about 1.4 GB in the npm and Puppeteer caches), so rendering fails without network access. It fetches each logo it draws from a public
 source (svgl, devicon, the `gilbarbara/logos` collection, Lucide, and the icon packages of AWS, Google
 Cloud and Azure), or from the URL the diagram names, into
 `${XDG_CACHE_HOME:-~/.cache}/harnessforce-diagram/icons`, so those sites see the names of the products

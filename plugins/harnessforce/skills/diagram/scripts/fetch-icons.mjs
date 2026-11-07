@@ -40,17 +40,28 @@ const TIMEOUT_MS = 15_000;
 // Lucide glyphs use currentColor; give them the diagram's ink so they show on a white tile.
 const LUCIDE_INK = "#3d4660";
 
+// A request that throws (DNS, refused connection, proxy, timeout) is told apart from an answer without a logo: when no
+// icon site can be reached, another slug will not help either.
 async function download(url) {
+	let host;
+	try {
+		host = new URL(url).host;
+	} catch {
+		// A malformed name=URL is a missing logo, not a network problem.
+		return {};
+	}
 	try {
 		const response = await fetch(url, {
 			headers: HEADERS,
 			signal: AbortSignal.timeout(TIMEOUT_MS),
 		});
-		if (!response.ok) return undefined;
+		if (!response.ok) return {};
 		const bytes = Buffer.from(await response.arrayBuffer());
-		return bytes.length >= MIN_BYTES ? bytes : undefined;
-	} catch {
-		return undefined;
+		return bytes.length >= MIN_BYTES ? { bytes } : {};
+	} catch (error) {
+		return {
+			unreachable: `${host} (${error.cause?.code ?? error.message})`,
+		};
 	}
 }
 
@@ -110,7 +121,7 @@ async function svglUrl(slug) {
 		targets.add(normalize(slug.slice(0, -2)));
 	}
 	for (const query of queries) {
-		const body = await download(
+		const { bytes: body } = await download(
 			`https://api.svgl.app?search=${encodeURIComponent(query)}`,
 		);
 		if (!body) continue;
@@ -229,16 +240,33 @@ export async function fetchIcons(
 	for (const spec of specs) {
 		const { name, tries } = parseSpec(spec, baseDir);
 		if (!NAME.test(name)) {
+			// A spec such as lucide/git-pull-request has no name before the colon.
+			const isUnnamed = name === spec && spec.includes("/");
+			const suggestedName = spec
+				.split("/")
+				.pop()
+				.replace(/[^A-Za-z0-9_-]/g, "-");
+			const suggestion = isUnnamed
+				? `. Write it as ${suggestedName}:${spec}`
+				: "";
 			console.error(
-				`SKIP ${spec}: the name must match [A-Za-z0-9_-]+ (it becomes a file name)`,
+				`SKIP ${spec}: the name must match [A-Za-z0-9_-]+ (it becomes a file name)${suggestion}`,
 			);
 			failed.push(spec);
 			continue;
 		}
 		let found;
 		let readError;
+		let downloads = 0;
+		let unreachableCount = 0;
+		const unreachable = new Set();
 		for (const [source, url, read] of await tries(loadPackages)) {
-			const member = read ? readMember(read) : { bytes: await download(url) };
+			if (!read) downloads++;
+			const member = read ? readMember(read) : await download(url);
+			if (member.unreachable) {
+				unreachableCount++;
+				unreachable.add(member.unreachable);
+			}
 			readError ??=
 				member.error &&
 				(source === "file"
@@ -252,11 +280,13 @@ export async function fetchIcons(
 			}
 		}
 		if (!found) {
-			console.error(
-				readError
-					? `FAIL ${name}: ${readError}`
-					: `FAIL ${name}: no source has it. Try name:<other slug>, or name=<URL or repository path of the official file>`,
-			);
+			const isOffline = downloads > 0 && unreachableCount === downloads;
+			let reason =
+				"no source has it. Try name:<other slug>, or name=<URL or repository path of the official file>";
+			if (isOffline)
+				reason = `cannot reach ${[...unreachable].join(", ")}. Check the network or proxy; another slug will not help`;
+			if (readError) reason = readError;
+			console.error(`FAIL ${name}: ${reason}`);
 			failed.push(spec);
 			continue;
 		}

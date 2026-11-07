@@ -156,3 +156,87 @@ it("parseArgs takes the value after --icons-dir as the directory, not as a spec"
 	assert.equal(args.dir, "/tmp/icons");
 	assert.deepEqual(args.specs, ["neon", "vercel"]);
 });
+
+it("fetchIcons names the icon sites it could not reach instead of saying no source has the logo", async () => {
+	const root = mkdtempSync(join(tmpdir(), "fetch-icons-"));
+	const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+	vi.stubGlobal(
+		"fetch",
+		vi.fn(async () => {
+			throw new TypeError("fetch failed", {
+				cause: Object.assign(new Error("connect"), { code: "ECONNREFUSED" }),
+			});
+		}),
+	);
+	try {
+		const failed = await fetchIcons(
+			["users:lucide/users"],
+			join(root, "icons"),
+		);
+		assert.deepEqual(failed, ["users:lucide/users"]);
+		const message = errors.mock.calls.map((call) => call.join(" ")).join("\n");
+		assert.match(message, /cannot reach cdn\.jsdelivr\.net \(ECONNREFUSED\)/);
+		assert.doesNotMatch(message, /no source has it/);
+	} finally {
+		vi.unstubAllGlobals();
+		errors.mockRestore();
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+it("fetchIcons still says no source has the logo when one icon site answered and others could not be reached", async () => {
+	const root = mkdtempSync(join(tmpdir(), "fetch-icons-"));
+	const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+	vi.stubGlobal(
+		"fetch",
+		vi.fn(async (url: string) => {
+			if (url.includes("raw.githubusercontent.com"))
+				return new Response("Not Found", { status: 404 });
+			throw new TypeError("fetch failed", {
+				cause: Object.assign(new Error("connect"), { code: "ECONNREFUSED" }),
+			});
+		}),
+	);
+	try {
+		await fetchIcons(["nosuchlogo"], join(root, "icons"));
+		const message = errors.mock.calls.map((call) => call.join(" ")).join("\n");
+		assert.match(message, /no source has it/);
+		assert.doesNotMatch(message, /cannot reach/);
+	} finally {
+		vi.unstubAllGlobals();
+		errors.mockRestore();
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+it("fetchIcons fails a malformed name=URL on its own instead of stopping every spec", async () => {
+	const root = mkdtempSync(join(tmpdir(), "fetch-icons-"));
+	const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+	try {
+		const failed = await fetchIcons(
+			["logo=https://exa mple.com/a.svg"],
+			join(root, "icons"),
+		);
+		assert.deepEqual(failed, ["logo=https://exa mple.com/a.svg"]);
+	} finally {
+		errors.mockRestore();
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+it("fetchIcons suggests a name for a spec written without one, such as lucide/<icon>", async () => {
+	const root = mkdtempSync(join(tmpdir(), "fetch-icons-"));
+	const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+	try {
+		const failed = await fetchIcons(
+			["lucide/git-pull-request"],
+			join(root, "icons"),
+		);
+		assert.deepEqual(failed, ["lucide/git-pull-request"]);
+		const message = errors.mock.calls.map((call) => call.join(" ")).join("\n");
+		assert.match(message, /git-pull-request:lucide\/git-pull-request/);
+	} finally {
+		errors.mockRestore();
+		rmSync(root, { recursive: true, force: true });
+	}
+});

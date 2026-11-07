@@ -632,6 +632,14 @@ async function main() {
 				failures++;
 				continue;
 			}
+			// mermaid reads a frontmatter only on the first line; after a comment it fails with "Parse error on line 1".
+			if (/^(?:[ \t]*(?:%%[^\n]*)?\n)+---[ \t]*\n/.test(source)) {
+				console.error(
+					`fail ${file}: the frontmatter (---) must be on the first line. Move the %% lines below the diagram type line`,
+				);
+				failures++;
+				continue;
+			}
 			const dirs = [args.icons];
 			let { text, missing, incomplete } = inlineIcons(source, dirs);
 			if (missing.length > 0 && args.fetch) {

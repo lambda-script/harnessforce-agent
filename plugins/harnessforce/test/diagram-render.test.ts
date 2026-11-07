@@ -1146,3 +1146,19 @@ it("portableMarkdown writes a themeCSS that mermaid accepts from a diagram: no <
 	// mermaid empties a diagram's themeCSS that holds any of these, and the diagram then loses every rule.
 	assert.doesNotMatch(css, /[<>]|url\(data:/);
 });
+
+it("render.mjs stops with the fix when %% comments come before the frontmatter, which mermaid then fails to parse", () => {
+	const dir = mkdtempSync(join(work, "frontmatter-"));
+	const diagram = join(dir, "x.mmd");
+	writeFileSync(
+		diagram,
+		"%% Source: a description\n---\ntitle: x\n---\nflowchart LR\n  a --> b\n",
+	);
+	const result = spawnSync("node", [RENDER, diagram, "--no-fetch"], {
+		encoding: "utf8",
+		env: { ...process.env, MMDC: join(dir, "missing-mmdc") },
+	});
+	assert.equal(result.status, 1);
+	assert.match(result.stderr, /frontmatter .*first line/);
+	assert.match(result.stderr, /below the diagram type line/);
+});
