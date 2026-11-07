@@ -164,7 +164,7 @@ commands and file paths, so the hooks count the names themselves.
 
 ## Diagram skill
 
-The `diagram` skill is experimental. It sends nothing to Harnessforce. To render, it runs mermaid-cli
+The `diagram` skill is experimental and renders on macOS and Linux. It sends nothing to Harnessforce. To render, it runs mermaid-cli
 12.2.0 with `npx` (or the `mmdc` that `MMDC` names), which downloads mermaid-cli from npm and Chromium on
 first use, so rendering fails without network access. It fetches each logo it draws from a public
 source (svgl, devicon, the `gilbarbara/logos` collection, Lucide, and the icon packages of AWS, Google

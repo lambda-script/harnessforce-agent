@@ -657,7 +657,6 @@ async function main() {
 			}
 			const lifted = liftTitleLogos(alignImageNodes(text));
 			text = lifted.text;
-			// Lab sources are kept as <name>.src.txt so that the pre-push check does not render them all.
 			const name = basename(file).replace(/(\.src)?\.(mmd|txt)$/, "");
 			const outDir = args.out ?? dirname(file);
 			const writeInput = (theme) => {

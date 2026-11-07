@@ -1034,22 +1034,19 @@ const CLUSTERS = [
 	"</g></svg>",
 ].join("");
 
-it.skipIf(process.platform === "win32")(
-	"groupTitleCss moves each group title's box to the group's top left and names the groups it found",
-	() => {
-		const { css, found } = groupTitleCss(CLUSTERS);
-		const vercel =
-			".cluster[id$='-vercel'] .cluster-label [height] { transform: translate(-55.25px, 6px); }";
-		const edge =
-			".cluster[id$='-edge-vercel'] .cluster-label [height] { transform: translate(-88px, 6px); }";
-		assert.ok(css.includes(vercel) && css.includes(edge), css);
-		assert.ok(
-			css.indexOf(edge) > css.indexOf(vercel),
-			"the longer id's rule comes later and wins for edge-vercel",
-		);
-		assert.deepEqual([...found].sort(), ["edge-vercel", "vercel"]);
-	},
-);
+it("groupTitleCss moves each group title's box to the group's top left and names the groups it found", () => {
+	const { css, found } = groupTitleCss(CLUSTERS);
+	const vercel =
+		".cluster[id$='-vercel'] .cluster-label [height] { transform: translate(-55.25px, 6px); }";
+	const edge =
+		".cluster[id$='-edge-vercel'] .cluster-label [height] { transform: translate(-88px, 6px); }";
+	assert.ok(css.includes(vercel) && css.includes(edge), css);
+	assert.ok(
+		css.indexOf(edge) > css.indexOf(vercel),
+		"the longer id's rule comes later and wins for edge-vercel",
+	);
+	assert.deepEqual([...found].sort(), ["edge-vercel", "vercel"]);
+});
 
 function titleStub(dir: string, layout: string, check: string) {
 	const stub = join(dir, "mmdc");

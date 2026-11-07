@@ -106,9 +106,9 @@ the [plugin README](plugins/harnessforce/README.md#session-registration-hooks).
   repository's `.claude/settings.json` cannot redirect them.
 - **Fails quietly:** the hooks always exit 0 and give up after 2 seconds (1 second at session end); a
   session is never blocked.
-
-- **Diagrams stay local:** the plugin's experimental `diagram` skill sends nothing to Harnessforce; it
-  downloads mermaid-cli and the logos it draws from npm and public icon sites ([details](plugins/harnessforce/README.md#diagram-skill)).
+- **Diagrams are not sent to Harnessforce:** the plugin's experimental `diagram` skill downloads mermaid-cli
+  and Chromium on first render, and fetches the logos it draws from public icon sites, which see the names of
+  the products in a diagram ([details](plugins/harnessforce/README.md#diagram-skill)).
 
 The per-package READMEs describe exactly what each command and hook sends.
 
