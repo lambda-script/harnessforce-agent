@@ -5,7 +5,8 @@
 // Logos are looked up in the icons dir, and a missing one is fetched into it. Logos never need to be committed.
 // Every logo is placed on the same white square tile, and every image node's label gets the same minimum width, so
 // tiles line up in a column. With `mergeEdges: true` each tile is also padded to the middle of its node, so edges meet
-// it at its mid-height. Group titles go to the top left of their group, with their logo in front.
+// it at its mid-height. Group titles go to the top left of their group, with their logo in front, and each group's
+// frame is cut back to what it holds. For a flowchart, state or ER diagram it prints how many times edges cross.
 //
 // Usage: node render.mjs <file.mmd>... [--icons-dir <dir>] [--no-fetch] [--out <dir>] [--theme both|light|dark]
 //                        [--scale <n>] [--svg] [--portable]
@@ -317,10 +318,11 @@ function readGroups(text) {
 	return { fills, groupsOf, ancestorsOf, edges };
 }
 
-export function groupEdgeLabelCss(text) {
+// The data-id of each edge whose two ends are in one filled group, and the fill of the innermost such group.
+function edgesInFilledGroups(text) {
 	const { fills, groupsOf, edges } = readGroups(text);
 	const counts = new Map();
-	const rules = [];
+	const inside = [];
 	for (const [from, to] of edges) {
 		const pair = `${from}\0${to}`;
 		const earlier = counts.get(pair) ?? 0;
@@ -330,15 +332,23 @@ export function groupEdgeLabelCss(text) {
 		const innermostFilled = (groupsOf.get(from) ?? []).find(
 			(group) => groupsOfTo.has(group) && fills.has(group),
 		);
-		if (!innermostFilled) continue;
-		const id = `L_${from}_${to}_${n}`;
-		for (const part of LABEL_PARTS) {
-			rules.push(
-				`[data-id="${id}"] ${part} { background-color: ${fills.get(innermostFilled)}; }`,
-			);
-		}
+		if (innermostFilled)
+			inside.push({
+				id: `L_${from}_${to}_${n}`,
+				fill: fills.get(innermostFilled),
+			});
 	}
-	return rules.join("\n");
+	return inside;
+}
+
+export function groupEdgeLabelCss(text) {
+	return edgesInFilledGroups(text)
+		.flatMap(({ id, fill }) =>
+			LABEL_PARTS.map(
+				(part) => `[data-id="${id}"] ${part} { background-color: ${fill}; }`,
+			),
+		)
+		.join("\n");
 }
 
 // render.mjs passes its own themeCSS through the config file given to mermaid-cli, which replaces a themeCSS in the
@@ -349,6 +359,14 @@ export function diagramThemeCss(text) {
 	const value = frontmatter.match(/^\s+themeCSS:\s*(["'])(.*)\1\s*$/m);
 	return value ? value[2] : "";
 }
+
+// In dark mode GitHub draws the block on a dark page, where the white boxes of edge labels and of names standing on
+// the page showed as white patches. Inverting a label turns its text light, in about the hue it had, and an edge
+// label's box near black, which still hides the line under it; a name under a tile has no line under it and loses its
+// box. The text color cannot be set instead, since linkStyle and classDef write it inline with !important. A filled
+// group stays light in both modes, so the labels on its fill are left alone. Dark mode is read from the viewer's
+// color scheme (prefers-color-scheme), which a diagram's CSS can see; GitHub's own mode setting it cannot.
+const DARK_PAGE_LABEL = "filter: invert(0.94) hue-rotate(180deg);";
 
 // A ```mermaid block keeps its light colors on every page, so on a dark page (GitHub in dark mode) a name drawn in
 // dark ink straight on the page vanishes. Names keep the theme's white label box, except inside a filled group, whose
@@ -370,6 +388,10 @@ export function portableCss(text) {
 			);
 		}
 	}
+	const dark = [
+		`.edgeLabel .labelBkg, .image-shape .labelBkg { ${DARK_PAGE_LABEL} }`,
+		".image-shape .labelBkg, .image-shape .labelBkg * { background-color: transparent; }",
+	];
 	for (const [id, groups] of groupsOf) {
 		if (!groups.some((group) => fills.has(group))) continue;
 		for (const part of ["", " p", " .labelBkg"]) {
@@ -377,7 +399,13 @@ export function portableCss(text) {
 				`[id*='flowchart-${id}-']${part} { background-color: transparent; }`,
 			);
 		}
+		dark.push(
+			`.image-shape[id*='flowchart-${id}-'] .labelBkg { filter: none; }`,
+		);
 	}
+	for (const { id } of edgesInFilledGroups(text))
+		dark.push(`.edgeLabel [data-id="${id}"] .labelBkg { filter: none; }`);
+	rules.push(`@media (prefers-color-scheme: dark) { ${dark.join(" ")} }`);
 	return rules.join("\n");
 }
 
@@ -432,30 +460,321 @@ export function titleLogoCss(groups, logos) {
 	return rules.join("\n");
 }
 
-// Reads where mermaid put each group and its title in an SVG it drew, and returns the CSS that moves each title's box
-// to the group's top left, by an offset from where mermaid put it, so a page that lays the diagram out the same way
-// (GitHub runs the same mermaid) places it the same; also the ids of the groups it found. The rules hold no ">", "<"
-// or "url(data:", because mermaid empties a diagram's own themeCSS that does (the portable block carries it in the
-// frontmatter), and no element name (SVG_TEXT_CSS).
-export function groupTitleCss(svg) {
+// mermaid keeps a group's frame this far from its contents on every side (SUBGRAPH_PADDING in its ELK layout).
+const FRAME_GAP = 24;
+const N = "(-?\\d+(?:\\.\\d+)?(?:e-?\\d+)?)";
+const TRANSLATE = new RegExp(`transform="translate\\(${N},\\s*${N}\\)"`);
+const round2 = (value) => Number(value.toFixed(2));
+
+// The parts of an SVG mermaid drew that decide where a group's contents start and end: group frames and titles, image
+// nodes with the part of their image the tile fills, other nodes (by center only), edges' points and edge labels.
+function readLayout(svg) {
 	const prefix = `${svg.match(/<svg\b[^>]*?\sid="([^"]+)"/)?.[1] ?? "my-svg"}-`;
-	const group =
-		/<g class="cluster\b[^"]*" id="([^"]+)"[^>]*>\s*<rect\b[^>]*?\sx="(-?[\d.]+)" y="(-?[\d.]+)"[^>]*>\s*<g class="cluster-label" transform="translate\((-?[\d.]+),\s*(-?[\d.]+)\)"/g;
-	const moves = new Map();
-	for (const [, svgId, x, y, labelX, labelY] of svg.matchAll(group)) {
-		const id = svgId.startsWith(prefix) ? svgId.slice(prefix.length) : svgId;
-		const dx = Number((Number(x) + TITLE_INSET.x - Number(labelX)).toFixed(2));
-		const dy = Number((Number(y) + TITLE_INSET.y - Number(labelY)).toFixed(2));
-		moves.set(
-			id,
-			`.cluster[id$='-${id}'] .cluster-label [height] { transform: translate(${dx}px, ${dy}px); }`,
+	const clusterPattern = new RegExp(
+		`<g class="cluster\\b[^"]*" id="([^"]+)"[^>]*>\\s*<rect\\b[^>]*?\\sx="${N}" y="${N}" width="${N}" height="${N}"[^>]*>\\s*<g class="cluster-label" transform="translate\\(${N},\\s*${N}\\)">(?:<foreignObject\\b[^>]*?\\sheight="${N}")?`,
+		"g",
+	);
+	const clusters = [...svg.matchAll(clusterPattern)].map(
+		([, svgId, x, y, width, height, labelX, labelY, labelHeight]) => ({
+			id: svgId.startsWith(prefix) ? svgId.slice(prefix.length) : svgId,
+			x: Number(x),
+			y: Number(y),
+			width: Number(width),
+			height: Number(height),
+			labelX: Number(labelX),
+			labelY: Number(labelY),
+			// undefined when mermaid drew the title without a box (htmlLabels: false); 0 for a group titled " ".
+			labelHeight: labelHeight === undefined ? undefined : Number(labelHeight),
+		}),
+	);
+	// A node is a group with a class of mermaid's node shapes or an id of a flowchart node; only image nodes are measured.
+	const starts = [
+		...svg.matchAll(/<g class="([^"]*)" id="([^"]+)"[^>]*>/g),
+	].filter(
+		([, cls, id]) =>
+			/^(?:image-shape|node)\b/.test(cls) || id.includes("-flowchart-"),
+	);
+	const nodes = starts.map((start, i) => {
+		const [cx, cy] = start[0].match(TRANSLATE)?.slice(1).map(Number) ?? [0, 0];
+		if (!/^image-shape\b/.test(start[1])) return { cx, cy };
+		const body = svg.slice(start.index, starts[i + 1]?.index ?? svg.length);
+		const image = body.match(
+			new RegExp(
+				`<image href="data:image/svg\\+xml;base64,([^"]+)" width="${N}" height="${N}"[^>]*?${TRANSLATE.source}`,
+			),
 		);
+		if (!image) return { cx, cy };
+		const [, base64, , imageHeight, , imageY] = image;
+		const top = cy + Number(imageY);
+		const height = Number(imageHeight);
+		// A tile padded by alignImageNodes draws its 60 units in a viewBox that starts above or ends below them.
+		const viewBox = Buffer.from(base64, "base64")
+			.toString("utf8")
+			.match(new RegExp(`^<svg [^>]*viewBox="0 ${N} ${TILE} ${N}"`));
+		const [from, span] = viewBox
+			? [-Number(viewBox[1]), Number(viewBox[2])]
+			: [0, TILE];
+		const label = body.match(
+			new RegExp(
+				`<g class="label"[^>]*?${TRANSLATE.source}><rect/><foreignObject [^>]*?height="${N}"`,
+			),
+		);
+		const shown = [
+			top + (height * from) / span,
+			top + (height * (from + TILE)) / span,
+		];
+		if (label)
+			shown.push(
+				cy + Number(label[2]),
+				cy + Number(label[2]) + Number(label[3]),
+			);
+		return {
+			cx,
+			cy,
+			imageTop: top,
+			top: Math.min(...shown),
+			bottom: Math.max(...shown),
+		};
+	});
+	const edges = [
+		...svg.matchAll(
+			/<path\b[^>]*?\sdata-id="([^"]+)"[^>]*?\sdata-points="([A-Za-z0-9+/=]+)"/g,
+		),
+	].map(([, id, points]) => ({
+		id,
+		points: JSON.parse(Buffer.from(points, "base64").toString("utf8")),
+	}));
+	const labelPattern = new RegExp(
+		`<g class="edgeLabel" ${TRANSLATE.source}><g class="label"[^>]*?${TRANSLATE.source}><foreignObject width="${N}" height="${N}"`,
+		"g",
+	);
+	const labels = [...svg.matchAll(labelPattern)]
+		.filter(([, , , , , width]) => Number(width) > 0)
+		.map(([, cx, cy, , dy, , height]) => ({
+			cx: Number(cx),
+			top: Number(cy) + Number(dy),
+			height: Number(height),
+		}))
+		.map(({ cx, top, height }) => ({
+			cx,
+			cy: top + height / 2,
+			top,
+			bottom: top + height,
+		}));
+	return { clusters, nodes, edges, labels };
+}
+
+// An edge's segments. mermaid lists points that lie on a straight run between two bends too; they are dropped, so a
+// crossing at one of them is not taken for a meeting at a segment's end.
+function segmentsOf(edge) {
+	const turns = edge.points.filter((p, i, all) => {
+		const [before, after] = [all[i - 1], all[i + 1]];
+		if (!before || !after) return true;
+		return (
+			Math.abs(
+				(p.x - before.x) * (after.y - p.y) - (p.y - before.y) * (after.x - p.x),
+			) > 0.01
+		);
+	});
+	return turns.slice(1).map((p, i) => ({ id: edge.id, a: turns[i], b: p }));
+}
+
+// The vertical extent of the part of a segment inside a rectangle (Liang–Barsky), or undefined if none of it is.
+function clipY({ a, b }, box) {
+	const [dx, dy] = [b.x - a.x, b.y - a.y];
+	let [from, to] = [0, 1];
+	for (const [step, room] of [
+		[-dx, a.x - box.x],
+		[dx, box.x + box.width - a.x],
+		[-dy, a.y - box.y],
+		[dy, box.y + box.height - a.y],
+	]) {
+		if (step === 0) {
+			if (room < 0) return undefined;
+			continue;
+		}
+		const t = room / step;
+		if (step < 0) from = Math.max(from, t);
+		else to = Math.min(to, t);
+		if (from > to) return undefined;
 	}
-	const ids = [...moves.keys()].sort(byLength);
-	return {
-		css: ids.map((id) => moves.get(id)).join("\n"),
-		found: new Set(ids),
-	};
+	const [y1, y2] = [a.y + from * dy, a.y + to * dy];
+	return [Math.min(y1, y2), Math.max(y1, y2)];
+}
+
+// alignImageNodes pads each tile with empty space as tall as its label, so a group's frame, which mermaid fits around
+// its nodes' boxes, starts that far above the topmost tile, under a title that holds the top left. Each frame is cut
+// back to its title and FRAME_GAP above the topmost thing drawn inside it, and to FRAME_GAP below the lowest one,
+// innermost groups first. A group holding a node other than an image node keeps its frame: its shape is not measured.
+function tightenFrames({ clusters, nodes, edges, labels }) {
+	const frames = new Map();
+	const byArea = [...clusters].sort(
+		(a, b) => a.width * a.height - b.width * b.height,
+	);
+	for (const group of byArea) {
+		const holds = (x, y) =>
+			x >= group.x &&
+			x <= group.x + group.width &&
+			y >= group.y &&
+			y <= group.y + group.height;
+		const held = nodes.filter((node) => holds(node.cx, node.cy));
+		const inner = byArea.filter(
+			(other) =>
+				frames.has(other.id) && other !== group && holds(other.x, other.y),
+		);
+		const spans = [
+			...held.map((node) => [node.top, node.bottom]),
+			...inner.map((other) => [
+				frames.get(other.id).top,
+				frames.get(other.id).bottom,
+			]),
+			...edges.flatMap((edge) =>
+				segmentsOf(edge)
+					.map((segment) => clipY(segment, group))
+					.filter(Boolean),
+			),
+			...labels
+				.filter((label) => holds(label.cx, label.cy))
+				.map((label) => [label.top, label.bottom]),
+		];
+		const bottom = group.y + group.height;
+		const measured =
+			spans.length > 0 &&
+			group.labelHeight !== undefined &&
+			held.every((node) => node.top !== undefined);
+		frames.set(group.id, {
+			top: measured
+				? Math.max(
+						group.y,
+						Math.min(...spans.map((s) => s[0])) -
+							FRAME_GAP -
+							group.labelHeight -
+							TITLE_INSET.y,
+					)
+				: group.y,
+			bottom: measured
+				? Math.min(bottom, Math.max(...spans.map((s) => s[1])) + FRAME_GAP)
+				: bottom,
+		});
+	}
+	return frames;
+}
+
+// Reads where mermaid put each group and its title in an SVG it drew, and returns the CSS that cuts each frame back to
+// its contents (tightenFrames) and moves each title's box to the frame's top left, by an offset from where mermaid put
+// it, so a page that lays the diagram out the same way (GitHub runs the same mermaid) places it the same; also the ids
+// of the groups it found. The space the frames give up at the top of the diagram goes too: the diagram title moves
+// down by it, and mermaid fits the picture to what it draws, CSS transforms included. The rules hold no ">", "<" or
+// "url(data:", because mermaid empties a diagram's own themeCSS that does (the portable block carries it in the
+// frontmatter), and no element name that mermaid would lowercase (SVG_TEXT_CSS).
+export function groupLayoutCss(svg) {
+	const layout = readLayout(svg);
+	const frames = tightenFrames(layout);
+	const rules = new Map();
+	for (const group of layout.clusters) {
+		const { top, bottom } = frames.get(group.id);
+		const shift = round2(top - group.y);
+		const scale = Number(((bottom - top) / group.height).toFixed(4));
+		const frame =
+			shift === 0 && scale === 1
+				? "transform: none;"
+				: `transform-box: fill-box; transform-origin: 0 0; transform: translateY(${shift}px) scaleY(${scale}); vector-effect: non-scaling-stroke;`;
+		const dx = round2(group.x + TITLE_INSET.x - group.labelX);
+		const dy = round2(top + TITLE_INSET.y - group.labelY);
+		rules.set(group.id, [
+			`.cluster[id$='-${group.id}'] rect[x] { ${frame} }`,
+			`.cluster[id$='-${group.id}'] .cluster-label [height] { transform: translate(${dx}px, ${dy}px); }`,
+		]);
+	}
+	const ids = [...rules.keys()].sort(byLength);
+	const css = ids.flatMap((id) => rules.get(id));
+	// mermaid puts the diagram title above the top of the layout, which the empty space of the topmost tiles and the
+	// frames' old tops set. The title moves down to stand as far above the topmost thing drawn, so neither leaves a band
+	// under it. Other nodes are measured by center only, so with any of them the top of the drawing is not known.
+	if (layout.nodes.every((node) => node.imageTop !== undefined)) {
+		const lines = layout.edges.flatMap((edge) => edge.points.map((p) => p.y));
+		const labels = layout.labels.map((label) => label.top);
+		const laidOut = Math.min(
+			...layout.clusters.map((group) => group.y),
+			...layout.nodes.map((node) => node.imageTop),
+			...lines,
+			...labels,
+		);
+		const drawn = Math.min(
+			...layout.clusters.map((group) => frames.get(group.id).top),
+			...layout.nodes.map((node) => node.top),
+			...lines,
+			...labels,
+		);
+		const freed = round2(drawn - laidOut);
+		if (freed > 0)
+			css.push(`.flowchartTitleText { transform: translateY(${freed}px); }`);
+	}
+	return { css: css.join("\n"), found: new Set(ids) };
+}
+
+// Two edges cross where a segment of one passes through a segment of the other, both away from their ends. Merged
+// edges share their segments, and an edge that leaves a shared one only touches it, so neither counts. Edges that
+// share a segment through one crossing make one crossing, not one per edge.
+function parallel(u, v) {
+	const [ux, uy, vx, vy] = [
+		u.b.x - u.a.x,
+		u.b.y - u.a.y,
+		v.b.x - v.a.x,
+		v.b.y - v.a.y,
+	];
+	return (
+		Math.abs(ux * vy - uy * vx) < 0.1 * Math.hypot(ux, uy) * Math.hypot(vx, vy)
+	);
+}
+
+// Two edges that leave one point side by side (a state diagram's start) can overlap by a pixel or two at a bend,
+// which is not a crossing anyone sees.
+const NEAR_END = 3;
+
+export function countCrossings(svg) {
+	const { edges } = readLayout(svg);
+	const segments = edges.flatMap(segmentsOf);
+	const side = (p, q, r) =>
+		(q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+	const EPSILON = 0.01;
+	const crossings = new Map();
+	for (const [i, s] of segments.entries()) {
+		for (const t of segments.slice(i + 1)) {
+			if (s.id === t.id) continue;
+			const [d1, d2, d3, d4] = [
+				side(t.a, t.b, s.a),
+				side(t.a, t.b, s.b),
+				side(s.a, s.b, t.a),
+				side(s.a, s.b, t.b),
+			];
+			if (!(d1 * d2 < -EPSILON && d3 * d4 < -EPSILON)) continue;
+			const share = d1 / (d1 - d2);
+			const at = {
+				x: s.a.x + share * (s.b.x - s.a.x),
+				y: s.a.y + share * (s.b.y - s.a.y),
+			};
+			if (
+				[s.a, s.b, t.a, t.b].some(
+					(end) => Math.hypot(end.x - at.x, end.y - at.y) < NEAR_END,
+				)
+			)
+				continue;
+			const [x, y] = [Math.round(at.x), Math.round(at.y)];
+			const key = `${x},${y}`;
+			if (!crossings.has(key))
+				crossings.set(key, { x, y, ref: s, lines: [new Set(), new Set()] });
+			// Two lines cross at a point, and merged edges run along one of them: an edge goes with the line it is parallel to.
+			const crossing = crossings.get(key);
+			for (const u of [s, t])
+				crossing.lines[parallel(u, crossing.ref) ? 0 : 1].add(u.id);
+		}
+	}
+	return [...crossings.values()].map(({ x, y, lines }) => ({
+		x,
+		y,
+		lines: lines.map((ids) => [...ids].sort()),
+	}));
 }
 
 // Puts css on the frontmatter's one-line themeCSS, which replaces any themeCSS the diagram had, and the font the labels
@@ -508,6 +827,46 @@ export function portableMarkdown(text, name, titleCss = "") {
 	if (block.length > PORTABLE_MAX_CHARS) return undefined;
 	const note = `<!-- ${name}.mmd as drawn by render.mjs --portable, logos inside. Edit the .mmd and run it again. -->`;
 	return `${note}\n\n\`\`\`mermaid\n${block.trimEnd()}\n\`\`\`\n`;
+}
+
+// The diagram types whose edges mermaid draws with their points (data-points), which countCrossings reads.
+const HAS_EDGES = /^\s*(?:flowchart|graph|stateDiagram(?:-v2)?|erDiagram)\b/m;
+
+// Names each crossing's edges by the source's `from --> to` (mermaid's data-id L_<from>_<to>_<n>), so the agent can
+// find them in the .mmd; an edge the source parse misses keeps its data-id.
+export function crossingReport(file, crossings, text) {
+	if (crossings.length === 0) return `     ${file}: 0 edge crossings`;
+	const names = new Map();
+	const seen = new Map();
+	for (const [from, to] of readGroups(text).edges) {
+		const pair = `${from}_${to}`;
+		const earlier = seen.get(pair) ?? 0;
+		seen.set(pair, earlier + 1);
+		names.set(
+			`L_${pair}_${earlier === 0 ? 0 : earlier + 1}`,
+			`${from} → ${to}`,
+		);
+	}
+	// A state diagram numbers its transitions edge0, edge1, … in the order they are written.
+	const transitions = [...text.matchAll(/^\s*(\S+)\s*-->\s*([^\s:]+)/gm)];
+	for (const [n, [, from, to]] of transitions.entries())
+		names.set(`edge${n}`, `${from} → ${to}`);
+	// An ER diagram names a relation id_entity-<a>-<n>_entity-<b>-<n>_<n>.
+	const relation = (id) =>
+		id
+			.match(/^id_entity-(.+)-\d+_entity-(.+)-\d+_\d+$/)
+			?.slice(1)
+			.join(" — ");
+	const name = (ids) =>
+		ids.map((id) => names.get(id) ?? relation(id) ?? id).join(" + ");
+	const where = crossings.map(
+		(c) => `${name(c.lines[0])} × ${name(c.lines[1])}`,
+	);
+	const count =
+		crossings.length === 1
+			? "1 edge crossing"
+			: `${crossings.length} edge crossings`;
+	return `     ${file}: ${count}: ${where.join("; ")}`;
 }
 
 // Colors are swapped token by token in one pass, so a light color that is also a dark value is not swapped twice.
@@ -689,10 +1048,10 @@ async function main() {
 				);
 				return config;
 			};
-			// A first render, with the title logos in, tells where mermaid puts each group title; the outputs then move the
-			// titles' boxes by CSS, which leaves the layout as it was.
+			// A first render, with the title logos in, tells where mermaid puts each group and its title, and where edges
+			// cross; the outputs then cut the frames back and move the titles' boxes by CSS, which leaves the layout as it was.
 			let titleCss = titleLogoCss(lifted.groups, lifted.logos);
-			if (lifted.groups.length > 0) {
+			if (lifted.groups.length > 0 || HAS_EDGES.test(text)) {
 				const { input, css } = writeInput("light");
 				const layout = join(work, `${name}.layout.svg`);
 				const error = mmdc(
@@ -703,11 +1062,12 @@ async function main() {
 					"1",
 				);
 				if (error) {
-					console.error(`fail ${file} (group titles)\n${error}`);
+					console.error(`fail ${file} (layout)\n${error}`);
 					failures++;
 					continue;
 				}
-				const moved = groupTitleCss(readFileSync(layout, "utf8"));
+				const drawn = readFileSync(layout, "utf8");
+				const moved = groupLayoutCss(drawn);
 				const lost = [...lifted.logos.keys()].filter(
 					(id) => !moved.found.has(id),
 				);
@@ -719,6 +1079,7 @@ async function main() {
 					continue;
 				}
 				titleCss = `${titleCss}\n${moved.css}`;
+				console.log(crossingReport(file, countCrossings(drawn), text));
 			}
 			if (args.portable) {
 				const output = join(outDir, `${name}.portable.md`);

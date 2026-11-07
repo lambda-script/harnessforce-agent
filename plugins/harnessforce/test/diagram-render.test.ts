@@ -15,9 +15,11 @@ import { fileURLToPath } from "node:url";
 import { afterAll, it } from "vitest";
 import {
 	alignImageNodes,
+	countCrossings,
+	crossingReport,
 	diagramThemeCss,
 	groupEdgeLabelCss,
-	groupTitleCss,
+	groupLayoutCss,
 	inlineIcons,
 	liftTitleLogos,
 	portableMarkdown,
@@ -622,6 +624,7 @@ it.skipIf(process.platform === "win32")(
 				'const { readFileSync } = require("node:fs");',
 				"const arg = (flag) => process.argv[process.argv.indexOf(flag) + 1];",
 				'const { themeCSS } = JSON.parse(readFileSync(arg("-c"), "utf8"));',
+				'if (arg("-o").endsWith(".layout.svg")) { require("node:fs").writeFileSync(arg("-o"), "<svg/>"); process.exit(0); }',
 				'const onPage = themeCSS.includes(".edgeLabel .labelBkg { background-color: #0f172a; }");',
 				'process.exit(onPage === arg("-o").endsWith(".dark.png") ? 0 : 1);',
 				"",
@@ -718,6 +721,7 @@ it.skipIf(process.platform === "win32")(
 				'const { readFileSync } = require("node:fs");',
 				"const arg = (flag) => process.argv[process.argv.indexOf(flag) + 1];",
 				'const { themeCSS } = JSON.parse(readFileSync(arg("-c"), "utf8"));',
+				'if (arg("-o").endsWith(".layout.svg")) { require("node:fs").writeFileSync(arg("-o"), "<svg/>"); process.exit(0); }',
 				'const cleared = [".image-shape", ".image-shape p", ".image-shape .labelBkg"].every((selector) =>',
 				'  themeCSS.includes(selector + " { background-color: transparent; }"));',
 				'const widened = readFileSync(arg("-i"), "utf8").includes("min-width:200px");',
@@ -1034,8 +1038,8 @@ const CLUSTERS = [
 	"</g></svg>",
 ].join("");
 
-it("groupTitleCss moves each group title's box to the group's top left and names the groups it found", () => {
-	const { css, found } = groupTitleCss(CLUSTERS);
+it("groupLayoutCss moves each group title's box to the group's top left and names the groups it found", () => {
+	const { css, found } = groupLayoutCss(CLUSTERS);
 	const vercel =
 		".cluster[id$='-vercel'] .cluster-label [height] { transform: translate(-55.25px, 6px); }";
 	const edge =
@@ -1104,7 +1108,7 @@ it.skipIf(process.platform === "win32")(
 	"render.mjs fails a diagram whose first render fails, and one whose title logo has no title to go to",
 	() => {
 		const failures: [string, RegExp][] = [
-			["process.exit(1);", /\(group titles\)/],
+			["process.exit(1);", /\(layout\)/],
 			[
 				'writeFileSync(arg("-o"), "<svg/>"); process.exit(0);',
 				/no group title for vercel/,
@@ -1138,7 +1142,7 @@ it("portableMarkdown writes a themeCSS that mermaid accepts from a diagram: no <
 	const logos = new Map([
 		["vercel", { uri: "data:image/svg+xml;base64,PHN2Zy8+", size: 26 }],
 	]);
-	const titleCss = `${titleLogoCss(["vercel"], logos)}\n${groupTitleCss(CLUSTERS).css}`;
+	const titleCss = `${titleLogoCss(["vercel"], logos)}\n${groupLayoutCss(CLUSTERS).css}`;
 	const diagram =
 		"flowchart LR\n  subgraph vercel[Vercel]\n    a\n  end\n  style vercel fill:#f5f8ff\n";
 	const css = themeCssOf(portableMarkdown(diagram, "x", titleCss));
@@ -1161,4 +1165,221 @@ it("render.mjs stops with the fix when %% comments come before the frontmatter, 
 	assert.equal(result.status, 1);
 	assert.match(result.stderr, /frontmatter .*first line/);
 	assert.match(result.stderr, /below the diagram type line/);
+});
+
+const b64 = (text: string) => Buffer.from(text).toString("base64");
+const PADDED_TILE = b64(
+	'<svg xmlns="http://www.w3.org/2000/svg" width="60" height="115" viewBox="0 -55 60 115"></svg>',
+);
+const imageNode = (id: string, x: number, y: number) =>
+	`<g class="image-shape default" id="my-svg-flowchart-${id}-0" transform="translate(${x}, ${y})">` +
+	`<g class="label" style="" transform="translate(-82,44)"><rect/><foreignObject width="164" height="54"></foreignObject></g>` +
+	`<image href="data:image/svg+xml;base64,${PADDED_TILE}" width="72" height="138" preserveAspectRatio="none" transform="translate(-36,-102)"/></g>`;
+const FRAMED = [
+	'<svg id="my-svg"><g class="clusters">',
+	'<g class="cluster" id="my-svg-vercel"><rect style="" x="318" y="12" width="212" height="279"/>',
+	'<g class="cluster-label" transform="translate(384, 12)"><foreignObject width="80" height="26"></foreignObject></g></g>',
+	'<g class="cluster" id="my-svg-other"><rect style="" x="600" y="12" width="200" height="279"/>',
+	'<g class="cluster-label" transform="translate(650, 12)"><foreignObject width="80" height="26"></foreignObject></g></g>',
+	'</g><g class="nodes">',
+	imageNode("app", 424, 165),
+	imageNode("neon", 700, 165),
+	'</g><text x="400" y="-25" class="flowchartTitleText">t</text></svg>',
+].join("");
+
+it("groupLayoutCss cuts a frame back to its title and 24 px above its topmost tile, moving the title along", () => {
+	const { css } = groupLayoutCss(FRAMED);
+	// The tile starts 55/115 of the way down its 138 px image, at 63 + 66 = 129; the title box is 26 px tall, 6 px down.
+	assert.ok(
+		css.includes(
+			".cluster[id$='-vercel'] rect[x] { transform-box: fill-box; transform-origin: 0 0; transform: translateY(61px) scaleY(0.767); vector-effect: non-scaling-stroke; }",
+		),
+		css,
+	);
+	assert.ok(
+		css.includes(
+			".cluster[id$='-vercel'] .cluster-label [height] { transform: translate(-54px, 67px); }",
+		),
+		css,
+	);
+	assert.ok(
+		css.includes(".flowchartTitleText { transform: translateY(61px); }"),
+		css,
+	);
+});
+
+it("groupLayoutCss leaves the frame of a group holding a node it cannot measure, and the diagram title", () => {
+	const plain = FRAMED.replace(
+		imageNode("app", 424, 165),
+		'<g class="node default" id="my-svg-flowchart-app-0" transform="translate(424, 165)"></g>',
+	);
+	const { css } = groupLayoutCss(plain);
+	assert.ok(
+		css.includes(".cluster[id$='-vercel'] rect[x] { transform: none; }"),
+		css,
+	);
+	assert.ok(!css.includes("flowchartTitleText"), css);
+});
+
+const edgePath = (id: string, points: number[][]) =>
+	`<path d="M0,0" id="my-svg-${id}" class="flowchart-link" data-id="${id}" data-points="${b64(JSON.stringify(points.map(([x, y]) => ({ x, y }))))}"/>`;
+
+it("countCrossings counts a crossing once, with merged edges on one line, and not where edges only meet", () => {
+	const svg = [
+		"<svg>",
+		edgePath("L_a_c_0", [
+			[0, 50],
+			[100, 50],
+			[200, 50],
+		]),
+		edgePath("L_b_c_0", [
+			[0, 80],
+			[80, 80],
+			[80, 50],
+			[100, 50],
+			[200, 50],
+		]),
+		edgePath("L_d_e_0", [
+			[150, 0],
+			[150, 100],
+		]),
+		edgePath("L_f_g_0", [
+			[50, 0],
+			[50, 50],
+		]),
+		"</svg>",
+	].join("");
+	const crossings = countCrossings(svg);
+	assert.deepEqual(crossings, [
+		{ x: 150, y: 50, lines: [["L_a_c_0", "L_b_c_0"], ["L_d_e_0"]] },
+	]);
+	assert.equal(
+		crossingReport(
+			"x.mmd",
+			crossings,
+			"flowchart LR\n  a --> c\n  b --> c\n  d --> e\n",
+		),
+		"     x.mmd: 1 edge crossing: a → c + b → c × d → e",
+	);
+	assert.equal(crossingReport("x.mmd", [], ""), "     x.mmd: 0 edge crossings");
+});
+
+it("portableMarkdown inverts labels on the page in a dark color scheme, and not those on a filled group", () => {
+	const css = themeCssOf(portableMarkdown(`${GROUPED}  neon --> other\n`, "x"));
+	const dark = css.slice(css.indexOf("@media (prefers-color-scheme: dark) {"));
+	assert.ok(
+		dark.includes(
+			".edgeLabel .labelBkg, .image-shape .labelBkg { filter: invert(0.94) hue-rotate(180deg); }",
+		),
+		dark,
+	);
+	assert.ok(
+		dark.includes(
+			".image-shape[id*='flowchart-next-'] .labelBkg { filter: none; }",
+		),
+		dark,
+	);
+	assert.ok(
+		dark.includes(
+			".edgeLabel [data-id='L_next_hono_0'] .labelBkg { filter: none; }",
+		),
+		dark,
+	);
+	assert.ok(!dark.includes("L_hono_neon_0"), dark);
+});
+
+it("countCrossings skips an overlap within 3 px of a bend, and crossingReport names state and ER edges", () => {
+	const start = [
+		"<svg>",
+		edgePath("edge0", [
+			[914, 140],
+			[914, 225],
+			[490, 225],
+		]),
+		edgePath("edge1", [
+			[912, 140],
+			[912, 185],
+			[1284, 185],
+		]),
+		"</svg>",
+	].join("");
+	assert.deepEqual(countCrossings(start), []);
+	const crossings = [
+		{ lines: [["edge1"], ["id_entity-users-0_entity-likes-3_3"]] },
+	];
+	const state =
+		"stateDiagram-v2\n  [*] --> active : verified\n  [*] --> pending : requested\n";
+	assert.equal(
+		crossingReport("x.mmd", crossings, state),
+		"     x.mmd: 1 edge crossing: [*] → pending × users — likes",
+	);
+});
+
+it("groupLayoutCss cuts inner groups first and keeps an outer frame above the inner titles", () => {
+	const nested = FRAMED.replace(
+		'<g class="cluster" id="my-svg-other"><rect style="" x="600" y="12" width="200" height="279"/>',
+		'<g class="cluster" id="my-svg-other"><rect style="" x="300" y="-40" width="260" height="340"/>',
+	).replace(
+		'<g class="cluster-label" transform="translate(650, 12)">',
+		'<g class="cluster-label" transform="translate(350, -40)">',
+	);
+	const { css } = groupLayoutCss(nested);
+	// vercel's frame moves to 12 + 61 = 73; other's goes 24 + 26 + 6 px above that, to 17, from -40.
+	assert.ok(
+		css.includes(
+			".cluster[id$='-other'] rect[x] { transform-box: fill-box; transform-origin: 0 0; transform: translateY(57px)",
+		),
+		css,
+	);
+});
+
+it("groupLayoutCss keeps a frame's top where an edge passes through it between two points outside", () => {
+	const crossed = FRAMED.replace(
+		"</g><text",
+		`${edgePath("L_x_y_0", [
+			[200, 90],
+			[560, 90],
+		])}</g><text`,
+	);
+	const { css } = groupLayoutCss(crossed);
+	// The edge runs at y = 90 across the frame, so the frame keeps 24 + 26 + 6 px above it: 90 - 56 = 34.
+	assert.ok(
+		css.includes(
+			".cluster[id$='-vercel'] rect[x] { transform-box: fill-box; transform-origin: 0 0; transform: translateY(22px)",
+		),
+		css,
+	);
+});
+
+it("countCrossings counts a crossing at a point mermaid lists on a straight run", () => {
+	const svg = [
+		"<svg>",
+		edgePath("L_a_b_0", [
+			[0, 165],
+			[176, 165],
+			[300, 165],
+		]),
+		edgePath("L_c_d_0", [
+			[176, 100],
+			[176, 200],
+		]),
+		edgePath("L_e_f_0", [
+			[178, 100],
+			[178, 200],
+		]),
+		"</svg>",
+	].join("");
+	assert.equal(countCrossings(svg).length, 2);
+});
+
+it("groupLayoutCss leaves a frame whose title mermaid drew without a box, whose height it cannot read", () => {
+	const unboxed = FRAMED.replace(
+		'<g class="cluster-label" transform="translate(384, 12)"><foreignObject width="80" height="26"></foreignObject></g>',
+		'<g class="cluster-label" transform="translate(384, 12)"><text>Vercel</text></g>',
+	);
+	assert.ok(
+		groupLayoutCss(unboxed).css.includes(
+			".cluster[id$='-vercel'] rect[x] { transform: none; }",
+		),
+	);
 });

@@ -76,10 +76,11 @@ Put a `%% <path>:<line>` comment above each node or group of edges, so a reviewe
 node scripts/render.mjs <diagram.mmd>...
 ```
 
-This puts each `icon:<spec>` logo (fetched if needed) on a white tile and embeds the tile as a data URI and writes `<diagram>.png` and `<diagram>.dark.png` at the diagram's natural width (mermaid-cli would otherwise shrink anything wider than about 800 px). Run it with `--help` for the options. Then open both PNGs and check:
+This puts each `icon:<spec>` logo (fetched if needed) on a white tile and embeds the tile as a data URI and writes `<diagram>.png` and `<diagram>.dark.png` at the diagram's natural width (mermaid-cli would otherwise shrink anything wider than about 800 px). For a flowchart, state or ER diagram it also prints how many times edges cross and which (`a → c + b → c × d → e`: merged edges on one line, crossed by another). Count crossings from this line, not by eye: an agent looking at a PNG reported one crossing where there were two. Run it with `--help` for the options. Then open both PNGs and check:
 
 - No arrow crosses a label; labels and logos are readable in both themes.
 - The primary flow reads left to right as one path; groups are not scattered; no line crosses the whole diagram or runs around a group (if one does, split the diagram as in step 1, or try node declaration orders, rule 37).
+- The crossing count is as low as the declaration orders allow: when it is above 0, try the orders of rule 55 and keep the render with the fewest crossings that still reads left to right.
 - The PNG is at most about three times wider than tall (or taller than wide). People see it at page width, where a 5:1 strip of eleven nodes shrank its names to a few pixels. Fold a long row (rule 49, or `flowchart TD`) or split the diagram.
 - Dashed edges are dashed everywhere (set `lineHops: false` if not).
 - Every picture you deliver is whole: once a light render came out as one tile and one edge repeated across the image while its dark render was fine. Re-render such a file.
@@ -93,7 +94,7 @@ Compare the picture with the sources and write three short lists:
 
 1. Disagreements between sources (a spec says one thing, a config another). These are often the most valuable output.
 2. Differences from an existing diagram, if there is one, and why.
-3. Places where the diagram may mislead (a shortened label, a count whose meaning is not obvious, something drawn only from prose).
+3. Places where the diagram may mislead (a shortened label, a count whose meaning is not obvious, something drawn only from prose), and the crossings `render.mjs` printed for the delivered render, with the orders you tried.
 
 Do not resolve disagreements in the diagram; report them to the owner.
 

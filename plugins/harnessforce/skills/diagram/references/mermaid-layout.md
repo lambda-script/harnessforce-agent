@@ -10,7 +10,7 @@ Rules for making Mermaid flowcharts readable at a glance, learned by changing on
 
 - [Template](#template)
 - [Style](#style)
-- [Rules](#rules): type and engine (1–2), ELK options (3–7, 22, 30), what to draw in one diagram (8–10, 28, 31, 36, 46, 52), declaration order (11–14), rows and columns (15–17, 23–26, 32, 34, 37–40, 42, 47–49, 53), looks (18–21, 27, 29, 33, 35, 41, 43–45, 50–51, 54)
+- [Rules](#rules): type and engine (1–2), ELK options (3–7, 22, 30), what to draw in one diagram (8–10, 28, 31, 36, 46, 52), declaration order (11–14, 55), rows and columns (15–17, 23–26, 32, 34, 37–40, 42, 47–49, 53), looks (18–21, 27, 29, 33, 35, 41, 43–45, 50–51, 54)
 - [Known gaps](#known-gaps)
 
 ## Template
@@ -112,6 +112,8 @@ mermaid 12.3.0 accepts `mergeEdges`, `straightenEdges`, `lineHops`, `preset`, `n
 - **Rule 12: A back edge plus `~~~` can move a whole group to the left.** Adding `~~~` from data stores to external services, together with the webhook edge from external services back to the receiver, moved both groups left of the main vendor group. ELK uses `~~~` as a forward edge.
 - **Rule 13: With dagre, the vertical order of nodes in one rank follows the edge declaration order, not the node declaration order.** With `s --> p`, `s --> q`, `s --> r`, declaring the nodes `r`, `q`, `p` first changes nothing; declaring the edges in `r`, `q`, `p` order flips the column.
 - **Rule 14: With dagre, the declaration order of subgraphs does not decide left and right.** Edge direction does. Subgraphs declared A, B, C and C, B, A give the same layout.
+
+- **Rule 55: Reduce crossings by declaration order, counting them with `render.mjs`.** `render.mjs` prints the number of crossings and the edges at each (`a → c + b → c × d → e`). Fix the edge that crosses most first: (1) move the nodes of its column in their group, the one it leaves from or enters last (rule 37); (2) declare that edge before or after the others it crosses (rules 11 and 36: keep the primary flow last); (3) try `nodePlacementAlignment: RIGHTDOWN` and without it. Render after each change and keep the order with the fewest crossings; between two orders with the same count, keep the one with shorter lines. A crossing that stays in every order is usually rule 46 (two layers both calling two others); leave one of its edges to a detail diagram. In a five-node architecture where the CLI called both hosted services and Claude Code called them too, the CLI's two edges crossed each other and the trunk into the ingest API (2 crossings) in the declared order; the order that left one crossing drew a long detour, so the diagram kept two and said so.
 
 ### Rows and columns
 
