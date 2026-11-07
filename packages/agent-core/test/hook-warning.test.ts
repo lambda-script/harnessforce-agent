@@ -22,13 +22,13 @@ describe("hook warnings", () => {
 			"Could not restart the Harnessforce hook",
 		);
 		expect(INVALID_ENDPOINT_WARNING).toBe(
-			"The Harnessforce destination is invalid. Run `harnessforce init` again",
+			"The Harnessforce destination is invalid. Run `harnessforce login` again",
 		);
 		expect(notConfiguredWarning("claude_code")).toBe(
 			"Harnessforce sending is not configured. Run `/harnessforce:setup`",
 		);
 		expect(notConfiguredWarning("codex")).toBe(
-			"Harnessforce sending is not configured. Run `harnessforce init`",
+			"Harnessforce sending is not configured. Run `harnessforce login`",
 		);
 		expect(REGISTRATION_FAILED_WARNING).toBe(
 			"Harnessforce session registration failed. Check your network connection",
@@ -38,25 +38,25 @@ describe("hook warnings", () => {
 	// correlation.md「送信の健全性」: keyと送信先とテレメトリの設定の状態。Codexは止まるのが登録だけなので文言が異なる。
 	it("states the sending health conditions in the specified words", () => {
 		expect(keyMissingWarning("claude_code")).toBe(
-			"Harnessforce cannot find your ingest key, so telemetry is not being sent. Run `harnessforce init`",
+			"Harnessforce cannot find your ingest key, so telemetry is not being sent. Run `harnessforce login`",
 		);
 		expect(keyMissingWarning("codex")).toBe(
-			"Harnessforce cannot find your ingest key, so sessions are not being registered. Run `harnessforce init`",
+			"Harnessforce cannot find your ingest key, so sessions are not being registered. Run `harnessforce login`",
 		);
 		expect(keyUnreadableWarning("claude_code")).toBe(
-			"Harnessforce could not read your ingest key from the OS keychain, so telemetry may not be sent. Unlock the keychain or run `harnessforce init`",
+			"Harnessforce could not read your ingest key from the OS keychain, so telemetry may not be sent. Unlock the keychain or run `harnessforce login`",
 		);
 		expect(keyUnreadableWarning("codex")).toBe(
-			"Harnessforce could not read your ingest key from the OS keychain, so sessions may not be registered. Unlock the keychain or run `harnessforce init`",
+			"Harnessforce could not read your ingest key from the OS keychain, so sessions may not be registered. Unlock the keychain or run `harnessforce login`",
 		);
 		expect(DESTINATION_MISMATCH_WARNING.claude_code).toBe(
-			"Telemetry is not being sent because the Harnessforce destination differs from the one saved by `harnessforce init`. Check this repository's settings or run `harnessforce init` again",
+			"Telemetry is not being sent because the Harnessforce destination differs from the one saved by `harnessforce login`. Check this repository's settings or run `harnessforce login` again",
 		);
 		expect(DESTINATION_MISMATCH_WARNING.codex).toBe(
-			"Sessions are not being registered because the Harnessforce destination differs from the one saved by `harnessforce init`. Run `harnessforce init` again",
+			"Sessions are not being registered because the Harnessforce destination differs from the one saved by `harnessforce login`. Run `harnessforce login` again",
 		);
 		expect(TELEMETRY_NOT_CONFIGURED_WARNING).toBe(
-			"Claude Code telemetry for Harnessforce is not configured. Run `harnessforce init`",
+			"Claude Code telemetry for Harnessforce is not configured. Run `harnessforce login`",
 		);
 	});
 

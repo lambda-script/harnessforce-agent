@@ -60,7 +60,7 @@ describe("@harnessforce/claude-code-plugin", () => {
 				"scripts/harnessforce-hook-main.cjs",
 				"skills/record-session/SKILL.md",
 				"commands/setup.md",
-				"commands/tune.md",
+				"commands/insights.md",
 				"LICENSE",
 				"README.md",
 			]),

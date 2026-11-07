@@ -180,8 +180,8 @@ describe("setup command", () => {
 	it("installs the published CLI from npm in the repository copy", () =>
 		expect(body).toContain("npm install -g @harnessforce/cli"));
 
-	it("runs harnessforce init and harnessforce import, then asks for a restart before confirming the first event", () => {
-		// `harnessforce init`は手順2にも現れるため、語の位置だけでは手順を特定できない。見出しの順序に、本文が実行する`harnessforce import`の位置を加えて確かめる。
+	it("runs harnessforce login and harnessforce import, then asks for a restart before confirming the first event", () => {
+		// `harnessforce login`は手順2にも現れるため、語の位置だけでは手順を特定できない。見出しの順序に、本文が実行する`harnessforce import`の位置を加えて確かめる。
 		const positions = indexesOf(body, [
 			"Check Node.js",
 			"Check whether this run is after the restart",
@@ -197,11 +197,11 @@ describe("setup command", () => {
 		expect(positions).toEqual([...positions].sort((a, b) => a - b));
 	});
 
-	// onboarding.md「チェックリスト」の手順4「自分の端末で設定する」: harnessforce initの前に、本文データを送る設定の選択肢を、「送る」を選んだ状態で示す。
-	it("shows the content choice before harnessforce init, selected by default", () => {
+	// onboarding.md「チェックリスト」の手順4「自分の端末で設定する」: harnessforce loginの前に、本文データを送る設定の選択肢を、「送る」を選んだ状態で示す。
+	it("shows the content choice before harnessforce login, selected by default", () => {
 		const choice = "Send the content of your sessions (on by default).";
 		expect(body).toMatch(
-			/Before `harnessforce init`, present the option[^\n]*"send" selected by default/,
+			/Before `harnessforce login`, present the option[^\n]*"send" selected by default/,
 		);
 		expect(body).toContain(choice);
 		expect(body.indexOf(choice)).toBeLessThan(
@@ -228,12 +228,15 @@ describe("setup command", () => {
 		expect(body).toMatch(
 			/stops storing a category, later content is discarded on receipt/,
 		);
-		expect(body).toContain("`harnessforce init --send-content`");
+		expect(body).toContain(
+			"run `harnessforce config set send-content on` if selected, or `harnessforce config set send-content off` if not, then run `harnessforce login`",
+		);
+		expect(body).toMatch(/stays when the user logs in again/);
 		expect(body).toMatch(
-			/Write this setting to the `env` of the Claude Code user settings, and do not write it to the `env` of the project[^\n]*local/,
+			/writes the content variables to the `env` of the Claude Code user settings; do not write them to the `env` of the project[^\n]*local/,
 		);
 		expect(body).toMatch(
-			/run `harnessforce init` again without `--send-content`. It rewrites the content variables to `0`/,
+			/run `harnessforce config set send-content off` and restart Claude Code and Codex. It rewrites the content variables to `0`/,
 		);
 	});
 
@@ -270,14 +273,14 @@ describe("setup command", () => {
 		expect(positions).toEqual([...positions].sort((a, b) => a - b));
 	});
 
-	// onboarding.md「setupの手順」の手順5: initが退役した利用枠のstatusLineを直した1行を、そのまま利用者へ伝える。
+	// onboarding.md「setupの手順」の手順5: loginが退役した利用枠のstatusLineを直した1行を、そのまま利用者へ伝える。
 	it("passes on the line about the retired usage-limits status line in the connect step", () => {
 		const connectStep = body.slice(
 			body.indexOf("## 5. Connect to Harnessforce"),
 			body.indexOf("## 6. Import past sessions"),
 		);
 		expect(connectStep).toContain(
-			"If `harnessforce init` prints a line about the status line of the retired `harnessforce usage-limits` command, tell the user that line as it is.",
+			"If `harnessforce login` prints a line about the status line of the retired `harnessforce usage-limits` command, tell the user that line as it is.",
 		);
 	});
 
@@ -298,19 +301,19 @@ describe("setup command", () => {
 			/restart Codex[^\n]*`\/hooks`[^\n]*`SessionStart`, `PostToolUse`, and `Stop`/,
 		));
 
-	it("relays what harnessforce init prints when the workspace stores no content", () => {
+	it("relays what harnessforce login prints when the workspace stores no content", () => {
 		expect(body).toMatch(
-			/`harnessforce init --send-content` writes the content variables as `0`/,
+			/`harnessforce login` writes the content variables as `0` even when send-content is on/,
 		);
 		expect(body).toContain("Collection & retention in the Workspace settings");
 		expect(body).toMatch(/exits with code 0/);
 	});
 });
 
-// improvement-loop.md「提案の記録」「Fidelity」「適用」: `/harnessforce:tune`の手順。
-describe("tune command", () => {
+// improvement-loop.md「提案の記録」「Fidelity」「適用」: `/harnessforce:insights`の手順。
+describe("insights command", () => {
 	const { frontmatter, body } = splitFrontmatter(
-		readText("plugins/harnessforce/commands/tune.md"),
+		readText("plugins/harnessforce/commands/insights.md"),
 	);
 	const SUMMARIZE = "skills/propose-improvements/scripts/summarize.mjs";
 	const DISCLOSURE =
@@ -327,7 +330,7 @@ describe("tune command", () => {
 		expect(body.indexOf(DISCLOSURE)).toBeLessThan(body.indexOf("```sh"));
 	});
 
-	it("runs harnessforce tune --json through the shipped summary script with the user's arguments", () => {
+	it("runs harnessforce insights --json through the shipped summary script with the user's arguments", () => {
 		const pluginRoot = ["$", "{CLAUDE_PLUGIN_ROOT}"].join("");
 		expect(body).toContain(`node "${pluginRoot}/${SUMMARIZE}" $ARGUMENTS`);
 		expect(
@@ -338,7 +341,7 @@ describe("tune command", () => {
 		expect(frontmatter["argument-hint"]).toBe("[--all] [--no-send]");
 	});
 
-	it("shows harnessforce tune's messages as they are and keeps not measured apart from zero", () => {
+	it("shows harnessforce insights's messages as they are and keeps not measured apart from zero", () => {
 		expect(body).toMatch(/stderr[^\n]*Show all of them as they are/);
 		expect(body).toMatch(/Do not rephrase "not measured" as 0/);
 	});
@@ -360,7 +363,7 @@ describe("tune command", () => {
 	it("hands the eligible targets to the skill, which records before showing", () => {
 		expect(body).toContain("the `propose-improvements` skill");
 		expect(body).toMatch(
-			/record them with `harnessforce tune record`, and then show them/,
+			/record them with `harnessforce insights record`, and then show them/,
 		);
 		expect(body).toMatch(
 			/Do not show a suggestion whose recording did not end with exit code 0/,
@@ -378,10 +381,10 @@ describe("tune command", () => {
 		).toBeLessThan(body.indexOf("## 3. Make suggestions"));
 	});
 
-	// 「適用」: `/harnessforce:tune`はファイルを書き換えない（`~/.harnessforce/tune/`を除く）。
-	it("writes nothing but harnessforce tune's own files and leaves applying to the user", () => {
+	// 「適用」: `/harnessforce:insights`はファイルを書き換えない（`~/.harnessforce/insights/`を除く）。
+	it("writes nothing but harnessforce insights's own files and leaves applying to the user", () => {
 		expect(body).toMatch(/repository, or managed settings/);
-		expect(body).toContain("write to `~/.harnessforce/tune/`");
+		expect(body).toContain("write to `~/.harnessforce/insights/`");
 		expect(body).toMatch(/applying the suggestions is up to the user/);
 	});
 });
@@ -478,13 +481,13 @@ describe("propose improvements skill", () => {
 			/must include stopping conditions. The stopping conditions are both the maximum number of repetitions and the points where a person checks/,
 		));
 
-	// 「提案の記録」: 表示の前に`harnessforce tune record`で記録し、成功した提案だけを表示する。
-	it("records each proposal with harnessforce tune record before showing it", () => {
+	// 「提案の記録」: 表示の前に`harnessforce insights record`で記録し、成功した提案だけを表示する。
+	it("records each proposal with harnessforce insights record before showing it", () => {
 		expect(body).toMatch(
-			/Before showing a suggestion, run `harnessforce tune record` for each suggestion/,
+			/Before showing a suggestion, run `harnessforce insights record` for each suggestion/,
 		);
 		expect(body).toMatch(
-			/Show only the suggestions for which `harnessforce tune record` ended with exit code 0/,
+			/Show only the suggestions for which `harnessforce insights record` ended with exit code 0/,
 		);
 		for (const field of [
 			"category",

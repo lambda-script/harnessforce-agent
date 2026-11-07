@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import { runCli } from "./support/cli.js";
 
 const COMMANDS = [
-	"init",
+	"login",
 	"import",
 	"status",
 	"otel-headers",
 	"run",
-	"tune",
+	"insights",
 	"top",
 	"hook",
 ] as const;
@@ -32,9 +32,16 @@ describe("harnessforce --help", () => {
 			string,
 			string,
 		];
-		for (const command of ["init", "import", "status", "run", "tune", "top"])
+		for (const command of [
+			"login",
+			"import",
+			"status",
+			"run",
+			"insights",
+			"top",
+		])
 			expect(yours).toMatch(new RegExp(`^  ${command} {2,}\\S`, "m"));
-		for (const command of ["otel-headers", "hook", "tune record"]) {
+		for (const command of ["otel-headers", "hook", "insights record"]) {
 			expect(yours).not.toMatch(new RegExp(`^  ${command} {2,}\\S`, "m"));
 			expect(agents).toMatch(new RegExp(`^  ${command} {2,}\\S`, "m"));
 		}
@@ -67,9 +74,9 @@ describe("harnessforce <command> --help", () => {
 	);
 
 	it.each([
-		[["help", "tune"], "tune"],
-		[["tune", "-h"], "tune"],
-		[["tune", "record", "--help"], "tune"],
+		[["help", "insights"], "insights"],
+		[["insights", "-h"], "insights"],
+		[["insights", "record", "--help"], "insights"],
 		[["run", "--issue", "ABC-1", "--help"], "run"],
 	])("answers %j with the %s page", async (argv, command) => {
 		const r = await runCli(argv);
@@ -80,17 +87,18 @@ describe("harnessforce <command> --help", () => {
 	it("documents the options each command accepts", async () => {
 		const out = async (command: string) =>
 			(await runCli([command, "--help"])).out;
-		expect(await out("init")).toContain("--send-content");
-		expect(await out("init")).toContain("--port");
+		expect(await out("login")).not.toContain("--send-content");
+		expect(await out("config")).toContain("set send-content on|off");
+		expect(await out("login")).toContain("--port");
 		expect(await out("top")).toContain("--once");
 		expect(await out("top")).toContain("--theme");
-		expect(await out("tune")).toContain("--no-send");
-		expect(await out("tune")).toContain("--purge");
+		expect(await out("insights")).toContain("--no-send");
+		expect(await out("insights")).toContain("clear");
 		expect(await out("run")).toContain("--issue");
 	});
 
 	it("names the Codex config.toml as the one file that holds the ingest key", async () => {
-		const out = (await runCli(["init", "--help"])).out;
+		const out = (await runCli(["login", "--help"])).out;
 		expect(out).toContain("config.toml");
 		expect(out).not.toContain("never written to a plain file");
 	});
@@ -135,7 +143,7 @@ describe("harnessforce import --help", () => {
 });
 
 // correlation.md「session import」・onboarding.md「harnessforce status」・read-api.md: 送る対象と照合の対象は、GET /api/v1/repositories が返すProjectに割り当てたrepositoryに限る。
-describe.each(["import", "tune", "status"])(
+describe.each(["import", "insights", "status"])(
 	"harnessforce %s --help",
 	(command) => {
 		it("names the project assignment as the condition for sending", async () => {

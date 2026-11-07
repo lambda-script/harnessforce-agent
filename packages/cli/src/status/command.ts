@@ -11,7 +11,11 @@ import {
 	type OnboardingStep,
 	type ReadOutcome,
 } from "../import/read-api.js";
-import { INIT_MESSAGES } from "../shared/messages.js";
+import {
+	DESTINATION_MISMATCH_MESSAGE,
+	LOGIN_MESSAGES,
+	NOT_LOGGED_IN_MESSAGE,
+} from "../shared/messages.js";
 import { runUntilStop, stopWith } from "../shared/stop.js";
 import {
 	type AgentVersionReader,
@@ -37,15 +41,16 @@ export type StatusDeps = {
 // onboarding.md「harnessforce status」の文言。ログインの期限切れはharnessforce importと同じ文言。
 const MESSAGES = {
 	failed:
-		"Could not read the Harnessforce status. Run `harnessforce init` and try again.",
-	loginExpired: "Your login has expired. Run `harnessforce init`",
+		"Could not read the Harnessforce status because communication with Harnessforce failed. Try again.",
+	loginExpired: "Your login has expired. Run `harnessforce login`",
 } as const;
 
 const ACCESS_MESSAGES: AccessMessages = {
-	keychainUnavailable: INIT_MESSAGES.keychainUnavailable,
-	initRequired: MESSAGES.failed,
-	invalidUrl: MESSAGES.failed,
-	apiTokenMissing: MESSAGES.failed,
+	keychainUnavailable: LOGIN_MESSAGES.keychainUnavailable,
+	loginRequired: NOT_LOGGED_IN_MESSAGE,
+	destinationMismatch: DESTINATION_MISMATCH_MESSAGE,
+	invalidUrl: LOGIN_MESSAGES.invalidUrl,
+	apiTokenMissing: NOT_LOGGED_IN_MESSAGE,
 };
 
 const STEP_TITLES: Record<number, string> = {

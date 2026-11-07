@@ -54,7 +54,7 @@ export type HarnessOptions = {
 	hang?: boolean;
 	// `harnessforce otel-headers`でkeychainを読んだ結果。無ければ`harnessforce`がPATHに無い場合とする。
 	userKey?: UserKeyRead;
-	// `harnessforce init`が書いたテレメトリの設定があるか。既定はある。
+	// `harnessforce login`が書いたテレメトリの設定があるか。既定はある。
 	telemetryConfigured?: boolean;
 	// managed-settings.jsonのenv。既定のWorkspace用のkeyと送信先に重ね、undefinedの値は除く。nullならfileを置かない。
 	managed?: Env | null;
@@ -69,7 +69,7 @@ export type HarnessOptions = {
 };
 
 // testのpluginが必要とするCLIの版（client-updates.md「pluginが必要とするCLIの版」）。
-const REQUIRED_CLI_VERSION = "0.4.0";
+const REQUIRED_CLI_VERSION = "0.7.0";
 
 // testが使うpluginの版（client-updates.md「版の申告」）。
 export const PLUGIN_VERSION = "0.2.0";

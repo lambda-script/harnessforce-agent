@@ -33,13 +33,13 @@ contains:
   [plugin README](../../plugins/harnessforce/README.md)).
 - `.mcp.json`: the Harnessforce MCP server `harnessforce` at `${HARNESSFORCE_URL:-<HARNESSFORCE_BUILD_URL>}/mcp`
   over HTTP. Claude Code expands it from the environment variable `HARNESSFORCE_URL` or the user settings
-  `env` (`harnessforce init --url` writes it), so a build can be pointed elsewhere without rebuilding. See
+  `env` (`harnessforce login --url` writes it), so a build can be pointed elsewhere without rebuilding. See
   [Pointing `harnessforce` at another environment](../development.md#pointing-harnessforce-at-another-environment).
   Claude Code asks you to log in with the browser and pick a Workspace the first time a tool is used.
 - `skills/record-session/SKILL.md`: the skill that records a session through the MCP tools.
-- `skills/propose-improvements/`: the skill and script that `/harnessforce:tune` uses to judge and
+- `skills/propose-improvements/`: the skill and script that `/harnessforce:insights` uses to judge and
   write proposals.
-- `commands/`: `/harnessforce:setup`, `/harnessforce:tune`, `/harnessforce:status`, `/harnessforce:import`
+- `commands/`: `/harnessforce:setup`, `/harnessforce:insights`, `/harnessforce:status`, `/harnessforce:import`
   and `/harnessforce:help`.
 - `cli/`: the `@harnessforce/cli` and `@harnessforce/semconv` tarballs from the same build.
   `/harnessforce:setup` in the build output installs these
@@ -59,7 +59,7 @@ In Claude Code:
 ```
 
 `/harnessforce:setup` checks for Node.js 18 or later, installs the CLI from the build output, runs
-`harnessforce init` and `harnessforce import`, shows the remaining workspace steps from `harnessforce status`,
+`harnessforce login` and `harnessforce import`, shows the remaining workspace steps from `harnessforce status`,
 and asks you to restart Claude Code. Run it again after the restart to
 confirm that the first event arrived.
 

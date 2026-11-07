@@ -1,9 +1,9 @@
-// `/harnessforce:tune`が使う。`harnessforce tune --json`を実行し、分析結果と、提案を作る条件の判定を表示する。
+// `/harnessforce:insights`が使う。`harnessforce insights --json`を実行し、分析結果と、提案を作る条件の判定を表示する。
 // 判定はimprovement-loop.md「作る条件」に従う。harnessforceの文言（stderr）と終了コードはそのまま渡す。
 // Node.js 18で依存なしに動かすため、plainなESMで書く。
 import { spawnSync } from "node:child_process";
 
-const USAGE = "Usage: /harnessforce:tune [--all] [--no-send]";
+const USAGE = "Usage: /harnessforce:insights [--all] [--no-send]";
 const HF_MISSING =
 	"`harnessforce` was not found. Install the CLI with `/harnessforce:setup`";
 const ALLOWED_FLAGS = new Set(["--all", "--no-send"]);
@@ -157,7 +157,7 @@ function modelShares(sessions) {
 	if (denominator === 0) return null;
 	const shares = (byModel) =>
 		[...byModel]
-			// harnessforce tune の表示（UTF-16 の code unit 順）と並びを揃える。
+			// harnessforce insights の表示（UTF-16 の code unit 順）と並びを揃える。
 			.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
 			.map(([model, tokens]) => ({ model, share: tokens / denominator }));
 	return { main: shares(main), subagent: shares(subagent) };
@@ -450,12 +450,16 @@ function run(args) {
 		return 2;
 	}
 	// Windowsのnpmのharnessforceは.cmdであり、shellを通さないと起動できない。引数は上で許した値だけである。
-	const hf = spawnSync("harnessforce", ["tune", "--json", ...new Set(args)], {
-		stdio: ["ignore", "pipe", "inherit"],
-		encoding: "utf8",
-		maxBuffer: 256 * 1024 * 1024,
-		shell: process.platform === "win32",
-	});
+	const hf = spawnSync(
+		"harnessforce",
+		["insights", "--json", ...new Set(args)],
+		{
+			stdio: ["ignore", "pipe", "inherit"],
+			encoding: "utf8",
+			maxBuffer: 256 * 1024 * 1024,
+			shell: process.platform === "win32",
+		},
+	);
 	if (hf.error?.code === "ENOENT") {
 		process.stderr.write(`${HF_MISSING}\n`);
 		return 1;

@@ -15,7 +15,7 @@ When a request matches a row below, use that skill before you start the work. Wh
 | --- | --- |
 | The user names a Harnessforce Issue (such as `ENG-42`), or `HARNESSFORCE_ISSUE` is set | `record-session`: `start_session` and `get_issue` at the start, `complete_session` at the end |
 | The work commits changes and no Issue is named | "When no Issue is specified" in `record-session`: ask the user once whether to link an existing Issue |
-| `/harnessforce:tune` has printed its targets for suggestions | `propose-improvements` |
+| `/harnessforce:insights` has printed its targets for suggestions | `propose-improvements` |
 | The user asks for a diagram of a repository or a system (architecture, CI/CD, state, ER, sequence, Gantt) | `diagram` (Experimental) |
 | The user asks what Harnessforce records | "What is sent, and when" and "What is not collected" below |
 
@@ -37,11 +37,11 @@ A subagent that the parent delegated a specific task to neither registers nor cl
 | Stop | Sends the repository and branch of each working tree noted, when they differ from the last ones sent. Paths are not sent |
 | SessionEnd | Claude Code only: with a Workspace key, sends the counts as the session usage summary. With a user key, or when that fails, a SessionStart at least 10 minutes later sends them |
 
-OTel telemetry carries what the user chose with `harnessforce init` or what managed settings set. For work on an Issue, `record-session` registers and closes a Session linked to the Issue. A failing hook never stops the session. When the registration or the setup has a problem, SessionStart shows a one-line warning: tell the user.
+OTel telemetry carries what the user chose with `harnessforce login` or what managed settings set. For work on an Issue, `record-session` registers and closes a Session linked to the Issue. A failing hook never stops the session. When the registration or the setup has a problem, SessionStart shows a one-line warning: tell the user.
 
 ## What is not collected
 
-- Prompts, responses, tool input and output, and the body of code diffs arrive only when the user sends them (`--send-content` or managed settings) and the Workspace stores that category. The members the Workspace chooses can read them. `harnessforce import` never sends them. Codex telemetry carries tool arguments and results up to 2 KiB whatever the user chose.
+- Prompts, responses, tool input and output, and the body of code diffs arrive only when the user sends them (`harnessforce config set send-content on` or managed settings) and the Workspace stores that category. The members the Workspace chooses can read them. `harnessforce import` never sends them. Codex telemetry carries tool arguments and results up to 2 KiB whatever the user chose.
 - Never put these contents, secrets, or environment variable values in MCP tool input or in a record.
 
 ## Red Flags

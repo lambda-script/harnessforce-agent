@@ -1,5 +1,5 @@
 ---
-description: Harnessforce setup. Walks through checking Node.js, choosing whether to send session content, installing the CLI, running harnessforce init, importing past sessions, showing the remaining workspace steps, and confirming the first event after the restart
+description: Harnessforce setup. Walks through checking Node.js, choosing whether to send session content, installing the CLI, running harnessforce login, importing past sessions, showing the remaining workspace steps, and confirming the first event after the restart
 ---
 
 # Harnessforce setup
@@ -25,7 +25,7 @@ First run `node --version`. If the command is not found, or the version is below
 
 ## 2. Check whether this run is after the restart
 
-If `harnessforce --version` succeeds and the environment variable `HARNESSFORCE_WORKSPACE_ID` of this session is not empty, this is a session restarted after `harnessforce init`. Skip steps 3 to 8 and go to step 9. Before step 9, do only the check in "CLI version this plugin needs" (in step 3) with the version that `harnessforce --version` printed: the plugin may have been updated after `harnessforce init` while the CLI was not.
+If `harnessforce --version` succeeds and the environment variable `HARNESSFORCE_WORKSPACE_ID` of this session is not empty, this is a session restarted after `harnessforce login`. Skip steps 3 to 8 and go to step 9. Before step 9, do only the check in "CLI version this plugin needs" (in step 3) with the version that `harnessforce --version` printed: the plugin may have been updated after `harnessforce login` while the CLI was not.
 
 ## 3. Install the CLI
 
@@ -41,34 +41,34 @@ If the install fails, show its output and stop at this step. When npm cannot wri
 
 ### CLI version this plugin needs
 
-This plugin needs CLI 0.4.0 or later. If the version that `harnessforce --version` printed is lower than that, show the following line with the printed version in place of `<installed>`, do not update the CLI, and stop at step 3 (Install the CLI). Whether to replace the installed CLI is the user's choice. After the user updates the CLI with the command in the line and runs setup again, the check passes and setup goes on.
+This plugin needs CLI 0.7.0 or later. If the version that `harnessforce --version` printed is lower than that, show the following line with the printed version in place of `<installed>`, do not update the CLI, and stop at step 3 (Install the CLI). Whether to replace the installed CLI is the user's choice. After the user updates the CLI with the command in the line and runs setup again, the check passes and setup goes on.
 
-> Harnessforce plugin needs CLI 0.4.0 or later, but CLI <installed> is installed. Update it: `npm install -g @harnessforce/cli@latest`
+> Harnessforce plugin needs CLI 0.7.0 or later, but CLI <installed> is installed. Update it: `npm install -g @harnessforce/cli@latest`
 
 ## 4. Choose whether to send content
 
-Before `harnessforce init`, present the option to send the content of the user's sessions, with "send" selected by default. The login is not done yet at this point, so neither the Workspace to connect nor what it stores is known. Do not change what you show depending on the Workspace; `harnessforce init` decides each category from the Workspace it connects, and writes `0` for a category the Workspace does not store.
+Before `harnessforce login`, present the option to send the content of the user's sessions, with "send" selected by default. The login is not done yet at this point, so neither the Workspace to connect nor what it stores is known. Do not change what you show depending on the Workspace; `harnessforce login` decides each category from the Workspace it connects, and writes `0` for a category the Workspace does not store.
 
 Present the option together with the following.
 
-- If selected, the prompts the user types, model responses, and tool input and output (including Bash commands and file paths) are delivered to this Workspace for the categories the Workspace stores. Secret patterns, email addresses, and phone numbers are replaced with `[REDACTED:kind]` before storing, and the content is deleted after the content retention period (30 days by default, at most 30 days). Secrets and personal information that do not match a pattern are not masked, and not everything can be detected. Who can read the stored content follows the Workspace setting (everyone in the Workspace by default); `harnessforce init` shows the setting of the Workspace it connects. The user can delete their own content from the account settings, and the sender, owners and admins can delete a session's content at any time.
+- If selected, the prompts the user types, model responses, and tool input and output (including Bash commands and file paths) are delivered to this Workspace for the categories the Workspace stores. Secret patterns, email addresses, and phone numbers are replaced with `[REDACTED:kind]` before storing, and the content is deleted after the content retention period (30 days by default, at most 30 days). Secrets and personal information that do not match a pattern are not masked, and not everything can be detected. Who can read the stored content follows the Workspace setting (everyone in the Workspace by default); `harnessforce login` shows the setting of the Workspace it connects. The user can delete their own content from the account settings, and the sender, owners and admins can delete a session's content at any time.
 - Content is stored only when both this setting on the device and the Workspace's storing of that category are in place. If the Workspace stops storing a category, later content is discarded on receipt.
-- If selected, run `harnessforce init --send-content`; if not, run `harnessforce init` (step 5). Write this setting to the `env` of the Claude Code user settings, and do not write it to the `env` of the project (`.claude/settings.json`) or local (`.claude/settings.local.json`) files, because the content variables are ignored in the `env` of those two files. A restart is needed after `harnessforce init` for the setting to take effect.
-- To stop afterwards, run `harnessforce init` again without `--send-content`. It rewrites the content variables to `0`.
+- Step 5 saves the choice with `harnessforce config set send-content on` (selected) or `harnessforce config set send-content off` (not selected) before `harnessforce login`. The choice is saved on this machine and stays when the user logs in again. `harnessforce login` writes the content variables to the `env` of the Claude Code user settings; do not write them to the `env` of the project (`.claude/settings.json`) or local (`.claude/settings.local.json`) files, because the content variables are ignored in the `env` of those two files. A restart is needed after `harnessforce login` for the setting to take effect.
+- To stop afterwards, run `harnessforce config set send-content off` and restart Claude Code and Codex. It rewrites the content variables to `0`.
 
 Use the following option text as it is.
 
-> Send the content of your sessions (on by default). The prompts you type, model responses and tool input and output (including Bash commands and file paths) are delivered to this workspace and stored for the categories the workspace stores. Values that match known patterns for secrets and personal information are replaced with `[REDACTED:kind]`, but not everything can be detected. Content is deleted after the content retention period (30 days by default, at most 30 days). Who can read it follows the workspace setting (everyone in the workspace by default); `harnessforce init` shows the setting of the workspace you connect. You can delete your own content from your account settings, and the sender, owners and admins can delete a session's content at any time.
+> Send the content of your sessions (on by default). The prompts you type, model responses and tool input and output (including Bash commands and file paths) are delivered to this workspace and stored for the categories the workspace stores. Values that match known patterns for secrets and personal information are replaced with `[REDACTED:kind]`, but not everything can be detected. Content is deleted after the content retention period (30 days by default, at most 30 days). Who can read it follows the workspace setting (everyone in the workspace by default); `harnessforce login` shows the setting of the workspace you connect. You can delete your own content from your account settings, and the sender, owners and admins can delete a session's content at any time.
 
 ## 5. Connect to Harnessforce
 
-Follow the choice in step 4: run `harnessforce init --send-content` if selected, or `harnessforce init` if not. Tell the user to log in to Harnessforce in the browser, or sign up, and choose one Workspace to connect. A user without a Workspace can create one on the same page and continue. If the browser does not open, show the user the URL that `harnessforce init` prints. The command waits up to 5 minutes for the login to complete, so run it with a Bash timeout of 10 minutes.
+Follow the choice in step 4: run `harnessforce config set send-content on` if selected, or `harnessforce config set send-content off` if not, then run `harnessforce login`. Tell the user to log in to Harnessforce in the browser, or sign up, and choose one Workspace to connect. A user without a Workspace can create one on the same page and continue. If the browser does not open, show the user the URL that `harnessforce login` prints. The command waits up to 5 minutes for the login to complete, so run it with a Bash timeout of 10 minutes.
 
-If `harnessforce init` prints a line about the status line of the retired `harnessforce usage-limits` command, tell the user that line as it is. On a machine where an early CLI wrapped the status line with that command, `harnessforce init` restores the original status line, or removes it when the original was not recorded, after backing up the user settings.
+If `harnessforce login` prints a line about the status line of the retired `harnessforce usage-limits` command, tell the user that line as it is. On a machine where an early CLI wrapped the status line with that command, `harnessforce login` restores the original status line, or removes it when the original was not recorded, after backing up the user settings.
 
-For a Workspace that stores no content, `harnessforce init --send-content` writes the content variables as `0`. It prints a message about that and about Collection & retention in the Workspace settings, and exits with code 0. Do not treat this as a failure; show the printed text to the user as it is.
+For a Workspace that stores no content, `harnessforce login` writes the content variables as `0` even when send-content is on. It prints a message about that and about Collection & retention in the Workspace settings, and exits with code 0. Do not treat this as a failure; show the printed text to the user as it is.
 
-If `harnessforce init` ends with the line saying the CLI version is unsupported and exit code 1, run `npm install -g @harnessforce/cli@latest`, then run this step again. If `harnessforce init` fails for any other reason, show what it printed and stop at this step; a failed `harnessforce init` changes neither the keychain nor the settings files.
+If `harnessforce login` ends with the line saying the CLI version is unsupported and exit code 1, run `npm install -g @harnessforce/cli@latest`, then run this step again. If `harnessforce login` fails for any other reason, show what it printed and stop at this step; a failed `harnessforce login` changes neither the keychain nor the settings files.
 
 ## 6. Import past sessions
 
@@ -88,7 +88,7 @@ If `has_seat` is `false`, first show "You don't have a developer seat, so the te
 
 ## 8. Ask for a restart
 
-If the user also uses Codex, tell them first: restart Codex, then run `/hooks` in Codex and trust the harnessforce `SessionStart`, `PostToolUse`, and `Stop` hooks. Codex runs a hook only after the user trusts it, and `harnessforce init` cannot do this for them.
+If the user also uses Codex, tell them first: restart Codex, then run `/hooks` in Codex and trust the harnessforce `SessionStart`, `PostToolUse`, and `Stop` hooks. Codex runs a hook only after the user trusts it, and `harnessforce login` cannot do this for them.
 
 Then end with the following.
 

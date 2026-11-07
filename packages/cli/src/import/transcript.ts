@@ -22,7 +22,7 @@ export type TranscriptSession = {
 	toolCalls: ToolCallSummary[];
 };
 
-// harnessforce tuneの分析に使うevent（improvement-loop.md「読むもの」）。本文を含むため、端末の外へ出さず、表示もしない。
+// harnessforce insightsの分析に使うevent（improvement-loop.md「読むもの」）。本文を含むため、端末の外へ出さず、表示もしない。
 export type TranscriptEvent =
 	| { type: "prompt"; ms: number; text: string }
 	| { type: "response"; ms: number }
@@ -37,7 +37,7 @@ export type TranscriptEvent =
 			output: string;
 	  };
 
-// harnessforce tuneの端末だけの値（improvement-loop.md「端末だけの値」）の元になる、応答ごとのusage。
+// harnessforce insightsの端末だけの値（improvement-loop.md「端末だけの値」）の元になる、応答ごとのusage。
 // 読めないtoken数はundefinedとし、0と区別する。
 export type ResponseUsage = {
 	model: string;
@@ -427,7 +427,7 @@ export async function parseTranscript(path: string): Promise<TranscriptResult> {
 		: { kind: "empty", skippedLines };
 }
 
-// harnessforce tuneの読み込み。harnessforce importと同じ処理で読み、分析に使うeventの列を加える。
+// harnessforce insightsの読み込み。harnessforce importと同じ処理で読み、分析に使うeventの列を加える。
 export async function parseTranscriptEvents(
 	path: string,
 ): Promise<TranscriptEvents> {

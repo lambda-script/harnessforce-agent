@@ -30,7 +30,7 @@ Each case has one tag:
 | --- | --- | --- |
 | `trigger` | Whether the skill or command is invoked | `claude plugin eval . --tag trigger --ablation none` |
 | `rules` | A rule of a skill, with read-only tools | `claude plugin eval . --tag rules --scaffold` |
-| `granted` | A rule that needs Bash, Write and Edit to be measurable. A run has no `harnessforce` CLI, so `harnessforce tune record` always fails | `claude plugin eval . --tag granted --allow-tools Bash Write Edit` |
+| `granted` | A rule that needs Bash, Write and Edit to be measurable. A run has no `harnessforce` CLI, so `harnessforce insights record` always fails | `claude plugin eval . --tag granted --allow-tools Bash Write Edit` |
 | `injected` | A rule of the text the SessionStart hook injects (`using-harnessforce/`). Both arms would get the text, so there is one arm, and the comparison is between versions of the text | `claude plugin eval . --tag injected --ablation none --scaffold` |
 
 Run them from `plugins/harnessforce`. `--scaffold` runs the `fixture.sh` of a case, which only creates a git

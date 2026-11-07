@@ -108,7 +108,7 @@ describe("Linux keychain", () => {
 		expect(linuxKeychain().keychain.unavailableHint).toBe(HINT);
 	});
 
-	describe("availability outside init", () => {
+	describe("availability outside login", () => {
 		it("is available when the kernel keyring reads the probe, without the Secret Service", async () => {
 			const { keychain, secretService, kernel } = linuxKeychain();
 			expect(await keychain.isAvailable()).toBe(true);
@@ -196,13 +196,101 @@ describe("Linux keychain", () => {
 		});
 	});
 
-	describe("choosing the store for init", () => {
+	// correlation.md「harnessforce logout」の手順2と4。
+	describe("listing and removing for logout", () => {
+		const WS2 = {
+			"ws2:ingest-key": "hf_ik_ws2_a",
+			"ws2:url-origin": "https://app.example.test",
+		};
+
+		it("lists every Secret Service item and only the given workspace from the kernel keyring", async () => {
+			const { keychain, kernel } = linuxKeychain(
+				fakeStore({ items: WS1 }),
+				fakeStore({ items: WS2 }),
+			);
+			const store = await keychain.openForLogout("ws1");
+			expect(
+				Object.fromEntries(
+					(store?.items ?? []).map((i) => [i.account, i.secret]),
+				),
+			).toEqual({
+				...WS1,
+				...WS2,
+			});
+			expect(kernel.calls).toEqual([
+				"get availability-probe",
+				"get ws1:ingest-key",
+				"get ws1:api-token",
+				"get ws1:ingest-origin",
+				"get ws1:url-origin",
+			]);
+		});
+
+		it("lists the kernel keyring items of a workspace whose ingest key is there, not the Secret Service ones", async () => {
+			const { keychain } = linuxKeychain(
+				fakeStore({ items: WS1 }),
+				fakeStore({ items: { ...WS1, "ws1:ingest-key": "hf_ik_ws1_old" } }),
+			);
+			const store = await keychain.openForLogout("ws1");
+			expect(store?.items).toEqual(
+				Object.entries(WS1).map(([account, secret]) => ({ account, secret })),
+			);
+		});
+
+		it("removes the workspace items from both stores", async () => {
+			const { keychain, kernel, secretService } = linuxKeychain(
+				fakeStore({ items: WS1 }),
+				fakeStore({ items: { ...WS1, ...WS2 } }),
+			);
+			const store = await keychain.openForLogout("ws1");
+			await store?.deleteWorkspace("ws1");
+			expect(Object.fromEntries(kernel.items)).toEqual({});
+			expect(Object.fromEntries(secretService.items)).toEqual(WS2);
+		});
+
+		it("reads only the kernel keyring when the Secret Service is unusable", async () => {
+			const { keychain } = linuxKeychain(
+				fakeStore({ items: WS1 }),
+				fakeStore({ broken: true }),
+			);
+			const store = await keychain.openForLogout("ws1");
+			expect(store?.items).toHaveLength(4);
+			await store?.deleteWorkspace("ws1");
+		});
+
+		it("is unavailable when neither store reads the probe", async () => {
+			const { keychain } = linuxKeychain(
+				fakeStore({ broken: true }),
+				fakeStore({ broken: true }),
+			);
+			expect(await keychain.openForLogout("ws1")).toBeUndefined();
+		});
+
+		it("fails when a usable store cannot list its items", async () => {
+			const { keychain } = linuxKeychain(
+				fakeStore(),
+				fakeStore({ failOn: "*" }),
+			);
+			await expect(keychain.openForLogout(undefined)).rejects.toThrow();
+		});
+
+		it("fails when an item cannot be removed", async () => {
+			const { keychain } = linuxKeychain(
+				fakeStore({ items: WS1, failOn: "ws1:url-origin" }),
+				fakeStore(),
+			);
+			const store = await keychain.openForLogout(undefined);
+			await expect(store?.deleteWorkspace("ws1")).rejects.toThrow();
+		});
+	});
+
+	describe("choosing the store for login", () => {
 		it("chooses the Secret Service when writing and deleting the probe succeeds", async () => {
 			const { keychain, secretService } = linuxKeychain(
 				fakeStore({ items: { "ws1:ingest-key": "hf_ik_ws1_kernel" } }),
 				fakeStore({ items: { "ws2:ingest-key": "hf_ik_ws2_a" } }),
 			);
-			const store = await keychain.openForInit(openOptions);
+			const store = await keychain.openForLogin(openOptions);
 			expect(store?.isKernelKeyring).toBe(false);
 			expect(secretService.calls.slice(0, 2)).toEqual([
 				"set availability-probe",
@@ -227,7 +315,7 @@ describe("Linux keychain", () => {
 				}),
 				fakeStore({ failOn: "availability-probe", items: WS1 }),
 			);
-			const store = await keychain.openForInit(openOptions);
+			const store = await keychain.openForLogin(openOptions);
 			expect(store?.isKernelKeyring).toBe(true);
 			expect(store?.items).toEqual([
 				{ account: "ws1:ingest-key", secret: "hf_ik_ws1_a" },
@@ -246,7 +334,7 @@ describe("Linux keychain", () => {
 				fakeStore(),
 				fakeStore({ broken: true }),
 			);
-			const store = await keychain.openForInit({
+			const store = await keychain.openForLogin({
 				...openOptions,
 				previousWorkspaceId: undefined,
 			});
@@ -258,14 +346,14 @@ describe("Linux keychain", () => {
 			const { keychain, kernel } = linuxKeychain(
 				fakeStore({ items: { ...WS1, "ws2:ingest-key": "hf_ik_ws2_a" } }),
 			);
-			const store = await keychain.openForInit(openOptions);
+			const store = await keychain.openForLogin(openOptions);
 			await store?.deleteElsewhere("ws1");
 			expect([...kernel.items.keys()]).toEqual(["ws2:ingest-key"]);
 		});
 
 		it("ignores a kernel keyring that cannot delete after saving to the Secret Service", async () => {
 			const { keychain } = linuxKeychain(fakeStore({ broken: true }));
-			const store = await keychain.openForInit(openOptions);
+			const store = await keychain.openForLogin(openOptions);
 			await expect(store?.deleteElsewhere("ws1")).resolves.toBeUndefined();
 		});
 
@@ -274,7 +362,7 @@ describe("Linux keychain", () => {
 				fakeStore({ broken: true }),
 				fakeStore({ broken: true }),
 			);
-			expect(await keychain.openForInit(openOptions)).toBeUndefined();
+			expect(await keychain.openForLogin(openOptions)).toBeUndefined();
 		});
 
 		it.each([
@@ -290,7 +378,7 @@ describe("Linux keychain", () => {
 			],
 		])("fails when %s", async (_, kernel, secretService) => {
 			const { keychain } = linuxKeychain(kernel, secretService);
-			await expect(keychain.openForInit(openOptions)).rejects.toThrow();
+			await expect(keychain.openForLogin(openOptions)).rejects.toThrow();
 		});
 
 		it("announces the wait only when the probe takes more than 2 seconds", async () => {
@@ -298,7 +386,7 @@ describe("Linux keychain", () => {
 			const secretService = fakeStore({ holdWrites: true });
 			const { keychain } = linuxKeychain(fakeStore(), secretService);
 			const onWaiting = vi.fn();
-			const opened = keychain.openForInit({ ...openOptions, onWaiting });
+			const opened = keychain.openForLogin({ ...openOptions, onWaiting });
 			await vi.advanceTimersByTimeAsync(1_999);
 			expect(onWaiting).not.toHaveBeenCalled();
 			await vi.advanceTimersByTimeAsync(1);
@@ -311,7 +399,7 @@ describe("Linux keychain", () => {
 			vi.useFakeTimers();
 			const { keychain } = linuxKeychain();
 			const onWaiting = vi.fn();
-			await keychain.openForInit({ ...openOptions, onWaiting });
+			await keychain.openForLogin({ ...openOptions, onWaiting });
 			await vi.advanceTimersByTimeAsync(5_000);
 			expect(onWaiting).not.toHaveBeenCalled();
 		});
@@ -419,11 +507,11 @@ describe("Linux keychain", () => {
 	});
 
 	describe("unlock prompts", () => {
-		it("asks for an unlock only through the 60-second keychain that init, run and import use", async () => {
+		it("asks for an unlock only through the 60-second keychain that login, run and import use", async () => {
 			const secretService = fakeStore({ items: WS1 });
 			const { keychain } = linuxKeychain(fakeStore(), secretService);
 			expect(await keychain.get("ws1:ingest-key")).toBe("hf_ik_ws1_a");
-			await keychain.openForInit(openOptions);
+			await keychain.openForLogin(openOptions);
 			expect(secretService.quiet).toEqual([]);
 		});
 

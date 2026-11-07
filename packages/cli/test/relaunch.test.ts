@@ -14,13 +14,22 @@ const exitingWith =
 	};
 
 describe("relaunching harnessforce without Node runtime variables", () => {
-	it.each(["init", "run", "import", "hook"])(
-		"relaunches harnessforce %s and ends with the relaunched exit code",
-		async (command) => {
+	// `config set`は、`off`とログイン済みでない場合も、値とログインの状態による分岐の前に起動し直す。
+	it.each([
+		["login"],
+		["logout"],
+		["run"],
+		["import"],
+		["hook"],
+		["config", "set", "send-content", "on"],
+		["config", "set", "send-content", "off"],
+	])(
+		"relaunches harnessforce %j and ends with the relaunched exit code",
+		async (...argv) => {
 			const seen: Record<string, string>[] = [];
 			const err: string[] = [];
 			const out: string[] = [];
-			const code = await relaunchHf([command], {
+			const code = await relaunchHf(argv, {
 				platform: "linux",
 				env: { HTTPS_PROXY: "http://p", PATH: "/usr/bin" },
 				spawnSelf: exitingWith(7, seen),
@@ -37,10 +46,10 @@ describe("relaunching harnessforce without Node runtime variables", () => {
 	);
 
 	it.each([
-		["tune"],
-		["tune", "--json"],
-		["tune", "--all", "--show-report"],
-		["tune", "--report-only"],
+		["insights"],
+		["insights", "--json"],
+		["insights", "--all", "--show-report"],
+		["insights", "--quiet"],
 	])("relaunches harnessforce %j", async (...argv) => {
 		const seen: Record<string, string>[] = [];
 		const code = await relaunchHf(argv, {
@@ -69,13 +78,23 @@ describe("relaunching harnessforce without Node runtime variables", () => {
 				),
 		);
 	it("finds the commands that send an ApiToken", () => {
-		expect(sendingDirs.sort()).toEqual(["import", "run", "status", "tune"]);
+		expect(sendingDirs.sort()).toEqual([
+			"config",
+			"import",
+			"insights",
+			"logout",
+			"run",
+			"status",
+		]);
 	});
+	// ApiTokenを送る呼び出し。`config`は`set`だけが送りうる。
+	const sendingArgv = (dir: string) =>
+		dir === "config" ? ["config", "set", "send-content", "on"] : [dir];
 	it.each(sendingDirs)(
 		"relaunches harnessforce %s, which sends an ApiToken",
 		async (command) => {
 			expect(
-				await relaunchHf([command], {
+				await relaunchHf(sendingArgv(command), {
 					platform: "linux",
 					env: { NODE_OPTIONS: "--x" },
 					spawnSelf: exitingWith(0),
@@ -86,15 +105,17 @@ describe("relaunching harnessforce without Node runtime variables", () => {
 		},
 	);
 
-	// tuneの`record`、`--purge`、`--no-send`を付けた分析、誤った引数は通信を行わない。
+	// insightsの`record`、`clear`、`--no-send`を付けた分析、誤った引数は通信を行わない。
+	// `config get`は通信を行わない。
 	it.each([
 		["otel-headers"],
-		["tune", "record"],
-		["tune", "--purge"],
-		["tune", "--print-schedule"],
-		["tune", "--no-send"],
-		["tune", "--json", "--no-send"],
-		["tune", "--unknown"],
+		["config", "get", "send-content"],
+		["insights", "record"],
+		["insights", "clear"],
+		["insights", "schedule"],
+		["insights", "--no-send"],
+		["insights", "--json", "--no-send"],
+		["insights", "--unknown"],
 		["--version"],
 		[],
 	])("does not relaunch %j", async (...argv) => {
@@ -113,7 +134,7 @@ describe("relaunching harnessforce without Node runtime variables", () => {
 
 	it("continues in the same process without runtime variables", async () => {
 		expect(
-			await relaunchHf(["init"], {
+			await relaunchHf(["login"], {
 				platform: "linux",
 				env: { PATH: "/usr/bin" },
 				spawnSelf: () => {

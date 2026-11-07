@@ -21,7 +21,7 @@ const WORKSPACE_KEY_REVOKED =
 const NOT_CONFIGURED =
 	"Harnessforce sending is not configured. Run `/harnessforce:setup`";
 const INVALID_ENDPOINT =
-	"The Harnessforce destination is invalid. Run `harnessforce init` again";
+	"The Harnessforce destination is invalid. Run `harnessforce login` again";
 const REGISTRATION_FAILED =
 	"Harnessforce session registration failed. Check your network connection";
 

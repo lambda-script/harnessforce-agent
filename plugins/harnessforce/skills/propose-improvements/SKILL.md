@@ -1,16 +1,16 @@
 ---
 name: propose-improvements
-description: From the analysis results of /harnessforce:tune, make suggested improvements for human interventions, repeatable loops, MCP servers, and usage (context compaction, cache reuse, model choice), record them with harnessforce tune record, and then show them. Use it only for targets that /harnessforce:tune marks as "a suggestion can be made". Does not modify files.
+description: From the analysis results of /harnessforce:insights, make suggested improvements for human interventions, repeatable loops, MCP servers, and usage (context compaction, cache reuse, model choice), record them with harnessforce insights record, and then show them. Use it only for targets that /harnessforce:insights marks as "a suggestion can be made". Does not modify files.
 ---
 
 # Make improvement suggestions from the analysis results
 
-For each target marked "a suggestion can be made" in the "Targets for suggestions" printed by `summarize.mjs` of `/harnessforce:tune`, make a suggestion. Make each suggestion in a form the user can apply as it is, and record it before showing it.
+For each target marked "a suggestion can be made" in the "Targets for suggestions" printed by `summarize.mjs` of `/harnessforce:insights`, make a suggestion. Make each suggestion in a form the user can apply as it is, and record it before showing it.
 
 ## Do not modify anything
 
 - Do not modify the user's files, settings, repository, or managed settings. Do not use the Edit or Write tools, `git apply`, `git commit`, creating a branch, or `gh pr create`. The diff and the Pull Request draft are only shown.
-- The only thing written is the record that `harnessforce tune record` writes to `~/.harnessforce/tune/`. Do not create temporary files either.
+- The only thing written is the record that `harnessforce insights record` writes to `~/.harnessforce/insights/`. Do not create temporary files either.
 
 ## Conditions for making a suggestion
 
@@ -26,7 +26,7 @@ The result of `summarize.mjs` is authoritative. Make no suggestion for a target 
 | `model_choice` of usage | At least 10 sessions have `models`, and in the total of `models` over the analyzed range, one `message.model` value accounts for at least 90% of the total `output_tokens` |
 
 - Do not use a value that was not measured (`not_measured`) as evidence. Do not treat "not measured" as 0.
-- The change type of a usage suggestion is limited to `claude_md`, `rule`, `skill`, `agent`, and `command` (for example, split up a bloated CLAUDE.md, or move exploration to a subagent and specify that agent's `model`). Do not use another change type such as the `model` in settings. `harnessforce tune record` rejects other change types. A change to `claude_md` is not detected when applied, so it does not appear in the before and after of the previous suggestion either.
+- The change type of a usage suggestion is limited to `claude_md`, `rule`, `skill`, `agent`, and `command` (for example, split up a bloated CLAUDE.md, or move exploration to a subagent and specify that agent's `model`). Do not use another change type such as the `model` in settings. `harnessforce insights record` rejects other change types. A change to `claude_md` is not detected when applied, so it does not appear in the before and after of the previous suggestion either.
 - Usage values (`usage`) stay on this device and are not sent to Harnessforce. You may use them as evidence for a suggestion.
 - Do not make a suggestion about the harness configuration itself (differences in results between skills, rules, agents, commands, hooks, MCP servers, and model versions).
 - If you investigate and find no change the user can apply as it is, make no suggestion for that target and say why in one line.
@@ -79,12 +79,12 @@ The component `source` is the scope it applies to (`user`, `repository`, `local`
 
 ## Record, then show
 
-Before showing a suggestion, run `harnessforce tune record` for each suggestion and pass one UTF-8 JSON object on stdin. Pass the input with a heredoc and do not write it to a file. Use a delimiter word that does not appear in the input.
+Before showing a suggestion, run `harnessforce insights record` for each suggestion and pass one UTF-8 JSON object on stdin. Pass the input with a heredoc and do not write it to a file. Use a delimiter word that does not appear in the input.
 
 ```sh
-harnessforce tune record <<'HF_TUNE_RECORD_7f3c'
+harnessforce insights record <<'HF_INSIGHTS_RECORD_7f3c'
 {"category": "...", "change_type": "...", "scope": "...", "path": "...", "evidence_agent_session_ids": ["..."], "body": "..."}
-HF_TUNE_RECORD_7f3c
+HF_INSIGHTS_RECORD_7f3c
 ```
 
 | Item | Required | Content |
@@ -100,6 +100,6 @@ HF_TUNE_RECORD_7f3c
 | `evidence_agent_session_ids` | yes | The session IDs of the evidence sessions (at least 1). Use only those shown in the evidence sessions |
 | `body` | yes | The body of the suggestion (markdown): the evidence, the change, the expected effect, and how to measure |
 
-- Show only the suggestions for which `harnessforce tune record` ended with exit code 0. Do not show a suggestion that ended with a non-zero code, and tell the user the message on stderr.
+- Show only the suggestions for which `harnessforce insights record` ended with exit code 0. Do not show a suggestion that ended with a non-zero code, and tell the user the message on stderr.
 - Record the same suggestion with the same input. With the same `category`, `change_type`, `path`, and content after applying, it counts as one no matter how many times it is recorded.
 - When showing, present the target category, the evidence, the change type, where to apply, the change, the expected effect, and how to measure, in this order.

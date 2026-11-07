@@ -64,7 +64,7 @@ const REGISTERING_SOURCES = new Set(["startup", "clear"]);
 // 打ち切りは、keychainを読むuser settingsからの宛先の解決全体にかける。
 const KEYCHAIN_READ_TIMEOUT_MS = 1_000;
 const REVOKED_MESSAGE =
-	"Your ingest key has been revoked. Run `harnessforce init`";
+	"Your ingest key has been revoked. Run `harnessforce login`";
 
 type Input = { sessionId: string; cwd: string; source: string | undefined };
 

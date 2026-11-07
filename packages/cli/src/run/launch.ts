@@ -85,7 +85,7 @@ export function buildLaunch(request: LaunchRequest): Launch {
 		HARNESSFORCE_ISSUE: request.issueIdentifier,
 	};
 	// Codexは`CLAUDE_CODE_*`と`OTEL_RESOURCE_ATTRIBUTES`を読まず、`OTEL_EXPORTER_OTLP_ENDPOINT`を設定すると
-	// `[otel]`のexporterのendpointの代わりに使われ、headerが付かないおそれがある。送信先は`harnessforce init`が書いた
+	// `[otel]`のexporterのendpointの代わりに使われ、headerが付かないおそれがある。送信先は`harnessforce login`が書いた
 	// `config.toml`に任せ、環境にはHARNESSFORCE_*の3つとlogsの送信間隔だけを置く。
 	// `[otel]`は送信間隔のkeyを持たず、既定の1秒をClaude Codeと同じ60秒にできるのは環境変数だけである。
 	const injectedEnv: Record<string, string> = isCodex(request.agent)
@@ -97,7 +97,7 @@ export function buildLaunch(request: LaunchRequest): Launch {
 				OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf",
 				CLAUDE_CODE_ENABLE_TELEMETRY: "1",
 				CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: "1",
-				// 既定では送られない`app.entrypoint`を送らせ、人が応じた許可の確認を対話のRunだけで数える（`harnessforce init`と同じ）。
+				// 既定では送られない`app.entrypoint`を送らせ、人が応じた許可の確認を対話のRunだけで数える（`harnessforce login`と同じ）。
 				OTEL_METRICS_INCLUDE_ENTRYPOINT: "true",
 				OTEL_RESOURCE_ATTRIBUTES: request.resourceAttributes,
 			};

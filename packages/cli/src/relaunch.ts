@@ -4,14 +4,23 @@ import {
 	type SpawnSelf,
 } from "@harnessforce/agent-core/process/runtime-env";
 import type { Env } from "@harnessforce/agent-core/types";
-import { canTuneSend } from "./tune/tune.js";
+import { canInsightsSend } from "./insights/insights.js";
 
-// keyやtokenを送るsubcommand。`harnessforce otel-headers`は通信を行わないため起動し直さない（correlation.md「Node.jsの実行時の変数」）。
-// `harnessforce tune`は送りうる分析だけを起動し直し、通信を行わない`record`、`--purge`、`--print-schedule`、`--no-send`を付けた分析は起動し直さない。
-const SENDING_COMMANDS = new Set(["init", "run", "import", "status", "hook"]);
+// keyやtokenを送るsubcommand。`harnessforce otel-headers`と`harnessforce config get`は通信を行わないため起動し直さない（correlation.md「Node.jsの実行時の変数」）。
+// `harnessforce config set`は、ログイン済みかと値による分岐の前に起動し直すため、`off`とログイン済みでない場合も起動し直す。
+// `harnessforce insights`は送りうる分析だけを起動し直し、通信を行わない`record`、`clear`、`schedule`、`--no-send`を付けた分析は起動し直さない。
+const SENDING_COMMANDS = new Set([
+	"login",
+	"logout",
+	"run",
+	"import",
+	"status",
+	"hook",
+]);
 const isSending = (argv: readonly string[]) =>
 	SENDING_COMMANDS.has(argv[0] ?? "") ||
-	(argv[0] === "tune" && canTuneSend(argv.slice(1)));
+	(argv[0] === "config" && argv[1] === "set") ||
+	(argv[0] === "insights" && canInsightsSend(argv.slice(1)));
 const HOOK_RESTART_FAILED =
 	"harnessforce: session registration skipped (restart failed)";
 const RESTART_FAILED = "Could not restart harnessforce";

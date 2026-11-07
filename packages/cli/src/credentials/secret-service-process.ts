@@ -16,7 +16,7 @@ type Options = {
 
 // 子processで1つの操作を行う。秘密はstdinで受け取り、argvに載せない。
 // 上限時間に達したら自分を止める。親processが先に終わっても、上限時間を過ぎて解錠の確認を待つprocessを残さない。
-// findCredentialsAsyncは保存先を指定できない。initは直前にSecret Serviceへ書けることを確かめた後でだけ呼ぶ。
+// findCredentialsAsyncは保存先を指定できない。loginは直前にSecret Serviceへ書けることを確かめた後でだけ呼ぶ。
 const CHILD_SCRIPT = `
 const [op, service, account, timeoutMs, modulePath] = process.argv.slice(1);
 setTimeout(() => process.kill(process.pid, "SIGKILL"), Number(timeoutMs));

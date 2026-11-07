@@ -304,7 +304,7 @@ describe("whether config.toml sends to Harnessforce", () => {
 
 	it.each([
 		[
-			"the header written by harnessforce init",
+			"the header written by harnessforce login",
 			'Authorization = "Bearer hf_ik_ws1_secret"',
 			true,
 		],

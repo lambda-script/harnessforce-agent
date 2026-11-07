@@ -6,7 +6,8 @@ export function collectInvocations(sources: {
 }): Invocation[];
 export function pluginInvocations(): Invocation[];
 export function checkRequiredCli(
-	requiredVersion: string,
+	requiredVersion: string | undefined,
 	invocations: readonly Invocation[],
 	run: (args: string[]) => Promise<{ code: number; stdout: string }>,
 ): Promise<string[]>;
+export function isNewerVersion(a: string, b: string): boolean;

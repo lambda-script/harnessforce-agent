@@ -6,7 +6,7 @@ const header = (key: string) =>
 	`${JSON.stringify({ Authorization: `Bearer ${key}` })}\n`;
 const WITHHELD = "harnessforce: user key withheld (destination not verified)\n";
 
-// harnessforce initの後の状態。keyとともに送信先のoriginを保存している。
+// harnessforce loginの後の状態。keyとともに送信先のoriginを保存している。
 const pinned = (extra: Record<string, string> = {}) =>
 	fakeKeychain({
 		items: {

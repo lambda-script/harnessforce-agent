@@ -9,6 +9,10 @@ export const stopWith = (text: string): never => {
 
 export const isStop = (error: unknown) => error instanceof CommandStop;
 
+// 終端の文言。終端でない例外はundefined。
+export const stopMessage = (error: unknown): string | undefined =>
+	error instanceof CommandStop ? error.text : undefined;
+
 // bodyの途中の終端を表示して1を返す。それ以外の例外は投げ直す。
 export async function runUntilStop(
 	body: () => Promise<number>,
