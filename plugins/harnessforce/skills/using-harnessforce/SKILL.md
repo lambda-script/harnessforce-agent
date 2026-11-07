@@ -5,34 +5,44 @@ description: Use when starting a session in an environment with the Harnessforce
 
 # Using Harnessforce
 
-This session has the Harnessforce hook installed. Harnessforce links the work of people and AI to Issues and records it. Follow these rules.
+This session has the Harnessforce hook installed. Harnessforce links the work of people and AI to Issues and records it. These rules hold for the whole session, after the user's instructions.
 
-## What is recorded
+## The rule
 
-- Session registration: agent, session ID, repository, branch, commit, start time, and the first prompt ID.
-- Work locations: the repository and branch of each Git working tree the session works in. Paths are not sent.
-- Config snapshot: the structure of the configuration in use (Claude Code only).
-- OTel telemetry: what the user chooses to send.
-- For work on an Issue, `record-session` registers the session as a Session and closes it. It records no Plan, Decision, or Definition of Done.
+When a request matches a row below, use that skill before you start the work. When no row matches, do not record anything on your own. An agent that cannot load skills calls the Harnessforce MCP tools a row names, in the same order; a row that names no tools does not apply to it.
+
+| When | Use |
+| --- | --- |
+| The user names a Harnessforce Issue (such as `ENG-42`), or `HARNESSFORCE_ISSUE` is set | `record-session`: `start_session` and `get_issue` at the start, `complete_session` at the end |
+| The work commits changes and no Issue is named | "When no Issue is specified" in `record-session`: ask the user once whether to link an existing Issue |
+| `/harnessforce:tune` has printed its targets for suggestions | `propose-improvements` |
+| The user asks for a diagram of a repository or a system (architecture, CI/CD, state, ER, sequence, Gantt) | `diagram` (Experimental) |
+| The user asks what Harnessforce records | "What is sent, and when" and "What is not collected" below |
+
+A subagent that the parent delegated a specific task to neither registers nor closes a Session. The parent does.
+
+## Session ID
+
+- Pass the value of the last `harnessforce agent_session_id:` line in the context to `start_session`.
+- When the line is missing, the hook did not run. Do not guess an ID, and do not call `start_session` or `complete_session`. `record-session` says what to tell the user.
+
+## What is sent, and when
+
+| Hook | What it does |
+| --- | --- |
+| SessionStart | Sends the session registration: agent, session ID, repository, branch, commit, start time. Claude Code also sends the config snapshot (the structure of the configuration in use) and the usage summaries other sessions have not sent yet. Adds this text to the context |
+| UserPromptSubmit | Claude Code only: resends the registration with the first prompt ID |
+| PostToolUse, PostToolUseFailure, UserPromptExpansion, PermissionRequest, PostCompact | Claude Code only: counts, on this machine, the calls of each skill, command, subagent, and MCP server, the permission requests, and the compactions. Names and counts only |
+| PostToolUse, CwdChanged | Notes the Git working tree after a file edit (`Write` and `Edit` in Claude Code, `apply_patch` in Codex) and, in Claude Code only, after a change of directory |
+| Stop | Sends the repository and branch of each working tree noted, when they differ from the last ones sent. Paths are not sent |
+| SessionEnd | Claude Code only: with a Workspace key, sends the counts as the session usage summary. With a user key, or when that fails, a SessionStart at least 10 minutes later sends them |
+
+OTel telemetry carries what the user chose with `harnessforce init` or what managed settings set. For work on an Issue, `record-session` registers and closes a Session linked to the Issue. A failing hook never stops the session. When the registration or the setup has a problem, SessionStart shows a one-line warning: tell the user.
 
 ## What is not collected
 
-- Prompts, responses, tool input and output, and the body of code diffs arrive only when the user sends them (`--send-content` or managed settings) and the Workspace stores that category. The members the Workspace chooses can read them. `harnessforce import` never sends them.
+- Prompts, responses, tool input and output, and the body of code diffs arrive only when the user sends them (`--send-content` or managed settings) and the Workspace stores that category. The members the Workspace chooses can read them. `harnessforce import` never sends them. Codex telemetry carries tool arguments and results up to 2 KiB whatever the user chose.
 - Never put these contents, secrets, or environment variable values in MCP tool input or in a record.
-
-## Which hook sends what
-
-- SessionStart: session registration and the config snapshot (Codex sends session registration only).
-- UserPromptSubmit: resends on the first prompt (Claude Code only).
-- Stop: sends the work locations at the end of a turn in which they changed.
-- A failing hook never stops the session. When the hook cannot send, it shows a one-line warning. Tell the user when a warning appears.
-
-## Which skill and tool to use, and when
-
-- For work on a specified Issue ID, or when the environment variable `HARNESSFORCE_ISSUE` is set, follow `record-session` and use `start_session`, `get_issue`, and `complete_session`. An agent that cannot load the skill calls the tools in the same order.
-- Pass the value of the `harnessforce agent_session_id:` line in the context to `start_session`. If there are several, use the last one. If the line is missing, do not guess the session ID, and do not call `start_session` or `complete_session`.
-- Use `propose-improvements` for the analysis of `/harnessforce:tune`.
-- When no Issue is specified, do not start recording a Session on your own. For work that commits changes, follow "When no Issue is specified" in `record-session` and ask the user once whether to link it to an existing Issue.
 
 ## Red Flags
 
@@ -40,17 +50,17 @@ Stop when one of these thoughts comes up.
 
 | Thought | Reality |
 | --- | --- |
-| An Issue was specified, but the work is small, so recording is unnecessary | Work on a specified Issue is recorded regardless of its size |
-| The session ID line is missing, so I will guess it and call `start_session` | Do not guess. The Session would no longer be linked to the agent session |
-| Summarizing the content before recording would help | Do not pass content to the tool. It goes beyond what is collected |
+| An Issue was specified, but the work is small, so recording is unnecessary | Work on a specified Issue is recorded whatever its size |
+| The session ID line is missing, so I will guess it and call `start_session` | Do not guess. A guessed ID links the Session to no agent session |
+| This work looks like it belongs to an Issue, so I will start a Session | Start one only for an Issue the user names, the current branch names, or the user picks when asked |
+| I already asked about linking an Issue, but I will ask again | Ask once per session ID. After the user declines, do not ask again |
+| The Issue was named after the work began, so it is too late to record | Call `start_session` when the Issue is named. The Session covers the earlier work too |
+| I am a subagent working on the Issue, so I register my own Session | The parent registers and closes the Session |
+| Summarizing the content before recording would help | Do not pass content to a tool. It goes beyond what is collected |
 | A warning appeared, but I can ignore it | Sending is not working. Tell the user |
 
 ## Priority
 
 1. The user's instructions (CLAUDE.md, AGENTS.md, direct requests). If the user tells you to stop recording, stop recording the Session.
-2. This introduction.
+2. This introduction and the Harnessforce skills.
 3. Default behavior.
-
-## Subagents
-
-A subagent that was delegated only a specific task by its parent does not register a Session by following this introduction. The parent registers the Session.

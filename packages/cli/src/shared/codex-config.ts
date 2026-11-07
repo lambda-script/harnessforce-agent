@@ -10,6 +10,10 @@ import {
 import { dirname, join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { parse, patch } from "@decimalturn/toml-patch";
+import {
+	CODEX_HOOKS,
+	type CodexHookSpec,
+} from "@harnessforce/agent-core/codex-hooks";
 import { absoluteEnv } from "@harnessforce/agent-core/config/scope";
 import { workspaceIdOf } from "@harnessforce/agent-core/ingest";
 import { isObject } from "@harnessforce/agent-core/object";
@@ -29,27 +33,8 @@ export type CodexConfigInput = {
 
 const HOOK_TIMEOUT_SECONDS = 10;
 
-type HookSpec = Readonly<{
-	event: "SessionStart" | "PostToolUse" | "Stop";
-	subcommand: string;
-	matcher?: string;
-	// correlation.md「sessionの作業位置」: 作業位置のhookはagentを待たせない。
-	isAsync?: boolean;
-}>;
-
-// correlation.md「Codex」: harnessforce initが`[hooks]`へ書くhandler。
-const HOOKS: readonly HookSpec[] = [
-	{ event: "SessionStart", subcommand: "session-start" },
-	{
-		event: "PostToolUse",
-		subcommand: "post-tool-use",
-		matcher: "^apply_patch$",
-		isAsync: true,
-	},
-	{ event: "Stop", subcommand: "stop", isAsync: true },
-];
-
-const hookCommand = (spec: HookSpec) => `harnessforce hook ${spec.subcommand}`;
+const hookCommand = (spec: CodexHookSpec) =>
+	`harnessforce hook ${spec.subcommand}`;
 // keyを平文で持つfileであり、利用者のumaskに任せない（correlation.md「Codex」）。
 const FILE_MODE = 0o600;
 
@@ -136,7 +121,7 @@ function withHarnessforce(config: Table, input: CodexConfigInput): Table {
 	otel.log_agent_responses = input.logAgentResponses;
 
 	const hooks = tableAt(config, "hooks");
-	for (const spec of HOOKS) {
+	for (const spec of CODEX_HOOKS) {
 		const groups = hooks[spec.event] ?? [];
 		if (!Array.isArray(groups)) throw new Error(spec.event);
 		hooks[spec.event] = withHandler(groups, spec);
@@ -158,7 +143,7 @@ function tableAt(parent: Table, key: string): Table {
 
 // 前に書いたhandlerを新しい値で置き換える。groupのmatcherと他のhandlerは残す。無ければ新しいgroupを加える。
 // 要素を取り除く編集は、parserが入れ子のtableを落とすことがあるため行わない。
-function withHandler(groups: unknown[], spec: HookSpec): unknown[] {
+function withHandler(groups: unknown[], spec: CodexHookSpec): unknown[] {
 	const command = hookCommand(spec);
 	const isOurs = (entry: unknown) =>
 		isObject(entry) && entry.command === command;

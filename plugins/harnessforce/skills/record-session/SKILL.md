@@ -12,6 +12,8 @@ Use the tools of the Harnessforce MCP server to link the work to the Issue. The 
 1. Pass the value of `harnessforce agent_session_id: <agent_session_id>` in the context as `agent_session_id`, and register the Session with `start_session`. The Harnessforce plugin adds this line to the context at session start. If there are several, use the last one added. The input is the Issue identifier (`issue_identifier`), `agent` (`claude_code`), and `agent_session_id`. Do not pass the repository, branch, or commit: the hook registers the same session and fills them in. Keep the returned `session_id` until the end. If the line is missing from the context, follow "When the session ID is missing" below.
 2. Check the Issue with `get_issue`.
 
+If the user names the Issue in the middle of a session, the work on it starts then: do both steps at that point. The Session links to the whole agent session, so the earlier work is included.
+
 ## When the session ID changes
 
 - If the value of the last `harnessforce agent_session_id:` in the context differs from the value you passed to the previous `start_session` (for example after forking the conversation or running `/clear`), call `start_session` once more with the new value before continuing, and use the returned `session_id` for later `complete_session` calls.

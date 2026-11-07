@@ -37,7 +37,8 @@ const GRADER_KEYS: Record<string, string[]> = {
 };
 const COMMON_GRADER_KEYS = ["type", "weight", "arm"];
 // trigger: 1つの腕で発火を測る。rules: 読み取りのtoolだけで2つの腕を比べる。granted: Bash、Write、Editを与えて2つの腕を比べる。
-const TAGS = new Set(["trigger", "rules", "granted"]);
+// injected: hookが注入する本文の規則を1つの腕で測り、本文の版どうしを比べる。
+const TAGS = new Set(["trigger", "rules", "granted", "injected"]);
 // standaloneのmockはplugin名を含まない名前で登録される。
 const MCP_PREFIX = "mcp__harnessforce__";
 
@@ -104,6 +105,12 @@ describe("plugin eval cases", () => {
 		const tags = c.prompt.data.tags as string[];
 		expect(tags).toHaveLength(1);
 		expect(TAGS.has(tags[0] ?? "")).toBe(true);
+	});
+
+	// claude plugin eval（2.1.319）は、値の中でも次の"---"でfrontmatterを終える。promptが壊れ、規則を測れなくなる。
+	it.each(cases)("$id has no --- inside its frontmatter", (c) => {
+		const text = readFileSync(join(c.dir, "prompt.md"), "utf8");
+		expect(text.indexOf("---", 3)).toBe(text.indexOf("\n---\n", 3) + 1);
 	});
 
 	// 先頭の`/`はslash commandとして実行され、skillの発火も規則も測れなくなる。
@@ -205,6 +212,33 @@ describe("plugin eval cases", () => {
 		expect(q.test("-status:done,canceled export")).toBe(false);
 		expect(q.test("-status:resolved,not_planned ")).toBe(false);
 		expect(q.test("export")).toBe(false);
+	});
+});
+
+// runはhookを読み込まないため、injectedのcaseはSessionStartが注入する本文をappend_system_promptで渡す。
+// 本文を変えたら`node plugins/harnessforce/evals/using-harnessforce/sync.mjs`で写し直す。
+describe("using-harnessforce eval cases", () => {
+	// rootのvitestは`?raw`を読めないため、agent-coreのusingHarnessforceBodyと同じ取り出しをここでも行う。
+	const injectedBody = readFileSync(
+		join(pluginDir, "skills/using-harnessforce/SKILL.md"),
+		"utf8",
+	)
+		.replace(/\r\n/g, "\n")
+		.replace(/^---\n[\s\S]*?\n---\n+/, "")
+		.trimEnd();
+	const injectedCases = cases.filter((c) =>
+		c.id.startsWith("using-harnessforce/"),
+	);
+
+	it("finds the cases", () => expect(injectedCases.length).toBeGreaterThan(0));
+
+	it.each(injectedCases)("$id carries the current injected text", (c) => {
+		expect(c.prompt.data.tags).toEqual(["injected"]);
+		const text = String(c.prompt.data.append_system_prompt).replace(
+			/^harnessforce agent_session_id: [^\n]+\n\n/,
+			"",
+		);
+		expect(text).toBe(`${injectedBody}\n`);
 	});
 });
 
