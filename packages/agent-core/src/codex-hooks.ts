@@ -1,4 +1,4 @@
-// correlation.md「Codex」: harnessforce initが`config.toml`の`[hooks]`へ書くhandler。
+// correlation.md「Codex」: harnessforce loginが`config.toml`の`[hooks]`へ書くhandler。
 // using-harnessforceの「What is sent, and when」の表と照合するため、pluginのtestからも読む。
 export type CodexHookSpec = Readonly<{
 	event: "SessionStart" | "PostToolUse" | "Stop";

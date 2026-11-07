@@ -125,11 +125,11 @@ const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const mentions = (help, word) =>
 	new RegExp(`(?<![\\w-])${escapeRegExp(word)}(?![\\w-])`).test(help);
 
-/** `run(args)`でCLIを起動し、見つかった問題を返す。空なら合格。 */
+/** `run(args)`でCLIを起動し、見つかった問題を返す。空なら合格。requiredVersionがundefinedなら版を比べない。 */
 export async function checkRequiredCli(requiredVersion, invocations, run) {
 	const problems = [];
 	const version = (await run(["--version"])).stdout.trim();
-	if (version !== requiredVersion)
+	if (requiredVersion !== undefined && version !== requiredVersion)
 		problems.push(
 			`harnessforce --version printed ${version}, not ${requiredVersion}`,
 		);
@@ -154,6 +154,28 @@ export async function checkRequiredCli(requiredVersion, invocations, run) {
 
 const execFileAsync = promisify(execFile);
 
+/** `<major>.<minor>.<patch>`のaがbより新しいか。 */
+export function isNewerVersion(a, b) {
+	const [x, y] = [a, b].map((v) => v.split(".").map(Number));
+	for (let i = 0; i < 3; i += 1) if (x[i] !== y[i]) return x[i] > y[i];
+	return false;
+}
+
+// 無い版はnpmがE404で答える。通信の失敗などは、確かめずに通さないよう失敗させる。
+async function isPublished(version) {
+	try {
+		const { stdout } = await execFileAsync("npm", [
+			"view",
+			`@harnessforce/cli@${version}`,
+			"version",
+		]);
+		return stdout.trim() === version;
+	} catch (error) {
+		if (/\bE404\b/.test(String(error.stderr ?? ""))) return false;
+		throw error;
+	}
+}
+
 async function main() {
 	const { REQUIRED_CLI_VERSION } = await import(
 		new URL(
@@ -163,16 +185,36 @@ async function main() {
 	);
 	const work = mkdtempSync(join(tmpdir(), "hf-required-cli-"));
 	try {
-		await execFileAsync("npm", [
-			"install",
-			"--prefix",
-			work,
-			"--no-audit",
-			"--no-fund",
-			"--ignore-scripts",
-			`@harnessforce/cli@${REQUIRED_CLI_VERSION}`,
-		]);
-		const cliDir = join(work, "node_modules/@harnessforce/cli");
+		// pluginが新しいcommandを使い始める変更では、その版のCLIはpluginと同じreleaseで公開されるまでnpmに無い。
+		// そのときは、同じcommitのbuildの出力（releaseが公開するもの）で確かめ、版の一致は公開の後のCIに任せる。
+		const published = await isPublished(REQUIRED_CLI_VERSION);
+		const workspaceVersion = JSON.parse(
+			readFileSync(
+				new URL("../packages/cli/package.json", import.meta.url),
+				"utf8",
+			),
+		).version;
+		// 未公開の版は、まだ公開していない次の版でなければならない。存在しない版を求めるpluginは、setupを全端末で止める。
+		if (!published && !isNewerVersion(REQUIRED_CLI_VERSION, workspaceVersion)) {
+			console.error(
+				`REQUIRED_CLI_VERSION ${REQUIRED_CLI_VERSION} is not on npm and is not newer than the CLI ${workspaceVersion} in this commit`,
+			);
+			process.exitCode = 1;
+			return;
+		}
+		if (published)
+			await execFileAsync("npm", [
+				"install",
+				"--prefix",
+				work,
+				"--no-audit",
+				"--no-fund",
+				"--ignore-scripts",
+				`@harnessforce/cli@${REQUIRED_CLI_VERSION}`,
+			]);
+		const cliDir = published
+			? join(work, "node_modules/@harnessforce/cli")
+			: fileURLToPath(new URL("../packages/cli/", import.meta.url));
 		const { bin } = JSON.parse(
 			readFileSync(join(cliDir, "package.json"), "utf8"),
 		);
@@ -191,7 +233,7 @@ async function main() {
 			);
 		const invocations = pluginInvocations();
 		const problems = await checkRequiredCli(
-			REQUIRED_CLI_VERSION,
+			published ? REQUIRED_CLI_VERSION : undefined,
 			invocations,
 			run,
 		);
@@ -201,7 +243,9 @@ async function main() {
 			return;
 		}
 		console.log(
-			`CLI ${REQUIRED_CLI_VERSION} has the ${invocations.length} commands the plugin runs`,
+			published
+				? `CLI ${REQUIRED_CLI_VERSION} has the ${invocations.length} commands the plugin runs`
+				: `CLI ${REQUIRED_CLI_VERSION} is not on npm yet. The CLI built from this commit has the ${invocations.length} commands the plugin runs`,
 		);
 	} finally {
 		rmSync(work, { recursive: true, force: true });

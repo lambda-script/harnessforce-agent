@@ -3,7 +3,7 @@ import { storedToken } from "@harnessforce/test-support/api-token";
 import { describe, expect, it } from "vitest";
 import type { CliDeps } from "../../src/main.js";
 import type { Launch } from "../../src/run/launch.js";
-import { makeHome } from "../init/harness.js";
+import { makeHome } from "../login/harness.js";
 import { fakeKeychain, runCli } from "../support/cli.js";
 import {
 	issueBody,
@@ -207,11 +207,15 @@ describe("harnessforce run", () => {
 
 	// correlation.md「CLI」の確かめる順1〜8。どれもRead APIとingestへ何も送らない。
 	describe("checks before the Issue is resolved", () => {
-		const INIT = "Run `harnessforce init`";
+		const LOGIN =
+			"You are not logged in to Harnessforce. Run `harnessforce login`";
+		const MISMATCH =
+			"The Harnessforce destination differs from the one saved by `harnessforce login`. Run `harnessforce login` again";
 		const KEYCHAIN =
 			"The OS keychain is unavailable, so the ingest key cannot be saved";
 		const INVALID_URL = "The connection URL is invalid";
-		const NO_TOKEN = "Could not resolve the Issue. Run `harnessforce init`";
+		const NO_TOKEN =
+			"Could not resolve the Issue because you are not logged in to Harnessforce. Run `harnessforce login`";
 		const cases: [string, Setup, string, string[]?][] = [
 			[
 				"1: keychain unavailable",
@@ -236,7 +240,7 @@ describe("harnessforce run", () => {
 						HARNESSFORCE_URL: "http://app.example.test",
 					},
 				},
-				INIT,
+				LOGIN,
 			],
 			[
 				"3: no user ingest key, before a missing ingest endpoint",
@@ -244,9 +248,9 @@ describe("harnessforce run", () => {
 					keychain: pinnedKeychain({ "ws1:ingest-key": undefined }),
 					env: { HARNESSFORCE_ENDPOINT: "" },
 				},
-				INIT,
+				LOGIN,
 			],
-			["4: no ingest endpoint", { env: { HARNESSFORCE_ENDPOINT: "" } }, INIT],
+			["4: no ingest endpoint", { env: { HARNESSFORCE_ENDPOINT: "" } }, LOGIN],
 			[
 				"4: an ingest endpoint over plain http",
 				{ env: { HARNESSFORCE_ENDPOINT: "http://ingest.example.test" } },
@@ -255,7 +259,7 @@ describe("harnessforce run", () => {
 			[
 				"5: no pinned ingest origin",
 				{ keychain: pinnedKeychain({ "ws1:ingest-origin": undefined }) },
-				INIT,
+				MISMATCH,
 			],
 			[
 				"5: an ingest endpoint outside the pinned origin, before a missing ApiToken",
@@ -263,7 +267,7 @@ describe("harnessforce run", () => {
 					env: { HARNESSFORCE_ENDPOINT: "https://attacker.example.test" },
 					keychain: pinnedKeychain({ "ws1:api-token": undefined }),
 				},
-				INIT,
+				MISMATCH,
 			],
 			[
 				"6: no ApiToken, before an invalid Read API URL",
@@ -281,17 +285,17 @@ describe("harnessforce run", () => {
 			[
 				"8: no pinned Read API origin",
 				{ keychain: pinnedKeychain({ "ws1:url-origin": undefined }) },
-				INIT,
+				MISMATCH,
 			],
 			[
 				"8: a Read API URL outside the pinned origin",
 				{ env: { HARNESSFORCE_URL: "https://attacker.example.test" } },
-				INIT,
+				MISMATCH,
 			],
 			[
 				"8: before an invalid identifier",
 				{ keychain: pinnedKeychain({ "ws1:url-origin": undefined }) },
-				INIT,
+				MISMATCH,
 				["--issue", "ENG 42", "--", "claude"],
 			],
 			[
@@ -338,12 +342,12 @@ describe("harnessforce run", () => {
 			[
 				"a 401 on resolution that persists after the refresh",
 				{ issue: () => ({ status: 401 }) },
-				"Your login has expired. Run `harnessforce init`",
+				"Your login has expired. Run `harnessforce login`",
 			],
 			[
 				"a 401 on candidates that persists after the refresh",
 				{ issue: () => ({ status: 404 }), list: () => ({ status: 401 }) },
-				"Your login has expired. Run `harnessforce init`",
+				"Your login has expired. Run `harnessforce login`",
 			],
 			[
 				"a rejected refresh after a 401",
@@ -351,7 +355,7 @@ describe("harnessforce run", () => {
 					issue: () => ({ status: 401 }),
 					refresh: { status: 400, body: { error: "invalid_grant" } },
 				},
-				"Your login has expired. Run `harnessforce init`",
+				"Your login has expired. Run `harnessforce login`",
 			],
 			[
 				"a 500 on resolution",

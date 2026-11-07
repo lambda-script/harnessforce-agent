@@ -247,7 +247,7 @@ describe("while the CLI version is unsupported", () => {
 // client-updates.md「pluginが必要とするCLIの版」、correlation.md「hookの警告」の順。
 describe("when the CLI is older than the plugin needs", () => {
 	const CLI_TOO_OLD =
-		"Harnessforce plugin needs CLI 0.4.0 or later, but CLI 0.3.0 is installed. Update it: `npm install -g @harnessforce/cli@latest`";
+		"Harnessforce plugin needs CLI 0.7.0 or later, but CLI 0.3.0 is installed. Update it: `npm install -g @harnessforce/cli@latest`";
 
 	it("shows the line at every start, even with NO_UPDATE_NOTIFIER and CI, and keeps sending", async () => {
 		// 2回の起動で同じdata directoryを使い、1回目の表示が2回目を抑えないことを確かめる。
@@ -268,7 +268,7 @@ describe("when the CLI is older than the plugin needs", () => {
 
 	it("shows nothing for the version the plugin needs or an unreadable one", async () => {
 		for (const cliVersion of [
-			"0.4.0\n",
+			"0.7.0\n",
 			"1.2.3\n",
 			"0.3.0-beta\n",
 			undefined,

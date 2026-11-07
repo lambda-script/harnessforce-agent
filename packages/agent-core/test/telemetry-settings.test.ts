@@ -5,9 +5,9 @@ import { managedDir } from "@harnessforce/test-support/managed-dir";
 import { afterEach, describe, expect, it } from "vitest";
 import { isTelemetryConfigured } from "../src/telemetry-settings.js";
 
-// `harnessforce init`の手順6が書くテレメトリの設定（correlation.md「CLI」）。送信間隔の3つは除く。
+// `harnessforce login`の手順6が書くテレメトリの設定（correlation.md「CLI」）。送信間隔の3つは除く。
 // 無くてもテレメトリは届き、送信の健全性の判定に含めないため（correlation.md「CLI」の手順6の送信間隔）。
-const INIT_ENV = {
+const LOGIN_ENV = {
 	CLAUDE_CODE_ENABLE_TELEMETRY: "1",
 	OTEL_METRICS_EXPORTER: "otlp",
 	OTEL_LOGS_EXPORTER: "otlp",
@@ -37,11 +37,11 @@ const check = (configDir: string, managed: Record<string, string> | null) =>
 	});
 
 describe("telemetry settings (correlation.md「送信の健全性」)", () => {
-	it("is configured when user settings hold what harnessforce init writes, even without the export intervals", async () =>
+	it("is configured when user settings hold what harnessforce login writes, even without the export intervals", async () =>
 		expect(
 			await check(
 				await homeWith({
-					env: INIT_ENV,
+					env: LOGIN_ENV,
 					otelHeadersHelper: "harnessforce otel-headers",
 				}),
 				null,
@@ -52,7 +52,7 @@ describe("telemetry settings (correlation.md「送信の健全性」)", () => {
 		expect(
 			await check(
 				await homeWith({
-					env: { ...INIT_ENV, OTEL_LOGS_EXPORTER: "console,otlp" },
+					env: { ...LOGIN_ENV, OTEL_LOGS_EXPORTER: "console,otlp" },
 					otelHeadersHelper: "harnessforce otel-headers",
 				}),
 				null,
@@ -67,7 +67,7 @@ describe("telemetry settings (correlation.md「送信の健全性」)", () => {
 		expect(
 			await check(
 				await homeWith({
-					env: { ...INIT_ENV, [name]: value },
+					env: { ...LOGIN_ENV, [name]: value },
 					otelHeadersHelper: "harnessforce otel-headers",
 				}),
 				null,
@@ -76,14 +76,14 @@ describe("telemetry settings (correlation.md「送信の健全性」)", () => {
 	);
 
 	it("is missing when the telemetry variable was removed", async () => {
-		const { CLAUDE_CODE_ENABLE_TELEMETRY: _, ...rest } = INIT_ENV;
+		const { CLAUDE_CODE_ENABLE_TELEMETRY: _, ...rest } = LOGIN_ENV;
 		expect(
 			await check(await homeWith({ env: rest, otelHeadersHelper: "x" }), null),
 		).toBe(false);
 	});
 
 	it("is missing without otelHeadersHelper in user settings", async () =>
-		expect(await check(await homeWith({ env: INIT_ENV }), null)).toBe(false));
+		expect(await check(await homeWith({ env: LOGIN_ENV }), null)).toBe(false));
 
 	it("is missing when the user settings file is absent or not JSON", async () => {
 		expect(await check("/nonexistent/hf-config", null)).toBe(false);
@@ -93,7 +93,7 @@ describe("telemetry settings (correlation.md「送信の健全性」)", () => {
 	// managed settingsのfileの値が、user settingsの値より優先される。
 	it("prefers the managed settings file value for each variable", async () => {
 		const home = await homeWith({
-			env: INIT_ENV,
+			env: LOGIN_ENV,
 			otelHeadersHelper: "harnessforce otel-headers",
 		});
 		expect(await check(home, { CLAUDE_CODE_ENABLE_TELEMETRY: "0" })).toBe(
@@ -103,6 +103,6 @@ describe("telemetry settings (correlation.md「送信の健全性」)", () => {
 			env: { OTEL_LOGS_EXPORTER: "otlp" },
 			otelHeadersHelper: "harnessforce otel-headers",
 		});
-		expect(await check(partial, INIT_ENV)).toBe(true);
+		expect(await check(partial, LOGIN_ENV)).toBe(true);
 	});
 });

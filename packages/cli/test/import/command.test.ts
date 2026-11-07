@@ -17,8 +17,11 @@ import {
 	transcript,
 } from "./harness.js";
 
-const RUN_INIT = "Run `harnessforce init`\n";
-const EXPIRED = "Your login has expired. Run `harnessforce init`\n";
+const NOT_LOGGED_IN =
+	"You are not logged in to Harnessforce. Run `harnessforce login`\n";
+const MISMATCH =
+	"The Harnessforce destination differs from the one saved by `harnessforce login`. Run `harnessforce login` again\n";
+const EXPIRED = "Your login has expired. Run `harnessforce login`\n";
 const READ_FAILED =
 	"Communication with Harnessforce failed. Run `harnessforce import` again\n";
 const SEND_FAILED =
@@ -115,7 +118,7 @@ describe("harnessforce import record base", () => {
 });
 
 describe("harnessforce import", () => {
-	it("sends connected sessions with the user key to the destinations saved by harnessforce init", async () => {
+	it("sends connected sessions with the user key to the destinations saved by harnessforce login", async () => {
 		const { hf, home, run } = await setup();
 		expect(await run()).toEqual({
 			code: 0,
@@ -485,7 +488,7 @@ describe("harnessforce import", () => {
 	});
 
 	describe("stops before sending and keeps the state file", () => {
-		it("when the keychain is unavailable, without suggesting harnessforce init", async () => {
+		it("when the keychain is unavailable, without suggesting harnessforce login", async () => {
 			const { hf, home, run } = await setup();
 			expect(
 				await run({ keychain: fakeKeychain({ available: false }).keychain }),
@@ -532,14 +535,14 @@ describe("harnessforce import", () => {
 		});
 
 		it.each([
-			["the api token is missing", "ws1:api-token"],
-			["the user ingest key is missing", "ws1:ingest-key"],
-			["no origin was pinned", "ws1:ingest-origin"],
-			["no connection origin was pinned", "ws1:url-origin"],
-		])("when %s", async (_, account) => {
+			["the api token is missing", "ws1:api-token", NOT_LOGGED_IN],
+			["the user ingest key is missing", "ws1:ingest-key", NOT_LOGGED_IN],
+			["no origin was pinned", "ws1:ingest-origin", MISMATCH],
+			["no connection origin was pinned", "ws1:url-origin", MISMATCH],
+		])("when %s", async (_, account, message) => {
 			const { hf, home, run, keychain } = await setup();
 			keychain.items.delete(account);
-			expect(await run()).toEqual({ code: 1, out: "", err: RUN_INIT });
+			expect(await run()).toEqual({ code: 1, out: "", err: message });
 			expect(hf.requests).toEqual([]);
 			expect(home.readState()).toBeUndefined();
 		});
@@ -548,7 +551,7 @@ describe("harnessforce import", () => {
 		it("when the user ingest key is empty", async () => {
 			const { hf, home, run, keychain } = await setup();
 			keychain.items.set("ws1:ingest-key", "");
-			expect(await run()).toEqual({ code: 1, out: "", err: RUN_INIT });
+			expect(await run()).toEqual({ code: 1, out: "", err: NOT_LOGGED_IN });
 			expect(hf.requests).toEqual([]);
 			expect(home.readState()).toBeUndefined();
 		});
@@ -564,7 +567,7 @@ describe("harnessforce import", () => {
 				const home = initializedHome({ HARNESSFORCE_URL: hf.appUrl, ...env });
 				expect(
 					await runImport({ homeDir: home.home, keychain: keychain.keychain }),
-				).toEqual({ code: 1, out: "", err: RUN_INIT });
+				).toEqual({ code: 1, out: "", err: NOT_LOGGED_IN });
 			}
 			expect(hf.requests).toEqual([]);
 		});
@@ -580,23 +583,23 @@ describe("harnessforce import", () => {
 			});
 			expect(
 				await runImport({ homeDir: home.home, keychain: keychain.keychain }),
-			).toEqual({ code: 1, out: "", err: RUN_INIT });
+			).toEqual({ code: 1, out: "", err: NOT_LOGGED_IN });
 			expect(hf.requests).toEqual([]);
 		});
 
-		it("when the ingest endpoint points to another origin than harnessforce init pinned", async () => {
+		it("when the ingest endpoint points to another origin than harnessforce login pinned", async () => {
 			const { hf, home, run } = await setup();
 			expect(
 				await run({
 					env: { HARNESSFORCE_ENDPOINT: "https://attacker.example.test" },
 				}),
-			).toEqual({ code: 1, out: "", err: RUN_INIT });
+			).toEqual({ code: 1, out: "", err: MISMATCH });
 			expect(hf.requests).toEqual([]);
 			expect(home.readState()).toBeUndefined();
 		});
 
 		// repositoryのsettingsの`env`が書き換えたHARNESSFORCE_URLへApiTokenを送らない。
-		it("when the connection URL points to another origin than harnessforce init pinned", async () => {
+		it("when the connection URL points to another origin than harnessforce login pinned", async () => {
 			const { home, run } = await setup();
 			await run();
 			const state = home.readState();
@@ -609,7 +612,7 @@ describe("harnessforce import", () => {
 						return fetch(url, init);
 					},
 				}),
-			).toEqual({ code: 1, out: "", err: RUN_INIT });
+			).toEqual({ code: 1, out: "", err: MISMATCH });
 			expect(fetched).toEqual([]);
 			expect(home.readState()).toBe(state);
 		});
@@ -710,20 +713,20 @@ describe("harnessforce import", () => {
 			expect(home.readState()).toBeUndefined();
 		});
 
-		it("treats an ApiToken stored by an older harnessforce init as missing", async () => {
+		it("treats an ApiToken stored by an older harnessforce login as missing", async () => {
 			const { hf, keychain, run } = await setup();
 			keychain.items.set("ws1:api-token", "hf_at_ws1_plain");
-			expect(await run()).toEqual({ code: 1, out: "", err: RUN_INIT });
+			expect(await run()).toEqual({ code: 1, out: "", err: NOT_LOGGED_IN });
 			expect(hf.requests).toEqual([]);
 		});
 	});
 
-	it("tells to run harnessforce init when the ingest key is revoked", async () => {
+	it("tells to run harnessforce login when the ingest key is revoked", async () => {
 		const { home, run } = await setup({ ingest: [{ status: 401 }] });
 		expect(await run()).toEqual({
 			code: 1,
 			out: "",
-			err: "Your ingest key has been revoked. Run `harnessforce init`\n",
+			err: "Your ingest key has been revoked. Run `harnessforce login`\n",
 		});
 		expect(home.readState()).toBeUndefined();
 	});

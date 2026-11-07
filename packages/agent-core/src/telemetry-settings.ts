@@ -2,7 +2,7 @@ import { readJsonObjectFile } from "./config/files.js";
 import { readManagedEnv } from "./managed.js";
 import { isObject } from "./object.js";
 
-// `harnessforce init`の手順6が書く値（correlation.md「CLI」）。exporterは一覧の形でotlpを含めばよい。
+// `harnessforce login`の手順6が書く値（correlation.md「CLI」）。exporterは一覧の形でotlpを含めばよい。
 const EXPECTED = {
 	CLAUDE_CODE_ENABLE_TELEMETRY: (value: string) => value === "1",
 	OTEL_LOGS_EXPORTER: (value: string) => includesOtlp(value),

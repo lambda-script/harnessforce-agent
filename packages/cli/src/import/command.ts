@@ -5,7 +5,11 @@ import { withoutExtras } from "@harnessforce/agent-core/url";
 import { type AccessMessages, verifyCliAccess } from "../credentials/access.js";
 import { createApiTokenSession } from "../credentials/api-token-session.js";
 import type { Keychain } from "../credentials/keychain.js";
-import { INIT_MESSAGES } from "../shared/messages.js";
+import {
+	DESTINATION_MISMATCH_MESSAGE,
+	LOGIN_MESSAGES,
+	NOT_LOGGED_IN_MESSAGE,
+} from "../shared/messages.js";
 import { runUntilStop, stopWith } from "../shared/stop.js";
 import {
 	fetchSessionImportDays,
@@ -45,15 +49,14 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 // correlation.md「session import」「CLIの宛先の決め方」「CLI」が定める文言。
 const MESSAGES = {
-	runInit: "Run `harnessforce init`",
 	invalidUrl: "The connection URL is invalid",
-	keychainUnavailable: INIT_MESSAGES.keychainUnavailable,
+	keychainUnavailable: LOGIN_MESSAGES.keychainUnavailable,
 	readFailed:
 		"Communication with Harnessforce failed. Run `harnessforce import` again",
 	sendFailed:
 		"Communication with Harnessforce failed. Run `harnessforce import` again to resume importing",
-	revoked: "Your ingest key has been revoked. Run `harnessforce init`",
-	loginExpired: "Your login has expired. Run `harnessforce init`",
+	revoked: "Your ingest key has been revoked. Run `harnessforce login`",
+	loginExpired: "Your login has expired. Run `harnessforce login`",
 	stateFailed: "Could not save the import state",
 	connectNone:
 		"No GitHub repository is assigned to a project. Connect the GitHub App and assign repositories to a project in Harnessforce to import sessions with `harnessforce import`",
@@ -71,9 +74,10 @@ const limitMessage = {
 
 const ACCESS_MESSAGES: AccessMessages = {
 	keychainUnavailable: MESSAGES.keychainUnavailable,
-	initRequired: MESSAGES.runInit,
+	loginRequired: NOT_LOGGED_IN_MESSAGE,
+	destinationMismatch: DESTINATION_MISMATCH_MESSAGE,
 	invalidUrl: MESSAGES.invalidUrl,
-	apiTokenMissing: MESSAGES.runInit,
+	apiTokenMissing: NOT_LOGGED_IN_MESSAGE,
 };
 
 function unwrap<T>(outcome: ReadOutcome<T>): T {

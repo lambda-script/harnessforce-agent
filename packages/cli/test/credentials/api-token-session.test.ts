@@ -192,7 +192,7 @@ describe("an ApiToken session", () => {
 
 	it.each([
 		["nothing stored", undefined],
-		["a value from an older harnessforce init", "hf_at_ws1_plain"],
+		["a value from an older harnessforce login", "hf_at_ws1_plain"],
 		[
 			"a token of another workspace",
 			{ ...token("x"), access_token: "hf_at_ws2_x" },
@@ -412,5 +412,99 @@ describe("the refresh lock", () => {
 			value: 200,
 		});
 		expect(server.refreshForms).toHaveLength(1);
+	});
+});
+
+// correlation.md「harnessforce logout」: ApiTokenが既に使えないことと、通信の失敗を分ける。
+describe("refresh failures told apart", () => {
+	it.each([
+		["invalid_grant", { status: 400, body: { error: "invalid_grant" } }],
+	])("reports %s as expired", async (_name, reply) => {
+		const server = await startAuthorizationServer({ refresh: () => reply });
+		const { tokens } = session(server.base, token("old", NOW));
+		expect(await tokens.withTokenOrFailure(readApi(), isUnauthorized)).toEqual({
+			kind: "expired",
+		});
+	});
+
+	it("reports an expired refresh token as expired", async () => {
+		const server = await startAuthorizationServer();
+		const expired = {
+			...token("old", NOW),
+			refresh_token_expires_at: iso(NOW),
+		};
+		expect(
+			await session(server.base, expired).tokens.withTokenOrFailure(
+				readApi(),
+				isUnauthorized,
+			),
+		).toEqual({ kind: "expired" });
+	});
+
+	it("reports unauthorized right after a refresh as expired", async () => {
+		const server = await startAuthorizationServer();
+		const { tokens } = session(server.base, token("old"));
+		expect(
+			await tokens.withTokenOrFailure(
+				readApi(["hf_at_ws1_old", "hf_at_ws1_refreshed"]),
+				isUnauthorized,
+			),
+		).toEqual({ kind: "expired" });
+	});
+
+	it.each([
+		["a 500", { status: 500 }],
+		[
+			"a token of another workspace",
+			{ status: 200, body: { ...token("n"), refresh_token: "hf_rt_ws2_n" } },
+		],
+	])("reports %s from the token endpoint as failed", async (_name, reply) => {
+		const server = await startAuthorizationServer({ refresh: () => reply });
+		const { tokens } = session(server.base, token("old", NOW));
+		expect(await tokens.withTokenOrFailure(readApi(), isUnauthorized)).toEqual({
+			kind: "failed",
+		});
+	});
+
+	it("reports a token endpoint on another origin as failed", async () => {
+		const server = await startAuthorizationServer({
+			tokenEndpoint: () => "https://evil.example.test/oauth/token",
+		});
+		const { tokens } = session(server.base, token("old", NOW));
+		expect(await tokens.withTokenOrFailure(readApi(), isUnauthorized)).toEqual({
+			kind: "failed",
+		});
+	});
+
+	it("reports a lock that is not released as failed", async () => {
+		const server = await startAuthorizationServer();
+		let clock = NOW;
+		const { tokens, home } = session(server.base, token("old", NOW), {
+			now: () => clock,
+			sleep: async (ms) => {
+				clock += ms;
+			},
+		});
+		mkdirSync(dirname(tokenLockPath(home)), { recursive: true });
+		writeFileSync(tokenLockPath(home), "");
+		utimesSync(tokenLockPath(home), NOW / 1000, NOW / 1000);
+		expect(await tokens.withTokenOrFailure(readApi(), isUnauthorized)).toEqual({
+			kind: "failed",
+		});
+	});
+
+	it("reports a refreshed token that cannot be saved as failed", async () => {
+		const server = await startAuthorizationServer();
+		const { tokens, keychain } = session(server.base, token("old", NOW));
+		const locked = keychain.keychain;
+		keychain.keychain.withTimeout = () => ({
+			...locked,
+			set: async () => {
+				throw new Error("keychain failure");
+			},
+		});
+		expect(await tokens.withTokenOrFailure(readApi(), isUnauthorized)).toEqual({
+			kind: "failed",
+		});
 	});
 });

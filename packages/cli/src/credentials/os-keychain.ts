@@ -1,8 +1,9 @@
-import { INIT_MESSAGES } from "../shared/messages.js";
+import { LOGIN_MESSAGES } from "../shared/messages.js";
 import {
 	KEYCHAIN_SERVICE,
 	type Keychain,
 	openSingleStore,
+	openSingleStoreForLogout,
 } from "./keychain.js";
 import {
 	type CredentialStore,
@@ -57,7 +58,7 @@ export function createOsKeychain({
 		return createLinuxKeychain({
 			kernel: kernelKeyring(keyring),
 			secretService,
-			unavailableHint: INIT_MESSAGES.linuxKeychainUnavailable,
+			unavailableHint: LOGIN_MESSAGES.linuxKeychainUnavailable,
 		});
 	if (platform === "darwin" || platform === "win32")
 		return singleStore(keyring);
@@ -83,6 +84,10 @@ function kernelKeyring(keyring: () => Promise<KeyringModule>): CredentialStore {
 function singleStore(keyring: () => Promise<KeyringModule>): Keychain {
 	const entry = async (account: string) =>
 		new (await keyring()).Entry(KEYCHAIN_SERVICE, account);
+	const list = async () =>
+		(await keyring())
+			.findCredentials(KEYCHAIN_SERVICE)
+			.map(({ account, password }) => ({ account, secret: password }));
 	const keychain: Keychain = {
 		async isAvailable() {
 			try {
@@ -98,14 +103,8 @@ function singleStore(keyring: () => Promise<KeyringModule>): Keychain {
 			(await entry(account)).deleteCredential();
 		},
 		withTimeout: (ms) => limitedSingleStore(keychain, keyring, ms),
-		openForInit: () =>
-			openSingleStore({
-				...keychain,
-				list: async () =>
-					(await keyring())
-						.findCredentials(KEYCHAIN_SERVICE)
-						.map(({ account, password }) => ({ account, secret: password })),
-			}),
+		openForLogin: () => openSingleStore({ ...keychain, list }),
+		openForLogout: () => openSingleStoreForLogout({ ...keychain, list }),
 	};
 	return keychain;
 }
@@ -151,5 +150,6 @@ const unsupported: Keychain = {
 	set: unsupportedError,
 	delete: unsupportedError,
 	withTimeout: () => unsupported,
-	openForInit: async () => undefined,
+	openForLogin: async () => undefined,
+	openForLogout: async () => undefined,
 };

@@ -56,9 +56,10 @@ function candidateList(candidates: readonly IssueCandidate[]): string {
 
 const ACCESS_MESSAGES: AccessMessages = {
 	keychainUnavailable: RUN_MESSAGES.keychainUnavailable,
-	initRequired: RUN_MESSAGES.initRequired,
+	loginRequired: RUN_MESSAGES.loginRequired,
+	destinationMismatch: RUN_MESSAGES.destinationMismatch,
 	invalidUrl: RUN_MESSAGES.invalidUrl,
-	apiTokenMissing: RUN_MESSAGES.issueInitRequired,
+	apiTokenMissing: RUN_MESSAGES.issueLoginRequired,
 };
 
 async function prepareLaunch(args: RunArgs, deps: RunDeps): Promise<Launch> {

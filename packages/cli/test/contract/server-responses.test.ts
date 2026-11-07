@@ -12,11 +12,12 @@ import { describe, expect, it } from "vitest";
 import {
 	fetchOnboarding,
 	fetchSessionImportDays,
+	fetchWorkspaceContent,
 	listConnectedRepositories,
 } from "../../src/import/read-api.js";
 import { sendSessions } from "../../src/import/send.js";
-import { requestCredentials } from "../../src/init/credentials-api.js";
-import { sendReports } from "../../src/tune/send.js";
+import { sendReports } from "../../src/insights/send.js";
+import { requestCredentials } from "../../src/login/credentials-api.js";
 
 const BASE = new URL("https://app.example.test");
 const INGEST = new URL("https://ingest.example.test");
@@ -147,6 +148,20 @@ describe("server responses", () => {
 		expect(await fetchSessionImportDays(BASE, "hf_at_token", fetch)).toEqual({
 			kind: "ok",
 			value: 14,
+		});
+	});
+
+	it("reads content of GET /api/v1/workspace", async () => {
+		const body = fixture("workspace-200.json");
+		const { fetch } = server(() => body);
+		expect(await fetchWorkspaceContent(BASE, "hf_at_token", fetch)).toEqual({
+			kind: "ok",
+			value: {
+				isPromptsStored: true,
+				isModelAndToolsStored: false,
+				visibility: "all_members",
+				retentionDays: 14,
+			},
 		});
 	});
 

@@ -26,7 +26,7 @@ export type CodexConfigInput = {
 	connection: string;
 	ingestEndpoint: string;
 	ingestKey: string;
-	// `--send-content`で、かつ応答の`content`でその区分が`true`のときだけ`true`。送らないときも`false`で書く。
+	// 端末の本文の送信の設定が`on`で、かつ応答の`content`でその区分が`true`のときだけ`true`。送らないときも`false`で書く。
 	logUserPrompt: boolean;
 	logAgentResponses: boolean;
 };
@@ -55,7 +55,19 @@ export async function readCodexConfig(path: string): Promise<string> {
 	}
 }
 
-// `[otel]`のexporterが、`harnessforce init`の書いたIngestKeyで送る設定か。読めないfileは送らない設定として扱う。
+// fileが無ければundefined。harnessforce logoutとharnessforce configは、無いfileを作らない。
+export async function readExistingCodexConfig(
+	path: string,
+): Promise<string | undefined> {
+	try {
+		return await readFile(path, "utf8");
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+		throw error;
+	}
+}
+
+// `[otel]`のexporterが、`harnessforce login`の書いたIngestKeyで送る設定か。読めないfileは送らない設定として扱う。
 export function sendsToHarnessforce(text: string): boolean {
 	let config: unknown;
 	try {
@@ -85,9 +97,14 @@ export function mergeCodexConfig(
 	text: string,
 	input: CodexConfigInput,
 ): string {
+	return editCodexConfig(text, (config) => withHarnessforce(config, input));
+}
+
+// commentと他のkeyを残して書き換え、読み直して期待どおりか確かめる。
+function editCodexConfig(text: string, edit: (config: Table) => Table): string {
 	try {
 		const current = parse(text) as Table;
-		const desired = withHarnessforce(structuredClone(current), input);
+		const desired = edit(structuredClone(current));
 		const result = patch(text, desired);
 		if (!isDeepStrictEqual(plain(parse(result)), plain(desired)))
 			throw new Error("mismatch");
@@ -95,6 +112,80 @@ export function mergeCodexConfig(
 	} catch {
 		throw new Error("config.toml cannot be updated");
 	}
+}
+
+// correlation.md「harnessforce logout」の手順1: 失効させた後に書けず、keyの無い設定が残ることを避けるため先に確かめる。
+export function isCodexConfigReadable(text: string): boolean {
+	try {
+		parse(text);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+export type ContentLogging = {
+	logUserPrompt: boolean;
+	logAgentResponses: boolean;
+};
+
+// correlation.md「端末の本文の送信の設定」: `[otel]`の`log_user_prompt`と`log_agent_responses`だけを書き換える。
+// onlyPresentのときは、あるものだけを書き換え、無いものを加えない。
+export function withContentLogging(
+	text: string,
+	logging: ContentLogging,
+	onlyPresent: boolean,
+): string {
+	return editCodexConfig(text, (config) => {
+		const isPresent = isObject(config.otel);
+		if (onlyPresent && !isPresent) return config;
+		const otel = tableAt(config, "otel");
+		const values = {
+			log_user_prompt: logging.logUserPrompt,
+			log_agent_responses: logging.logAgentResponses,
+		};
+		for (const [key, value] of Object.entries(values))
+			if (!onlyPresent || key in otel) otel[key] = value;
+		return config;
+	});
+}
+
+// correlation.md「harnessforce logout」の手順5: `harnessforce login`が書いた項目だけを消す。
+// `[otel].exporter`は利用者用のIngestKeyを平文で持つため、失効できなかった場合も消す。
+export function withoutHarnessforce(text: string): string {
+	return editCodexConfig(text, (config) => {
+		if (isObject(config.otel)) {
+			delete config.otel.exporter;
+			delete config.otel.log_user_prompt;
+			delete config.otel.log_agent_responses;
+		}
+		if (isObject(config.hooks)) {
+			const hooks = config.hooks;
+			for (const spec of CODEX_HOOKS) {
+				const groups = hooks[spec.event];
+				if (!Array.isArray(groups)) continue;
+				const kept = withoutHandler(groups, spec);
+				if (kept.length > 0) hooks[spec.event] = kept;
+				else delete hooks[spec.event];
+			}
+		}
+		if (isObject(config.mcp_servers)) delete config.mcp_servers.harnessforce;
+		return config;
+	});
+}
+
+// harnessforceのhandlerを除き、他のhandlerが残らないgroupは消す。groupのmatcherと他のhandlerは残す。
+// parserが入れ子のtableを落とした場合は、editCodexConfigの読み直しの照合で書き換えの失敗になる。
+function withoutHandler(groups: unknown[], spec: CodexHookSpec): unknown[] {
+	const command = hookCommand(spec);
+	return groups.flatMap((group) => {
+		if (!isObject(group) || !Array.isArray(group.hooks)) return [group];
+		const hooks = group.hooks.filter(
+			(entry) => !(isObject(entry) && entry.command === command),
+		);
+		if (hooks.length === group.hooks.length) return [group];
+		return hooks.length > 0 ? [{ ...group, hooks }] : [];
+	});
 }
 
 // parserが返すtableはprototypeを持たない。形だけを比べるため、通常のobjectに揃える。

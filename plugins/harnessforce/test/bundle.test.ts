@@ -87,7 +87,7 @@ function makeRepo() {
 		"-q",
 		"--allow-empty",
 		"-m",
-		"init",
+		"login",
 	);
 	return { dir, head: git("rev-parse", "HEAD") };
 }
@@ -123,9 +123,9 @@ async function startIngest(reply: Reply) {
 	return { endpoint: `http://127.0.0.1:${port}/base/`, received };
 }
 
-// `harnessforce init`が書くuser settingsのテレメトリの設定（correlation.md「送信の健全性」）。
+// `harnessforce login`が書くuser settingsのテレメトリの設定（correlation.md「送信の健全性」）。
 // envとotelHeadersHelperは構成のcomponentにならないため、config snapshotの内容を変えない。
-function initHome(): string {
+function loginHome(): string {
 	const home = tempDir("hf-home-");
 	mkdirSync(join(home, ".claude"), { recursive: true });
 	writeFileSync(
@@ -144,12 +144,12 @@ function initHome(): string {
 	return home;
 }
 
-// homeは`harnessforce init`の後の一時directoryを既定とし、testを実行する利用者の~/.claudeを読まない。
+// homeは`harnessforce login`の後の一時directoryを既定とし、testを実行する利用者の~/.claudeを読まない。
 function runBundle(
 	event: string,
 	input: object,
 	env: Record<string, string>,
-	home = initHome(),
+	home = loginHome(),
 	cwd?: string,
 ) {
 	return new Promise<{
@@ -334,9 +334,9 @@ describe("built marketplace", () => {
 			),
 		));
 
-	// improvement-loop.md「構成」: `/harnessforce:tune`はpluginのcommandであり、提案を作る公開のskillとともに配る。
+	// improvement-loop.md「構成」: `/harnessforce:insights`はpluginのcommandであり、提案を作る公開のskillとともに配る。
 	it.each([
-		"commands/tune.md",
+		"commands/insights.md",
 		"skills/propose-improvements/SKILL.md",
 		"skills/propose-improvements/scripts/summarize.mjs",
 	])("bundles %s unchanged", (path) =>
@@ -502,7 +502,7 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 			expect(JSON.parse(result.stdout)).toEqual({
 				...JSON.parse(SESSION_CONTEXT),
 				systemMessage:
-					"Your ingest key has been revoked. Run `harnessforce init`",
+					"Your ingest key has been revoked. Run `harnessforce login`",
 			});
 		});
 
@@ -570,7 +570,7 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 			},
 		);
 
-		// harnessforce initが固定した送信先の代わりに、testのingestのoriginだけへkeyを出すharnessforce。
+		// harnessforce loginが固定した送信先の代わりに、testのingestのoriginだけへkeyを出すharnessforce。
 		function pinnedHfOnPath(pinnedOrigin: string): string {
 			const dir = tempDir("hf-bin-");
 			const hf = join(dir, "harnessforce");
@@ -598,7 +598,7 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 				);
 				expect(withheld.code).toBe(0);
 				expect(JSON.parse(withheld.stdout).systemMessage).toBe(
-					"Telemetry is not being sent because the Harnessforce destination differs from the one saved by `harnessforce init`. Check this repository's settings or run `harnessforce init` again",
+					"Telemetry is not being sent because the Harnessforce destination differs from the one saved by `harnessforce login`. Check this repository's settings or run `harnessforce login` again",
 				);
 				expect(withheld.stderr).toBe(
 					"harnessforce: no user key in keychain or read failed\n" +
@@ -635,7 +635,7 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 						HARNESSFORCE_WORKSPACE_ID: "ws1",
 						PATH: `:${hfDir}:${process.env.PATH ?? ""}`,
 					},
-					initHome(),
+					loginHome(),
 					hookCwd,
 				);
 				expect(result).toMatchObject({
@@ -735,7 +735,7 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 		it("sends a config snapshot of the real home and repository through HTTP", async () => {
 			const repo = makeRepo();
 			writeFileSync(join(repo.dir, "CLAUDE.md"), "Secret team notes\n");
-			const home = initHome();
+			const home = loginHome();
 			mkdirSync(join(home, ".claude/skills/ship"), { recursive: true });
 			writeFileSync(join(home, ".claude/skills/ship/SKILL.md"), "ship it\n");
 			const ingest = await startIngest("accept");
@@ -781,7 +781,7 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 			expect(JSON.stringify(snapshot?.body)).not.toContain("Secret team notes");
 		});
 
-		// correlation.md「送信の健全性」: `harnessforce init`の書いたuser settingsを実際のfileから読む。
+		// correlation.md「送信の健全性」: `harnessforce login`の書いたuser settingsを実際のfileから読む。
 		it("warns when the user settings lack the telemetry settings", async () => {
 			const repo = makeRepo();
 			const ingest = await startIngest("accept");
@@ -793,7 +793,7 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 			);
 			expect(result.code).toBe(0);
 			expect(JSON.parse(result.stdout).systemMessage).toBe(
-				"Claude Code telemetry for Harnessforce is not configured. Run `harnessforce init`",
+				"Claude Code telemetry for Harnessforce is not configured. Run `harnessforce login`",
 			);
 		});
 
@@ -815,7 +815,7 @@ describe.skipIf(process.platform === "win32" || realManagedKey !== undefined)(
 		// 利用者用のkeyではSessionEndは送らず、次のsessionの開始が他のsessionの送れていない要約を送る。
 		it("counts a session's calls and sends its summary from the next session start", async () => {
 			const repo = makeRepo();
-			const home = initHome();
+			const home = loginHome();
 			mkdirSync(join(home, ".claude/skills/ship"), { recursive: true });
 			writeFileSync(join(home, ".claude/skills/ship/SKILL.md"), "ship it\n");
 			const data = tempDir("hf-data-");

@@ -1,13 +1,15 @@
 import {
 	apiTokenAccount,
-	type InitKeychain,
-	type InitOpenOptions,
 	ingestKeyAccount,
 	ingestOriginAccount,
 	type Keychain,
 	type KeychainItem,
+	type LoginKeychain,
+	type LoginOpenOptions,
+	type LogoutKeychain,
 	urlOriginAccount,
 	workspaceAccounts,
+	workspaceIdOf,
 } from "./keychain.js";
 import type { SecretServiceProvider } from "./secret-service-lock.js";
 
@@ -66,7 +68,7 @@ export function createLinuxKeychain(options: Options): Keychain {
 }
 
 // 上限時間を短くしたkeychain（hookの読み出し、ApiTokenの失効のlockの中）は、解錠の確認を出さない。
-// 確認を出した子processを上限時間で止めても提供者に確認が残り、KWalletでは後のinitの確認がその後ろで待ち続けるためである。
+// 確認を出した子processを上限時間で止めても提供者に確認が残り、KWalletでは後のloginの確認がその後ろで待ち続けるためである。
 function build(
 	options: Options,
 	timeoutMs: number,
@@ -131,17 +133,70 @@ function build(
 			await migrate(options, workspaceId).catch(() => {});
 		},
 		withTimeout: (ms) => build(options, ms, false),
-		openForInit: (init) => openForInit(options, timeoutMs, init),
+		openForLogin: (init) => openForLogin(options, timeoutMs, init),
+		openForLogout: (workspaceId) =>
+			openForLogout(options, timeoutMs, workspaceId),
 	};
 }
 
-// correlation.md「実行環境」の`harnessforce init`の保存先。読み出しだけを確かめると、
-// ロックされたSecret Serviceで手順1を通り、発行の後の書き込みで止まるため、書いて消せるかを確かめる。
-async function openForInit(
+// correlation.md「harnessforce logout」の手順2と4。読む範囲は`harnessforce login`の手順1と同じとし、
+// 列挙できないkernelのkeyringからはuser settingsのWorkspaceの4つだけを読む。
+async function openForLogout(
 	{ kernel, secretService }: Options,
 	timeoutMs: number,
-	{ previousWorkspaceId, onWaiting }: InitOpenOptions,
-): Promise<InitKeychain | undefined> {
+	workspaceId: string | undefined,
+): Promise<LogoutKeychain | undefined> {
+	const readsProbe = (store: CredentialStore) =>
+		succeeds(() => store.get(PROBE_ACCOUNT, timeoutMs));
+	const stores = [
+		...((await readsProbe(kernel)) ? [kernel] : []),
+		...((await readsProbe(secretService)) ? [secretService] : []),
+	];
+	if (stores.length === 0) return undefined;
+	const kernelItems: KeychainItem[] = [];
+	if (workspaceId && stores.includes(kernel))
+		for (const account of workspaceAccounts(workspaceId)) {
+			const secret = await kernel.get(account, timeoutMs);
+			if (secret !== undefined) kernelItems.push({ account, secret });
+		}
+	const secretServiceItems = stores.includes(secretService)
+		? (await secretService.list(timeoutMs)).filter(
+				(item) => workspaceIdOf(item.account) !== undefined,
+			)
+		: [];
+	// 読み出しの順と同じく、kernelのkeyringにkeyがあるWorkspaceはkernelのkeyringの項目を使う。
+	// 失効と表示に、別の保存先の古いkeyやtokenを混ぜないためである。
+	const ofWorkspace = (item: KeychainItem) =>
+		workspaceIdOf(item.account) === workspaceId;
+	const usesKernel =
+		workspaceId !== undefined &&
+		(kernelItems.some(
+			(item) => item.account === ingestKeyAccount(workspaceId),
+		) ||
+			!secretServiceItems.some(ofWorkspace));
+	const items = usesKernel
+		? [
+				...secretServiceItems.filter((item) => !ofWorkspace(item)),
+				...kernelItems,
+			]
+		: secretServiceItems;
+	return {
+		items,
+		async deleteWorkspace(id) {
+			for (const store of stores)
+				for (const account of workspaceAccounts(id))
+					await store.delete(account, timeoutMs);
+		},
+	};
+}
+
+// correlation.md「実行環境」の`harnessforce login`の保存先。読み出しだけを確かめると、
+// ロックされたSecret Serviceで手順1を通り、発行の後の書き込みで止まるため、書いて消せるかを確かめる。
+async function openForLogin(
+	{ kernel, secretService }: Options,
+	timeoutMs: number,
+	{ previousWorkspaceId, onWaiting }: LoginOpenOptions,
+): Promise<LoginKeychain | undefined> {
 	const canWrite = (store: CredentialStore) =>
 		succeeds(async () => {
 			await store.set(PROBE_ACCOUNT, PROBE_VALUE, timeoutMs);
@@ -160,7 +215,7 @@ async function openForInit(
 		isWaiting = false;
 		clearTimeout(notice);
 	});
-	// kernelのkeyringは項目を列挙できないため、前回のinitのWorkspaceの項目だけを読む。
+	// kernelのkeyringは項目を列挙できないため、前回のloginのWorkspaceの項目だけを読む。
 	const readKernel = async () => {
 		if (!previousWorkspaceId) return [];
 		const accounts = [
@@ -204,7 +259,7 @@ async function openForInit(
 class MigrationExpired extends Error {}
 
 // keyを最後に書くため、途中で止まってもSecret Serviceにkeyとoriginの組が欠けた項目を残さない。
-// 値はkernelのkeyringにある同じ組であり、initの手順5の順（前の接続先のoriginと新しいkeyを組ませない）の理由は当たらない。
+// 値はkernelのkeyringにある同じ組であり、loginの手順5の順（前の接続先のoriginと新しいkeyを組ませない）の理由は当たらない。
 const MIGRATION_ORDER = (workspaceId: string) => [
 	ingestOriginAccount(workspaceId),
 	urlOriginAccount(workspaceId),
