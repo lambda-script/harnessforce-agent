@@ -13,6 +13,7 @@ import { absoluteEnv } from "@harnessforce/agent-core/config/scope";
 import { isObject } from "@harnessforce/agent-core/object";
 import { MARKETPLACE_NAME } from "@harnessforce/agent-core/plugin-auto-update";
 import type { Env } from "@harnessforce/agent-core/types";
+import { CONTENT_ENV_NAMES, LOGIN_ENV_NAMES } from "./login-settings.js";
 
 type Settings = Record<string, unknown>;
 export type UserSettingsRead =
@@ -68,7 +69,7 @@ const isMarketplacesValid = (value: unknown) =>
 		(value[MARKETPLACE_NAME] === undefined ||
 			isObject(value[MARKETPLACE_NAME])));
 
-// correlation.md「CLI」の手順1と6: initが自動更新を書けるか。読み取りだけのcommandは確かめない。
+// correlation.md「CLI」の手順1と6: loginが自動更新を書けるか。読み取りだけのcommandは確かめない。
 export const hasWritableMarketplaces = (settings: Settings): boolean =>
 	MARKETPLACE_KEYS.every((key) => isMarketplacesValid(settings[key]));
 
@@ -121,6 +122,57 @@ export function mergeUserSettings(
 			...(settings.enabledPlugins as Settings | undefined),
 			[PLUGIN_ID]: true,
 		},
+	};
+}
+
+// correlation.md「harnessforce logout」の手順5で消す鍵。
+const LOGOUT_ENV_NAMES: readonly string[] = [
+	...LOGIN_ENV_NAMES,
+	...CONTENT_ENV_NAMES,
+];
+
+// `harnessforce login`が書いた項目のうち、logoutが消すものがあるか。
+export function hasLoginSettings(settings: Settings): boolean {
+	const env = (settings.env as Settings | undefined) ?? {};
+	return (
+		LOGOUT_ENV_NAMES.some((name) => Object.hasOwn(env, name)) ||
+		settings.otelHeadersHelper === OTEL_HEADERS_HELPER
+	);
+}
+
+// correlation.md「harnessforce logout」の手順5。他の鍵は残す。
+// pluginを無効にし、keyの無い端末でhookがsessionのたびに警告を出すことを避ける。marketplaceの登録は、再びloginするときにpluginの導入をやり直さずに済むよう残す。
+// 利用者が別のhelperを設定していれば、それは`harnessforce login`が書いたものではないため残す。
+export function withoutLoginSettings(settings: Settings): Settings {
+	const { otelHeadersHelper, env, ...rest } = settings;
+	return {
+		...rest,
+		...(otelHeadersHelper !== OTEL_HEADERS_HELPER &&
+		otelHeadersHelper !== undefined
+			? { otelHeadersHelper }
+			: {}),
+		...(env !== undefined && {
+			env: Object.fromEntries(
+				Object.entries(env as Settings).filter(
+					([name]) => !LOGOUT_ENV_NAMES.includes(name),
+				),
+			),
+		}),
+		enabledPlugins: {
+			...(settings.enabledPlugins as Settings | undefined),
+			[PLUGIN_ID]: false,
+		},
+	};
+}
+
+// `env`の与えた鍵だけを書き換える。最上位の他の鍵とenvの他の鍵は残す。
+export function withEnvValues(
+	settings: Settings,
+	env: Readonly<Record<string, string>>,
+): Settings {
+	return {
+		...settings,
+		env: { ...(settings.env as Settings | undefined), ...env },
 	};
 }
 

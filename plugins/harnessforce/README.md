@@ -16,12 +16,12 @@ and does not bundle the CLI (`/harnessforce:setup` installs `@harnessforce/cli` 
 | MCP server `harnessforce` (`<connection URL>/mcp`, HTTP) | Tools to start a session, read an Issue, and complete a session |
 | Skill `using-harnessforce` | Which skill to use for which request, how to pass the session ID, what each hook sends, what is not collected, and the excuses to stop at. The `SessionStart` hook injects its body into the context of every session (the build embeds the same text into the hook and the CLI), and a test keeps its hook table equal to the hooks the plugin and Codex wire |
 | Skill `record-session` | Tells the agent when to start and complete a session |
-| Command `/harnessforce:setup` | Checks Node.js, installs the `harnessforce` CLI, asks whether to send content, runs `harnessforce init` (`--send-content` when chosen) and `harnessforce import`, and confirms the first event after a restart |
-| Command `/harnessforce:tune` | Tells you that the agent reads parts of your transcripts through your model provider, runs `harnessforce tune --json`, shows the analysis and the before and after of earlier applied proposals, and makes proposals for the targets with enough data |
+| Command `/harnessforce:setup` | Checks Node.js, installs the `harnessforce` CLI, asks whether to send content, saves the choice with `harnessforce config set send-content on|off`, runs `harnessforce login` and `harnessforce import`, and confirms the first event after a restart |
+| Command `/harnessforce:insights` | Tells you that the agent reads parts of your transcripts through your model provider, runs `harnessforce insights --json`, shows the analysis and the before and after of earlier applied proposals, and makes proposals for the targets with enough data |
 | Command `/harnessforce:status` | Runs `harnessforce status` (the Workspace, the setup steps that remain, whether this repository is assigned to a project, outdated agents) and `harnessforce top --once --json`, and summarizes the sessions on this machine. Read-only |
 | Command `/harnessforce:import` | Runs `harnessforce import` and shows the imported count and why sessions were skipped |
-| Command `/harnessforce:help` | Lists the CLI commands (`harnessforce --help`) and these commands, and says which ones are not wrapped (`init`, the interactive `top`, `run`) |
-| Skill `propose-improvements` | How the agent writes a proposal (evidence, diff or pull request draft, expected effect, how to measure), keeps permissions minimal and loops bounded, and records it with `harnessforce tune record` before showing it |
+| Command `/harnessforce:help` | Lists the CLI commands (`harnessforce --help`) and these commands, and says which ones are not wrapped (`login`, the interactive `top`, `run`) |
+| Skill `propose-improvements` | How the agent writes a proposal (evidence, diff or pull request draft, expected effect, how to measure), keeps permissions minimal and loops bounded, and records it with `harnessforce insights record` before showing it |
 | Skill `diagram` | Experimental. Draws architecture, CI/CD, state, error-flow, ER, Gantt and sequence diagrams of a repository, or of a system you describe, in Mermaid, renders them to SVG and PNG with product logos, and checks them against the sources. See [Diagram skill](#diagram-skill) |
 
 The hooks and the MCP server exist only in the build output, because their scripts and connection URL
@@ -52,8 +52,8 @@ continues without sending anything.
 When a hook cannot send, it shows one line in the session instead of staying silent: Node.js older than 18,
 a failed restart of the hook process, sending not set up (`/harnessforce:setup`), an endpoint that is set
 but not allowed, no ingest key in the keychain (for example after a reboot cleared the kernel keyring), a
-destination that differs from the one `harnessforce init` saved, the Claude Code telemetry settings that
-`harnessforce init` wrote missing from the user settings, a keychain that could not be read, and a session
+destination that differs from the one `harnessforce login` saved, the Claude Code telemetry settings that
+`harnessforce login` wrote missing from the user settings, a keychain that could not be read, and a session
 registration that failed with anything other than 401. The line appears only at a session start that
 registers (`startup`, `clear`, `fork`), except for the two startup failures, which appear at every session
 start. Nothing is shown while sending works, and nothing is checked again later in the session. When
@@ -66,7 +66,7 @@ server returns in `${CLAUDE_PLUGIN_DATA}/update-status.json`. When a session sta
 for a newer version (once a day, and not while Claude Code updates the plugin automatically), for the
 date a version stops sending after a security fix, or for an unsupported version. An unsupported version
 sends nothing until you run `claude plugin update harnessforce@harnessforce-agent`; the session keeps
-running. `harnessforce init` turns on automatic updates for the `harnessforce-agent` marketplace.
+running. `harnessforce login` turns on automatic updates for the `harnessforce-agent` marketplace.
 
 The plugin runs CLI commands, so it needs CLI 0.4.0 or later. At a session start that registers, the
 hook runs `harnessforce --version` (up to 1 second) and, when the CLI is older, shows one line with
@@ -89,7 +89,7 @@ responses or file contents; they are sent only through the OTel settings you cho
   environment variables. Values distributed through MDM or server-managed settings are not read.
   Hooks do not receive `OTEL_*` variables, so these are separate.
 - Without a managed Workspace key, the hook sends to `HARNESSFORCE_ENDPOINT` from the environment with
-  the user ingest key that `harnessforce init` stored for
+  the user ingest key that `harnessforce login` stored for
   `HARNESSFORCE_WORKSPACE_ID`, reading it by running `harnessforce otel-headers` from `PATH` (1 second limit).
   With a user key and `HARNESSFORCE_ISSUE` (set by `harnessforce run`), the registration claims `source=cli`
   with that issue identifier. A Workspace key never claims `source=cli`.
@@ -98,7 +98,7 @@ responses or file contents; they are sent only through the OTel settings you cho
   (Claude Code's debug log). Without Node.js, Claude Code shows a non-blocking `hook error`.
 - If the key is revoked, Claude Code shows once per session:
   "The Workspace's ingest key has been revoked. Contact a Workspace administrator" (Workspace key) or
-  "Your ingest key has been revoked. Run `harnessforce init`" (user key)
+  "Your ingest key has been revoked. Run `harnessforce login`" (user key)
 
 ## Work location hooks
 

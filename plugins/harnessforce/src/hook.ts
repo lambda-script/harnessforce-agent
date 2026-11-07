@@ -89,7 +89,7 @@ export type HookDeps = {
 	managedDir: string;
 	// `harnessforce otel-headers`を起動してkeychainの利用者用IngestKeyを読む。
 	readUserKey: (cwd: string) => Promise<UserKeyRead>;
-	// `harnessforce init`が書いたClaude Codeのテレメトリの設定があるか（correlation.md「送信の健全性」）。
+	// `harnessforce login`が書いたClaude Codeのテレメトリの設定があるか（correlation.md「送信の健全性」）。
 	isTelemetryConfigured: () => Promise<boolean>;
 	// このpluginの版。Harnessforceへの要求の`User-Agent`に載せる（client-updates.md「版の申告」）。
 	client: ClientIdentity;
@@ -116,7 +116,7 @@ const CLI_UNSUPPORTED_WARNING = unsupportedLine("cli");
 
 // correlation.md「hook」の共通の規則が、選んだkeyの種類ごとに定める文言。
 const REVOKED_KEY_MESSAGES: Record<KeyKind, string> = {
-	user: "Your ingest key has been revoked. Run `harnessforce init`",
+	user: "Your ingest key has been revoked. Run `harnessforce login`",
 	workspace:
 		"The Workspace's ingest key has been revoked. Contact a Workspace administrator",
 };

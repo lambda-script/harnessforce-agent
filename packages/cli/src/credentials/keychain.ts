@@ -17,18 +17,30 @@ export type Keychain = {
 	migrateFromKernel?(workspaceId: string): Promise<void>;
 	// 各操作の上限時間をmsにしたkeychain。超えた操作は失敗する。
 	withTimeout(ms: number): Keychain;
-	// `harnessforce init`の手順1。保存先を選び、既存の項目を読む。使えなければundefined、読めなければ例外。
-	openForInit(options: InitOpenOptions): Promise<InitKeychain | undefined>;
+	// `harnessforce login`の手順1。保存先を選び、既存の項目を読む。使えなければundefined、読めなければ例外。
+	openForLogin(options: LoginOpenOptions): Promise<LoginKeychain | undefined>;
+	// `harnessforce logout`の手順2。項目を列挙できない保存先からは、workspaceIdの4つだけを読む。
+	// 使えなければundefined、読めなければ例外。
+	openForLogout(
+		workspaceId: string | undefined,
+	): Promise<LogoutKeychain | undefined>;
 };
 
-export type InitOpenOptions = {
+export type LogoutKeychain = {
+	// Workspaceの項目。Workspaceごとに、読み出しの順で選んだ保存先の項目だけを持つ。
+	items: readonly KeychainItem[];
+	// Workspaceの4つの項目を、使える保存先のすべてから消す。消せなければ例外。
+	deleteWorkspace(workspaceId: string): Promise<void>;
+};
+
+export type LoginOpenOptions = {
 	// user settingsの`HARNESSFORCE_WORKSPACE_ID`。列挙できない保存先からは、このWorkspaceの項目だけを読む。
 	previousWorkspaceId: string | undefined;
 	// 保存先を確かめる操作が解錠の確認を待っているとき。providerは確認を出すSecret Serviceの提供者で、分からなければundefined。
 	onWaiting: (provider: SecretServiceProvider | undefined) => void;
 };
 
-export type InitKeychain = {
+export type LoginKeychain = {
 	// 保存先がkernelのkeyring（再起動で消える）のときtrue。
 	isKernelKeyring: boolean;
 	items: readonly KeychainItem[];
@@ -38,13 +50,13 @@ export type InitKeychain = {
 	deleteElsewhere(workspaceId: string): Promise<void>;
 };
 
-// 保存先が1つのOS（macOSとWindows）のinit。
+// 保存先が1つのOS（macOSとWindows）のlogin。
 export async function openSingleStore(store: {
 	isAvailable(): Promise<boolean>;
 	list(): Promise<readonly KeychainItem[]>;
 	set(account: string, secret: string): Promise<void>;
 	delete(account: string): Promise<void>;
-}): Promise<InitKeychain | undefined> {
+}): Promise<LoginKeychain | undefined> {
 	if (!(await store.isAvailable())) return undefined;
 	return {
 		isKernelKeyring: false,
@@ -52,6 +64,24 @@ export async function openSingleStore(store: {
 		set: (account, secret) => store.set(account, secret),
 		delete: (account) => store.delete(account),
 		deleteElsewhere: async () => {},
+	};
+}
+
+// 保存先が1つのOS（macOSとWindows）のlogout。
+export async function openSingleStoreForLogout(store: {
+	isAvailable(): Promise<boolean>;
+	list(): Promise<readonly KeychainItem[]>;
+	delete(account: string): Promise<void>;
+}): Promise<LogoutKeychain | undefined> {
+	if (!(await store.isAvailable())) return undefined;
+	return {
+		items: (await store.list()).filter(
+			(item) => workspaceIdOf(item.account) !== undefined,
+		),
+		async deleteWorkspace(workspaceId) {
+			for (const account of workspaceAccounts(workspaceId))
+				await store.delete(account);
+		},
 	};
 }
 
@@ -64,10 +94,10 @@ export const ingestKeyAccount = (workspaceId: string) =>
 	`${workspaceId}${INGEST_KEY_SUFFIX}`;
 export const apiTokenAccount = (workspaceId: string) =>
 	`${workspaceId}${API_TOKEN_SUFFIX}`;
-// harnessforce initが保存したingestの送信先のorigin。利用者用のkeyはこのoriginへだけ出す。
+// harnessforce loginが保存したingestの送信先のorigin。利用者用のkeyはこのoriginへだけ出す。
 export const ingestOriginAccount = (workspaceId: string) =>
 	`${workspaceId}:ingest-origin`;
-// harnessforce initが使った接続先のorigin。ApiTokenはRead APIのbase URLがこのoriginの場合だけ送る。
+// harnessforce loginが使った接続先のorigin。ApiTokenはRead APIのbase URLがこのoriginの場合だけ送る。
 export const urlOriginAccount = (workspaceId: string) =>
 	`${workspaceId}:url-origin`;
 // 手順5で保存するWorkspaceの4つの項目。
@@ -84,3 +114,8 @@ export const apiTokenWorkspaceId = (account: string) =>
 	account.endsWith(API_TOKEN_SUFFIX)
 		? account.slice(0, -API_TOKEN_SUFFIX.length)
 		: undefined;
+
+const WORKSPACE_ITEM = /^(.+):(ingest-key|api-token|ingest-origin|url-origin)$/;
+// 手順5の4つの形のaccountのWorkspaceのid。他のaccount（`availability-probe`など）はundefined。
+export const workspaceIdOf = (account: string) =>
+	WORKSPACE_ITEM.exec(account)?.[1];

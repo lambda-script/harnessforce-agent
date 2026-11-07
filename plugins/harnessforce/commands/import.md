@@ -14,5 +14,5 @@ harnessforce import
 ```
 
 - If the command is not found, tell the user to run `/harnessforce:setup` and stop.
-- If it reports that you are not logged in, tell the user to run `/harnessforce:setup` (it runs `harnessforce init`, which needs a browser) and stop.
+- If it reports that you are not logged in, tell the user to run `/harnessforce:setup` (it runs `harnessforce login`, which needs a browser) and stop.
 - Show the imported count and the breakdown of skipped sessions with the next action, exactly as printed. Do not leave out the reason when nothing was imported.

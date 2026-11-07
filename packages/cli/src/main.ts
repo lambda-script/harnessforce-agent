@@ -4,12 +4,14 @@ import {
 	recordingFetch,
 } from "@harnessforce/agent-core/client-update";
 import type { RunGit } from "@harnessforce/agent-core/process/git";
+import type { Fetch } from "@harnessforce/agent-core/types";
 import {
 	isSendingBlocked,
 	noticeUpdate,
 	readCliUpdateState,
 	updateStatePath,
 } from "./client-update.js";
+import { configGet, configSet, parseConfigArgs } from "./config/command.js";
 import {
 	EXIT_USAGE,
 	givenTwice,
@@ -22,7 +24,12 @@ import {
 import { sessionStart } from "./hook/session-start.js";
 import { workLocationHook } from "./hook/work-location.js";
 import { type ImportDeps, importCommand } from "./import/command.js";
-import { type InitArgs, type InitDeps, init } from "./init/init.js";
+import {
+	type InsightsCommandDeps,
+	insightsCommand,
+} from "./insights/insights.js";
+import { type LoginArgs, type LoginDeps, login } from "./login/login.js";
+import { logoutCommand } from "./logout/command.js";
 import { otelHeaders } from "./otel-headers.js";
 import {
 	type RunArgs,
@@ -30,20 +37,20 @@ import {
 	runIssue,
 	runWithoutHarnessforce,
 } from "./run/run.js";
+import { CONFIG_MESSAGES } from "./shared/messages.js";
 import type { AgentVersionReader } from "./status/agent-versions.js";
 import { parseStatusArgs, statusCommand } from "./status/command.js";
 import { topCommand } from "./top/command.js";
 import type { TopIo } from "./top/io.js";
-import { type TuneCommandDeps, tuneCommand } from "./tune/tune.js";
 
-// harnessforce tuneはharnessforce importと同じgitの呼び出しの上限でcwdのrepositoryを求める。
+// harnessforce insightsはharnessforce importと同じgitの呼び出しの上限でcwdのrepositoryを求める。
 // managedDirはharnessforce otel-headersがWorkspace用のkeyを読むfileと、harnessforce runが構成を集めるmanagedの基点のdirectory。
 // harnessforce importはgitの呼び出しの上限がharnessforce runと異なるため、別のrunnerをimportGitで受け取る。
-export type CliDeps = InitDeps &
+export type CliDeps = LoginDeps &
 	RunDeps &
 	Omit<ImportDeps, "git" | "now"> & {
 		importGit: ImportDeps["git"];
-		readStdin: TuneCommandDeps["readStdin"];
+		readStdin: InsightsCommandDeps["readStdin"];
 		top: TopIo;
 		// hookが使うgit。hookのprocessの現在のdirectoryとsessionのrepositoryの外から解決する。
 		hookGit: RunGit;
@@ -51,7 +58,7 @@ export type CliDeps = InitDeps &
 		hookTmpDir: string;
 		// stdoutを閉じ、書いた分が渡るのを待つ。otel-headersが出力の後に処理を続ける前に呼ぶ。
 		endStdout: () => Promise<void>;
-		// 実行中の`harnessforce`の絶対path。`harnessforce tune --print-schedule`が使う。
+		// 実行中の`harnessforce`の絶対path。`harnessforce insights schedule`が使う。
 		selfPath: string;
 		// 接続先を与えたbuild（npmへ配らない）。`User-Agent`に`-dev`を付ける（client-updates.md「版の申告」）。
 		devBuild: boolean;
@@ -79,12 +86,11 @@ const needsValue = (flag: string): ArgError => ({
 	error: `"${flag}" needs a value`,
 });
 
-// `harnessforce init`の引数。--portの値は1〜65535の整数（correlation.md「CLI」）。
+// `harnessforce login`の引数。--portの値は1〜65535の整数（correlation.md「CLI」）。
 // --urlは検証者と開発者の接続先の上書きで、利用者向けのUSAGEには載せない。
-function parseInitArgs(args: readonly string[]): InitArgs | ArgError {
+function parseLoginArgs(args: readonly string[]): LoginArgs | ArgError {
 	let url: string | undefined;
 	let port: number | undefined;
-	let sendContent = false;
 	let noPluginAutoUpdate = false;
 	for (let i = 0; i < args.length; ) {
 		const arg = args[i] as string;
@@ -106,12 +112,6 @@ function parseInitArgs(args: readonly string[]): InitArgs | ArgError {
 			i += 2;
 			continue;
 		}
-		if (arg === "--send-content") {
-			if (sendContent) return twice(arg);
-			sendContent = true;
-			i += 1;
-			continue;
-		}
 		if (arg === "--no-plugin-auto-update") {
 			if (noPluginAutoUpdate) return twice(arg);
 			noPluginAutoUpdate = true;
@@ -120,7 +120,7 @@ function parseInitArgs(args: readonly string[]): InitArgs | ArgError {
 		}
 		return { error: unexpectedArgument(arg) };
 	}
-	return { url, port, sendContent, noPluginAutoUpdate };
+	return { url, port, noPluginAutoUpdate };
 }
 
 // `harnessforce run`の引数。`--`より後ろはagentとその引数としてそのまま渡す。
@@ -197,10 +197,26 @@ export async function run(
 		await noticeUpdate(updateDeps);
 		return code;
 	};
+	// 送る直前にだけ更新の状態を確かめ、unsupportedの間はHarnessforceへ送らない。端末の設定の書き換えは止めない。
+	// `config set send-content off`は通信しないため、確かめもしない。
+	let blocked: Promise<boolean> | undefined;
+	const gatedFetch: Fetch = async (url, init) => {
+		blocked ??= isSendingBlocked(updateDeps);
+		if (await blocked)
+			throw new Error("sending is stopped while this version is unsupported");
+		return cli.fetch(url, init);
+	};
+	const noticed = async (command: () => Promise<number>) => {
+		const code = await command();
+		await noticeUpdate(updateDeps);
+		return code;
+	};
 	// 引数を取らないcommandに余分な引数がある。
 	const [extra] = rest;
 	if (
-		(command === "otel-headers" || command === "import") &&
+		(command === "otel-headers" ||
+			command === "import" ||
+			command === "logout") &&
 		extra !== undefined
 	)
 		return fail(
@@ -227,6 +243,27 @@ export async function run(
 				now: () => cli.now().getTime(),
 			}),
 		);
+	if (command === "logout")
+		return noticed(() =>
+			logoutCommand({
+				...cli,
+				fetch: gatedFetch,
+				now: () => cli.now().getTime(),
+			}),
+		);
+	if (command === "config") {
+		// correlation.md「端末の本文の送信の設定」: 引数の誤りは、何も変えずにこの1行で答える。
+		const configArgs = parseConfigArgs(rest);
+		if (!configArgs) return fail(`${CONFIG_MESSAGES.usage}\n`);
+		if (configArgs.kind === "get") return configGet(cli);
+		return noticed(() =>
+			configSet(configArgs.value, {
+				...cli,
+				fetch: gatedFetch,
+				now: () => cli.now().getTime(),
+			}),
+		);
+	}
 	if (command === "status") {
 		// 引数の誤りは、更新の状態によらず使い方で答える。
 		const status = parseStatusArgs(rest);
@@ -239,9 +276,9 @@ export async function run(
 			}),
 		);
 	}
-	if (command === "tune")
+	if (command === "insights")
 		return guarded(() =>
-			tuneCommand(rest, {
+			insightsCommand(rest, {
 				...cli,
 				git: cli.importGit,
 				now: () => cli.now().getTime(),
@@ -291,10 +328,11 @@ export async function run(
 			git: cli.importGit,
 			top: cli.top,
 		});
-	if (command === "init") {
-		const initArgs = parseInitArgs(rest);
-		if (isArgError(initArgs)) return fail(usageError("init", initArgs.error));
-		return guarded(() => init(initArgs, cli));
+	if (command === "login") {
+		const loginArgs = parseLoginArgs(rest);
+		if (isArgError(loginArgs))
+			return fail(usageError("login", loginArgs.error));
+		return guarded(() => login(loginArgs, cli));
 	}
 	if (command === "run") {
 		const runArgs = parseRunArgs(rest);

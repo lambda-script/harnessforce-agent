@@ -112,7 +112,7 @@ describe("OS keychain", () => {
 		"stores, reads and lists secrets on %s",
 		async (platform) => {
 			const { keychain, keyring } = keychainOn(platform);
-			const store = await keychain.openForInit({
+			const store = await keychain.openForLogin({
 				previousWorkspaceId: undefined,
 				onWaiting: () => {},
 			});
@@ -124,7 +124,7 @@ describe("OS keychain", () => {
 			);
 			expect(
 				(
-					await keychain.openForInit({
+					await keychain.openForLogin({
 						previousWorkspaceId: undefined,
 						onWaiting: () => {},
 					})
@@ -143,7 +143,7 @@ describe("OS keychain", () => {
 
 	it("stores to the kernel keyring on Linux without the Secret Service", async () => {
 		const { keychain, keyring } = keychainOn("linux");
-		const store = await keychain.openForInit({
+		const store = await keychain.openForLogin({
 			previousWorkspaceId: undefined,
 			onWaiting: () => {},
 		});
@@ -174,7 +174,7 @@ describe("OS keychain", () => {
 			});
 			expect(await keychain.isAvailable()).toBe(false);
 			expect(
-				await keychain.openForInit({
+				await keychain.openForLogin({
 					previousWorkspaceId: undefined,
 					onWaiting: () => {},
 				}),
@@ -225,7 +225,7 @@ describe("OS keychain", () => {
 			});
 			expect(await keychain.isAvailable()).toBe(false);
 			expect(
-				await keychain.openForInit({
+				await keychain.openForLogin({
 					previousWorkspaceId: undefined,
 					onWaiting: () => {},
 				}),

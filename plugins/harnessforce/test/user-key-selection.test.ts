@@ -13,11 +13,11 @@ import {
 
 // correlation.md「hook」の共通の規則が、選んだkeyの種類ごとに定める文言。
 const USER_KEY_REVOKED =
-	"Your ingest key has been revoked. Run `harnessforce init`";
+	"Your ingest key has been revoked. Run `harnessforce login`";
 const WORKSPACE_KEY_REVOKED =
 	"The Workspace's ingest key has been revoked. Contact a Workspace administrator";
 
-// managed settingsのfileを持たず、harnessforce initで設定した端末。
+// managed settingsのfileを持たず、harnessforce loginで設定した端末。
 const userEnv = {
 	HARNESSFORCE_ENDPOINT: "https://ingest.example.test",
 	HARNESSFORCE_WORKSPACE_ID: "ws1",

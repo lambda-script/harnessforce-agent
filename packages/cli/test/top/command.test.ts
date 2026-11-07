@@ -38,7 +38,7 @@ function setup(sessions: Record<string, string> = {}) {
 
 // terminal-view.md「受入条件」。
 describe("harnessforce top --json and --once", () => {
-	it("shows the sessions before harnessforce init, with no network and no keychain", async () => {
+	it("shows the sessions before harnessforce login, with no network and no keychain", async () => {
 		const { run } = setup({ a: transcript("a", -10) });
 		const result = await run(["--json"]);
 		expect(result.code).toBe(0);
@@ -197,12 +197,12 @@ describe("harnessforce top settings", () => {
 		},
 	);
 
-	it("does not complain when the file is missing, when tune keys are present, or when the values are valid", async () => {
+	it("does not complain when the file is missing, when insights keys are present, or when the values are valid", async () => {
 		const { run, p } = setup({ a: transcript("a", -10) });
 		expect((await run(["--once"])).out).not.toContain(NOTICE);
 		config(
 			p.home,
-			'{"tune": {"send_report": false}, "top": {"ambiguous_width": 2, "braille": true}}',
+			'{"insights": {"send_report": false}, "top": {"ambiguous_width": 2, "braille": true}}',
 		);
 		expect((await run(["--once"])).out).not.toContain(NOTICE);
 	});

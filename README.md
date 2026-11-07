@@ -36,7 +36,7 @@ and tool input and output are sent only if you choose to send them, and file con
 | --- | --- | --- |
 | [`@harnessforce/cli`](packages/cli) | `harnessforce`: connects a machine to a Workspace, launches an agent for an Issue, imports past sessions | npm |
 | [`@harnessforce/semconv`](packages/semconv) | `hf.*` attribute names and the JSON Schemas of the ingest API | npm |
-| [`harnessforce` plugin](plugins/harnessforce) | Claude Code hooks, MCP server declaration, `record-session` and `propose-improvements` skills, `/harnessforce:setup` and `/harnessforce:tune` | npm (`@harnessforce/claude-code-plugin`), installed through the Claude Code marketplace in this repository |
+| [`harnessforce` plugin](plugins/harnessforce) | Claude Code hooks, MCP server declaration, `record-session` and `propose-improvements` skills, `/harnessforce:setup` and `/harnessforce:insights` | npm (`@harnessforce/claude-code-plugin`), installed through the Claude Code marketplace in this repository |
 | `@harnessforce/agent-core` | Logic shared by `harnessforce` and the plugin hook, bundled into both | private |
 | `@harnessforce/test-support` | Test helpers | private |
 
@@ -54,13 +54,13 @@ In Claude Code, with Node.js 18 or later installed:
 /harnessforce:setup
 ```
 
-`/harnessforce:setup` installs the CLI (`npm install -g @harnessforce/cli`), runs `harnessforce init` to log in
+`/harnessforce:setup` installs the CLI (`npm install -g @harnessforce/cli`), runs `harnessforce login` to log in
 with the browser and pick a Workspace, runs `harnessforce import` for your past sessions, and shows the remaining
 workspace steps from `harnessforce status`. Restart Claude Code and run `/harnessforce:setup` again to confirm
 that the first event arrived.
 
 With Codex only, set up through the CLI instead: install it with `npm install -g @harnessforce/cli`, run
-`harnessforce init` (or `harnessforce init --send-content`) and `harnessforce import`, restart Codex, trust the
+`harnessforce login` and `harnessforce import` (run `harnessforce config set send-content on` first to send content), restart Codex, trust the
 harnessforce `SessionStart`, `PostToolUse` and `Stop` hooks in `/hooks`, and check the remaining steps with
 `harnessforce status`.
 
@@ -75,7 +75,7 @@ To work on an Issue, either let the agent use the `record-session` skill, or lau
 harnessforce run --issue ENG-42 -- claude
 ```
 
-To look back at your own past sessions, run `/harnessforce:tune`. It runs `harnessforce tune` to count
+To look back at your own past sessions, run `/harnessforce:insights`. It runs `harnessforce insights` to count
 interventions, loops and MCP server calls by public rules, and shows proposals (a diff or a pull
 request draft) once there are at least 10 sessions. It never changes your files; you apply a proposal
 yourself.
@@ -86,8 +86,8 @@ the [plugin README](plugins/harnessforce/README.md#session-registration-hooks).
 ## Privacy
 
 - **Sent only if you choose:** prompts, responses, and tool inputs and outputs, and only for the categories your
-  Workspace stores (`harnessforce init --send-content` or managed settings). Without that, `harnessforce init`
-  turns all of them off. File contents are never sent. `harnessforce run` never turns on prompt or body
+  Workspace stores (`harnessforce config set send-content on` or managed settings). Without that, `harnessforce login`
+  turns all of them off, and `harnessforce config set send-content off` stops them again. File contents are never sent. `harnessforce run` never turns on prompt or body
   logging, and `harnessforce import` sends no content, only session and first prompt IDs, start and end times, repository,
   branch, model, token counts and per-tool call and failure counts.
 - **Hashes only:** the config snapshot describes CLAUDE.md files, rules, skills, agents, commands,
@@ -98,11 +98,11 @@ the [plugin README](plugins/harnessforce/README.md#session-registration-hooks).
   commands, subagents and MCP servers listed in the session's config snapshot, permission requests
   and compactions. Command arguments, tool inputs and results, error messages and file paths are never
   sent, and names outside the config snapshot are only counted.
-- **Keys stay in the keychain:** `harnessforce init` stores keys and tokens only in the OS keychain (on Linux,
+- **Keys stay in the keychain:** `harnessforce login` stores keys and tokens only in the OS keychain (on Linux,
   the Secret Service or the in-memory kernel keyring), never in a plain file except the user ingest key in
   Codex's `config.toml`, which Codex can read from nowhere else, and `harnessforce run` never puts them in the agent's environment, arguments or settings.
 - **Keys go only where you connected:** the user key and the API token are sent only to the origins
-  pinned by `harnessforce init`, and the plugin reads a Workspace key only from the managed settings file, so a
+  pinned by `harnessforce login`, and the plugin reads a Workspace key only from the managed settings file, so a
   repository's `.claude/settings.json` cannot redirect them.
 - **Fails quietly:** the hooks always exit 0 and give up after 2 seconds (1 second at session end); a
   session is never blocked.
@@ -138,7 +138,7 @@ flowchart LR
   subgraph machine["<b>Developer's machine</b>"]
     claude@{ img: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSIxMTUiIHZpZXdCb3g9IjAgLTU1IDYwIDExNSI+PHJlY3QgeD0iMC42IiB5PSIwLjYiIHdpZHRoPSI1OC44IiBoZWlnaHQ9IjU4LjgiIHJ4PSIxMCIgZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSIjY2JkNWUxIiBzdHJva2Utd2lkdGg9IjEuMiIvPjxzdmcgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB4PSI4IiB5PSIxMyIgd2lkdGg9IjQ0IiBoZWlnaHQ9IjM0IiBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJ4TWlkWU1pZCBtZWV0IiB2aWV3Qm94PSIwIDAgMjU2IDE2MSI+PGc+PHBhdGggZD0iTTIyMy45OCw2My43OSBMMjU2LDYzLjc5IEwyNTYsOTYuODggTDIyNCw5Ni44OCBMMjI0LDEyOS4xOCBMMjA4LjE0LDEyOS4xOCBMMjA4LjE0LDE2MC4zMyBMMTkyLDE2MC4zMyBMMTkyLDEyOS4xOCBMMTc2LjE0LDEyOS4xOCBMMTc2LjE0LDE2MC4zMyBMMTYwLDE2MC4zMyBMMTYwLDEyOS4xOCBMOTYsMTI5LjE4IEw5NiwxNjAuMzMgTDc5Ljg3LDE2MC4zMyBMNzkuODcsMTI5LjE4IEw2NCwxMjkuMTggTDY0LDE2MC4zMyBMNDcuODYsMTYwLjMzIEw0Ny44NiwxMjkuMTggTDMyLDEyOS4xOCBMMzIsOTYuODcgTDAsOTYuODcgTDAsNjMuOCBMMzIsNjMuOCBMMzIsMC4zMyBMMjIzLjk4LDAuMzMgTDIyMy45OCw2My43OSBaIE02NCw2My43OSBMNzkuODcsNjMuNzkgTDc5Ljg3LDMzLjQyIEw2NCwzMy40MiBMNjQsNjMuNzkgWiBNMTc2LjExLDYzLjc5IEwxOTIsNjMuNzkgTDE5MiwzMy40MiBMMTc2LjExLDMzLjQyIEwxNzYuMTEsNjMuNzkgTDE3Ni4xMSw2My43OSBaIiBmaWxsPSIjRDk3NzU3Ij48L3BhdGg+PC9nPjwvc3ZnPgo8L3N2Zz4=", label: "<span style='display:inline-block;min-width:160px'><b>Claude Code</b><br/><span style=font-size:smaller>plugin: hooks, skills</span></span>", pos: "b", w: 72, h: 138, constraint: "on" }
     codex@{ img: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSIxMTUiIHZpZXdCb3g9IjAgLTU1IDYwIDExNSI+PHJlY3QgeD0iMC42IiB5PSIwLjYiIHdpZHRoPSI1OC44IiBoZWlnaHQ9IjU4LjgiIHJ4PSIxMCIgZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSIjY2JkNWUxIiBzdHJva2Utd2lkdGg9IjEuMiIvPjxzdmcgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4PSI4IiB5PSIxMyIgd2lkdGg9IjQ0IiBoZWlnaHQ9IjM0IiBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJ4TWlkWU1pZCBtZWV0IiB2aWV3Qm94PSIwIDAgNjExIDYxMSI+PHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0yNTIuNzkgMTA4LjhDMjg5LjE5IDk5LjA1IDMyNi4yNiAxMTAuMzEgMzUxLjE1IDEzNS4xM0MzODUuMTEgMTI2LjA3IDQyMi44NSAxMzQuODYgNDQ5LjQ5IDE2MS41QzQ3Ni4xNCAxODguMTUgNDg0LjkzIDIyNS44OSA0NzUuODYgMjU5Ljg1VjI1OS44NUM1MDAuNyAyODQuNzQgNTExLjk1IDMyMS44MSA1MDIuMiAzNTguMjFDNDkyLjQ1IDM5NC42IDQ2NC4xNiA0MjEuMDggNDMwLjIxIDQzMC4yMkM0MjEuMDggNDY0LjE2IDM5NC42IDQ5Mi40NSAzNTguMjEgNTAyLjJDMzIxLjgxIDUxMS45NSAyODQuNzMgNTAwLjY5IDI1OS44NSA0NzUuODZDMjI1Ljg5IDQ4NC45MyAxODguMTUgNDc2LjE0IDE2MS41MSA0NDkuNUMxMzQuODYgNDIyLjg1IDEyNi4wNyAzODUuMTEgMTM1LjE0IDM1MS4xNUMxMTAuMyAzMjYuMjcgOTkuMDUgMjg5LjE5IDEwOC44IDI1Mi43OUMxMTguNTUgMjE2LjQgMTQ2Ljg0IDE4OS45MiAxODAuNzggMTgwLjc4QzE4OS45MiAxNDYuODQgMjE2LjQgMTE4LjU1IDI1Mi43OSAxMDguOFpNMzc0LjI5IDQwNy4xNEMzNzQuMjkgNDExLjI3IDM3Mi4wOSA0MTUuMDkgMzY4LjUyIDQxNy4xNUwyODMuNzIgNDY2LjFDMzAyLjQ5IDQ4MC41OCAzMjcuNTYgNDg2LjQ2IDM1Mi4yMiA0NzkuODVDMzg3IDQ3MC41MyA0MTAuMDcgNDM5LjMxIDQxMC41NiA0MDUuMDFWMzE3LjcyQzQxMC41NiAzMTUuMDggNDA5LjEzIDMxMi42MiA0MDYuODQgMzExLjNMMzc0LjI5IDI5Mi41MVY0MDcuMTRaTTI1MS44NyA0MTUuOUMyNDguMyA0MTcuOTYgMjQzLjg5IDQxNy45NiAyNDAuMzIgNDE1LjlMMTU1LjUzIDM2Ni45NEMxNTIuMzcgMzkwLjQ0IDE1OS44MSA0MTUuMDggMTc3Ljg3IDQzMy4xNEgxNzcuODZDMjAzLjMyIDQ1OC41OSAyNDEuOSA0NjIuOTYgMjcxLjg1IDQ0Ni4yM0wzNDcuNDUgNDAyLjU5QzM0OS43NCA0MDEuMjcgMzUxLjE1IDM5OC44IDM1MS4xNSAzOTYuMTZWMzU4LjU4TDI1MS44NyA0MTUuOVpNMzY4LjYgMjIwLjYzQzM2Ni4zMiAyMTkuMzEgMzYzLjQ3IDIxOS4zMiAzNjEuMTkgMjIwLjY0TDMyOC42NCAyMzkuNDNMNDI3LjkyIDI5Ni43NUM0MzEuNSAyOTguODEgNDMzLjcgMzAyLjYzIDQzMy43IDMwNi43NVY0MDQuNjZDNDU1LjYyIDM5NS42NSA0NzMuMjQgMzc2Ljg4IDQ3OS44NSAzNTIuMjJDNDg5LjE3IDMxNy40NCA0NzMuNjcgMjgxLjg1IDQ0NC4yIDI2NC4yN0wzNjguNiAyMjAuNjNaTTE3Ny4zIDIwNi4zNEMxNTUuMzggMjE1LjM1IDEzNy43NiAyMzQuMTIgMTMxLjE1IDI1OC43OEMxMjEuODMgMjkzLjU2IDEzNy4zMyAzMjkuMTUgMTY2LjggMzQ2LjczTDI0Mi40IDM5MC4zN0MyNDQuNjggMzkxLjY5IDI0Ny41MyAzOTEuNjggMjQ5LjgxIDM5MC4zN0wyODIuMzYgMzcxLjU3TDE4My4wOCAzMTQuMjVDMTc5LjUgMzEyLjE5IDE3Ny4zIDMwOC4zOCAxNzcuMyAzMDQuMjVWMjA2LjM0Wk0yNTkuODUgMjc5LjE0VjMzMS44NkwzMDUuNSAzNTguMjFMMzUxLjE1IDMzMS44NlYyNzkuMTRMMzA1LjUgMjUyLjc5TDI1OS44NSAyNzkuMTRaTTMyNy4yOCAxNDQuOUMzMDguNTEgMTMwLjQyIDI4My40NCAxMjQuNTQgMjU4Ljc4IDEzMS4xNUMyMjQgMTQwLjQ3IDIwMC45MyAxNzEuNjkgMjAwLjQ0IDIwNlYyOTMuMjlDMjAwLjQ0IDI5NS45MiAyMDEuODggMjk4LjM4IDIwNC4xNiAyOTkuN0wyMzYuNzEgMzE4LjQ5VjIwMy44NkMyMzYuNzEgMTk5LjczIDIzOC45MSAxOTUuOTIgMjQyLjQ4IDE5My44NUwzMjcuMjggMTQ0LjlaTTQzMy4xNCAxNzcuODdDNDA3LjY4IDE1Mi40MSAzNjkuMSAxNDguMDQgMzM5LjE1IDE2NC43N0wyNjMuNTUgMjA4LjQxQzI2MS4yNiAyMDkuNzMgMjU5Ljg1IDIxMi4yIDI1OS44NSAyMTQuODRWMjUyLjQyTDM1OS4xMyAxOTUuMUMzNjIuNyAxOTMuMDQgMzY3LjExIDE5My4wNCAzNzAuNjggMTk1LjFMNDU1LjQ3IDI0NC4wNkM0NTguNjMgMjIwLjU3IDQ1MS4xOSAxOTUuOTIgNDMzLjEzIDE3Ny44N0g0MzMuMTRaIiBmaWxsPSJibGFjayIvPjwvc3ZnPgo8L3N2Zz4=", label: "<span style='display:inline-block;min-width:160px'><b>Codex</b><br/><span style=font-size:smaller>hooks</span></span>", pos: "b", w: 72, h: 138, constraint: "on" }
-    cli@{ img: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSIxMzcuNSIgdmlld0JveD0iMCAtNzcuNSA2MCAxMzcuNSI+PHJlY3QgeD0iMC42IiB5PSIwLjYiIHdpZHRoPSI1OC44IiBoZWlnaHQ9IjU4LjgiIHJ4PSIxMCIgZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSIjY2JkNWUxIiBzdHJva2Utd2lkdGg9IjEuMiIvPjxzdmcKICBjbGFzcz0ibHVjaWRlIGx1Y2lkZS1zcXVhcmUtdGVybWluYWwiCiAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogCiAKIAogIGZpbGw9Im5vbmUiCiAgc3Ryb2tlPSIjM2Q0NjYwIgogIHN0cm9rZS13aWR0aD0iMiIKICBzdHJva2UtbGluZWNhcD0icm91bmQiCiAgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgeD0iOCIgeT0iMTMiIHdpZHRoPSI0NCIgaGVpZ2h0PSIzNCIgcHJlc2VydmVBc3BlY3RSYXRpbz0ieE1pZFlNaWQgbWVldCIgdmlld0JveD0iMiAyIDIwIDIwIj48cGF0aCBkPSJtNyAxMSAyLTItMi0yIiAvPjxwYXRoIGQ9Ik0xMSAxM2g0IiAvPjxyZWN0IHdpZHRoPSIxOCIgaGVpZ2h0PSIxOCIgeD0iMyIgeT0iMyIgcng9IjIiIHJ5PSIyIiAvPjwvc3ZnPgo8L3N2Zz4=", label: "<span style='display:inline-block;min-width:160px'><b>harnessforce CLI</b><br/><span style=font-size:smaller>login, import, tune<br/>keys in OS keychain</span></span>", pos: "b", w: 72, h: 165, constraint: "on" }
+    cli@{ img: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSIxMzcuNSIgdmlld0JveD0iMCAtNzcuNSA2MCAxMzcuNSI+PHJlY3QgeD0iMC42IiB5PSIwLjYiIHdpZHRoPSI1OC44IiBoZWlnaHQ9IjU4LjgiIHJ4PSIxMCIgZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSIjY2JkNWUxIiBzdHJva2Utd2lkdGg9IjEuMiIvPjxzdmcKICBjbGFzcz0ibHVjaWRlIGx1Y2lkZS1zcXVhcmUtdGVybWluYWwiCiAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogCiAKIAogIGZpbGw9Im5vbmUiCiAgc3Ryb2tlPSIjM2Q0NjYwIgogIHN0cm9rZS13aWR0aD0iMiIKICBzdHJva2UtbGluZWNhcD0icm91bmQiCiAgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIgeD0iOCIgeT0iMTMiIHdpZHRoPSI0NCIgaGVpZ2h0PSIzNCIgcHJlc2VydmVBc3BlY3RSYXRpbz0ieE1pZFlNaWQgbWVldCIgdmlld0JveD0iMiAyIDIwIDIwIj48cGF0aCBkPSJtNyAxMSAyLTItMi0yIiAvPjxwYXRoIGQ9Ik0xMSAxM2g0IiAvPjxyZWN0IHdpZHRoPSIxOCIgaGVpZ2h0PSIxOCIgeD0iMyIgeT0iMyIgcng9IjIiIHJ5PSIyIiAvPjwvc3ZnPgo8L3N2Zz4=", label: "<span style='display:inline-block;min-width:160px'><b>harnessforce CLI</b><br/><span style=font-size:smaller>login, import, insights<br/>keys in OS keychain</span></span>", pos: "b", w: 72, h: 165, constraint: "on" }
   end
   subgraph hosted["<b>Harnessforce (hosted)</b>"]
     ingest@{ img: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSIxMTUiIHZpZXdCb3g9IjAgLTU1IDYwIDExNSI+PHJlY3QgeD0iMC42IiB5PSIwLjYiIHdpZHRoPSI1OC44IiBoZWlnaHQ9IjU4LjgiIHJ4PSIxMCIgZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSIjY2JkNWUxIiBzdHJva2Utd2lkdGg9IjEuMiIvPjxzdmcKICBjbGFzcz0ibHVjaWRlIGx1Y2lkZS1pbmJveCIKICB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciCiAKIAogCiAgZmlsbD0ibm9uZSIKICBzdHJva2U9IiMzZDQ2NjAiCiAgc3Ryb2tlLXdpZHRoPSIyIgogIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIKICBzdHJva2UtbGluZWpvaW49InJvdW5kIiB4PSI4IiB5PSIxMyIgd2lkdGg9IjQ0IiBoZWlnaHQ9IjM0IiBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJ4TWlkWU1pZCBtZWV0IiB2aWV3Qm94PSIyIDIgMjAgMjAiPjxwb2x5bGluZSBwb2ludHM9IjIyIDEyIDE2IDEyIDE0IDE1IDEwIDE1IDggMTIgMiAxMiIgLz48cGF0aCBkPSJNNS40NSA1LjExIDIgMTJ2NmEyIDIgMCAwIDAgMiAyaDE2YTIgMiAwIDAgMCAyLTJ2LTZsLTMuNDUtNi44OUEyIDIgMCAwIDAgMTYuNzYgNEg3LjI0YTIgMiAwIDAgMC0xLjc5IDEuMTF6IiAvPjwvc3ZnPgo8L3N2Zz4=", label: "<span style='display:inline-block;min-width:160px'><b>Ingest API</b><br/><span style=font-size:smaller>sessions, OTLP</span></span>", pos: "b", w: 72, h: 138, constraint: "on" }
@@ -169,12 +169,12 @@ flowchart LR
   keychain. The `using-harnessforce` skill tells the agent which skill fits a request and what is
   recorded; `record-session` says when to start and complete a session for an Issue, and
   `propose-improvements` how to write a proposal.
-- **Codex** is configured by `harnessforce init`: its `SessionStart`, `PostToolUse` and `Stop` hooks run
+- **Codex** is configured by `harnessforce login`: its `SessionStart`, `PostToolUse` and `Stop` hooks run
   `harnessforce hook` to register sessions and send work locations, and its OpenTelemetry exporter sends
   to the ingest API.
 - The **`harnessforce` CLI** logs in with OAuth 2.0 and PKCE, keeps keys and tokens in the OS keychain,
   supplies the ingest key to Claude Code's OpenTelemetry exporter through `otelHeadersHelper`, resolves
-  Issues through the Read API, imports past sessions, and sends the counts of `harnessforce tune` as
+  Issues through the Read API, imports past sessions, and sends the counts of `harnessforce insights` as
   analysis reports.
 - **Harnessforce** receives all of this through its ingest API, and serves the browser login, the Read API
   and the MCP server at `<connection URL>/mcp`. The plugin only declares the MCP server.

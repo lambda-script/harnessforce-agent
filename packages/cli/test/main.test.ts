@@ -28,7 +28,7 @@ describe("harnessforce", () => {
 	it("does not advertise the hidden --url override in the usage", async () => {
 		const r = await runCli(["--help"]);
 		expect(r.out + r.err).not.toContain("--url");
-		const help = await runCli(["init", "--help"]);
+		const help = await runCli(["login", "--help"]);
 		expect(help.out + help.err).toContain("--port");
 		expect(help.out + help.err).not.toContain("--url");
 	});
