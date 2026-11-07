@@ -111,48 +111,71 @@ The per-package READMEs describe exactly what each command and hook sends.
 
 ## Architecture
 
+<!-- Drawn from .github/assets/architecture.mmd with the logos inlined. Edit the .mmd and render it again with --portable. -->
+
 ```mermaid
+---
+title: harnessforce-agent architecture
+config:
+  themeCSS: ".flowchartTitleText { fill: #64748b; } [id*='flowchart-codex-'] { background-color: transparent; } [id*='flowchart-codex-'] p { background-color: transparent; } [id*='flowchart-codex-'] .labelBkg { background-color: transparent; } [id*='flowchart-claude-'] { background-color: transparent; } [id*='flowchart-claude-'] p { background-color: transparent; } [id*='flowchart-claude-'] .labelBkg { background-color: transparent; } [id*='flowchart-cli-'] { background-color: transparent; } [id*='flowchart-cli-'] p { background-color: transparent; } [id*='flowchart-cli-'] .labelBkg { background-color: transparent; } [id*='flowchart-ingest-'] { background-color: transparent; } [id*='flowchart-ingest-'] p { background-color: transparent; } [id*='flowchart-ingest-'] .labelBkg { background-color: transparent; } [id*='flowchart-web-'] { background-color: transparent; } [id*='flowchart-web-'] p { background-color: transparent; } [id*='flowchart-web-'] .labelBkg { background-color: transparent; } .label [height], .cluster-label [height] { overflow: visible; } .cluster[id$='-hosted'] .nodeLabel::before { content: none; } .cluster[id$='-machine'] .nodeLabel::before { content: none; } .cluster[id$='-hosted'] .cluster-label [height] { transform: translate(-9.09px, 6px); } .cluster[id$='-machine'] .cluster-label [height] { transform: translate(-14.28px, 6px); }"
+  fontFamily: 'Arimo, Arial, "Liberation Sans", sans-serif'
+  theme: neutral
+  layout: elk
+  elk:
+    forceNodeModelOrder: true
+    mergeEdges: true
+    nodePlacementAlignment: RIGHTDOWN
+  flowchart:
+    nodeSpacing: 30
+    rankSpacing: 50
+    wrappingWidth: 160
+---
 flowchart LR
-  subgraph machine["Your machine"]
-    cc["Claude Code"]
-    hook["plugin hooks<br/>SessionStart, UserPromptSubmit,<br/>tool and command counts, SessionEnd"]
-    skill["record-session skill"]
-    harnessforce["harnessforce CLI"]
-    keychain[("OS keychain")]
+  %% The hosted service is shown by its public entry points only.
+  subgraph machine["<b>Developer's machine</b>"]
+    codex@{ img: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSIxMTUiIHZpZXdCb3g9IjAgLTU1IDYwIDExNSI+PHJlY3QgeD0iMC42IiB5PSIwLjYiIHdpZHRoPSI1OC44IiBoZWlnaHQ9IjU4LjgiIHJ4PSIxMCIgZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSIjY2JkNWUxIiBzdHJva2Utd2lkdGg9IjEuMiIvPjxzdmcgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4PSI4IiB5PSIxMyIgd2lkdGg9IjQ0IiBoZWlnaHQ9IjM0IiBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJ4TWlkWU1pZCBtZWV0IiB2aWV3Qm94PSIwIDAgNjExIDYxMSI+PHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0yNTIuNzkgMTA4LjhDMjg5LjE5IDk5LjA1IDMyNi4yNiAxMTAuMzEgMzUxLjE1IDEzNS4xM0MzODUuMTEgMTI2LjA3IDQyMi44NSAxMzQuODYgNDQ5LjQ5IDE2MS41QzQ3Ni4xNCAxODguMTUgNDg0LjkzIDIyNS44OSA0NzUuODYgMjU5Ljg1VjI1OS44NUM1MDAuNyAyODQuNzQgNTExLjk1IDMyMS44MSA1MDIuMiAzNTguMjFDNDkyLjQ1IDM5NC42IDQ2NC4xNiA0MjEuMDggNDMwLjIxIDQzMC4yMkM0MjEuMDggNDY0LjE2IDM5NC42IDQ5Mi40NSAzNTguMjEgNTAyLjJDMzIxLjgxIDUxMS45NSAyODQuNzMgNTAwLjY5IDI1OS44NSA0NzUuODZDMjI1Ljg5IDQ4NC45MyAxODguMTUgNDc2LjE0IDE2MS41MSA0NDkuNUMxMzQuODYgNDIyLjg1IDEyNi4wNyAzODUuMTEgMTM1LjE0IDM1MS4xNUMxMTAuMyAzMjYuMjcgOTkuMDUgMjg5LjE5IDEwOC44IDI1Mi43OUMxMTguNTUgMjE2LjQgMTQ2Ljg0IDE4OS45MiAxODAuNzggMTgwLjc4QzE4OS45MiAxNDYuODQgMjE2LjQgMTE4LjU1IDI1Mi43OSAxMDguOFpNMzc0LjI5IDQwNy4xNEMzNzQuMjkgNDExLjI3IDM3Mi4wOSA0MTUuMDkgMzY4LjUyIDQxNy4xNUwyODMuNzIgNDY2LjFDMzAyLjQ5IDQ4MC41OCAzMjcuNTYgNDg2LjQ2IDM1Mi4yMiA0NzkuODVDMzg3IDQ3MC41MyA0MTAuMDcgNDM5LjMxIDQxMC41NiA0MDUuMDFWMzE3LjcyQzQxMC41NiAzMTUuMDggNDA5LjEzIDMxMi42MiA0MDYuODQgMzExLjNMMzc0LjI5IDI5Mi41MVY0MDcuMTRaTTI1MS44NyA0MTUuOUMyNDguMyA0MTcuOTYgMjQzLjg5IDQxNy45NiAyNDAuMzIgNDE1LjlMMTU1LjUzIDM2Ni45NEMxNTIuMzcgMzkwLjQ0IDE1OS44MSA0MTUuMDggMTc3Ljg3IDQzMy4xNEgxNzcuODZDMjAzLjMyIDQ1OC41OSAyNDEuOSA0NjIuOTYgMjcxLjg1IDQ0Ni4yM0wzNDcuNDUgNDAyLjU5QzM0OS43NCA0MDEuMjcgMzUxLjE1IDM5OC44IDM1MS4xNSAzOTYuMTZWMzU4LjU4TDI1MS44NyA0MTUuOVpNMzY4LjYgMjIwLjYzQzM2Ni4zMiAyMTkuMzEgMzYzLjQ3IDIxOS4zMiAzNjEuMTkgMjIwLjY0TDMyOC42NCAyMzkuNDNMNDI3LjkyIDI5Ni43NUM0MzEuNSAyOTguODEgNDMzLjcgMzAyLjYzIDQzMy43IDMwNi43NVY0MDQuNjZDNDU1LjYyIDM5NS42NSA0NzMuMjQgMzc2Ljg4IDQ3OS44NSAzNTIuMjJDNDg5LjE3IDMxNy40NCA0NzMuNjcgMjgxLjg1IDQ0NC4yIDI2NC4yN0wzNjguNiAyMjAuNjNaTTE3Ny4zIDIwNi4zNEMxNTUuMzggMjE1LjM1IDEzNy43NiAyMzQuMTIgMTMxLjE1IDI1OC43OEMxMjEuODMgMjkzLjU2IDEzNy4zMyAzMjkuMTUgMTY2LjggMzQ2LjczTDI0Mi40IDM5MC4zN0MyNDQuNjggMzkxLjY5IDI0Ny41MyAzOTEuNjggMjQ5LjgxIDM5MC4zN0wyODIuMzYgMzcxLjU3TDE4My4wOCAzMTQuMjVDMTc5LjUgMzEyLjE5IDE3Ny4zIDMwOC4zOCAxNzcuMyAzMDQuMjVWMjA2LjM0Wk0yNTkuODUgMjc5LjE0VjMzMS44NkwzMDUuNSAzNTguMjFMMzUxLjE1IDMzMS44NlYyNzkuMTRMMzA1LjUgMjUyLjc5TDI1OS44NSAyNzkuMTRaTTMyNy4yOCAxNDQuOUMzMDguNTEgMTMwLjQyIDI4My40NCAxMjQuNTQgMjU4Ljc4IDEzMS4xNUMyMjQgMTQwLjQ3IDIwMC45MyAxNzEuNjkgMjAwLjQ0IDIwNlYyOTMuMjlDMjAwLjQ0IDI5NS45MiAyMDEuODggMjk4LjM4IDIwNC4xNiAyOTkuN0wyMzYuNzEgMzE4LjQ5VjIwMy44NkMyMzYuNzEgMTk5LjczIDIzOC45MSAxOTUuOTIgMjQyLjQ4IDE5My44NUwzMjcuMjggMTQ0LjlaTTQzMy4xNCAxNzcuODdDNDA3LjY4IDE1Mi40MSAzNjkuMSAxNDguMDQgMzM5LjE1IDE2NC43N0wyNjMuNTUgMjA4LjQxQzI2MS4yNiAyMDkuNzMgMjU5Ljg1IDIxMi4yIDI1OS44NSAyMTQuODRWMjUyLjQyTDM1OS4xMyAxOTUuMUMzNjIuNyAxOTMuMDQgMzY3LjExIDE5My4wNCAzNzAuNjggMTk1LjFMNDU1LjQ3IDI0NC4wNkM0NTguNjMgMjIwLjU3IDQ1MS4xOSAxOTUuOTIgNDMzLjEzIDE3Ny44N0g0MzMuMTRaIiBmaWxsPSJibGFjayIvPjwvc3ZnPgo8L3N2Zz4=", label: "<span style='display:inline-block;min-width:160px'><b>Codex</b><br/><span style=font-size:smaller>hooks</span></span>", pos: "b", w: 72, h: 138, constraint: "on" }
+    claude@{ img: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSIxMTUiIHZpZXdCb3g9IjAgLTU1IDYwIDExNSI+PHJlY3QgeD0iMC42IiB5PSIwLjYiIHdpZHRoPSI1OC44IiBoZWlnaHQ9IjU4LjgiIHJ4PSIxMCIgZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSIjY2JkNWUxIiBzdHJva2Utd2lkdGg9IjEuMiIvPjxzdmcgdmVyc2lvbj0iMS4xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB4PSI4IiB5PSIxMyIgd2lkdGg9IjQ0IiBoZWlnaHQ9IjM0IiBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJ4TWlkWU1pZCBtZWV0IiB2aWV3Qm94PSIwIDAgMjU2IDE2MSI+PGc+PHBhdGggZD0iTTIyMy45OCw2My43OSBMMjU2LDYzLjc5IEwyNTYsOTYuODggTDIyNCw5Ni44OCBMMjI0LDEyOS4xOCBMMjA4LjE0LDEyOS4xOCBMMjA4LjE0LDE2MC4zMyBMMTkyLDE2MC4zMyBMMTkyLDEyOS4xOCBMMTc2LjE0LDEyOS4xOCBMMTc2LjE0LDE2MC4zMyBMMTYwLDE2MC4zMyBMMTYwLDEyOS4xOCBMOTYsMTI5LjE4IEw5NiwxNjAuMzMgTDc5Ljg3LDE2MC4zMyBMNzkuODcsMTI5LjE4IEw2NCwxMjkuMTggTDY0LDE2MC4zMyBMNDcuODYsMTYwLjMzIEw0Ny44NiwxMjkuMTggTDMyLDEyOS4xOCBMMzIsOTYuODcgTDAsOTYuODcgTDAsNjMuOCBMMzIsNjMuOCBMMzIsMC4zMyBMMjIzLjk4LDAuMzMgTDIyMy45OCw2My43OSBaIE02NCw2My43OSBMNzkuODcsNjMuNzkgTDc5Ljg3LDMzLjQyIEw2NCwzMy40MiBMNjQsNjMuNzkgWiBNMTc2LjExLDYzLjc5IEwxOTIsNjMuNzkgTDE5MiwzMy40MiBMMTc2LjExLDMzLjQyIEwxNzYuMTEsNjMuNzkgTDE3Ni4xMSw2My43OSBaIiBmaWxsPSIjRDk3NzU3Ij48L3BhdGg+PC9nPjwvc3ZnPgo8L3N2Zz4=", label: "<span style='display:inline-block;min-width:160px'><b>Claude Code</b><br/><span style=font-size:smaller>plugin: hooks, skills</span></span>", pos: "b", w: 72, h: 138, constraint: "on" }
+    cli@{ img: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSIxMzcuNSIgdmlld0JveD0iMCAtNzcuNSA2MCAxMzcuNSI+PHJlY3QgeD0iMC42IiB5PSIwLjYiIHdpZHRoPSI1OC44IiBoZWlnaHQ9IjU4LjgiIHJ4PSIxMCIgZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSIjY2JkNWUxIiBzdHJva2Utd2lkdGg9IjEuMiIvPjxzdmcKICBjbGFzcz0ibHVjaWRlIGx1Y2lkZS10ZXJtaW5hbCIKICB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciCiAKIAogCiAgZmlsbD0ibm9uZSIKICBzdHJva2U9IiMzZDQ2NjAiCiAgc3Ryb2tlLXdpZHRoPSIyIgogIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIKICBzdHJva2UtbGluZWpvaW49InJvdW5kIiB4PSI4IiB5PSIxMyIgd2lkdGg9IjQ0IiBoZWlnaHQ9IjM0IiBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJ4TWlkWU1pZCBtZWV0IiB2aWV3Qm94PSIyIDIgMjAgMjAiPjxwYXRoIGQ9Ik0xMiAxOWg4IiAvPjxwYXRoIGQ9Im00IDE3IDYtNi02LTYiIC8+PC9zdmc+Cjwvc3ZnPg==", label: "<span style='display:inline-block;min-width:160px'><b>harnessforce CLI</b><br/><span style=font-size:smaller>login, import, tune<br/>keys in OS keychain</span></span>", pos: "b", w: 72, h: 165, constraint: "on" }
   end
-  subgraph code["Shared code"]
-    core["agent-core<br/>(bundled into harnessforce and the hook)"]
-    semconv["@harnessforce/semconv"]
-  end
-  subgraph service["Harnessforce"]
-    web["apps/web<br/>login, Read API, MCP server"]
-    ingest["ingest API<br/>sessions, config snapshots,<br/>session imports, session usage, OTLP"]
+  subgraph hosted["<b>Harnessforce (hosted)</b>"]
+    ingest@{ img: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSIxMTUiIHZpZXdCb3g9IjAgLTU1IDYwIDExNSI+PHJlY3QgeD0iMC42IiB5PSIwLjYiIHdpZHRoPSI1OC44IiBoZWlnaHQ9IjU4LjgiIHJ4PSIxMCIgZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSIjY2JkNWUxIiBzdHJva2Utd2lkdGg9IjEuMiIvPjxzdmcKICBjbGFzcz0ibHVjaWRlIGx1Y2lkZS1pbmJveCIKICB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciCiAKIAogCiAgZmlsbD0ibm9uZSIKICBzdHJva2U9IiMzZDQ2NjAiCiAgc3Ryb2tlLXdpZHRoPSIyIgogIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIKICBzdHJva2UtbGluZWpvaW49InJvdW5kIiB4PSI4IiB5PSIxMyIgd2lkdGg9IjQ0IiBoZWlnaHQ9IjM0IiBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJ4TWlkWU1pZCBtZWV0IiB2aWV3Qm94PSIyIDIgMjAgMjAiPjxwb2x5bGluZSBwb2ludHM9IjIyIDEyIDE2IDEyIDE0IDE1IDEwIDE1IDggMTIgMiAxMiIgLz48cGF0aCBkPSJNNS40NSA1LjExIDIgMTJ2NmEyIDIgMCAwIDAgMiAyaDE2YTIgMiAwIDAgMCAyLTJ2LTZsLTMuNDUtNi44OUEyIDIgMCAwIDAgMTYuNzYgNEg3LjI0YTIgMiAwIDAgMC0xLjc5IDEuMTF6IiAvPjwvc3ZnPgo8L3N2Zz4=", label: "<span style='display:inline-block;min-width:160px'><b>Ingest API</b><br/><span style=font-size:smaller>sessions, OTLP</span></span>", pos: "b", w: 72, h: 138, constraint: "on" }
+    web@{ img: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSIxMTUiIHZpZXdCb3g9IjAgLTU1IDYwIDExNSI+PHJlY3QgeD0iMC42IiB5PSIwLjYiIHdpZHRoPSI1OC44IiBoZWlnaHQ9IjU4LjgiIHJ4PSIxMCIgZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSIjY2JkNWUxIiBzdHJva2Utd2lkdGg9IjEuMiIvPjxzdmcKICBjbGFzcz0ibHVjaWRlIGx1Y2lkZS1nbG9iZSIKICB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciCiAKIAogCiAgZmlsbD0ibm9uZSIKICBzdHJva2U9IiMzZDQ2NjAiCiAgc3Ryb2tlLXdpZHRoPSIyIgogIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIKICBzdHJva2UtbGluZWpvaW49InJvdW5kIiB4PSI4IiB5PSIxMyIgd2lkdGg9IjQ0IiBoZWlnaHQ9IjM0IiBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJ4TWlkWU1pZCBtZWV0IiB2aWV3Qm94PSIyIDIgMjAgMjAiPjxjaXJjbGUgY3g9IjEyIiBjeT0iMTIiIHI9IjEwIiAvPjxwYXRoIGQ9Ik0xMiAyYTE0LjUgMTQuNSAwIDAgMCAwIDIwIDE0LjUgMTQuNSAwIDAgMCAwLTIwIiAvPjxwYXRoIGQ9Ik0yIDEyaDIwIiAvPjwvc3ZnPgo8L3N2Zz4=", label: "<span style='display:inline-block;min-width:160px'><b>Web</b><br/><span style=font-size:smaller>login, Read API, MCP</span></span>", pos: "b", w: 72, h: 138, constraint: "on" }
   end
 
-  cc -- "hook events" --> hook
-  cc -- "otelHeadersHelper" --> harnessforce
-  cc -- "OTLP telemetry" --> ingest
-  cc -- "MCP tools over HTTP" --> web
-  skill -. "guides tool use" .-> cc
-  hook -- "harnessforce otel-headers" --> harnessforce
-  hook -- "registration, snapshot,<br/>usage summary" --> ingest
-  harnessforce -- "keys and tokens" --> keychain
-  harnessforce -- "harnessforce init, harnessforce run, harnessforce import" --> web
-  harnessforce -- "harnessforce import" --> ingest
-  hook -.- core
-  harnessforce -.- core
-  core -.- semconv
-  ingest -.-|validates with| semconv
+  %% secondary calls first, primary flow last
+  cli -->|"login, Issues"| web
+  cli -->|"import, reports"| ingest
+  codex -->|"OTLP, hooks"| ingest
+  claude -->|MCP| web
+  claude -->|"OTLP, hooks"| ingest
+
+  linkStyle 0,1 stroke:#64748b,stroke-width:1.4px,color:#64748b
+  linkStyle 2,3,4 stroke:#2563eb,stroke-width:2.5px,color:#2563eb
+  style machine fill:#f5f8ff,stroke:#93b4f5,stroke-width:1.5px
+  style hosted fill:#f0fdf4,stroke:#86efac,stroke-width:1.5px
+  classDef tile fill:none,stroke:none,color:#1e293b,font-size:18px
+  class codex,claude,cli,ingest,web tile
 ```
 
-- The **plugin hooks** register each session and its config snapshot with the ingest API, using the
-  Workspace key from managed settings or the user key that `harnessforce otel-headers` reads from the keychain,
-  and send a usage summary of each session when it ends or, with a user key, when the next one starts.
-- The **`harnessforce` CLI** logs in with OAuth 2.0 and PKCE, supplies the ingest key to Claude Code's
-  OpenTelemetry exporter through `otelHeadersHelper`, resolves Issues through the Read API, and imports
-  past sessions.
-- The **MCP server** is hosted by Harnessforce at `<connection URL>/mcp`; the plugin only declares it.
-- **`@harnessforce/semconv`** defines what both sides send and accept.
+- **Claude Code** runs the `harnessforce` plugin. Its hooks register each session and its config snapshot
+  (`SessionStart`, `UserPromptSubmit`); count the skills, commands, subagents and MCP servers the session
+  uses and send one usage summary per session (`PostToolUse`, `PostToolUseFailure`, `UserPromptExpansion`,
+  `PermissionRequest`, `PostCompact`, `SessionEnd`); and record the repository and branch the session works
+  in, sending them at the end of a turn (`CwdChanged`, `PostToolUse` of `Write` and `Edit`, `Stop`). They use
+  the Workspace key from managed settings, or the user key that `harnessforce otel-headers` reads from the
+  keychain. The `using-harnessforce`, `record-session` and `propose-improvements` skills tell the agent what
+  is recorded, when to start and complete a session for an Issue, and how to write a proposal.
+- **Codex** is configured by `harnessforce init`: its `SessionStart`, `PostToolUse` and `Stop` hooks run
+  `harnessforce hook` to register sessions and send work locations, and its OpenTelemetry exporter sends
+  to the ingest API.
+- The **`harnessforce` CLI** logs in with OAuth 2.0 and PKCE, keeps keys and tokens in the OS keychain,
+  supplies the ingest key to Claude Code's OpenTelemetry exporter through `otelHeadersHelper`, resolves
+  Issues through the Read API, imports past sessions, and sends the counts of `harnessforce tune` as
+  analysis reports.
+- **Harnessforce** receives all of this through its ingest API, and serves the browser login, the Read API
+  and the MCP server at `<connection URL>/mcp`. The plugin only declares the MCP server.
+- **`@harnessforce/semconv`** defines what both sides send and accept. `@harnessforce/agent-core` holds the
+  logic shared by the CLI and the plugin hook and is bundled into both.
 
 ## Development
 
