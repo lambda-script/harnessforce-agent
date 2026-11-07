@@ -1,4 +1,8 @@
 {
 	"extends": "../../tsconfig.json",
+	"compilerOptions": {
+		// The diagram skill ships plain .mjs scripts; the tests import them with the types inferred from the JavaScript.
+		"allowJs": true
+	},
 	"include": ["src", "test", "vitest.config.ts"]
 }

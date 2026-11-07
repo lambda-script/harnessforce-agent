@@ -23,6 +23,7 @@ and does not bundle the CLI (`/harnessforce:setup` installs `@harnessforce/cli` 
 | Command `/harnessforce:run <issue>` | Shows how to start an agent on an Issue with `harnessforce run --issue <issue> -- <agent>` in a terminal, and how `HARNESSFORCE_ISSUE` ties a session to an Issue. Runs nothing |
 | Command `/harnessforce:help` | Lists the CLI commands (`harnessforce --help`) and these commands, and says which ones are not wrapped (`init`, the interactive `top`) |
 | Skill `propose-improvements` | How the agent writes a proposal (evidence, diff or pull request draft, expected effect, how to measure), keeps permissions minimal and loops bounded, and records it with `harnessforce tune record` before showing it |
+| Skill `diagram` | Experimental. Draws architecture, CI/CD, state, error-flow, ER, Gantt and sequence diagrams of a repository, or of a system you describe, in Mermaid, renders them to SVG and PNG with product logos, and checks them against the sources. See [Diagram skill](#diagram-skill) |
 
 The hooks and the MCP server exist only in the build output, because their scripts and connection URL
 come from the build. The copy of the plugin in this repository has no hooks and no MCP server. See
@@ -160,6 +161,16 @@ commands and file paths, so the hooks count the names themselves.
 - The counting hooks run asynchronously and never delay the agent. Failures are written to stderr as
   `harnessforce: session usage failed (<reason>)`; a `401` at `SessionStart` shows the revoked-key
   notice like the registration does.
+
+## Diagram skill
+
+The `diagram` skill is experimental. It sends nothing to Harnessforce. To render, it runs mermaid-cli
+12.2.0 with `npx` (or the `mmdc` that `MMDC` names), which downloads mermaid-cli from npm and Chromium on
+first use, so rendering fails without network access. It fetches each logo it draws from a public
+source (svgl, devicon, the `gilbarbara/logos` collection, Lucide, and the icon packages of AWS, Google
+Cloud and Azure), or from the URL the diagram names, into
+`${XDG_CACHE_HOME:-~/.cache}/harnessforce-diagram/icons`, so those sites see the names of the products
+in a diagram. Logos named as files in the repository (`name=<path>`) are not fetched.
 
 ## License
 
