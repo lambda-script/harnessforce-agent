@@ -10,7 +10,7 @@ fixture を更新しないと `server-responses.test.ts` が落ちる（agent �
 |---|---|---|
 | `credentials-201.json` | `POST /api/v1/cli/credentials` | `apps/web/src/lib/oauth/cli-credentials-endpoint.ts` の `issueCredentials` |
 | `repositories-page-1.json`・`repositories-page-2.json` | `GET /api/v1/repositories` | `apps/web/src/lib/read-api/handlers.ts` の `listRepositories` と `serializePage` |
-| `workspace-200.json` | `GET /api/v1/workspace` | `apps/web/src/lib/read-api/handlers.ts` の `getWorkspace` |
+| `workspace-200.json` | `GET /api/v1/workspace` | `apps/web/src/lib/read-api/handlers.ts` の `getWorkspace` と `serialize.ts` の `serializeCliContentSettings`（`content` は harnessforce PR #2153 の `8c2712271` から） |
 | `onboarding-200.json` | `GET /api/v1/onboarding` | `apps/web/src/lib/read-api/serialize.ts` の `serializeOnboarding` |
 | `ingest-200.json` | `POST /v1/sessions` ほか汎用 ingest の 7 path | `apps/ingest/src/http/otlp-response.ts` の `elementsAccepted` |
 

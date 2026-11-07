@@ -1,3 +1,9 @@
 {
-	"session_import_days": 14
+	"session_import_days": 14,
+	"content": {
+		"prompts": true,
+		"model_and_tools": false,
+		"visibility": "all_members",
+		"retention_days": 14
+	}
 }
