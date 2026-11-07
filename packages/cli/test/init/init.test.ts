@@ -467,8 +467,8 @@ describe("harnessforce init", () => {
 			[["--send-content", "--send-content"]],
 		])("rejects the arguments %j with usage", async (argv) => {
 			const result = await runInit(argv, { homeDir: makeHome().home });
-			expect(result.code).toBe(1);
-			expect(result.err).toContain("Usage: harnessforce");
+			expect(result.code).toBe(2);
+			expect(result.err).toContain("Usage: harnessforce init");
 		});
 
 		it.each([

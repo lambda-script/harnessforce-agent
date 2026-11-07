@@ -39,6 +39,8 @@ export type FrameOptions = {
 	// 絞り込みの文字と、並べ替えの基準の表示。
 	filterText?: string;
 	sortLabel?: string;
+	// 対話の画面の操作の案内を出すか。--onceと非TTYの平文では出さない。既定は出す。
+	keyHints?: boolean;
 };
 
 // terminal-view.md「端末への適応」: 90桁以上は全列、60桁から89桁はtokenとcontextを省き、40桁から59桁は1行の短い形、40桁未満は件数だけ。
@@ -156,8 +158,10 @@ function header(sessions: readonly TopRow[], options: FrameOptions): string {
 }
 
 function footer(options: FrameOptions): string[] {
+	const notices = options.notices.map((notice) => clip(notice, options));
+	if (options.keyHints === false) return notices;
 	return [
-		...options.notices.map((notice) => clip(notice, options)),
+		...notices,
 		clip(options.painter.dim(options.ascii ? HINT_ASCII : HINT), options),
 	];
 }

@@ -480,7 +480,7 @@ describe("harnessforce hook session-start", () => {
 		]) {
 			const result = await run(args);
 			expect(result.code).toBe(1);
-			expect(result.err).toContain("harnessforce hook session-start");
+			expect(result.err).toContain("Usage: harnessforce hook session-start");
 		}
 	});
 });

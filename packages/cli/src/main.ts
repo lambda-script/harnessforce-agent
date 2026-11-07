@@ -10,8 +10,16 @@ import {
 	readCliUpdateState,
 	updateStatePath,
 } from "./client-update.js";
-import { resolveHelp, UNKNOWN_COMMAND_HINT } from "./help.js";
-import { HOOK_USAGE, sessionStart } from "./hook/session-start.js";
+import {
+	EXIT_USAGE,
+	givenTwice,
+	resolveHelp,
+	topLevelError,
+	unexpectedArgument,
+	unknownCommand,
+	usageError,
+} from "./help.js";
+import { sessionStart } from "./hook/session-start.js";
 import { workLocationHook } from "./hook/work-location.js";
 import { type ImportDeps, importCommand } from "./import/command.js";
 import { type InitArgs, type InitDeps, init } from "./init/init.js";
@@ -22,7 +30,8 @@ import {
 	runIssue,
 	runWithoutHarnessforce,
 } from "./run/run.js";
-import { statusCommand } from "./status/command.js";
+import type { AgentVersionReader } from "./status/agent-versions.js";
+import { parseStatusArgs, statusCommand } from "./status/command.js";
 import { topCommand } from "./top/command.js";
 import type { TopIo } from "./top/io.js";
 import { type TuneCommandDeps, tuneCommand } from "./tune/tune.js";
@@ -46,6 +55,8 @@ export type CliDeps = InitDeps &
 		selfPath: string;
 		// 接続先を与えたbuild（npmへ配らない）。`User-Agent`に`-dev`を付ける（client-updates.md「版の申告」）。
 		devBuild: boolean;
+		// `harnessforce status`が端末のclaudeとcodexの版を読む。
+		agentVersion: AgentVersionReader;
 	};
 
 // src（test）とdist（公開物）のどちらから読んでも、1つ上がpackage.jsonになる。
@@ -55,55 +66,84 @@ const { version } = createRequire(import.meta.url)("../package.json") as {
 
 // client-updates.md「送信の停止」: CLIの状態のfileがunsupportedの間、keyを出力しない終了コード。
 const EXIT_CLIENT_UNSUPPORTED = 5;
+// correlation.md「CLI」: otel-headersの終了コードはClaude Codeとhookとの契約で、3、4、5以外の失敗は1とする。
+const EXIT_OTEL_HEADERS_OTHER = 1;
+// hookの引数の誤り。agentのhookはexit 2を処理を止める合図として扱うため、2を使わない。
+const EXIT_HOOK_USAGE = 1;
 
-// `harnessforce init`の引数。受け付けない形ならundefined。--portの値は1〜65535の整数（correlation.md「CLI」）。
+// 受け付けない引数の理由。
+type ArgError = { error: string };
+
+const twice = (flag: string): ArgError => ({ error: givenTwice(flag) });
+const needsValue = (flag: string): ArgError => ({
+	error: `"${flag}" needs a value`,
+});
+
+// `harnessforce init`の引数。--portの値は1〜65535の整数（correlation.md「CLI」）。
 // --urlは検証者と開発者の接続先の上書きで、利用者向けのUSAGEには載せない。
-function parseInitArgs(args: readonly string[]): InitArgs | undefined {
+function parseInitArgs(args: readonly string[]): InitArgs | ArgError {
 	let url: string | undefined;
 	let port: number | undefined;
 	let sendContent = false;
 	let noPluginAutoUpdate = false;
 	for (let i = 0; i < args.length; ) {
-		if (args[i] === "--url") {
-			if (url !== undefined || args[i + 1] === undefined) return undefined;
-			url = args[i + 1];
+		const arg = args[i] as string;
+		const value = args[i + 1];
+		if (arg === "--url") {
+			if (url !== undefined) return twice(arg);
+			if (value === undefined) return needsValue(arg);
+			url = value;
 			i += 2;
 			continue;
 		}
-		if (args[i] === "--port") {
-			const value = args[i + 1];
-			if (port !== undefined || value === undefined || !/^\d+$/.test(value))
-				return undefined;
-			const parsed = Number(value);
-			if (parsed < 1 || parsed > 65535) return undefined;
+		if (arg === "--port") {
+			if (port !== undefined) return twice(arg);
+			if (value === undefined) return needsValue(arg);
+			const parsed = /^\d+$/.test(value) ? Number(value) : 0;
+			if (parsed < 1 || parsed > 65535)
+				return { error: '"--port" must be an integer from 1 to 65535' };
 			port = parsed;
 			i += 2;
 			continue;
 		}
-		if (args[i] === "--send-content") {
-			if (sendContent) return undefined;
+		if (arg === "--send-content") {
+			if (sendContent) return twice(arg);
 			sendContent = true;
 			i += 1;
 			continue;
 		}
-		if (args[i] === "--no-plugin-auto-update") {
-			if (noPluginAutoUpdate) return undefined;
+		if (arg === "--no-plugin-auto-update") {
+			if (noPluginAutoUpdate) return twice(arg);
 			noPluginAutoUpdate = true;
 			i += 1;
 			continue;
 		}
-		return undefined;
+		return { error: unexpectedArgument(arg) };
 	}
 	return { url, port, sendContent, noPluginAutoUpdate };
 }
 
 // `harnessforce run`の引数。`--`より後ろはagentとその引数としてそのまま渡す。
-function parseRunArgs(args: readonly string[]): RunArgs | undefined {
+function parseRunArgs(args: readonly string[]): RunArgs | ArgError {
 	const [flag, issue, separator, agent, ...agentArgs] = args;
-	if (flag !== "--issue" || issue === undefined || separator !== "--")
-		return undefined;
-	return agent ? { issue, agent, agentArgs } : undefined;
+	if (flag !== "--issue")
+		return {
+			error:
+				flag?.startsWith("-") && flag !== "--"
+					? unexpectedArgument(flag)
+					: 'missing "--issue <identifier>"',
+		};
+	if (issue === undefined || issue === "--")
+		return { error: '"--issue" needs an Issue identifier' };
+	if (separator?.startsWith("-") && separator !== "--")
+		return { error: unexpectedArgument(separator) };
+	if (separator !== "--")
+		return { error: 'missing "--" before the agent command' };
+	if (!agent) return { error: 'missing the agent command after "--"' };
+	return { issue, agent, agentArgs };
 }
+
+const isArgError = (parsed: object): parsed is ArgError => "error" in parsed;
 
 export async function run(
 	argv: readonly string[],
@@ -111,11 +151,21 @@ export async function run(
 ): Promise<number> {
 	const help = resolveHelp(argv);
 	if (help !== undefined) {
-		deps.stdout(help);
+		if ("err" in help) {
+			deps.stderr(help.err);
+			return EXIT_USAGE;
+		}
+		deps.stdout(help.out);
 		return 0;
 	}
 	const [command, ...rest] = argv;
-	if (command === "--version" && rest.length === 0) {
+	const fail = (text: string, code = EXIT_USAGE) => {
+		deps.stderr(text);
+		return code;
+	};
+	if (command === "--version") {
+		if (rest.length > 0)
+			return fail(topLevelError(unexpectedArgument(rest[0] as string)));
 		deps.stdout(`${version}\n`);
 		return 0;
 	}
@@ -147,7 +197,17 @@ export async function run(
 		await noticeUpdate(updateDeps);
 		return code;
 	};
-	if (command === "otel-headers" && rest.length === 0) {
+	// 引数を取らないcommandに余分な引数がある。
+	const [extra] = rest;
+	if (
+		(command === "otel-headers" || command === "import") &&
+		extra !== undefined
+	)
+		return fail(
+			usageError(command, unexpectedArgument(extra)),
+			command === "otel-headers" ? EXIT_OTEL_HEADERS_OTHER : EXIT_USAGE,
+		);
+	if (command === "otel-headers") {
 		// 状態のfileを読むだけで通信しない。古いCLIが利用者用のIngestKeyをClaude CodeのOTLPへ渡し続けないためである。
 		if (await unsupported()) return EXIT_CLIENT_UNSUPPORTED;
 		return otelHeaders(
@@ -159,7 +219,7 @@ export async function run(
 			cli.endStdout,
 		);
 	}
-	if (command === "import" && rest.length === 0)
+	if (command === "import")
 		return guarded(() =>
 			importCommand({
 				...cli,
@@ -167,14 +227,18 @@ export async function run(
 				now: () => cli.now().getTime(),
 			}),
 		);
-	if (command === "status")
+	if (command === "status") {
+		// 引数の誤りは、更新の状態によらず使い方で答える。
+		const status = parseStatusArgs(rest);
+		if (typeof status === "string") return fail(usageError("status", status));
 		return guarded(() =>
-			statusCommand(rest, {
+			statusCommand(status, {
 				...cli,
 				git: cli.importGit,
 				now: () => cli.now().getTime(),
 			}),
 		);
+	}
 	if (command === "tune")
 		return guarded(() =>
 			tuneCommand(rest, {
@@ -184,7 +248,7 @@ export async function run(
 			}),
 		);
 	if (command === "hook") {
-		const [event] = rest;
+		const [event, ...hookExtra] = rest;
 		const hookDeps = {
 			env: cli.env,
 			homeDir: cli.homeDir,
@@ -198,15 +262,23 @@ export async function run(
 			client,
 			defaultUrl: cli.defaultUrl,
 		};
-		if (rest.length === 1 && event === "session-start")
-			return sessionStart(hookDeps);
-		if (rest.length === 1 && (event === "post-tool-use" || event === "stop"))
-			return workLocationHook(event, {
-				...hookDeps,
-				hookTmpDir: cli.hookTmpDir,
-			});
-		cli.stderr(HOOK_USAGE);
-		return 1;
+		const hookUsage = (reason: string) =>
+			fail(usageError("hook", reason), EXIT_HOOK_USAGE);
+		if (event === undefined) return hookUsage("missing the hook event");
+		if (
+			event !== "session-start" &&
+			event !== "post-tool-use" &&
+			event !== "stop"
+		)
+			return hookUsage(`unknown hook event "${event}"`);
+		const [unexpected] = hookExtra;
+		if (unexpected !== undefined)
+			return hookUsage(unexpectedArgument(unexpected));
+		if (event === "session-start") return sessionStart(hookDeps);
+		return workLocationHook(event, {
+			...hookDeps,
+			hookTmpDir: cli.hookTmpDir,
+		});
 	}
 	if (command === "top")
 		return topCommand(rest, {
@@ -219,10 +291,14 @@ export async function run(
 			git: cli.importGit,
 			top: cli.top,
 		});
-	const initArgs = command === "init" ? parseInitArgs(rest) : undefined;
-	if (initArgs) return guarded(() => init(initArgs, cli));
-	const runArgs = command === "run" ? parseRunArgs(rest) : undefined;
-	if (runArgs) {
+	if (command === "init") {
+		const initArgs = parseInitArgs(rest);
+		if (isArgError(initArgs)) return fail(usageError("init", initArgs.error));
+		return guarded(() => init(initArgs, cli));
+	}
+	if (command === "run") {
+		const runArgs = parseRunArgs(rest);
+		if (isArgError(runArgs)) return fail(usageError("run", runArgs.error));
 		// agentの実行は止めず、Harnessforceのための環境を付けずに起動する（client-updates.md「送信の停止」）。
 		if (await isSendingBlocked(updateDeps)) {
 			await noticeUpdate(updateDeps);
@@ -231,6 +307,5 @@ export async function run(
 		await noticeUpdate(updateDeps);
 		return runIssue(runArgs, cli);
 	}
-	cli.stderr(UNKNOWN_COMMAND_HINT);
-	return 1;
+	return fail(unknownCommand(command as string));
 }

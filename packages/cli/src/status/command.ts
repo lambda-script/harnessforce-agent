@@ -4,6 +4,7 @@ import { normalizeRepository } from "@harnessforce/semconv";
 import { type AccessMessages, verifyCliAccess } from "../credentials/access.js";
 import { createApiTokenSession } from "../credentials/api-token-session.js";
 import type { Keychain } from "../credentials/keychain.js";
+import { givenTwice, unexpectedArgument } from "../help.js";
 import {
 	fetchOnboarding,
 	listConnectedRepositories,
@@ -12,6 +13,11 @@ import {
 } from "../import/read-api.js";
 import { INIT_MESSAGES } from "../shared/messages.js";
 import { runUntilStop, stopWith } from "../shared/stop.js";
+import {
+	type AgentVersionReader,
+	outdatedAgentLine,
+	readOutdatedAgents,
+} from "./agent-versions.js";
 
 export type StatusDeps = {
 	env: Env;
@@ -25,9 +31,8 @@ export type StatusDeps = {
 	git: RunGit;
 	now: () => number;
 	sleep: (ms: number) => Promise<void>;
+	agentVersion: AgentVersionReader;
 };
-
-const STATUS_USAGE = "Usage: harnessforce status [--json]\n";
 
 // onboarding.md「harnessforce status」の文言。ログインの期限切れはharnessforce importと同じ文言。
 const MESSAGES = {
@@ -85,6 +90,8 @@ async function runStatus(json: boolean, deps: StatusDeps): Promise<number> {
 		sleep: deps.sleep,
 		homeDir: deps.homeDir,
 	}).authorizedFetch(deps.fetch);
+	// agentの起動（それぞれ上限1秒）を、Harnessforceへの読み取りと並べて待つ。
+	const outdatedAgents = readOutdatedAgents(deps.agentVersion);
 	const onboarding = unwrap(
 		await fetchOnboarding(access.readApiBase, access.accessToken, readFetch),
 	);
@@ -103,8 +110,11 @@ async function runStatus(json: boolean, deps: StatusDeps): Promise<number> {
 						),
 					).has(name),
 				};
+	const outdated_agents = await outdatedAgents;
 	if (json) {
-		deps.stdout(`${JSON.stringify({ ...onboarding, repository })}\n`);
+		deps.stdout(
+			`${JSON.stringify({ ...onboarding, repository, outdated_agents })}\n`,
+		);
 		return 0;
 	}
 	// Memberの未完了の手順2と3（admin_steps）も、自分の手順と同じ形で番号の順に並べる。
@@ -119,20 +129,28 @@ async function runStatus(json: boolean, deps: StatusDeps): Promise<number> {
 			`${onboarding.workspace_name} (${onboarding.role})`,
 			...lines,
 			...(repositoryLine ? [repositoryLine] : []),
+			...outdated_agents.map(outdatedAgentLine),
 		].join("\n")}\n`,
 	);
 	return 0;
 }
 
+export type StatusArgs = { json: boolean };
+
+// `harnessforce status [--json]`の引数。受け付けない形はその理由。
+export function parseStatusArgs(args: readonly string[]): StatusArgs | string {
+	const [first, second] = args;
+	if (first === undefined) return { json: false };
+	if (first !== "--json") return unexpectedArgument(first);
+	if (second === "--json") return givenTwice(second);
+	if (second !== undefined) return unexpectedArgument(second);
+	return { json: true };
+}
+
 // onboarding.md「harnessforce status」。読み取りだけで、終了コードは手順の完了によらず0。
 export function statusCommand(
-	args: readonly string[],
+	{ json }: StatusArgs,
 	deps: StatusDeps,
 ): Promise<number> {
-	const json = args.length === 1 && args[0] === "--json";
-	if (args.length > 0 && !json) {
-		deps.stderr(STATUS_USAGE);
-		return Promise.resolve(1);
-	}
 	return runUntilStop(() => runStatus(json, deps), deps.stderr);
 }

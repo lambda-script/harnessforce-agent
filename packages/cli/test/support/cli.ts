@@ -142,6 +142,7 @@ export async function runCli(argv: string[], deps: Partial<CliDeps> = {}) {
 		readStdin: async () => Buffer.alloc(0),
 		endStdout: async () => {},
 		top: fakeTty({ isTty: false }).io,
+		agentVersion: async () => undefined,
 		...deps,
 		stdout: (text) => out.push(text),
 		stderr: (text) => err.push(text),

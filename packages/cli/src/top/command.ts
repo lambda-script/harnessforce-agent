@@ -1,8 +1,9 @@
 import { join } from "node:path";
 import { absoluteEnv } from "@harnessforce/agent-core/config/scope";
 import type { RunGit } from "@harnessforce/agent-core/process/git";
+import { EXIT_USAGE, usageError } from "../help.js";
 import { recordBase } from "../import/record-base.js";
-import { parseTopArgs, TOP_USAGE } from "./args.js";
+import { parseTopArgs } from "./args.js";
 import { plainPainter, renderList, skippedNotice } from "./frame.js";
 import { DEFAULT_COLUMNS, type TopIo } from "./io.js";
 import { createTopReader, type TopRow } from "./reader.js";
@@ -54,9 +55,9 @@ export async function topCommand(
 	deps: TopDeps,
 ): Promise<number> {
 	const parsed = parseTopArgs(args);
-	if (!parsed) {
-		deps.stderr(TOP_USAGE);
-		return 1;
+	if (typeof parsed === "string") {
+		deps.stderr(usageError("top", parsed));
+		return EXIT_USAGE;
 	}
 	const { settings, notice } = await readTopSettings(deps.homeDir);
 	const reader = createTopReader({
@@ -99,6 +100,7 @@ export async function topCommand(
 		selectedIndex: -1,
 		notices: [...(notice ? [notice] : []), ...skippedNotice(snapshot)],
 		paused: false,
+		keyHints: false,
 	});
 	deps.stdout(`${lines.join("\n")}\n`);
 	return 0;

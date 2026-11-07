@@ -112,6 +112,7 @@ describe("harnessforce status", () => {
 		expect(JSON.parse(result.out)).toEqual({
 			...OWNER,
 			repository: { name: "github.com/acme/web", connected: false },
+			outdated_agents: [],
 		});
 	});
 
@@ -200,6 +201,102 @@ describe("harnessforce status", () => {
 		expect(result.out.split("\n")[0]).toBe("Acme (viewer)");
 	});
 
+	// onboarding.md「harnessforce status」とcorrelation.md「agentの版」: 古いagentごとに1行、--jsonではoutdated_agents。
+	describe("agent versions", () => {
+		const versions =
+			(outputs: Record<string, string | undefined>): CliDeps["agentVersion"] =>
+			async (agent) =>
+				outputs[agent];
+		const CLAUDE_OLD =
+			"Claude Code 2.1.100 is older than 2.1.214, the oldest version the Harnessforce hooks support. Update Claude Code.";
+		const CODEX_OLD =
+			"Codex 0.147.3 is older than 0.148.0, the oldest version the Harnessforce hooks support. Update Codex.";
+
+		it("adds a line for each agent older than the oldest version the hooks support, Claude Code first", async () => {
+			const { run } = await setup();
+			const result = await run([], {
+				agentVersion: versions({
+					claude: "2.1.100 (Claude Code)\n",
+					codex: "codex-cli 0.147.3\n",
+				}),
+			});
+			expect(result.code).toBe(0);
+			expect(result.out.split("\n").slice(-3)).toEqual([
+				CLAUDE_OLD,
+				CODEX_OLD,
+				"",
+			]);
+		});
+
+		it("lists the outdated agents in --json", async () => {
+			const { run } = await setup();
+			const result = await run(["--json"], {
+				agentVersion: versions({
+					claude: "2.1.100 (Claude Code)",
+					codex: "codex-cli 0.147.3",
+				}),
+			});
+			expect(JSON.parse(result.out).outdated_agents).toEqual([
+				{ agent: "claude_code", version: "2.1.100", minimum: "2.1.214" },
+				{ agent: "codex", version: "0.147.3", minimum: "0.148.0" },
+			]);
+		});
+
+		it.each([
+			["the minimum version", "2.1.214 (Claude Code)", "codex-cli 0.148.0"],
+			["newer versions", "2.2.0 (Claude Code)", "codex-cli 0.200.1"],
+			[
+				"a pre-release of the minimum version",
+				"2.1.214-alpha.1 (Claude Code)",
+				"codex-cli 0.148.0-alpha.2",
+			],
+			["versions it cannot read", undefined, "codex-cli"],
+		])("says nothing about %s", async (_, claude, codex) => {
+			const { run } = await setup();
+			const deps = { agentVersion: versions({ claude, codex }) };
+			expect((await run([], deps)).out).not.toContain("older than");
+			expect(
+				JSON.parse((await run(["--json"], deps)).out).outdated_agents,
+			).toEqual([]);
+		});
+
+		it("compares the three numbers as numbers and reads the first version in the output", async () => {
+			const { run } = await setup();
+			const result = await run(["--json"], {
+				agentVersion: versions({
+					claude: "2.1.99 (Claude Code) 9.9.9",
+					codex: "codex-cli 0.99.10",
+				}),
+			});
+			expect(JSON.parse(result.out).outdated_agents).toEqual([
+				{ agent: "claude_code", version: "2.1.99", minimum: "2.1.214" },
+				{ agent: "codex", version: "0.99.10", minimum: "0.148.0" },
+			]);
+		});
+
+		it("leaves the agent out when reading its version throws", async () => {
+			const { run } = await setup();
+			const result = await run(["--json"], {
+				agentVersion: async (agent) => {
+					if (agent === "claude") throw new Error("spawn failed");
+					return "codex-cli 0.147.3";
+				},
+			});
+			expect(result.code).toBe(0);
+			expect(JSON.parse(result.out).outdated_agents).toEqual([
+				{ agent: "codex", version: "0.147.3", minimum: "0.148.0" },
+			]);
+		});
+
+		it("does not send the versions it read", async () => {
+			const { hf, run } = await setup();
+			await run([], {
+				agentVersion: versions({ claude: "2.1.100 (Claude Code)" }),
+			});
+			expect(JSON.stringify(hf.requests)).not.toContain("2.1.100");
+		});
+	});
+
 	it("only reads: it sends no POST", async () => {
 		const { hf, run } = await setup();
 		await run();
@@ -242,9 +339,14 @@ describe("harnessforce status", () => {
 	it("rejects unknown options with the usage", async () => {
 		const result = await runCli(["status", "--all"]);
 		expect(result).toEqual({
-			code: 1,
+			code: 2,
 			out: "",
-			err: "Usage: harnessforce status [--json]\n",
+			err: [
+				'harnessforce status: unknown option "--all"',
+				"Usage: harnessforce status [--json]",
+				'Run "harnessforce status --help" for details.',
+				"",
+			].join("\n"),
 		});
 	});
 });

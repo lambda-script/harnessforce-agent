@@ -41,9 +41,6 @@ import {
 	sendsToHarnessforce,
 } from "../shared/codex-config.js";
 
-export const HOOK_USAGE =
-	"Usage: harnessforce hook session-start|post-tool-use|stop\n";
-
 export type SessionStartDeps = {
 	env: Env;
 	homeDir: string;

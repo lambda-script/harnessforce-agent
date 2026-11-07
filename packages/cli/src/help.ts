@@ -45,6 +45,7 @@ Exit codes:
   0  Connected and configured.
   1  Failed (login cancelled or timed out, keychain unavailable, or a write
      failed). The reason is printed to stderr.
+  2  Bad arguments. The reason and the usage are printed to stderr.
 
 Examples:
   harnessforce init
@@ -79,6 +80,7 @@ Does not send:
 Exit codes:
   0  Finished (including "nothing to import").
   1  Not logged in, keychain unavailable, a limit was reached, or sending failed.
+  2  Bad arguments.
 
 Examples:
   harnessforce import
@@ -96,20 +98,25 @@ What it does:
   Reads the setup checklist of the connected Workspace and the list of
   repositories assigned to a project, and prints your role, each step (done, to
   do with its URL, or "?" when it cannot be read), and whether the repository of
-  the current directory (its origin remote) is assigned to a project.
+  the current directory (its origin remote) is assigned to a project. It also
+  runs "claude --version" and "codex --version" and names each agent older than
+  the oldest version the Harnessforce hooks support.
 
 Options:
-  --json   Print the checklist and the repository as one JSON object.
+  --json   Print the checklist, the repository and the outdated agents as one
+           JSON object.
 
 Sends:
   Read requests with the API token. It writes nothing.
 
 Does not send:
-  The URL of the origin remote: it is compared on this machine.
+  The URL of the origin remote: it is compared on this machine. The agent
+  versions it reads.
 
 Exit codes:
   0  The status was read, whether or not steps remain.
   1  Not logged in, the login expired, or communication failed.
+  2  Bad arguments.
 
 Examples:
   harnessforce status
@@ -139,7 +146,8 @@ Exit codes:
      example after a reboot cleared the kernel keyring).
   4  The destination was not verified: it differs from the origin init pinned.
   5  This CLI version is unsupported. The keychain is not read.
-  1  Any other failure (keychain unavailable, read failed, or timed out).
+  1  Any other failure (keychain unavailable, read failed, timed out, or bad
+     arguments).
   Nothing is printed to stdout unless the exit code is 0.
 
 Examples:
@@ -172,7 +180,8 @@ Does not send:
 
 Exit codes:
   The agent's own exit code when it ran.
-  1  Could not start: not logged in, bad arguments, or the agent was not found.
+  1  Could not start: not logged in, or the agent was not found.
+  2  Bad arguments.
 
 Examples:
   harnessforce run --issue ABC-123 -- claude
@@ -209,6 +218,7 @@ Options:
                   Print a cron line that runs --report-only every Monday at
                   9:00. It changes nothing and sends nothing.
   record          Read one proposal as JSON from stdin and store it locally.
+                  /harnessforce:tune runs it; you normally do not.
   --purge         Delete the analysis, proposals, and unsent results.
 
 Sends:
@@ -260,7 +270,7 @@ Does not send:
 
 Exit codes:
   0  Done (including quitting the live view).
-  1  Bad arguments.
+  2  Bad arguments.
 
 Examples:
   harnessforce top
@@ -305,25 +315,48 @@ Examples:
 
 type CommandName = keyof typeof COMMANDS;
 
-const ORDER: readonly CommandName[] = [
-	"init",
-	"import",
-	"status",
-	"run",
-	"tune",
-	"top",
-	"otel-headers",
-	"hook",
+type OverviewRow = { name: string; summary: string };
+
+const row = (name: CommandName): OverviewRow => ({
+	name,
+	summary: COMMANDS[name].summary,
+});
+
+const YOUR_COMMANDS: readonly OverviewRow[] = [
+	row("init"),
+	row("import"),
+	row("status"),
+	row("run"),
+	row("tune"),
+	row("top"),
 ];
 
-const NAME_WIDTH = Math.max(...ORDER.map((name) => name.length)) + 2;
+// 利用者が打たないcommand。keyを出すotel-headersも何であるかを読めるよう、隠さずに別枠で示す。
+const AGENT_COMMANDS: readonly OverviewRow[] = [
+	row("otel-headers"),
+	row("hook"),
+	{
+		name: "tune record",
+		summary: "Store one suggestion (used by /harnessforce:tune)",
+	},
+];
+
+const NAME_WIDTH =
+	Math.max(...[...YOUR_COMMANDS, ...AGENT_COMMANDS].map((r) => r.name.length)) +
+	2;
+
+const rows = (list: readonly OverviewRow[]) =>
+	list.map((r) => `  ${r.name.padEnd(NAME_WIDTH)}${r.summary}`).join("\n");
 
 const OVERVIEW = `Usage: harnessforce <command> [options]
 
 Connect your AI coding agents to a Harnessforce Workspace.
 
 Commands:
-${ORDER.map((name) => `  ${name.padEnd(NAME_WIDTH)}${COMMANDS[name].summary}`).join("\n")}
+${rows(YOUR_COMMANDS)}
+
+Commands your agents run:
+${rows(AGENT_COMMANDS)}
 
 Run "harnessforce <command> --help" for what a command does, what it sends and
 does not send, and its exit codes.
@@ -333,28 +366,106 @@ Options:
   --version      Show the version.
 `;
 
-export const UNKNOWN_COMMAND_HINT = `Usage: harnessforce <command> [options]
-Run "harnessforce --help" to list the commands.
-`;
+// 引数の誤り（vercel、bashのbuiltinと同じ2）。
+export const EXIT_USAGE = 2;
+
+// helpの文面の`Usage:`から最初の空行までの行。
+function usageLines(name: CommandName): string {
+	const text: string = COMMANDS[name].text;
+	return text.slice(0, text.indexOf("\n\n") + 1);
+}
+
+export function usageError(name: CommandName, reason: string): string {
+	return `harnessforce ${name}: ${reason}\n${usageLines(name)}Run "harnessforce ${name} --help" for details.\n`;
+}
+
+export const givenTwice = (flag: string) =>
+	`"${flag}" was given more than once`;
+
+// 受け付けない引数の理由。`-`で始まればoption、それ以外は余分な引数とする。
+export function unexpectedArgument(arg: string): string {
+	return arg.startsWith("-")
+		? `unknown option "${arg}"`
+		: `unexpected argument "${arg}"`;
+}
+
+// 打ち間違いの候補にする名前。
+const KNOWN_WORDS = [...Object.keys(COMMANDS), "help", "--help", "--version"];
+
+// 隣り合う2文字の入れ替えを1と数える編集距離（optimal string alignment）。
+function editDistance(a: string, b: string): number {
+	const d = Array.from({ length: a.length + 1 }, (_, i) =>
+		Array.from({ length: b.length + 1 }, (_, j) =>
+			i === 0 ? j : j === 0 ? i : 0,
+		),
+	);
+	for (let i = 1; i <= a.length; i += 1)
+		for (let j = 1; j <= b.length; j += 1) {
+			const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+			let best = Math.min(
+				(d[i - 1]?.[j] ?? 0) + 1,
+				(d[i]?.[j - 1] ?? 0) + 1,
+				(d[i - 1]?.[j - 1] ?? 0) + cost,
+			);
+			if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1])
+				best = Math.min(best, (d[i - 2]?.[j - 2] ?? 0) + 1);
+			(d[i] as number[])[j] = best;
+		}
+	return d[a.length]?.[b.length] ?? 0;
+}
+
+// 距離2以内で最も近い名前。同じ距離ならKNOWN_WORDSの順で先のもの。
+function closestWord(word: string): string | undefined {
+	let best: { word: string; distance: number } | undefined;
+	for (const known of KNOWN_WORDS) {
+		const distance = editDistance(word.toLowerCase(), known);
+		// 距離0は正しく綴られた語で、`help help`のように使い方が違うだけなので候補にしない。
+		if (
+			distance > 0 &&
+			distance <= 2 &&
+			(best === undefined || distance < best.distance)
+		)
+			best = { word: known, distance };
+	}
+	return best?.word;
+}
+
+const LIST_HINT = 'Run "harnessforce --help" to list the commands.\n';
+
+export function unknownCommand(word: string): string {
+	const kind = word.startsWith("-") ? "option" : "command";
+	const suggestion = closestWord(word);
+	return `harnessforce: unknown ${kind} "${word}"\n${suggestion ? `Did you mean "${suggestion}"?\n` : ""}${LIST_HINT}`;
+}
+
+export function topLevelError(reason: string): string {
+	return `harnessforce: ${reason}\n${LIST_HINT}`;
+}
 
 const isCommand = (name: string | undefined): name is CommandName =>
 	name !== undefined && Object.hasOwn(COMMANDS, name);
 
 const isHelpFlag = (arg: string) => arg === "--help" || arg === "-h";
 
-// helpとして出す文面。helpの要求でなければundefined。
+// helpの要求への応答。stdoutの文面か、topicの誤りのstderrの文面。helpの要求でなければundefined。
 // `run`は`--`より後ろをagentへそのまま渡すため、その手前の--helpだけを見る。
-export function resolveHelp(argv: readonly string[]): string | undefined {
+// 引数なしはclig.devのとおり概要を示す。
+export function resolveHelp(
+	argv: readonly string[],
+): { out: string } | { err: string } | undefined {
 	const [command, ...rest] = argv;
-	if (command === undefined) return undefined;
-	if (isHelpFlag(command) && rest.length === 0) return OVERVIEW;
-	if (command === "help") {
-		if (rest.length === 0) return OVERVIEW;
-		if (rest.length === 1 && isCommand(rest[0])) return COMMANDS[rest[0]].text;
-		return undefined;
+	if (command === undefined) return { out: OVERVIEW };
+	if (isHelpFlag(command) || command === "help") {
+		const [topic, extra] = rest;
+		if (topic === undefined || topic === "help" || isHelpFlag(topic))
+			return { out: OVERVIEW };
+		if (!isCommand(topic)) return { err: unknownCommand(topic) };
+		if (extra !== undefined)
+			return { err: topLevelError(unexpectedArgument(extra)) };
+		return { out: COMMANDS[topic].text };
 	}
 	if (!isCommand(command)) return undefined;
 	const separator = rest.indexOf("--");
 	const own = separator === -1 ? rest : rest.slice(0, separator);
-	return own.some(isHelpFlag) ? COMMANDS[command].text : undefined;
+	return own.some(isHelpFlag) ? { out: COMMANDS[command].text } : undefined;
 }
