@@ -1,0 +1,39 @@
+---
+title: harnessforce-agent architecture
+config:
+  theme: neutral
+  layout: elk
+  elk:
+    forceNodeModelOrder: true
+    mergeEdges: true
+    nodePlacementAlignment: RIGHTDOWN
+  flowchart:
+    nodeSpacing: 30
+    rankSpacing: 50
+    wrappingWidth: 160
+---
+flowchart LR
+  %% The hosted service is shown by its public entry points only.
+  subgraph machine["<b>Developer's machine</b>"]
+    claude@{ img: "icon:claude-code", label: "<b>Claude Code</b><br/><small>plugin: hooks, skills</small>", pos: "b", w: 72, h: 72, constraint: "on" }
+    codex@{ img: "icon:openai", label: "<b>Codex</b><br/><small>hooks</small>", pos: "b", w: 72, h: 72, constraint: "on" }
+    cli@{ img: "icon:cli:lucide/terminal", label: "<b>harnessforce CLI</b><br/><small>login, import, tune<br/>keys in OS keychain</small>", pos: "b", w: 72, h: 72, constraint: "on" }
+  end
+  subgraph hosted["<b>Harnessforce (hosted)</b>"]
+    ingest@{ img: "icon:ingest:lucide/inbox", label: "<b>Ingest API</b><br/><small>sessions, OTLP</small>", pos: "b", w: 72, h: 72, constraint: "on" }
+    web@{ img: "icon:web:lucide/globe", label: "<b>Web</b><br/><small>login, Read API, MCP</small>", pos: "b", w: 72, h: 72, constraint: "on" }
+  end
+
+  %% secondary calls first, primary flow last
+  cli -->|"login, Issues"| web
+  cli -->|"import, reports"| ingest
+  codex -->|"OTLP, hooks"| ingest
+  claude -->|MCP| web
+  claude -->|"OTLP, hooks"| ingest
+
+  linkStyle 0,1 stroke:#64748b,stroke-width:1.4px,color:#64748b
+  linkStyle 2,3,4 stroke:#2563eb,stroke-width:2.5px,color:#2563eb
+  style machine fill:#f5f8ff,stroke:#93b4f5,stroke-width:1.5px
+  style hosted fill:#f0fdf4,stroke:#86efac,stroke-width:1.5px
+  classDef tile fill:none,stroke:none,color:#1e293b,font-size:18px
+  class codex,claude,cli,ingest,web tile
