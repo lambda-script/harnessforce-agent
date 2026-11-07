@@ -1,5 +1,16 @@
 # @harnessforce/cli
 
+## 0.7.0
+
+### Minor Changes
+
+- f66fbd3: The CLI commands now use the common names. `harnessforce init` is `harnessforce login`, and `harnessforce tune` is `harnessforce insights` (`--report-only` is `--quiet`, `--print-schedule` is `insights schedule`, `--purge` is `insights clear`, and `tune record` is `insights record`). It keeps its files in `~/.harnessforce/insights/` and reads `insights.send_report`; the old `tune` files and setting are not read. The old names are removed. `harnessforce logout` revokes this machine's ingest key and login and removes the settings `login` wrote. Whether this machine sends prompts and responses is now `harnessforce config set send-content on|off` instead of `login --send-content`, and logging in again keeps that choice. `harnessforce login` says what it waits for and how to cancel before opening the browser, exits 130 on Ctrl+C, and ends with the next command to run. Not being logged in and a changed destination now have their own messages. `/harnessforce:tune` is `/harnessforce:insights`, and the plugin needs CLI 0.7.0.
+- a869991: `harnessforce` now answers a bad argument with what is wrong and the usage of that command, and exits 2 (`otel-headers` and `hook` still exit 1). An unknown command suggests the closest one (`harnessforce stauts` → `Did you mean "status"?`), and `harnessforce` with no command prints the overview help. `harnessforce --help` lists the commands your agents run (`otel-headers`, `hook`, `insights record`) apart from yours. `harnessforce top --once` no longer prints the key hints of the live view. `harnessforce status` names each of `claude` and `codex` that is older than the oldest version the Harnessforce hooks support, and `--json` adds `outdated_agents`. `/harnessforce:status` now shows the connection status from `harnessforce status` before the sessions on this machine, and `/harnessforce:run` is removed: `/harnessforce:help` explains running `harnessforce run` in a terminal.
+
+### Patch Changes
+
+- c1c8b21: The introduction that the Harnessforce hook adds to every Claude Code and Codex session now tells the agent which Harnessforce skill to use for which request (including the `diagram` skill), lists every hook with what it sends (it had left out the usage summary sent at session end), says that Codex telemetry carries tool arguments and results, and names more of the mistakes to stop at.
+
 ## 0.6.1
 
 ### Patch Changes
