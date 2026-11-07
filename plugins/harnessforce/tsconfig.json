@@ -1,4 +1,8 @@
 {
 	"extends": "../../tsconfig.json",
+	"compilerOptions": {
+		// The build copies skills/ whole into the published plugin, so a .d.mts beside the diagram skill's scripts would ship; the tests infer their types from the JavaScript instead.
+		"allowJs": true
+	},
 	"include": ["src", "test", "vitest.config.ts"]
 }
