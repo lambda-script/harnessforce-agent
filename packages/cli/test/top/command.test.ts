@@ -113,6 +113,13 @@ describe("harnessforce top --json and --once", () => {
 		}
 	});
 
+	// terminal-view.md「--once」: 1回だけ描画して終わるため、対話の画面の操作の案内を出さない。
+	it("leaves out the key hints of the live view for --once and for a non-TTY", async () => {
+		const { run } = setup({ a: transcript("a", -10) });
+		for (const args of [["--once"], ["--once", "--ascii"], []])
+			expect((await run(args)).out).not.toMatch(/q quit|\? help|Enter detail/);
+	});
+
 	it("uses ASCII with --ascii and a 80-column width off a TTY", async () => {
 		const { run } = setup({
 			a: transcript("a", -10, { failures: 2, branch: "feature/日本語" }),
@@ -154,8 +161,8 @@ describe("harnessforce top --json and --once", () => {
 			["extra"],
 		]) {
 			const result = await run(args);
-			expect(result.code).toBe(1);
-			expect(result.err).toContain("harnessforce top");
+			expect(result.code).toBe(2);
+			expect(result.err).toContain("Usage: harnessforce top");
 		}
 	});
 });

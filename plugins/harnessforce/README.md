@@ -18,10 +18,9 @@ and does not bundle the CLI (`/harnessforce:setup` installs `@harnessforce/cli` 
 | Skill `record-session` | Tells the agent when to start and complete a session |
 | Command `/harnessforce:setup` | Checks Node.js, installs the `harnessforce` CLI, asks whether to send content, runs `harnessforce init` (`--send-content` when chosen) and `harnessforce import`, and confirms the first event after a restart |
 | Command `/harnessforce:tune` | Tells you that the agent reads parts of your transcripts through your model provider, runs `harnessforce tune --json`, shows the analysis and the before and after of earlier applied proposals, and makes proposals for the targets with enough data |
-| Command `/harnessforce:status` | Runs `harnessforce top --once --json` and summarizes the sessions on this machine. Read-only |
+| Command `/harnessforce:status` | Runs `harnessforce status` (the Workspace, the setup steps that remain, whether this repository is assigned to a project, outdated agents) and `harnessforce top --once --json`, and summarizes the sessions on this machine. Read-only |
 | Command `/harnessforce:import` | Runs `harnessforce import` and shows the imported count and why sessions were skipped |
-| Command `/harnessforce:run <issue>` | Shows how to start an agent on an Issue with `harnessforce run --issue <issue> -- <agent>` in a terminal, and how `HARNESSFORCE_ISSUE` ties a session to an Issue. Runs nothing |
-| Command `/harnessforce:help` | Lists the CLI commands (`harnessforce --help`) and these commands, and says which ones are not wrapped (`init`, the interactive `top`) |
+| Command `/harnessforce:help` | Lists the CLI commands (`harnessforce --help`) and these commands, and says which ones are not wrapped (`init`, the interactive `top`, `run`) |
 | Skill `propose-improvements` | How the agent writes a proposal (evidence, diff or pull request draft, expected effect, how to measure), keeps permissions minimal and loops bounded, and records it with `harnessforce tune record` before showing it |
 | Skill `diagram` | Experimental. Draws architecture, CI/CD, state, error-flow, ER, Gantt and sequence diagrams of a repository, or of a system you describe, in Mermaid, renders them to SVG and PNG with product logos, and checks them against the sources. See [Diagram skill](#diagram-skill) |
 

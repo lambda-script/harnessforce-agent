@@ -24,7 +24,7 @@ harnessforce init
 
 ## Commands
 
-`harnessforce --help` lists the commands. `harnessforce <command> --help` explains when to use a command, what it sends and does not send, its exit codes, and examples.
+`harnessforce --help` (or `harnessforce` alone) lists the commands, with the ones your agents run (`otel-headers`, `hook`, `tune record`) apart from the ones you run. `harnessforce <command> --help` explains when to use a command, what it sends and does not send, its exit codes, and examples. A bad argument prints what is wrong and the command's usage, and exits 2 (`otel-headers` and `hook` exit 1, because Claude Code and the hooks read those exit codes). An unknown command suggests the closest one.
 
 | Command | What it does |
 | --- | --- |
@@ -32,7 +32,7 @@ harnessforce init
 | `harnessforce otel-headers` | Prints the `Authorization` header for Claude Code's `otelHeadersHelper`. Exits 3 when there is no key, 4 when the destination differs from the pinned origin, 5 while the CLI version is unsupported, and 1 on other failures. On Linux, after printing a key read from the kernel keyring, it moves that Workspace's items to an unlocked Secret Service (not when the hook starts it), so a reboot does not lose them |
 | `harnessforce run --issue <identifier> -- <agent> [args]` | Launches an agent with its session linked to an Issue |
 | `harnessforce import` | Sends the metadata of past Claude Code and Codex sessions in repositories assigned to a project |
-| `harnessforce status [--json]` | Shows the connected Workspace, your role, the setup steps that remain with their URLs, and whether the `origin` repository of the current directory is assigned to a project. Reads only; the remote URL is compared on this machine and never sent. Exits 0 whenever the status was read |
+| `harnessforce status [--json]` | Shows the connected Workspace, your role, the setup steps that remain with their URLs, whether the `origin` repository of the current directory is assigned to a project, and each of `claude` and `codex` that is older than the oldest version the Harnessforce hooks support. Reads only; the remote URL and the agent versions stay on this machine. Exits 0 whenever the status was read |
 | `harnessforce tune [--all] [--no-send] [--show-report] [--json]` | Analyzes past sessions on this machine by public rules and sends the counts (analysis reports) |
 | `harnessforce tune --report-only [--all]` | Analyzes and sends like `harnessforce tune`, but writes nothing to stdout. Meant for your OS scheduler |
 | `harnessforce tune --print-schedule` | Prints one cron line that runs `harnessforce tune --report-only` every Monday at 9:00 local time. Changes nothing and makes no network request |

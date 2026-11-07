@@ -26,6 +26,20 @@ describe("harnessforce --help", () => {
 		},
 	);
 
+	it("lists the commands the agents run apart from the ones you run", async () => {
+		const { out } = await runCli(["--help"]);
+		const [yours, agents] = out.split("Commands your agents run:\n") as [
+			string,
+			string,
+		];
+		for (const command of ["init", "import", "status", "run", "tune", "top"])
+			expect(yours).toMatch(new RegExp(`^  ${command} {2,}\\S`, "m"));
+		for (const command of ["otel-headers", "hook", "tune record"]) {
+			expect(yours).not.toMatch(new RegExp(`^  ${command} {2,}\\S`, "m"));
+			expect(agents).toMatch(new RegExp(`^  ${command} {2,}\\S`, "m"));
+		}
+	});
+
 	it("keeps the overview short enough to scan", async () => {
 		const r = await runCli(["--help"]);
 		expect(r.out.split("\n").length).toBeLessThan(30);
@@ -133,17 +147,16 @@ describe.each(["import", "tune", "status"])(
 );
 
 describe("harnessforce with an unknown command", () => {
-	it("points to --help on stderr and exits 1", async () => {
+	it("points to --help on stderr and exits 2", async () => {
 		const r = await runCli(["bogus"]);
-		expect(r.code).toBe(1);
+		expect(r.code).toBe(2);
 		expect(r.out).toBe("");
-		expect(r.err).toContain("Usage: harnessforce <command> [options]");
 		expect(r.err).toContain("harnessforce --help");
 	});
 
 	it("rejects help for a command that does not exist", async () => {
 		const r = await runCli(["help", "bogus"]);
-		expect(r.code).toBe(1);
+		expect(r.code).toBe(2);
 		expect(r.err).toContain("harnessforce --help");
 	});
 });

@@ -32,9 +32,11 @@ function parse(name: string) {
 
 // Each wrapped command: the only shell lines the command body may tell the agent to run.
 const WRAPPED = {
-	status: { argumentHint: false, commands: ["harnessforce top --once --json"] },
+	status: {
+		argumentHint: false,
+		commands: ["harnessforce status", "harnessforce top --once --json"],
+	},
 	import: { argumentHint: false, commands: ["harnessforce import"] },
-	run: { argumentHint: true, commands: [] },
 	help: { argumentHint: false, commands: ["harnessforce --help"] },
 } as const;
 
@@ -65,10 +67,12 @@ describe("CLI-wrapping commands", () => {
 		});
 	}
 
-	it("/harnessforce:run never asks the agent to start an agent", () => {
-		const { body } = parse("run");
+	// harnessforce runはagentを新しいprocessとして起動するため、sessionの中のslash commandにしない。
+	it("/harnessforce:help explains harnessforce run instead of wrapping it", () => {
+		const { body } = parse("help");
 		expect(body).toContain("harnessforce run --issue");
 		expect(body).toContain("HARNESSFORCE_ISSUE");
+		expect(body).not.toContain("/harnessforce:run");
 	});
 
 	it("/harnessforce:help sends init to /harnessforce:setup", () => {

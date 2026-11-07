@@ -14,15 +14,15 @@ describe("harnessforce", () => {
 			err: "",
 		}));
 
-	it.each([[[]], [["unknown"]], [["otel-headers", "extra"]]])(
-		"rejects %j with usage on stderr",
-		async (argv) => {
-			const r = await runCli(argv);
-			expect(r.code).toBe(1);
-			expect(r.out).toBe("");
-			expect(r.err).toContain("Usage: harnessforce");
-		},
-	);
+	it.each([
+		[["unknown"], 2],
+		[["otel-headers", "extra"], 1],
+	])("rejects %j on stderr with exit code %i", async (argv, code) => {
+		const r = await runCli(argv);
+		expect(r.code).toBe(code);
+		expect(r.out).toBe("");
+		expect(r.err).toMatch(/Run "harnessforce (otel-headers )?--help"/);
+	});
 
 	// --urlは検証者と開発者の接続先の上書きで、利用者向けのusageには載せない（指定すれば動く）。
 	it("does not advertise the hidden --url override in the usage", async () => {

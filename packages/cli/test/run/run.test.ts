@@ -200,8 +200,8 @@ describe("harnessforce run", () => {
 		[["ENG-1", "--", "claude"]],
 	])("rejects %j with usage", async (argv) => {
 		const r = await runHf(argv);
-		expect(r.code).toBe(1);
-		expect(r.err).toContain("Usage: harnessforce");
+		expect(r.code).toBe(2);
+		expect(r.err).toContain("Usage: harnessforce run");
 		expect(r.launches).toEqual([]);
 	});
 

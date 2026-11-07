@@ -21,6 +21,7 @@ import { startLoopback } from "./init/loopback.js";
 import { run } from "./main.js";
 import { relaunchHf } from "./relaunch.js";
 import { launchAgent } from "./run/process.js";
+import { createAgentVersionReader } from "./status/agent-versions.js";
 import { createProcessIo } from "./top/process-io.js";
 
 // buildが書く既定の接続先（scripts/build-config.mjs）。distのbin.jsと同じdirectoryにある。
@@ -108,6 +109,12 @@ process.exitCode =
 		hookTmpDir: tmpdir(),
 		sleep: (ms) => delay(ms),
 		top: createProcessIo(),
+		// 版を読むだけなので、agentを動かすためのrestoredEnv（NODE_OPTIONSなど）は戻さない。
+		agentVersion: createAgentVersionReader({
+			platform: process.platform,
+			env: process.env,
+			cwd: process.cwd(),
+		}),
 		readStdin: async (maxBytes) => {
 			const chunks: Buffer[] = [];
 			let size = 0;

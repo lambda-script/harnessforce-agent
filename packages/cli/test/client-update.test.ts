@@ -123,6 +123,22 @@ describe("sending commands while the CLI version is unsupported", () => {
 		},
 	);
 
+	it.each([[["status", "--all"]], [["init", "--bogus"]]])(
+		"%j answers with the usage and exit 2 before the update state",
+		async (argv) => {
+			const fetch = vi.fn();
+			const result = await runCli(argv, {
+				homeDir: home(unsupported()),
+				now: () => NOW,
+				fetch,
+			});
+			expect(result.code).toBe(2);
+			expect(result.err).toContain("Usage: harnessforce");
+			expect(result.err).not.toContain(UNSUPPORTED_LINE);
+			expect(fetch).not.toHaveBeenCalled();
+		},
+	);
+
 	it("launches the agent without the Harnessforce environment for harnessforce run", async () => {
 		const launch = vi.fn(async () => ({ kind: "exited" as const, code: 7 }));
 		const result = await runCli(
