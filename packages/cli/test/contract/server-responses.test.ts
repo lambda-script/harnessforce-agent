@@ -15,8 +15,8 @@ import {
 	listConnectedRepositories,
 } from "../../src/import/read-api.js";
 import { sendSessions } from "../../src/import/send.js";
-import { requestCredentials } from "../../src/init/credentials-api.js";
-import { sendReports } from "../../src/tune/send.js";
+import { sendReports } from "../../src/insights/send.js";
+import { requestCredentials } from "../../src/login/credentials-api.js";
 
 const BASE = new URL("https://app.example.test");
 const INGEST = new URL("https://ingest.example.test");

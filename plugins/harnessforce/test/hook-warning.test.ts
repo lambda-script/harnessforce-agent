@@ -12,19 +12,19 @@ import {
 const NOT_CONFIGURED =
 	"Harnessforce sending is not configured. Run `/harnessforce:setup`";
 const INVALID_ENDPOINT =
-	"The Harnessforce destination is invalid. Run `harnessforce init` again";
+	"The Harnessforce destination is invalid. Run `harnessforce login` again";
 const REGISTRATION_FAILED =
 	"Harnessforce session registration failed. Check your network connection";
 const USER_KEY_REVOKED =
-	"Your ingest key has been revoked. Run `harnessforce init`";
+	"Your ingest key has been revoked. Run `harnessforce login`";
 const KEY_MISSING =
-	"Harnessforce cannot find your ingest key, so telemetry is not being sent. Run `harnessforce init`";
+	"Harnessforce cannot find your ingest key, so telemetry is not being sent. Run `harnessforce login`";
 const KEY_UNREADABLE =
-	"Harnessforce could not read your ingest key from the OS keychain, so telemetry may not be sent. Unlock the keychain or run `harnessforce init`";
+	"Harnessforce could not read your ingest key from the OS keychain, so telemetry may not be sent. Unlock the keychain or run `harnessforce login`";
 const DESTINATION_MISMATCH =
-	"Telemetry is not being sent because the Harnessforce destination differs from the one saved by `harnessforce init`. Check this repository's settings or run `harnessforce init` again";
+	"Telemetry is not being sent because the Harnessforce destination differs from the one saved by `harnessforce login`. Check this repository's settings or run `harnessforce login` again";
 const TELEMETRY_NOT_CONFIGURED =
-	"Claude Code telemetry for Harnessforce is not configured. Run `harnessforce init`";
+	"Claude Code telemetry for Harnessforce is not configured. Run `harnessforce login`";
 
 const start = (h: Harness, input: Record<string, unknown> = {}) =>
 	runHook(
@@ -109,7 +109,7 @@ describe("SessionStart hook warning", () => {
 		},
 	);
 
-	it("warns when the telemetry settings written by harnessforce init are missing", async () => {
+	it("warns when the telemetry settings written by harnessforce login are missing", async () => {
 		const h = harness({
 			managed: null,
 			env: USER_ENV,

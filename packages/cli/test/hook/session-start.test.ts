@@ -17,8 +17,8 @@ const WORKSPACE = "019f0000-0000-7000-8000-000000000001";
 const ENDPOINT = "https://ingest.example.test/base";
 const KEY = "hf_ik_secretkeyvalue";
 const NOW = new Date("2026-10-09T12:00:00Z");
-const REVOKED = "Your ingest key has been revoked. Run `harnessforce init`";
-// `harnessforce init`が`config.toml`に書く`[otel]`のexporter（correlation.md「Codex」）。
+const REVOKED = "Your ingest key has been revoked. Run `harnessforce login`";
+// `harnessforce login`が`config.toml`に書く`[otel]`のexporter（correlation.md「Codex」）。
 const HARNESSFORCE_EXPORTER = `[otel.exporter.otlp-http]
 endpoint = "${ENDPOINT}"
 protocol = "binary"
@@ -219,15 +219,15 @@ describe("harnessforce hook session-start", () => {
 		systemMessage: message,
 	});
 	const KEY_MISSING =
-		"Harnessforce cannot find your ingest key, so sessions are not being registered. Run `harnessforce init`";
+		"Harnessforce cannot find your ingest key, so sessions are not being registered. Run `harnessforce login`";
 	const KEY_UNREADABLE =
-		"Harnessforce could not read your ingest key from the OS keychain, so sessions may not be registered. Unlock the keychain or run `harnessforce init`";
+		"Harnessforce could not read your ingest key from the OS keychain, so sessions may not be registered. Unlock the keychain or run `harnessforce login`";
 	const DESTINATION_MISMATCH =
-		"Sessions are not being registered because the Harnessforce destination differs from the one saved by `harnessforce init`. Run `harnessforce init` again";
+		"Sessions are not being registered because the Harnessforce destination differs from the one saved by `harnessforce login`. Run `harnessforce login` again";
 	const NOT_CONFIGURED =
-		"Harnessforce sending is not configured. Run `harnessforce init`";
+		"Harnessforce sending is not configured. Run `harnessforce login`";
 	const INVALID_ENDPOINT =
-		"The Harnessforce destination is invalid. Run `harnessforce init` again";
+		"The Harnessforce destination is invalid. Run `harnessforce login` again";
 	const REGISTRATION_FAILED =
 		"Harnessforce session registration failed. Check your network connection";
 
@@ -268,7 +268,7 @@ describe("harnessforce hook session-start", () => {
 		},
 	);
 
-	it("never sends the key to a destination other than the origin pinned by init", async () => {
+	it("never sends the key to a destination other than the origin pinned by login", async () => {
 		const { run, sent } = setup({
 			env: { HARNESSFORCE_ENDPOINT: "https://elsewhere.example.test/base" },
 		});
@@ -293,7 +293,7 @@ describe("harnessforce hook session-start", () => {
 			KEY_UNREADABLE,
 		],
 		[
-			"a key without the origin pinned by init",
+			"a key without the origin pinned by login",
 			{ items: { [ingestKeyAccount(WORKSPACE)]: KEY } },
 			DESTINATION_MISMATCH,
 		],

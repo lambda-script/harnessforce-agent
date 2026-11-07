@@ -62,7 +62,7 @@ async function main(): Promise<void> {
 		exec: execHf,
 		processCwd: process.cwd(),
 	};
-	// `harnessforce init`が書くuser settingsと同じfile（correlation.md「CLIの宛先の決め方」）。
+	// `harnessforce login`が書くuser settingsと同じfile（correlation.md「CLIの宛先の決め方」）。
 	const userSettingsPath = join(
 		absoluteEnv(process.env.CLAUDE_CONFIG_DIR) ?? join(homedir(), ".claude"),
 		"settings.json",

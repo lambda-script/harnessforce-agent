@@ -13,30 +13,32 @@ it. It is published on npm. To connect to a staging or local Harnessforce instea
 - Node.js 18 or later (the same Node.js the plugin hook uses).
 - An OS keychain: macOS Keychain, the Windows Credential Manager, or on Linux the Secret Service or the
   kernel keyring (keyutils). Keys and tokens are never written to a plain file, except the user ingest key
-  in the Codex `config.toml` (step 6 of [CLI credentials](#cli-credentials-harnessforce-init-harnessforce-otel-headers)).
+  in the Codex `config.toml` (step 6 of [CLI credentials](#cli-credentials-harnessforce-login-harnessforce-otel-headers)).
 
 ## Install
 
 ```sh
 npm install -g @harnessforce/cli
-harnessforce init
+harnessforce login
 ```
 
 ## Commands
 
-`harnessforce --help` (or `harnessforce` alone) lists the commands, with the ones your agents run (`otel-headers`, `hook`, `tune record`) apart from the ones you run. `harnessforce <command> --help` explains when to use a command, what it sends and does not send, its exit codes, and examples. A bad argument prints what is wrong and the command's usage, and exits 2 (`otel-headers` and `hook` exit 1, because Claude Code and the hooks read those exit codes). An unknown command suggests the closest one.
+`harnessforce --help` (or `harnessforce` alone) lists the commands, with the ones your agents run (`otel-headers`, `hook`, `insights record`) apart from the ones you run. `harnessforce <command> --help` explains when to use a command, what it sends and does not send, its exit codes, and examples. A bad argument prints what is wrong and the command's usage, and exits 2 (`otel-headers` and `hook` exit 1, because Claude Code and the hooks read those exit codes). An unknown command suggests the closest one.
 
 | Command | What it does |
 | --- | --- |
-| `harnessforce init [--port <port>] [--send-content] [--no-plugin-auto-update]` | Logs in with the browser, stores a user ingest key and an API token in the keychain, and configures Claude Code and Codex |
+| `harnessforce login [--port <port>] [--no-plugin-auto-update]` | Logs in with the browser, stores a user ingest key and an API token in the keychain, and configures Claude Code and Codex. Ends with the next command to run |
+| `harnessforce logout` | Revokes this machine's user ingest key and login in each Workspace, then removes them from the keychain and removes the settings `harnessforce login` wrote. Keeps the send-content setting and managed settings |
+| `harnessforce config get send-content` / `harnessforce config set send-content on\|off` | Prints / saves whether this machine sends prompts, responses and tool input and output. The choice stays when you log in again; `off` takes effect without the network |
 | `harnessforce otel-headers` | Prints the `Authorization` header for Claude Code's `otelHeadersHelper`. Exits 3 when there is no key, 4 when the destination differs from the pinned origin, 5 while the CLI version is unsupported, and 1 on other failures. On Linux, after printing a key read from the kernel keyring, it moves that Workspace's items to an unlocked Secret Service (not when the hook starts it), so a reboot does not lose them |
 | `harnessforce run --issue <identifier> -- <agent> [args]` | Launches an agent with its session linked to an Issue |
 | `harnessforce import` | Sends the metadata of past Claude Code and Codex sessions in repositories assigned to a project |
 | `harnessforce status [--json]` | Shows the connected Workspace, your role, the setup steps that remain with their URLs, whether the `origin` repository of the current directory is assigned to a project, and each of `claude` and `codex` that is older than the oldest version the Harnessforce hooks support. Reads only; the remote URL and the agent versions stay on this machine. Exits 0 whenever the status was read |
-| `harnessforce tune [--all] [--no-send] [--show-report] [--json]` | Analyzes past sessions on this machine by public rules and sends the counts (analysis reports) |
-| `harnessforce tune --report-only [--all]` | Analyzes and sends like `harnessforce tune`, but writes nothing to stdout. Meant for your OS scheduler |
-| `harnessforce tune --print-schedule` | Prints one cron line that runs `harnessforce tune --report-only` every Monday at 9:00 local time. Changes nothing and makes no network request |
-| `harnessforce tune record` / `harnessforce tune --purge` | Records a proposal from stdin / deletes everything under `~/.harnessforce/tune/` |
+| `harnessforce insights [--all] [--no-send] [--show-report] [--json]` | Analyzes past sessions on this machine by public rules and sends the counts (analysis reports) |
+| `harnessforce insights --quiet [--all]` | Analyzes and sends like `harnessforce insights`, but writes nothing to stdout. Meant for your OS scheduler |
+| `harnessforce insights schedule` | Prints one cron line that runs `harnessforce insights --quiet` every Monday at 9:00 local time. Changes nothing and makes no network request |
+| `harnessforce insights record` / `harnessforce insights clear` | Records a proposal from stdin / deletes everything under `~/.harnessforce/insights/` |
 | `harnessforce top [--once] [--json] [--ascii] [--theme <auto\|light\|dark\|ansi>]` | Shows the Claude Code and Codex sessions on this machine in the terminal: state, tokens, context and tool failures. Reads only local files and never connects to Harnessforce |
 | `harnessforce hook session-start` | The entry of Codex's `SessionStart` hook: reads `session_id`, `cwd` and `source` from stdin, registers the session, and prints the session ID for the agent's context. Always exits 0 |
 | `harnessforce hook post-tool-use` / `stop` | The entries of Codex's `PostToolUse` (`apply_patch`) and `Stop` hooks: record the repository and branch of the working trees the session works in, and send them at the end of a turn in which they changed. Always exit 0 |
@@ -46,7 +48,7 @@ harnessforce init
 
 `harnessforce top` reads the Claude Code transcripts on this machine (the same place as `harnessforce import`) and the
 Codex rollouts (`sessions/YYYY/MM/DD/rollout-*.jsonl` under `$CODEX_HOME` when it is an absolute path, otherwise
-`~/.codex`) and shows one row per session whose last event is within 24 hours. It needs no `harnessforce init`, makes no network
+`~/.codex`) and shows one row per session whose last event is within 24 hours. It needs no `harnessforce login`, makes no network
 connection, never reads the keychain and writes nothing to disk. It shows counts, times, ids, the repository and
 branch, model and tool names only: no prompt, response, tool input or output, path, command or error text, no cost and
 no context percentage.
@@ -78,18 +80,18 @@ session ID and up to 10 pairs of repository and branch are sent; paths, commits,
 of patches are not. Codex gives hooks no scratchpad, so the record is kept in
 `<temporary directory>/harnessforce-locations/codex-<session_id>.json`; on macOS and Linux the directory
 must be owned by you with mode `0700`, or nothing is recorded. `stop` always prints `{}`, and both always
-exit 0. A machine set up with an earlier `harnessforce init` gets these hooks when you run it again and
+exit 0. A machine set up with an earlier `harnessforce login` gets these hooks when you run it again and
 trust them in `/hooks`.
 
 ## Codex `SessionStart` hook (`harnessforce hook session-start`)
 
-Codex runs this command through the `[[hooks.SessionStart]]` entry that `harnessforce init` writes into Codex's
+Codex runs this command through the `[[hooks.SessionStart]]` entry that `harnessforce login` writes into Codex's
 `config.toml`. It uses only `session_id`, `cwd` and `source` from the JSON on stdin, and:
 
 - sends the session registration (`agent` is `codex`) only when `source` is `startup`, `clear` or missing, and
-  only to the ingest origin that `harnessforce init` pinned, with the user ingest key from the keychain. The
+  only to the ingest origin that `harnessforce login` pinned, with the user ingest key from the keychain. The
   Workspace and the endpoint come from `HARNESSFORCE_WORKSPACE_ID` and `HARNESSFORCE_ENDPOINT`, or from the
-  Claude Code user settings that `harnessforce init` wrote. When `HARNESSFORCE_ISSUE` is a valid identifier
+  Claude Code user settings that `harnessforce login` wrote. When `HARNESSFORCE_ISSUE` is a valid identifier
   (`harnessforce run --issue` sets it), the registration claims `source=cli` with that Issue.
 - prints `{"hookSpecificOutput": {...}}` carrying `harnessforce agent_session_id: <id>` so the agent knows its session
   ID. When it cannot send, it adds one warning as `systemMessage`, which Codex shows in its UI, and writes it to
@@ -103,20 +105,23 @@ Codex runs this command through the `[[hooks.SessionStart]]` entry that `harness
 
 ## What is never sent
 
-Harnessforce never turns on prompt or body logging by itself. `harnessforce run` never turns it on, and `harnessforce init`
+Harnessforce never turns on prompt or body logging by itself. `harnessforce run` never turns it on, and `harnessforce login`
 sets `OTEL_LOG_USER_PROMPTS`, `OTEL_LOG_ASSISTANT_RESPONSES`, `OTEL_LOG_TOOL_DETAILS` and
-`OTEL_LOG_TOOL_CONTENT` in the Claude Code user settings to `1` only with `--send-content`, and only for
+`OTEL_LOG_TOOL_CONTENT` in the Claude Code user settings to `1` only when `harnessforce config set send-content on`
+was run on this machine, and only for
 the categories the Workspace stores (prompts, and model responses with tool input and output). Without that,
-`harnessforce init` writes all four as `0` (and Codex's `log_user_prompt` and `log_agent_responses` as
+`harnessforce login` writes all four as `0` (and Codex's `log_user_prompt` and `log_agent_responses` as
 `false`), so a value left from an earlier run cannot keep sending. `OTEL_LOG_RAW_API_BODIES` is never written.
-For a Workspace that stores no content, `harnessforce init --send-content` writes `0`, prints the reason, and
+For a Workspace that stores no content, `harnessforce login` writes `0` even then, prints the reason, and
 still exits 0. `harnessforce import` never sends content. `harnessforce run`
 never puts the user key or the API token in the agent's environment, arguments or settings. Keys and
-tokens are sent only to the origins pinned by `harnessforce init`.
+tokens are sent only to the origins pinned by `harnessforce login`.
 
-## CLI credentials (`harnessforce init`, `harnessforce otel-headers`)
+## CLI credentials (`harnessforce login`, `harnessforce otel-headers`)
 
-`harnessforce init [--port <port>] [--send-content] [--no-plugin-auto-update]` connects this machine to a Harnessforce Workspace:
+`harnessforce login [--port <port>] [--no-plugin-auto-update]` connects this machine to a Harnessforce Workspace. Before
+opening the browser it prints the URL, that it waits up to 5 minutes, and that Ctrl+C cancels (exit 130, nothing
+changed). It ends with `Next: run \`harnessforce import\` to send your past sessions`:
 
 1. It checks the OS keychain first: macOS Keychain or the Windows Credential Manager (through
    [`@napi-rs/keyring`](https://github.com/Brooooooklyn/keyring-node)). On Linux it writes and deletes
@@ -125,7 +130,7 @@ tokens are sent only to the origins pinned by `harnessforce init`.
    which window asks for the password: KWallet shows one unlock window at a time, so an earlier
    unanswered window behind other windows keeps the new one from appearing. Otherwise, as on a machine
    reached only over SSH, it saves to the kernel's persistent keyring, which lives in memory and is
-   cleared on reboot or after a period of disuse; run `harnessforce init` again then. Without either
+   cleared on reboot or after a period of disuse; run `harnessforce login` again then. Without either
    store it stops. Apart from the Codex `config.toml` (step 6), keys are never written to a plain file.
 2. It logs in with the browser: OAuth 2.0 authorization code with PKCE, a `127.0.0.1:8080` loopback
    redirect (`--port <port>` changes the port), the endpoint discovered from
@@ -143,14 +148,14 @@ tokens are sent only to the origins pinned by `harnessforce init`.
    them last, so a failure part way never pairs an old origin with a new key or token. After saving to
    the Secret Service it deletes the same Workspace's items from the kernel keyring. Later commands read
    a Workspace from the kernel keyring when it holds the ingest key there, and from the Secret Service
-   otherwise. Only `harnessforce init`, `run` and `import` ask a locked Secret Service for an unlock;
+   otherwise. Only `harnessforce login`, `run` and `import` ask a locked Secret Service for an unlock;
    hooks and `harnessforce otel-headers` check the lock over D-Bus first and treat a locked item as
    missing.
 5. It updates the Claude Code user settings (`~/.claude/settings.json`, or `$CLAUDE_CONFIG_DIR`),
    changing only these keys:
    - `env`: the OTel exporter variables, `HARNESSFORCE_URL`, `HARNESSFORCE_ENDPOINT` and
      `HARNESSFORCE_WORKSPACE_ID`, but no key, and the four `OTEL_LOG_*` content variables: `1` for a category
-     you send with `--send-content` and the Workspace stores, `0` otherwise. It also sets
+     the send-content setting turns on and the Workspace stores, `0` otherwise. It also sets
      `OTEL_LOGS_EXPORT_INTERVAL`, `OTEL_TRACES_EXPORT_INTERVAL` and `OTEL_METRIC_EXPORT_INTERVAL` to `60000`,
      replacing values you set there, so Claude Code sends each signal once a minute instead of logs and traces
      every 5 seconds. Events therefore reach Harnessforce up to a minute later. What Claude Code has not sent
@@ -176,7 +181,7 @@ tokens are sent only to the origins pinned by `harnessforce init`.
      `Authorization = "Bearer <user ingest key>"`. Codex cannot take the header from a command or expand
      `${VAR}`, so this is the one place a key is written to a plain file. It is the user ingest key only
      (never the API token), and you can revoke it in My ingest keys on your account page. `log_user_prompt` and
-     `log_agent_responses` are set to `true` for a category you send with `--send-content` and the
+     `log_agent_responses` are set to `true` for a category the send-content setting turns on and the
      Workspace stores, and `false` otherwise
    - `[[hooks.SessionStart]]`: a handler that runs `harnessforce hook session-start`
    - `[[hooks.PostToolUse]]`: a handler with `matcher = "^apply_patch$"` that runs `harnessforce hook post-tool-use`
@@ -185,7 +190,7 @@ tokens are sent only to the origins pinned by `harnessforce init`.
    - `[mcp_servers.harnessforce]`: `url = "<base URL>/mcp"`
 
    The file is written through a temporary file in the same directory and renamed into place, with mode
-   `0600`. Running `harnessforce init` again replaces only these items. Restart Codex afterwards,
+   `0600`. Running `harnessforce login` again replaces only these items. Restart Codex afterwards,
    trust the three hooks with `/hooks` (Codex runs an untrusted hook only after you review it), and run
    `codex mcp login harnessforce` to use the MCP server.
 
@@ -197,7 +202,7 @@ variable that is set (`HARNESSFORCE_ENDPOINT`, `OTEL_EXPORTER_OTLP_ENDPOINT` and
 `OTEL_EXPORTER_OTLP_*_ENDPOINT`) has the pinned origin. This stops a repository's
 `.claude/settings.json` `env` from pointing the hook at another host to collect the key. Otherwise it
 writes `harnessforce: user key withheld (destination not verified)` to stderr and exits 4. Run
-`harnessforce init` again to re-pin. While the CLI version is unsupported it exits 5 without reading
+`harnessforce login` again to re-pin. While the CLI version is unsupported it exits 5 without reading
 the keychain, and any other failure (such as an unavailable keychain) exits 1.
 
 ### Refreshing the API token
@@ -209,7 +214,7 @@ authorization server metadata of the base URL, only when that endpoint is on the
 origin. The new pair replaces `<workspace_id>:api-token`. A lock older than 60 seconds is treated as
 abandoned, and waiting more than 30 seconds for it counts as a failed refresh. If the refresh fails, or
 the refreshed token is also answered with 401, they stop with
-"Your login has expired. Run `harnessforce init`".
+"Your login has expired. Run `harnessforce login`".
 
 ## Updates
 
@@ -234,8 +239,8 @@ Update with `npm install -g @harnessforce/cli@latest`. The CLI never replaces it
    settings, then the build default), the ingest endpoint (`HARNESSFORCE_ENDPOINT`, then the user
    settings) and the Workspace (`HARNESSFORCE_WORKSPACE_ID`, then the user settings). Before sending
    anything it checks, in order: the keychain, the Workspace, its user key, the ingest endpoint and its
-   scheme, the ingest origin pinned by `harnessforce init`, the API token, the Read API scheme, and the Read API
-   origin pinned by `harnessforce init`. The first failed check stops it, usually asking you to run `harnessforce init`.
+   scheme, the ingest origin pinned by `harnessforce login`, the API token, the Read API scheme, and the Read API
+   origin pinned by `harnessforce login`. The first failed check stops it, usually asking you to run `harnessforce login`.
 2. It resolves the Issue with `GET /api/v1/issues/{identifier}` and the stored API token. If the Issue
    does not exist, it prints up to 10 candidates from `GET /api/v1/issues?query=<identifier>` and stops.
 3. It computes the config snapshot ID locally with the same collection as the SessionStart hook.
@@ -257,7 +262,7 @@ Update with `npm install -g @harnessforce/cli@latest`. The CLI never replaces it
    it stops without exiting normally, can be lost. A Codex started without `harnessforce run` keeps its default,
    or the value of `OTEL_BLRP_SCHEDULE_DELAY` in your shell. Codex does not read `CLAUDE_CODE_*` or
    `OTEL_RESOURCE_ATTRIBUTES`, and an `OTEL_EXPORTER_OTLP_ENDPOINT` would replace the endpoint of the `[otel]`
-   exporter that `harnessforce init` writes into Codex's `config.toml`, so the request could go out without its
+   exporter that `harnessforce login` writes into Codex's `config.toml`, so the request could go out without its
    header. The Issue is linked by the Codex `SessionStart` hook, which reads `HARNESSFORCE_ISSUE`. The other
    variables of your own shell are left as they are for Codex.
 6. The agent is found on `PATH` (with `PATHEXT` on Windows), or used as given when the command contains a
@@ -270,7 +275,7 @@ It exits with the agent's exit code. Prompt and body logging are never turned on
 ## Importing past sessions (`harnessforce import`)
 
 `harnessforce import` sends metadata of past Claude Code and Codex sessions on this machine to Harnessforce,
-so that work done before the plugin was installed can be linked to issues too. Run `harnessforce init` first.
+so that work done before the plugin was installed can be linked to issues too. Run `harnessforce login` first.
 
 - For Claude Code it reads the transcripts in `~/.claude/projects/<project>/<session>.jsonl`, or under
   the `CLAUDE_CONFIG_DIR` set in the `env` of the managed settings file or of `~/.claude/settings.json`.
@@ -291,9 +296,9 @@ so that work done before the plugin was installed can be linked to issues too. R
   repositories come from `GET <HARNESSFORCE_URL>/api/v1/repositories` (all pages) and the import
   window from `session_import_days` (`GET <HARNESSFORCE_URL>/api/v1/workspace`), both with the API
   token. The API token is sent only when the origin of `HARNESSFORCE_URL` matches the one pinned by
-  `harnessforce init`; otherwise nothing is sent and it asks you to run `harnessforce init`.
+  `harnessforce login`; otherwise nothing is sent and it asks you to run `harnessforce login`.
 - Sessions are sent 100 at a time to `POST <HARNESSFORCE_ENDPOINT>/v1/imports/sessions` with the user
-  ingest key, only when the endpoint origin matches the one pinned by `harnessforce init`. `429` and `503` are
+  ingest key, only when the endpoint origin matches the one pinned by `harnessforce login`. `429` and `503` are
   retried up to 3 times after `Retry-After` (at most 60 seconds).
 - Sessions that are not sent are counted by the first reason that applies (already sent, outside the
   import window, outside a git repository, repository not assigned to a project) and printed on one line.
@@ -306,16 +311,16 @@ so that work done before the plugin was installed can be linked to issues too. R
 
 The Workspace, the connection URL and the ingest endpoint come from `HARNESSFORCE_WORKSPACE_ID`,
 `HARNESSFORCE_URL` and `HARNESSFORCE_ENDPOINT` in the environment, and otherwise from the `env` that
-`harnessforce init` wrote to the Claude Code user settings.
+`harnessforce login` wrote to the Claude Code user settings.
 
-## Analyzing past sessions (`harnessforce tune`)
+## Analyzing past sessions (`harnessforce insights`)
 
-`harnessforce tune` reads the same transcripts as `harnessforce import` and turns each session into an analysis report:
-interventions, loops that could be automated, and MCP server calls. Run `harnessforce init` first. The Viewer
+`harnessforce insights` reads the same transcripts as `harnessforce import` and turns each session into an analysis report:
+interventions, loops that could be automated, and MCP server calls. Run `harnessforce login` first. The Viewer
 role cannot use it.
 
-- The categories come from public rules and a public vocabulary (`src/tune/analyze.ts`,
-  `src/tune/vocabulary.ts`, `analyzer_version`), never from a model. Categories the transcript cannot
+- The categories come from public rules and a public vocabulary (`src/insights/analyze.ts`,
+  `src/insights/vocabulary.ts`, `analyzer_version`), never from a model. Categories the transcript cannot
   tell apart (`approval`, `answer`) are reported as not measured, never as 0.
 - Only the counts and medians of the analysis report are sent, to
   `POST <HARNESSFORCE_ENDPOINT>/v1/analysis-reports` with the user ingest key. Prompts, responses,
@@ -324,20 +329,20 @@ role cannot use it.
   `--all` analyzes every session, but still sends only sessions in repositories assigned to a project that started within
   `session_import_days`. Sessions that were not imported yet are imported first, like `harnessforce import`.
 - Sending is fail-open: when Harnessforce cannot be reached, the reports stay in
-  `~/.harnessforce/tune/unsent.json` and are sent by the next run. `401` and `403` delete the unsent
-  reports and ask you to run `harnessforce init`.
-- `--no-send`, or `{"tune": {"send_report": false}}` in `~/.harnessforce/config.json`, sends nothing.
+  `~/.harnessforce/insights/unsent.json` and are sent by the next run. `401` and `403` delete the unsent
+  reports and ask you to run `harnessforce login`.
+- `--no-send`, or `{"insights": {"send_report": false}}` in `~/.harnessforce/config.json`, sends nothing.
   A config file it cannot read also sends nothing.
 - It also counts usage per session (auto and manual context compactions, responses, cache reuse
   ratio, output tokens per model in the main and subagent transcripts). These values are shown and
-  written to `--json` and `~/.harnessforce/tune/analysis.json` only; they are never sent.
+  written to `--json` and `~/.harnessforce/insights/analysis.json` only; they are never sent.
 - `--json` also lists, for each recorded proposal whose application was detected, the value of its
   category in the 14 days before and after the detection time (`followups`). The difference is not
   a cause. Once a `--json` run outputs a follow-up whose after period has ended, later runs omit it.
-- To send weekly without opening Claude Code, add the line that `harnessforce tune --print-schedule`
+- To send weekly without opening Claude Code, add the line that `harnessforce insights schedule`
   prints to your crontab yourself. Harnessforce never registers it. To stop, remove the line or set
   `send_report` to `false`.
-- Everything it keeps is under `~/.harnessforce/tune/`; `harnessforce tune --purge` deletes it.
+- Everything it keeps is under `~/.harnessforce/insights/`; `harnessforce insights clear` deletes it.
 
 ## License
 

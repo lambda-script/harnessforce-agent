@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	checkRequiredCli,
 	collectInvocations,
+	isNewerVersion,
 	pluginInvocations,
 } from "../scripts/check-required-cli.mjs";
 
@@ -10,15 +11,15 @@ describe("collectInvocations", () => {
 		expect(
 			collectInvocations({
 				markdown: [
-					"Run `harnessforce status --json`, then `harnessforce init --send-content`.",
+					"Run `harnessforce status --json`, then `harnessforce login --no-plugin-auto-update`.",
 					"```sh\nharnessforce top --once --json\nnpm install -g @harnessforce/cli\n```",
-					"Run `harnessforce init` again.",
+					"Run `harnessforce login` again.",
 				],
 				hookSources: [],
 				scriptSources: [],
 			}),
 		).toEqual([
-			{ command: ["init"], options: ["--send-content"] },
+			{ command: ["login"], options: ["--no-plugin-auto-update"] },
 			{ command: ["status"], options: ["--json"] },
 			{ command: ["top"], options: ["--json", "--once"] },
 		]));
@@ -27,15 +28,15 @@ describe("collectInvocations", () => {
 		expect(
 			collectInvocations({
 				markdown: [
-					"```text\nharnessforce tune record <<'END'\n{}\nEND\n```",
+					"```text\nharnessforce insights record <<'END'\n{}\nEND\n```",
 					"`harnessforce run --issue <issue> -- <agent>`",
 				],
 				hookSources: [],
 				scriptSources: [],
 			}),
 		).toEqual([
+			{ command: ["insights", "record"], options: [] },
 			{ command: ["run"], options: ["--issue"] },
-			{ command: ["tune", "record"], options: [] },
 		]));
 
 	it("ignores the session id line, placeholders and the retired usage-limits", () =>
@@ -86,11 +87,11 @@ describe("collectInvocations", () => {
 				markdown: [],
 				hookSources: [],
 				scriptSources: [
-					'const ALLOWED_FLAGS = new Set(["--all", "--no-send"]);\nspawnSync("harnessforce", ["tune", "--json", ...new Set(args)], {});',
+					'const ALLOWED_FLAGS = new Set(["--all", "--no-send"]);\nspawnSync("harnessforce", ["insights", "--json", ...new Set(args)], {});',
 				],
 			}),
 		).toEqual([
-			{ command: ["tune"], options: ["--all", "--json", "--no-send"] },
+			{ command: ["insights"], options: ["--all", "--json", "--no-send"] },
 		]));
 });
 
@@ -99,15 +100,18 @@ describe("the plugin's CLI invocations", () => {
 	it("are the ones the required CLI version is checked against", () =>
 		expect(pluginInvocations()).toEqual([
 			{ command: [], options: ["--help", "--version"] },
+			{ command: ["config", "set", "send-content", "off"], options: [] },
+			{ command: ["config", "set", "send-content", "on"], options: [] },
 			{ command: ["hook"], options: [] },
 			{ command: ["import"], options: [] },
-			{ command: ["init"], options: ["--send-content"] },
+			{ command: ["insights"], options: ["--all", "--json", "--no-send"] },
+			{ command: ["insights", "record"], options: [] },
+			{ command: ["login"], options: [] },
+			{ command: ["logout"], options: [] },
 			{ command: ["otel-headers"], options: [] },
 			{ command: ["run"], options: ["--issue"] },
 			{ command: ["status"], options: ["--json"] },
 			{ command: ["top"], options: ["--json", "--once"] },
-			{ command: ["tune"], options: ["--all", "--json", "--no-send"] },
-			{ command: ["tune", "record"], options: [] },
 		]));
 });
 
@@ -115,14 +119,14 @@ describe("checkRequiredCli", () => {
 	const invocations = [
 		{ command: [], options: ["--version"] },
 		{ command: ["status"], options: ["--json"] },
-		{ command: ["tune", "record"], options: [] },
+		{ command: ["insights", "record"], options: [] },
 	];
 	const help: Record<string, string> = {
 		"--help":
 			"Usage: harnessforce <command> [options]\n  --version  Show the version.",
 		"status --help": "Usage: harnessforce status [--json]",
-		"tune record --help":
-			"Usage: harnessforce tune [--json]\n       harnessforce tune record",
+		"insights record --help":
+			"Usage: harnessforce insights [--json]\n       harnessforce insights record",
 	};
 	const cli =
 		(overrides: Record<string, { code: number; stdout: string }> = {}) =>
@@ -138,6 +142,16 @@ describe("checkRequiredCli", () => {
 
 	it("passes when the CLI of the required version has every command and option", async () =>
 		expect(await checkRequiredCli("0.4.0", invocations, cli())).toEqual([]));
+
+	// 必要な版がnpmに未公開の間は、同じcommitのbuildの出力を確かめ、版は比べない。
+	it("does not compare the version when no required version is given", async () =>
+		expect(
+			await checkRequiredCli(
+				undefined,
+				invocations,
+				cli({ "--version": { code: 0, stdout: "0.6.1\n" } }),
+			),
+		).toEqual([]));
 
 	it("fails when the installed CLI is not the required version", async () =>
 		expect(
@@ -190,4 +204,15 @@ describe("checkRequiredCli", () => {
 		).toEqual([
 			"harnessforce status --help does not mention harnessforce status",
 		]));
+});
+
+describe("isNewerVersion", () => {
+	it.each([
+		["0.7.0", "0.6.1", true],
+		["0.10.0", "0.9.9", true],
+		["0.6.1", "0.6.1", false],
+		["0.6.2", "0.7.0", false],
+	])("%s is newer than %s: %s", (a, b, expected) =>
+		expect(isNewerVersion(a, b)).toBe(expected),
+	);
 });

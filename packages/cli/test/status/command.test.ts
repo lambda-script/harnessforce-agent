@@ -12,8 +12,10 @@ import {
 import { runCli } from "../support/cli.js";
 
 const STATUS_FAILED =
-	"Could not read the Harnessforce status. Run `harnessforce init` and try again.\n";
-const EXPIRED = "Your login has expired. Run `harnessforce init`\n";
+	"Could not read the Harnessforce status because communication with Harnessforce failed. Try again.\n";
+const NOT_LOGGED_IN =
+	"You are not logged in to Harnessforce. Run `harnessforce login`\n";
+const EXPIRED = "Your login has expired. Run `harnessforce login`\n";
 
 const step = (n: number, status: string) => ({
 	step: n,
@@ -327,13 +329,14 @@ describe("harnessforce status", () => {
 		expect(result).toMatchObject({ code: 1, out: "", err: STATUS_FAILED });
 	});
 
-	it("prints the status failure when this machine is not connected", async () => {
+	// onboarding.md「harnessforce status」: 未ログインと通信の失敗を別の文言にする。
+	it("says this machine is not logged in, not that communication failed", async () => {
 		const result = await runCli(["status"], {
 			homeDir: initializedHome({}).home,
 			managedDir: managedDir(null),
 			keychain: initializedKeychain("http://127.0.0.1:1").keychain,
 		});
-		expect(result).toMatchObject({ code: 1, out: "", err: STATUS_FAILED });
+		expect(result).toMatchObject({ code: 1, out: "", err: NOT_LOGGED_IN });
 	});
 
 	it("rejects unknown options with the usage", async () => {

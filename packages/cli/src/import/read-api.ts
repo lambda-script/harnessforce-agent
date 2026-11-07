@@ -1,8 +1,12 @@
 import type { Fetch } from "@harnessforce/agent-core/types";
 import { underBase } from "@harnessforce/agent-core/url";
 import { REQUEST_TIMEOUT_MS, readJsonObjectBody } from "../shared/http.js";
+import {
+	type ContentSettings,
+	parseContentSettings,
+} from "../shared/login-settings.js";
 
-// correlation.md「session import」: 401は「Run `harnessforce init`」、それ以外の失敗は通信の失敗として終える。
+// correlation.md「session import」: 401は「Run `harnessforce login`」、それ以外の失敗は通信の失敗として終える。
 export type ReadOutcome<T> =
 	| { kind: "ok"; value: T }
 	| { kind: "unauthorized" }
@@ -100,6 +104,22 @@ export async function fetchSessionImportDays(
 	return typeof days === "number" && Number.isSafeInteger(days) && days >= 1
 		? { kind: "ok", value: days }
 		: FAILED;
+}
+
+// read-api.md `GET /api/v1/workspace`の`content`。correlation.md「CLI」の手順4の条件を満たさなければ読めなかったものとする。
+export async function fetchWorkspaceContent(
+	base: URL,
+	apiToken: string,
+	fetchImpl: Fetch,
+): Promise<ReadOutcome<ContentSettings>> {
+	const outcome = await getJson(
+		underBase(base, "api/v1/workspace"),
+		apiToken,
+		fetchImpl,
+	);
+	if (outcome.kind !== "ok") return outcome;
+	const content = parseContentSettings(outcome.value.content);
+	return content ? { kind: "ok", value: content } : FAILED;
 }
 
 export type OnboardingStep = {

@@ -180,7 +180,7 @@ describe("parseTranscript", () => {
 		expect(PARSER_VERSION).toMatch(/^\d+\.\d+\.\d+$/));
 });
 
-// improvement-loop.md「読むもの」: harnessforce tuneはharnessforce importと同じ読み込み処理から、分析に使うeventの列を取り出す。
+// improvement-loop.md「読むもの」: harnessforce insightsはharnessforce importと同じ読み込み処理から、分析に使うeventの列を取り出す。
 describe("parseTranscriptEvents", () => {
 	const row = (fields: Record<string, unknown>) =>
 		line({ sessionId: SESSION, cwd: "/work/acme-web", ...fields });

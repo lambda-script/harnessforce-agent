@@ -31,7 +31,7 @@ export type UserDestination =
 				| "destination not verified";
 	  };
 
-// 利用者用のkeyは、`harnessforce init`が固定した送信先のoriginへだけ出す（correlation.md「CLI」の送信先の固定）。
+// 利用者用のkeyは、`harnessforce login`が固定した送信先のoriginへだけ出す（correlation.md「CLI」の送信先の固定）。
 export async function resolveUserDestination(
 	deps: UserDestinationDeps,
 ): Promise<UserDestination> {

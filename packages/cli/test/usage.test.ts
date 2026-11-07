@@ -4,19 +4,19 @@ import { runCli } from "./support/cli.js";
 // 引数の誤りは、何が違うかの1行と、そのcommandのusageをstderrへ出し、終了コード2で終わる。
 describe("harnessforce with bad arguments", () => {
 	it.each([
-		[["init", "--bogus"], "init", 'unknown option "--bogus"'],
+		[["login", "--bogus"], "login", 'unknown option "--bogus"'],
 		[
-			["init", "--port", "0"],
-			"init",
+			["login", "--port", "0"],
+			"login",
 			'"--port" must be an integer from 1 to 65535',
 		],
-		[["init", "--port"], "init", '"--port" needs a value'],
+		[["login", "--port"], "login", '"--port" needs a value'],
 		[
-			["init", "--send-content", "--send-content"],
-			"init",
-			'"--send-content" was given more than once',
+			["login", "--no-plugin-auto-update", "--no-plugin-auto-update"],
+			"login",
+			'"--no-plugin-auto-update" was given more than once',
 		],
-		[["init", "true"], "init", 'unexpected argument "true"'],
+		[["login", "true"], "login", 'unexpected argument "true"'],
 		[["import", "--all"], "import", 'unknown option "--all"'],
 		[["status", "--all"], "status", 'unknown option "--all"'],
 		[
@@ -103,7 +103,7 @@ describe("harnessforce with an unknown command", () => {
 	it.each([
 		["stauts", "status"],
 		["imprt", "import"],
-		["tnue", "tune"],
+		["insihgts", "insights"],
 		["version", "--version"],
 		["--verison", "--version"],
 	])("suggests the closest name for %s", async (word, suggestion) => {

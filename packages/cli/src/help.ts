@@ -1,5 +1,5 @@
 // `harnessforce --help`と`harnessforce <command> --help`の文面。送る／送らないの記述は
-// 実装（import/send.ts、tune、hook）とHarnessforce本体のspecが正である。
+// 実装（import/send.ts、insights、hook）とHarnessforce本体のspecが正である。
 
 type CommandHelp = {
 	summary: string;
@@ -10,9 +10,9 @@ const SENDS_NOTHING_LOCAL =
 	"Nothing. It reads local files only and makes no network request.";
 
 const COMMANDS = {
-	init: {
-		summary: "Connect this machine to a Harnessforce Workspace",
-		text: `Usage: harnessforce init [--port <port>] [--send-content] [--no-plugin-auto-update]
+	login: {
+		summary: "Log in and connect this machine to a Workspace",
+		text: `Usage: harnessforce login [--port <port>] [--no-plugin-auto-update]
 
 When to use:
   Once per machine, before anything else, and again whenever the login expires.
@@ -20,37 +20,100 @@ When to use:
 What it does:
   Opens your browser to log in to a Workspace, then stores a user ingest key and
   an API token in the OS keychain. It configures Claude Code (user settings) and
-  Codex (config.toml) to export telemetry to the Workspace.
+  Codex (config.toml) to export telemetry to the Workspace. Whether the prompts
+  and responses are sent follows "harnessforce config set send-content", which
+  logging in again does not change.
 
 Options:
   --port <port>     Loopback port for the login callback, 1-65535 (default 8080).
-  --send-content    Also send the prompts you type, model responses and tool
-                    input and output. Takes effect only for the categories the
-                    Workspace stores. Without it, init turns all of them off.
   --no-plugin-auto-update
                     Turn off automatic updates of the Harnessforce plugin in
                     Claude Code. On by default; a value you set is kept.
 
 Sends:
-  The login exchange with the Workspace. After init, the agents you run send
+  The login exchange with the Workspace. After login, the agents you run send
   telemetry (token counts, tool names, timings) with that key.
 
 Does not send:
-  Prompt text, model responses and tool input or output (unless --send-content
-  and the Workspace stores that category), code diffs, and secrets. The keys
+  Prompt text, model responses and tool input or output (unless send-content is
+  on and the Workspace stores that category), code diffs, and secrets. The keys
   stay in the OS keychain, except that Codex reads the user ingest key from
   its config.toml, so that file holds it in plain text.
 
 Exit codes:
   0  Connected and configured.
-  1  Failed (login cancelled or timed out, keychain unavailable, or a write
-     failed). The reason is printed to stderr.
+  1  Failed (login timed out, keychain unavailable, or a write failed). The
+     reason is printed to stderr.
   2  Bad arguments. The reason and the usage are printed to stderr.
+  130  Cancelled with Ctrl+C. Nothing was changed.
 
 Examples:
-  harnessforce init
-  harnessforce init --send-content
-  harnessforce init --port 8081
+  harnessforce login
+  harnessforce login --port 8081
+`,
+	},
+	logout: {
+		summary: "Revoke this machine's login and remove its settings",
+		text: `Usage: harnessforce logout
+
+When to use:
+  Before you hand over or retire this machine, or to stop sending from it.
+
+What it does:
+  Revokes the user ingest key and the login of this machine in each Workspace it
+  is logged in to, then removes them from the OS keychain and removes the
+  settings that "harnessforce login" wrote to Claude Code and Codex. The
+  send-content setting and the files in ~/.harnessforce/ are kept. Managed
+  settings from your organization are not changed.
+
+Sends:
+  One revoke request per Workspace, to the Harnessforce it logged in to.
+
+Does not send:
+  Anything else.
+
+Exit codes:
+  0  Logged out, or there was nothing to log out.
+  1  Failed. If communication failed or the keychain was unavailable, the login
+     stays active. If removing it from the keychain or the settings failed, it
+     is already revoked. Either way, run it again.
+  2  Bad arguments.
+
+Examples:
+  harnessforce logout
+`,
+	},
+	config: {
+		summary: "Turn sending prompts and responses on or off",
+		text: `Usage: harnessforce config get send-content
+       harnessforce config set send-content on|off
+
+When to use:
+  To choose whether this machine sends the prompts you type, model responses
+  and tool input and output. The choice stays when you log in again.
+
+What it does:
+  get prints "on" or "off". set saves the choice in ~/.harnessforce/config.json
+  and rewrites the content settings of Claude Code and Codex. "on" sends only
+  the categories the Workspace stores; "off" stops sending them right away.
+
+Sends:
+  "set send-content on" on a logged-in machine reads the content settings of the
+  Workspace. Nothing else is sent.
+
+Does not send:
+  Anything for "get" and "set send-content off".
+
+Exit codes:
+  0  Done.
+  1  The settings could not be read or written, or the Workspace settings could
+     not be read.
+  2  Bad arguments.
+
+Examples:
+  harnessforce config set send-content on
+  harnessforce config set send-content off
+  harnessforce config get send-content
 `,
 	},
 	import: {
@@ -58,7 +121,7 @@ Examples:
 		text: `Usage: harnessforce import
 
 When to use:
-  Right after init, to backfill sessions that ran before Harnessforce was
+  Right after login, to backfill sessions that ran before Harnessforce was
   connected. It is safe to run again; sessions already sent are skipped.
 
 What it does:
@@ -91,7 +154,7 @@ Examples:
 		text: `Usage: harnessforce status [--json]
 
 When to use:
-  After init, and any time you want to see which setup steps of the connected
+  After login, and any time you want to see which setup steps of the connected
   Workspace remain and whether this repository is assigned to a project.
 
 What it does:
@@ -144,7 +207,7 @@ Exit codes:
   0  Header printed.
   3  No key for the Workspace (not logged in, or the keychain item is gone, for
      example after a reboot cleared the kernel keyring).
-  4  The destination was not verified: it differs from the origin init pinned.
+  4  The destination was not verified: it differs from the origin login pinned.
   5  This CLI version is unsupported. The keychain is not read.
   1  Any other failure (keychain unavailable, read failed, timed out, or bad
      arguments).
@@ -175,8 +238,8 @@ Sends:
   The same telemetry as an agent started directly, plus the Issue identifier.
 
 Does not send:
-  Anything beyond what init configured. Prompt text, responses and tool input
-  and output are sent only if you chose --send-content at init.
+  Anything beyond what login configured. Prompt text, responses and tool input
+  and output are sent only if send-content is on ("harnessforce config").
 
 Exit codes:
   The agent's own exit code when it ran.
@@ -188,22 +251,22 @@ Examples:
   harnessforce run --issue ABC-123 -- codex --model gpt-5
 `,
 	},
-	tune: {
+	insights: {
 		summary: "Analyze your past sessions and report counts",
-		text: `Usage: harnessforce tune [--all] [--no-send] [--show-report] [--json]
-       harnessforce tune --report-only [--all]
-       harnessforce tune --print-schedule
-       harnessforce tune record
-       harnessforce tune --purge
+		text: `Usage: harnessforce insights [--all] [--no-send] [--show-report] [--json]
+       harnessforce insights --quiet [--all]
+       harnessforce insights schedule
+       harnessforce insights record
+       harnessforce insights clear
 
 When to use:
-  Periodically (or through /harnessforce:tune) to see where human intervention,
-  repeated work, and MCP or tool usage could improve. It needs at least 10
-  sessions.
+  Periodically (or through /harnessforce:insights) to see where human
+  intervention, repeated work, and MCP or tool usage could improve. It needs
+  at least 10 sessions.
 
 What it does:
   Imports sessions that were not sent yet, analyzes the local session records,
-  and prints the result. Files it writes live under ~/.harnessforce/tune/.
+  and prints the result. Files it writes live under ~/.harnessforce/insights/.
 
 Options:
   --all           Analyze sessions of repositories not assigned to a project
@@ -212,14 +275,15 @@ Options:
   --show-report   Print the exact values that would be sent.
   --json          Print the result as one JSON object on stdout. Messages go to
                   stderr.
-  --report-only   Analyze and send, writing nothing to stdout (for your OS
+  --quiet         Analyze and send, writing nothing to stdout (for your OS
                   scheduler). Combines with --all only.
-  --print-schedule
-                  Print a cron line that runs --report-only every Monday at
-                  9:00. It changes nothing and sends nothing.
+
+Subcommands:
+  schedule        Print a cron line that runs --quiet every Monday at 9:00. It
+                  changes nothing and sends nothing.
   record          Read one proposal as JSON from stdin and store it locally.
-                  /harnessforce:tune runs it; you normally do not.
-  --purge         Delete the analysis, proposals, and unsent results.
+                  /harnessforce:insights runs it; you normally do not.
+  clear           Delete the analysis, proposals, and unsent results.
 
 Sends:
   Counts computed by public rules (no text), for repositories assigned to a
@@ -232,16 +296,17 @@ Does not send:
 
 Exit codes:
   0  Done (including "not enough data" and "nothing sent").
-  1  Not logged in, keychain unavailable, another tune is running, or a local
-     write failed.
+  1  Not logged in, keychain unavailable, another run of insights is in
+     progress, or a local write failed.
   2  Bad option, or invalid input to "record".
-  3  Analysis shown, but sending is not possible until you run "harnessforce init".
+  3  Analysis shown, but sending is not possible until you run
+     "harnessforce login".
 
 Examples:
-  harnessforce tune
-  harnessforce tune --no-send --json
-  harnessforce tune --print-schedule
-  harnessforce tune --purge
+  harnessforce insights
+  harnessforce insights --no-send --json
+  harnessforce insights schedule
+  harnessforce insights clear
 `,
 	},
 	top: {
@@ -323,12 +388,14 @@ const row = (name: CommandName): OverviewRow => ({
 });
 
 const YOUR_COMMANDS: readonly OverviewRow[] = [
-	row("init"),
+	row("login"),
+	row("logout"),
 	row("import"),
 	row("status"),
 	row("run"),
-	row("tune"),
+	row("insights"),
 	row("top"),
+	row("config"),
 ];
 
 // 利用者が打たないcommand。keyを出すotel-headersも何であるかを読めるよう、隠さずに別枠で示す。
@@ -336,8 +403,8 @@ const AGENT_COMMANDS: readonly OverviewRow[] = [
 	row("otel-headers"),
 	row("hook"),
 	{
-		name: "tune record",
-		summary: "Store one suggestion (used by /harnessforce:tune)",
+		name: "insights record",
+		summary: "Store one suggestion (used by /harnessforce:insights)",
 	},
 ];
 

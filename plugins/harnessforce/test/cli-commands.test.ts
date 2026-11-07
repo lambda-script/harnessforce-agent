@@ -75,7 +75,7 @@ describe("CLI-wrapping commands", () => {
 		expect(body).not.toContain("/harnessforce:run");
 	});
 
-	it("/harnessforce:help sends init to /harnessforce:setup", () => {
+	it("/harnessforce:help sends login to /harnessforce:setup", () => {
 		expect(parse("help").body).toContain("/harnessforce:setup");
 	});
 });

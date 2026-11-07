@@ -22,7 +22,11 @@ export type AccessDeps = {
 
 // 終端ごとの文言。harnessforce runとharnessforce importは、ApiTokenが無い場合の文言だけが異なる。
 export type AccessMessages = Record<
-	"keychainUnavailable" | "initRequired" | "invalidUrl" | "apiTokenMissing",
+	| "keychainUnavailable"
+	| "loginRequired"
+	| "destinationMismatch"
+	| "invalidUrl"
+	| "apiTokenMissing",
 	string
 >;
 
@@ -56,15 +60,15 @@ export async function verifyCliAccess(
 		deps.defaultUrl,
 	);
 
-	const workspaceId = destinations.workspaceId ?? stop("initRequired");
+	const workspaceId = destinations.workspaceId ?? stop("loginRequired");
 	const ingestKey =
-		(await read(ingestKeyAccount(workspaceId))) || stop("initRequired");
-	const ingestEndpoint = destinations.ingestEndpoint ?? stop("initRequired");
+		(await read(ingestKeyAccount(workspaceId))) || stop("loginRequired");
+	const ingestEndpoint = destinations.ingestEndpoint ?? stop("loginRequired");
 	const ingest = parseAllowedUrl(ingestEndpoint) ?? stop("invalidUrl");
 	// hookが拒否する送信先へ、hookと同じ利用者用のkeyを送らない。
 	const ingestOrigin = await read(ingestOriginAccount(workspaceId));
-	if (ingestOrigin !== ingest.origin) stop("initRequired");
-	// 形の違う値（以前のversionのharnessforce initが保存した値を含む）は、ApiTokenが無いものとして扱う。
+	if (ingestOrigin !== ingest.origin) stop("destinationMismatch");
+	// 形の違う値（以前のversionのharnessforce loginが保存した値を含む）は、ApiTokenが無いものとして扱う。
 	const apiToken =
 		parseStoredApiToken(
 			await read(apiTokenAccount(workspaceId)),
@@ -72,9 +76,9 @@ export async function verifyCliAccess(
 		) ?? stop("apiTokenMissing");
 	const readApiBase =
 		parseAllowedUrl(destinations.readApiUrl) ?? stop("invalidUrl");
-	// shellやrepositoryのsettingsが書き換えた接続先へApiTokenを送らない。harnessforce initが使った接続先のoriginへだけ送る。
+	// shellやrepositoryのsettingsが書き換えた接続先へApiTokenを送らない。harnessforce loginが使った接続先のoriginへだけ送る。
 	const urlOrigin = await read(urlOriginAccount(workspaceId));
-	if (urlOrigin !== readApiBase.origin) stop("initRequired");
+	if (urlOrigin !== readApiBase.origin) stop("destinationMismatch");
 	return {
 		workspaceId,
 		ingestKey,

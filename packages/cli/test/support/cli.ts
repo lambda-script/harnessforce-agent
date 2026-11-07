@@ -2,8 +2,9 @@ import {
 	type Keychain,
 	type KeychainItem,
 	openSingleStore,
+	openSingleStoreForLogout,
 } from "../../src/credentials/keychain.js";
-import { startLoopback } from "../../src/init/loopback.js";
+import { startLoopback } from "../../src/login/loopback.js";
 import { type CliDeps, run } from "../../src/main.js";
 import { fakeTty } from "../top/support.js";
 
@@ -16,7 +17,7 @@ type FakeKeychainOptions = {
 	failWrite?: boolean;
 	// このaccountへの書き込みだけを失敗させる。
 	failWriteOn?: string;
-	// `harnessforce init`の保存先をkernelのkeyringにする（LinuxでSecret Serviceを使えない端末）。
+	// `harnessforce login`の保存先をkernelのkeyringにする（LinuxでSecret Serviceを使えない端末）。
 	kernelKeyring?: boolean;
 	// kernelのkeyringからSecret Serviceへ移す処理を失敗させる。
 	failMigration?: boolean;
@@ -30,12 +31,16 @@ export function fakeKeychain(options: FakeKeychainOptions = {}) {
 	const writes: string[] = [];
 	// withTimeoutで渡された上限時間。
 	const timeouts: number[] = [];
-	// openForInitに渡された前回のWorkspace。
-	const initOpens: (string | undefined)[] = [];
+	// openForLoginに渡された前回のWorkspace。
+	const loginOpens: (string | undefined)[] = [];
 	// migrateFromKernelに渡されたWorkspace。
 	const migrations: string[] = [];
 	const fail = (when: boolean | undefined) => {
 		if (when) throw new Error("keychain failure");
+	};
+	const list = async (): Promise<KeychainItem[]> => {
+		fail(options.failRead);
+		return [...items].map(([account, secret]) => ({ account, secret }));
 	};
 	const keychain: Keychain = {
 		isAvailable: async () => {
@@ -64,15 +69,9 @@ export function fakeKeychain(options: FakeKeychainOptions = {}) {
 			timeouts.push(ms);
 			return keychain;
 		},
-		openForInit: async ({ previousWorkspaceId }) => {
-			initOpens.push(previousWorkspaceId);
-			const store = await openSingleStore({
-				...keychain,
-				list: async (): Promise<KeychainItem[]> => {
-					fail(options.failRead);
-					return [...items].map(([account, secret]) => ({ account, secret }));
-				},
-			});
+		openForLogin: async ({ previousWorkspaceId }) => {
+			loginOpens.push(previousWorkspaceId);
+			const store = await openSingleStore({ ...keychain, list });
 			return (
 				store && {
 					...store,
@@ -83,10 +82,11 @@ export function fakeKeychain(options: FakeKeychainOptions = {}) {
 				}
 			);
 		},
+		openForLogout: () => openSingleStoreForLogout({ ...keychain, list }),
 	};
 	if (options.unavailableHint)
 		keychain.unavailableHint = options.unavailableHint;
-	return { keychain, items, writes, timeouts, initOpens, migrations };
+	return { keychain, items, writes, timeouts, loginOpens, migrations };
 }
 
 // keychainに触れてはいけないtestで使う。
@@ -106,7 +106,10 @@ export const untouchableKeychain: Keychain = {
 	withTimeout: () => {
 		throw new Error("keychain must not be used");
 	},
-	openForInit: async () => {
+	openForLogin: async () => {
+		throw new Error("keychain must not be used");
+	},
+	openForLogout: async () => {
 		throw new Error("keychain must not be used");
 	},
 };

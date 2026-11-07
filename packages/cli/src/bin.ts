@@ -16,8 +16,8 @@ import {
 } from "./credentials/secret-service-lock.js";
 import { createSecretServiceProcess } from "./credentials/secret-service-process.js";
 import { createImportGit } from "./import/repository.js";
-import { openBrowser } from "./init/browser.js";
-import { startLoopback } from "./init/loopback.js";
+import { openBrowser } from "./login/browser.js";
+import { startLoopback } from "./login/loopback.js";
 import { run } from "./main.js";
 import { relaunchHf } from "./relaunch.js";
 import { launchAgent } from "./run/process.js";
