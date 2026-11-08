@@ -1,4 +1,4 @@
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import {
 	chmodSync,
 	cpSync,
@@ -335,15 +335,32 @@ describe("built marketplace", () => {
 		));
 
 	// improvement-loop.md「構成」: `/harnessforce:insights`はpluginのcommandであり、提案を作る公開のskillとともに配る。
-	it.each([
-		"commands/insights.md",
-		"skills/propose-improvements/SKILL.md",
-		"skills/propose-improvements/scripts/summarize.mjs",
-	])("bundles %s unchanged", (path) =>
-		expect(
-			readFileSync(join(marketplace, "plugins/harnessforce", path), "utf8"),
-		).toBe(readFileSync(new URL(`../${path}`, import.meta.url), "utf8")),
+	it.each(["commands/insights.md", "skills/propose-improvements/SKILL.md"])(
+		"bundles %s unchanged",
+		(path) =>
+			expect(
+				readFileSync(join(marketplace, "plugins/harnessforce", path), "utf8"),
+			).toBe(readFileSync(new URL(`../${path}`, import.meta.url), "utf8")),
 	);
+
+	// correlation.md「commandの解決」: insightsのscriptはagent-coreの解決を同梱し、node_modulesの無い場所でも動く。
+	it("bundles the insights script so that it runs without node_modules", () => {
+		const result = spawnSync(
+			process.execPath,
+			[
+				join(
+					marketplace,
+					"plugins/harnessforce/skills/propose-improvements/scripts/summarize.mjs",
+				),
+				"clear",
+			],
+			{ encoding: "utf8" },
+		);
+		expect(result).toMatchObject({
+			status: 2,
+			stderr: "Usage: /harnessforce:insights [--all] [--no-send]\n",
+		});
+	});
 
 	// environments.md「接続先」: stagingのbuildでは、CLIも同じbuildの出力から導入する。
 	describe("CLI packages", () => {

@@ -19,7 +19,7 @@
 			"project": ["src/**", "*.ts"]
 		},
 		"plugins/harnessforce": {
-			"entry": ["src/main.ts", "src/entry.cjs"],
+			"entry": ["src/main.ts", "src/entry.cjs", "src/insights-summary.mjs"],
 			"project": ["src/**", "test/**", "*.ts", "*.mjs"],
 			// entryと同じdirectoryへbuildが出力するbundleであり、sourceの隣には無い。
 			"ignoreUnresolved": ["./harnessforce-hook-main.cjs"]

@@ -1,7 +1,11 @@
 // `/harnessforce:insights`が使う。`harnessforce insights --json`を実行し、分析結果と、提案を作る条件の判定を表示する。
 // 判定はimprovement-loop.md「作る条件」に従う。harnessforceの文言（stderr）と終了コードはそのまま渡す。
-// Node.js 18で依存なしに動かすため、plainなESMで書く。
+// build.mjsがagent-coreとともに1つのfileへまとめ、`skills/propose-improvements/scripts/summarize.mjs`として配る。
 import { spawnSync } from "node:child_process";
+import {
+	commandLineFor,
+	findCommand,
+} from "@harnessforce/agent-core/process/lookup";
 
 const USAGE = "Usage: /harnessforce:insights [--all] [--no-send]";
 const HF_MISSING =
@@ -444,23 +448,37 @@ function render(output) {
 	return lines;
 }
 
-function run(args) {
+// correlation.md「commandの解決」: 名前のままNode.jsやcmd.exeに探させると、現在のdirectory（開いたrepository）の`harnessforce`が起動されうる。
+async function harnessforceCommand(args) {
+	const context = {
+		platform: process.platform,
+		env: process.env,
+		bases: [process.cwd()],
+	};
+	const file = await findCommand("harnessforce", context);
+	// 起動できない`.cmd`（pathが%や!を含む、cmd.exeが無い）は、harnessforceがPATHに無い場合と同じに扱う。
+	return file === undefined ? undefined : commandLineFor(file, args, context);
+}
+
+async function run(args) {
 	if (!args.every((arg) => ALLOWED_FLAGS.has(arg))) {
 		process.stderr.write(`${USAGE}\n`);
 		return 2;
 	}
-	// Windowsのnpmのharnessforceは.cmdであり、shellを通さないと起動できない。引数は上で許した値だけである。
-	const hf = spawnSync(
-		"harnessforce",
-		["insights", "--json", ...new Set(args)],
-		{
-			stdio: ["ignore", "pipe", "inherit"],
-			encoding: "utf8",
-			maxBuffer: 256 * 1024 * 1024,
-			shell: process.platform === "win32",
-		},
-	);
-	if (hf.error?.code === "ENOENT") {
+	const command = await harnessforceCommand([
+		"insights",
+		"--json",
+		...new Set(args),
+	]);
+	const hf = command
+		? spawnSync(command.file, command.args, {
+				stdio: ["ignore", "pipe", "inherit"],
+				encoding: "utf8",
+				maxBuffer: 256 * 1024 * 1024,
+				windowsVerbatimArguments: command.verbatim,
+			})
+		: undefined;
+	if (!hf || hf.error?.code === "ENOENT") {
 		process.stderr.write(`${HF_MISSING}\n`);
 		return 1;
 	}
@@ -475,4 +493,4 @@ function run(args) {
 	return code;
 }
 
-process.exitCode = run(process.argv.slice(2));
+process.exitCode = await run(process.argv.slice(2));
