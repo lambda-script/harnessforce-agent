@@ -85,6 +85,10 @@ export const retiredStatusLineRemovedMessage = (backupPath: string) =>
 export const retiredStatusLineBackupFailedMessage =
 	"Could not back up the Claude Code user settings, so the status line left by the retired `harnessforce usage-limits` command was not changed. Run `harnessforce login` again to retry";
 
+// correlation.md「CLI」の手順8: 割り当てたrepositoryが無い間の最後の行。手順2か3の画面のURLが分からなければ場所だけを示す。
+export const assignRepositoriesNextMessage = (url: string | undefined) =>
+	`Next: once repositories are assigned to a project ${url === undefined ? "in Harnessforce" : `at ${url}`}, run \`harnessforce import\` to send your past sessions`;
+
 // buildの既定以外の接続先へ向けたときに、利用者が気づくための1行。
 export const nonDefaultConnectionMessage = (url: string) =>
 	`Connecting to ${url} (not the default production endpoint)`;
