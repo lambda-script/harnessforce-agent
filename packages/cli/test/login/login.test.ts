@@ -1638,3 +1638,195 @@ describe("harnessforce login and the retired usage-limits status line", () => {
 		expect(existsSync(home.statePath)).toBe(false);
 	});
 });
+
+// correlation.md「CLI」の手順8: 最後の行は、接続済みのrepositoryの一覧が空かで、次に打つ操作を変える。
+describe("harnessforce login and the next step", () => {
+	const ASSIGN_URL =
+		"https://app.example.test/en/w/acme/projects/P1/settings/repositories";
+	const assignNext = (url: string) =>
+		`Next: once repositories are assigned to a project at ${url}, run \`harnessforce import\` to send your past sessions`;
+	const assignNextWithoutUrl =
+		"Next: once repositories are assigned to a project in Harnessforce, run `harnessforce import` to send your past sessions";
+	const page = (repositories: string[], nextCursor: string | null = null) => ({
+		status: 200,
+		body: {
+			items: repositories.map((repository) => ({ repository })),
+			next_cursor: nextCursor,
+		},
+	});
+	const onboarding = (overrides: Record<string, unknown> = {}) => ({
+		status: 200,
+		body: {
+			workspace_name: "Acme",
+			role: "owner",
+			has_seat: true,
+			steps: [
+				{ step: 2, status: "done", url: "https://app.example.test/c" },
+				{ step: 3, status: "todo", url: ASSIGN_URL },
+			],
+			...overrides,
+		},
+	});
+	// 最後の行だけを入れ替えた、成功の出力。
+	const finishedWith = (home: string, next: string) =>
+		finished(home).replace(`${M.next}\n`, `${next}\n`);
+
+	const login = async (
+		server: Awaited<ReturnType<typeof startCredentialsServer>>,
+		browser = fakeBrowser(),
+	) => {
+		const home = makeHome();
+		const result = await runLogin([], {
+			homeDir: home.home,
+			defaultUrl: server.base,
+			openBrowser: browser.open,
+		});
+		return { home: home.home, result };
+	};
+
+	it("tells the user to import when a repository is assigned to a project", async () => {
+		const server = await startCredentialsServer({
+			repositories: [page(["github.com/acme/api"])],
+		});
+		const { home, result } = await login(server);
+		expect(result).toEqual({ code: 0, out: finished(home), err: "" });
+		// 発行したaccess tokenで、importと同じ一覧を読む。onboardingは読まない。
+		expect(server.readRequests).toEqual([
+			{
+				url: "/api/v1/repositories",
+				authorization: `Bearer ${issued.access_token}`,
+			},
+		]);
+	});
+
+	it("reads every page of the repository list before deciding", async () => {
+		const server = await startCredentialsServer({
+			repositories: [page([], "1"), page(["github.com/acme/api"])],
+		});
+		const { home, result } = await login(server);
+		expect(result).toEqual({ code: 0, out: finished(home), err: "" });
+		expect(server.readRequests.map((request) => request.url)).toEqual([
+			"/api/v1/repositories",
+			"/api/v1/repositories?cursor=1",
+		]);
+	});
+
+	it("points at the URL of step 3 when no repository is assigned", async () => {
+		const server = await startCredentialsServer({
+			repositories: [page([])],
+			onboarding: onboarding(),
+		});
+		const { home, result } = await login(server);
+		expect(result).toEqual({
+			code: 0,
+			out: finishedWith(home, assignNext(ASSIGN_URL)),
+			err: "",
+		});
+		expect(server.readRequests).toEqual([
+			{
+				url: "/api/v1/repositories",
+				authorization: `Bearer ${issued.access_token}`,
+			},
+			{
+				url: "/api/v1/onboarding",
+				authorization: `Bearer ${issued.access_token}`,
+			},
+		]);
+	});
+
+	it("gives a member the same line with the URL from admin_steps", async () => {
+		const server = await startCredentialsServer({
+			repositories: [page([])],
+			onboarding: onboarding({
+				role: "member",
+				steps: [{ step: 4, status: "done", url: "https://app.example.test/c" }],
+				admin_steps: [{ step: 3, status: "todo", url: ASSIGN_URL }],
+			}),
+		});
+		const { home, result } = await login(server);
+		expect(result).toEqual({
+			code: 0,
+			out: finishedWith(home, assignNext(ASSIGN_URL)),
+			err: "",
+		});
+	});
+
+	it("points at the GitHub App step first while it is not done", async () => {
+		const connectUrl =
+			"https://app.example.test/en/w/acme/settings/connections";
+		const server = await startCredentialsServer({
+			repositories: [page([])],
+			onboarding: onboarding({
+				steps: [
+					{ step: 3, status: "todo", url: ASSIGN_URL },
+					{ step: 2, status: "todo", url: connectUrl },
+				],
+			}),
+		});
+		const { home, result } = await login(server);
+		expect(result.out).toBe(finishedWith(home, assignNext(connectUrl)));
+	});
+
+	it("drops control characters from the URL before printing it", async () => {
+		const server = await startCredentialsServer({
+			repositories: [page([])],
+			onboarding: onboarding({
+				steps: [{ step: 3, status: "todo", url: `${ASSIGN_URL}\u001b[2J` }],
+			}),
+		});
+		const { home, result } = await login(server);
+		expect(result.out).toBe(finishedWith(home, assignNext(`${ASSIGN_URL}[2J`)));
+	});
+
+	it.each([
+		["onboarding cannot be read", { status: 500 }],
+		["onboarding has no step 3", onboarding({ steps: [] })],
+		[
+			"step 3 is already done",
+			onboarding({
+				steps: [{ step: 3, status: "done", url: ASSIGN_URL }],
+			}),
+		],
+		["onboarding is not the documented shape", { status: 200, body: {} }],
+	])("names no URL when %s", async (_case, reply) => {
+		const server = await startCredentialsServer({
+			repositories: [page([])],
+			onboarding: reply,
+		});
+		const { home, result } = await login(server);
+		expect(result).toEqual({
+			code: 0,
+			out: finishedWith(home, assignNextWithoutUrl),
+			err: "",
+		});
+	});
+
+	it.each([
+		["returns 500", [{ status: 500 }]],
+		["returns 401", [{ status: 401 }]],
+		["is not the documented shape", [{ status: 200, body: { items: "x" } }]],
+		["fails on a later page", [page([], "1"), { status: 500 }]],
+	])(
+		"keeps the import line and succeeds when the repository list %s",
+		async (_case, repositories) => {
+			const server = await startCredentialsServer({
+				repositories,
+				onboarding: onboarding(),
+			});
+			const { home, result } = await login(server);
+			expect(result).toEqual({ code: 0, out: finished(home), err: "" });
+		},
+	);
+
+	it("returns the browser's completion page before reading the lists", async () => {
+		const browser = fakeBrowser();
+		const server = await startCredentialsServer({
+			repositories: [page(["github.com/acme/api"])],
+			// 完了の画面が返るまで応答しない。loopbackの応答を保留したまま読むと、ここで止まる。
+			beforeRead: () => browser.pages[0] ?? Promise.resolve(),
+		});
+		const { home, result } = await login(server, browser);
+		expect(result).toEqual({ code: 0, out: finished(home), err: "" });
+		expect(await browser.pages[0]).toMatchObject({ status: 303 });
+	});
+});

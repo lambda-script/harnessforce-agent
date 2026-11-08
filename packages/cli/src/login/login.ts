@@ -61,6 +61,7 @@ import type {
 	Loopback,
 	startLoopback,
 } from "./loopback.js";
+import { nextStepLine } from "./next-step.js";
 import { createLoginSecrets, type LoginSecrets } from "./pkce.js";
 import {
 	hasRetiredStatusLine,
@@ -105,8 +106,13 @@ const stop = (message: LoginMessage): never =>
 
 export function login(args: LoginArgs, deps: LoginDeps): Promise<number> {
 	return runUntilStop(async () => {
-		const { codexPath, connection, isKernelKeyring, isPluginAutoUpdateOn } =
-			await runLogin(args, deps);
+		const {
+			accessToken,
+			codexPath,
+			connection,
+			isKernelKeyring,
+			isPluginAutoUpdateOn,
+		} = await runLogin(args, deps);
 		// 既定の本番以外へ向けた端末で、利用者が接続先に気づけるようにする。既定のときは何も足さない。
 		if (connection !== withoutExtras(new URL(deps.defaultUrl)))
 			deps.stdout(`${nonDefaultConnectionMessage(connection)}\n`);
@@ -116,18 +122,20 @@ export function login(args: LoginArgs, deps: LoginDeps): Promise<number> {
 			...(isKernelKeyring ? [LOGIN_MESSAGES.savedToKernelKeyring] : []),
 			...(isPluginAutoUpdateOn ? [LOGIN_MESSAGES.pluginAutoUpdateOn] : []),
 			codexNotes(codexPath),
-			LOGIN_MESSAGES.next,
+			await nextStepLine(new URL(connection), accessToken, deps.fetch),
 		];
 		deps.stdout(`${lines.join("\n")}\n`);
 		return 0;
 	}, deps.stderr);
 }
 
-// 書いたCodexの`config.toml`のpath、記録した接続先、keyをkernelのkeyringへ保存したかを返す。
+// 発行したaccess token、書いたCodexの`config.toml`のpath、記録した接続先、keyをkernelのkeyringへ保存したかを返す。
+// loopbackの応答は返し終えている。
 async function runLogin(
 	args: LoginArgs,
 	deps: LoginDeps,
 ): Promise<{
+	accessToken: string;
 	codexPath: string;
 	connection: string;
 	isKernelKeyring: boolean;
@@ -216,6 +224,7 @@ async function runLogin(
 		)
 			deps.stdout(`${CONFIG_MESSAGES.managed}\n`);
 		return {
+			accessToken: issued.apiToken.accessToken,
 			codexPath,
 			connection: recordedUrl,
 			isKernelKeyring: store.isKernelKeyring,

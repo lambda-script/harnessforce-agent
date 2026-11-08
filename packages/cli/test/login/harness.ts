@@ -40,14 +40,21 @@ export const TOKEN_EXPIRY: TokenExpiry = {
 	refreshToken: "2026-12-27T00:00:00Z",
 };
 
-// Harnessforce（apps/web）の代わり。authorization server metadataと発行のendpointだけを持つ。
+// Harnessforce（apps/web）の代わり。authorization server metadata、発行のendpoint、
+// 成功の後に最後の行を決めるRead APIの2つ（repositoriesとonboarding。既定は404）を持つ。
 export async function startCredentialsServer(
 	options: {
 		metadata?: (base: string) => Reply;
 		credentials?: Reply;
 		basePath?: string;
+		// `GET /api/v1/repositories`のページ。2ページ目以降はcursorで要求される。
+		repositories?: Reply[];
+		onboarding?: Reply;
+		// Read APIへ応答する前に待つ。loopbackの応答の前に読んでいないかを確かめる。
+		beforeRead?: () => Promise<unknown>;
 	} = {},
 ) {
+	const readRequests: { url: string; authorization: string | undefined }[] = [];
 	const credentialRequests: { headers: IncomingHttpHeaders; body: unknown }[] =
 		[];
 	let metadataRequests: string[] = [];
@@ -84,6 +91,25 @@ export async function startCredentialsServer(
 			});
 			return reply(options.credentials ?? { status: 201, body: issued });
 		}
+		const readPath = req.url?.split("?")[0];
+		if (
+			req.method === "GET" &&
+			(readPath === `${basePath}/api/v1/repositories` ||
+				readPath === `${basePath}/api/v1/onboarding`)
+		) {
+			readRequests.push({
+				url: req.url ?? "",
+				authorization: req.headers.authorization,
+			});
+			await options.beforeRead?.();
+			if (readPath === `${basePath}/api/v1/onboarding`)
+				return reply(options.onboarding ?? { status: 404 });
+			const cursor = new URL(req.url ?? "", "http://x").searchParams.get(
+				"cursor",
+			);
+			const page = cursor === null ? 0 : Number(cursor);
+			return reply(options.repositories?.[page] ?? { status: 404 });
+		}
 		reply({ status: 404 });
 	});
 	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -95,6 +121,7 @@ export async function startCredentialsServer(
 	return {
 		base,
 		credentialRequests,
+		readRequests,
 		metadataRequests: () => metadataRequests,
 	};
 }

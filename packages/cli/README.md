@@ -121,7 +121,9 @@ tokens are sent only to the origins pinned by `harnessforce login`.
 
 `harnessforce login [--port <port>] [--no-plugin-auto-update]` connects this machine to a Harnessforce Workspace. Before
 opening the browser it prints the URL, that it waits up to 5 minutes, and that Ctrl+C cancels (exit 130, nothing
-changed). It ends with `Next: run \`harnessforce import\` to send your past sessions`:
+changed). It ends with `Next: run \`harnessforce import\` to send your past sessions`. While the Workspace has no
+repository assigned to a project, it instead ends with `Next: once repositories are assigned to a project at <url>, run
+\`harnessforce import\` to send your past sessions`, where `<url>` is the page that `harnessforce status` shows for that step:
 
 1. It checks the OS keychain first: macOS Keychain or the Windows Credential Manager (through
    [`@napi-rs/keyring`](https://github.com/Brooooooklyn/keyring-node)). On Linux it writes and deletes
