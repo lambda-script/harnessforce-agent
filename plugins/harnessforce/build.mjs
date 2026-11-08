@@ -214,6 +214,20 @@ async function writePlugin(plugin, connection, version) {
 		dts: false,
 		logLevel: "warn",
 	});
+	// improvement-loop.md「構成」: `/harnessforce:insights`のscript。依存なしに動くよう、agent-coreのcommandの解決をまとめる。
+	await build({
+		config: false,
+		cwd: pluginDir,
+		entry: { summarize: join(pluginDir, "src/insights-summary.mjs") },
+		outDir: join(plugin, "skills/propose-improvements/scripts"),
+		clean: false,
+		platform: "node",
+		format: "esm",
+		fixedExtension: true,
+		target: "node18",
+		dts: false,
+		logLevel: "warn",
+	});
 }
 
 /**

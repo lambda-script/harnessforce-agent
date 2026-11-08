@@ -332,12 +332,8 @@ describe("insights command", () => {
 
 	it("runs harnessforce insights --json through the shipped summary script with the user's arguments", () => {
 		const pluginRoot = ["$", "{CLAUDE_PLUGIN_ROOT}"].join("");
+		// buildがsrc/insights-summary.mjsをこのpathへまとめる。配ったscriptが動くことはplugins/harnessforce/test/bundle.test.tsが確かめる。
 		expect(body).toContain(`node "${pluginRoot}/${SUMMARIZE}" $ARGUMENTS`);
-		expect(
-			existsSync(
-				new URL(`../plugins/harnessforce/${SUMMARIZE}`, import.meta.url),
-			),
-		).toBe(true);
 		expect(frontmatter["argument-hint"]).toBe("[--all] [--no-send]");
 	});
 

@@ -87,7 +87,7 @@ describe("collectInvocations", () => {
 				markdown: [],
 				hookSources: [],
 				scriptSources: [
-					'const ALLOWED_FLAGS = new Set(["--all", "--no-send"]);\nspawnSync("harnessforce", ["insights", "--json", ...new Set(args)], {});',
+					'const ALLOWED_FLAGS = new Set(["--all", "--no-send"]);\nawait harnessforceCommand(["insights", "--json", ...new Set(args)]);',
 				],
 			}),
 		).toEqual([

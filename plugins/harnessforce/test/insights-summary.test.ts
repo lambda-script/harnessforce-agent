@@ -1,5 +1,11 @@
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import {
+	chmodSync,
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tempDir } from "@harnessforce/test-support/temp-dir";
@@ -7,9 +13,10 @@ import { describe, expect, it } from "vitest";
 
 // improvement-loop.md「提案の記録」: `/harnessforce:insights`は`harnessforce insights --json`を実行し、その出力から提案を作る。
 // このscriptは`harnessforce insights --json`を起動し、stderrの文言をそのまま流し、「作る条件」を対象ごとに判定して表示する。
+// turboはtestの前にこのpackageのbuildを実行する。直接vitestを実行する場合は先に`pnpm build`する。
 const SCRIPT = fileURLToPath(
 	new URL(
-		"../skills/propose-improvements/scripts/summarize.mjs",
+		"../dist/marketplace/plugins/harnessforce/skills/propose-improvements/scripts/summarize.mjs",
 		import.meta.url,
 	),
 );
@@ -232,6 +239,30 @@ describe.skipIf(process.platform === "win32")("insights summary script", () => {
 		expect(result.stderr).toBe(
 			"`harnessforce` was not found. Install the CLI with `/harnessforce:setup`\n",
 		);
+	});
+
+	// correlation.md「commandの解決」: 現在のdirectoryと、それを含むrepositoryから`harnessforce`を探さない。
+	// WindowsのNode.jsとcmd.exeは現在のdirectoryを先に探す。Windows以外では`PATH`の空の要素が現在のdirectoryを表す。
+	it("does not run a harnessforce placed in the repository it runs in", () => {
+		const repo = tempDir("hf-repo-");
+		mkdirSync(join(repo, ".git"));
+		const planted = join(repo, "planted.txt");
+		writeFileSync(
+			join(repo, "harnessforce"),
+			`#!/bin/sh\ntouch "${planted}"\nexit 0\n`,
+		);
+		chmodSync(join(repo, "harnessforce"), 0o755);
+		const dir = fakeHf(JSON.stringify(output(sufficientSessions())), "", 0);
+		const result = spawnSync(process.execPath, [SCRIPT], {
+			cwd: repo,
+			encoding: "utf8",
+			env: { PATH: `:${dir}:${process.env.PATH ?? ""}` },
+		});
+		expect(existsSync(planted)).toBe(false);
+		expect(readFileSync(join(dir, "args.txt"), "utf8")).toBe(
+			"insights\n--json\n",
+		);
+		expect(result.status).toBe(0);
 	});
 
 	it("prints nothing more when harnessforce ends without an analysis", () => {

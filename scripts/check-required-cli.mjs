@@ -67,15 +67,13 @@ function hookLines(source) {
 	);
 }
 
-// skillのscriptは`spawnSync("harnessforce", [...])`で起動し、利用者の引数のうちALLOWED_FLAGSに許したものだけを足して渡す
-// （skills/propose-improvements/scripts/summarize.mjs）。足すoptionは変数にあるため、その定義から読む。
+// skillのscriptは`harnessforceCommand([...])`で起動し、利用者の引数のうちALLOWED_FLAGSに許したものだけを足して渡す
+// （src/insights-summary.mjs。buildがskills/propose-improvements/scripts/summarize.mjsへまとめる）。足すoptionは変数にあるため、その定義から読む。
 function scriptLines(source) {
 	const forwarded = stringLiterals(
 		/\bALLOWED_FLAGS = new Set\(\[([^\]]*)\]\)/.exec(source)?.[1] ?? "",
 	);
-	return [
-		...source.matchAll(/\bspawnSync\(\s*"harnessforce",\s*\[([^\]]*)\]/g),
-	].map(
+	return [...source.matchAll(/\bharnessforceCommand\(\s*\[([^\]]*)\]/g)].map(
 		([, args]) =>
 			`harnessforce ${[...stringLiterals(args), ...forwarded].join(" ")}`,
 	);
@@ -117,7 +115,10 @@ export function pluginInvocations() {
 			...filesUnder(join(pluginDir, "skills"), ".md"),
 		].map((text) => text.replaceAll("\r\n", "\n")),
 		hookSources: filesUnder(join(pluginDir, "src"), ".ts"),
-		scriptSources: filesUnder(join(pluginDir, "skills"), ".mjs"),
+		scriptSources: [
+			...filesUnder(join(pluginDir, "skills"), ".mjs"),
+			...filesUnder(join(pluginDir, "src"), ".mjs"),
+		],
 	});
 }
 
