@@ -925,7 +925,13 @@ function parseArgs(argv) {
 	return args;
 }
 
+// SKILL.md "compatibility": on Windows, cmd.exe and Node.js look for a bare `npx` in the current directory, the opened
+// repository, before PATH, so the script does not start mermaid-cli there.
+const WINDOWS_UNSUPPORTED =
+	"render.mjs does not start mermaid-cli on Windows. Render the diagram on macOS or Linux";
+
 function mmdc(input, output, theme, configFile, scale) {
+	if (process.platform === "win32") return WINDOWS_UNSUPPORTED;
 	const [command, ...prefix] = process.env.MMDC
 		? [process.env.MMDC]
 		: ["npx", "-y", MERMAID_CLI];

@@ -1,5 +1,5 @@
 import type { Dirent } from "node:fs";
-import { readdir, readFile, realpath, stat } from "node:fs/promises";
+import { open, readdir, realpath, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { isObject } from "../object.js";
 
@@ -20,7 +20,34 @@ export async function readFileIfExists(
 	guard();
 	const info = await stat(path).catch(() => undefined);
 	if (!info?.isFile() || info.size > MAX_FILE_BYTES) return undefined;
-	return readFile(path).catch(() => undefined);
+	return readAtMost(path, MAX_FILE_BYTES).catch(() => undefined);
+}
+
+// procfsのfileは大きさを0と報告し、読むと上限を超えうる（/proc/self/pagemapは数百GiB）。読む量そのものを上限+1 byteで打ち切る。
+async function readAtMost(
+	path: string,
+	maxBytes: number,
+): Promise<Buffer | undefined> {
+	const handle = await open(path, "r");
+	try {
+		const buffer = Buffer.allocUnsafe(maxBytes + 1);
+		let length = 0;
+		while (length < buffer.length) {
+			const { bytesRead } = await handle.read(
+				buffer,
+				length,
+				buffer.length - length,
+				null,
+			);
+			if (bytesRead === 0) break;
+			length += bytesRead;
+		}
+		return length > maxBytes
+			? undefined
+			: Buffer.from(buffer.subarray(0, length));
+	} finally {
+		await handle.close();
+	}
 }
 
 export async function exists(path: string, guard: Guard): Promise<boolean> {

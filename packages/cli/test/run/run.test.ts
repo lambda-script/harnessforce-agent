@@ -423,14 +423,17 @@ describe("harnessforce run", () => {
 		expect(r.launches).toEqual([]);
 	});
 
-	it("does not print terminal control characters from candidate titles", async () => {
+	it("does not print terminal control characters or direction characters from candidate titles", async () => {
 		const r = await runHf(ISSUE_ARGS, {
 			issue: () => ({ status: 404 }),
 			list: () => ({
 				status: 200,
 				body: {
 					items: [
-						issueBody("ENG-\u001b[2J1", "Log\u001b]0;x\u0007in\n\t\u009bbad"),
+						issueBody(
+							"ENG-\u001b[2J1",
+							"Log\u001b]0;x\u0007in\n\t\u009bbad\u202e",
+						),
 					],
 					next_cursor: null,
 				},

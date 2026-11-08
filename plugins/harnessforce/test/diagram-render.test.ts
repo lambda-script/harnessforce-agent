@@ -549,6 +549,34 @@ it.skipIf(process.platform === "win32")(
 	},
 );
 
+// SKILL.md "compatibility": on Windows the script does not start mermaid-cli. cmd.exe and Node.js look for a bare `npx`
+// in the current directory first.
+it.skipIf(process.platform === "win32")(
+	"render.mjs does not start mermaid-cli on Windows",
+	() => {
+		const dir = mkdtempSync(join(work, "windows-"));
+		const marker = join(dir, "mmdc-called");
+		const stub = join(dir, "mmdc");
+		writeFileSync(stub, `#!/bin/sh\ntouch "${marker}"\n`);
+		chmodSync(stub, 0o755);
+		const diagram = join(dir, "x.mmd");
+		writeFileSync(diagram, "flowchart LR\n  a --> b\n");
+		const asWindows =
+			'data:text/javascript,Object.defineProperty(process,"platform",{value:"win32"})';
+
+		const result = spawnSync(
+			"node",
+			["--import", asWindows, RENDER, diagram, "--out", join(dir, "out")],
+			// os.tmpdir() reads TEMP on Windows.
+			{ encoding: "utf8", env: { ...process.env, MMDC: stub, TEMP: dir } },
+		);
+
+		assert.equal(result.status, 1);
+		assert.match(result.stderr, /does not start mermaid-cli on Windows/);
+		assert.equal(existsSync(marker), false);
+	},
+);
+
 it("render.mjs rejects an option without a value", () => {
 	const result = spawnSync("node", [RENDER, "x.mmd", "--scale"], {
 		encoding: "utf8",

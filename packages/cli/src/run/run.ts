@@ -5,6 +5,7 @@ import { type AccessMessages, verifyCliAccess } from "../credentials/access.js";
 import { createApiTokenSession } from "../credentials/api-token-session.js";
 import type { Keychain } from "../credentials/keychain.js";
 import { runUntilStop, stopWith } from "../shared/stop.js";
+import { printable } from "../shared/terminal.js";
 import { resolveLaunchContext } from "./context.js";
 import { type IssueCandidate, resolveIssue } from "./issues.js";
 import { buildLaunch, type Launch, resourceAttributes } from "./launch.js";
@@ -44,9 +45,7 @@ export type RunArgs = {
 
 const stop = (message: RunMessage): never => stopWith(RUN_MESSAGES[message]);
 
-// 候補の識別子とタイトルはIssueの提供元の外部の利用者が書きうるため、端末の制御文字を表示しない。
-const printable = (text: string) => text.replace(/\p{Cc}/gu, "");
-
+// 候補の識別子とタイトルはIssueの提供元の外部の利用者が書きうる。
 function candidateList(candidates: readonly IssueCandidate[]): string {
 	const lines = candidates.map(
 		({ identifier, title }) => `${printable(identifier)}  ${printable(title)}`,
