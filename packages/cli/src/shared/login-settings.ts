@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { readManagedEnv } from "@harnessforce/agent-core/managed";
 import { isObject } from "@harnessforce/agent-core/object";
 
 // `harnessforce login`が書く設定と、`harnessforce logout`と`harnessforce config`がそれを書き換える規則を1か所に置く。
@@ -55,6 +56,14 @@ export const CONTENT_ENV_NAMES = [
 	"OTEL_LOG_TOOL_CONTENT",
 ] as const;
 type ContentEnvName = (typeof CONTENT_ENV_NAMES)[number];
+
+// managed settingsのfileの`env`が本文の変数を持つか。持てば本人は端末の設定で上書きできない。
+export async function hasManagedContentEnv(
+	managedDir: string,
+): Promise<boolean> {
+	const managed = await readManagedEnv(managedDir, CONTENT_ENV_NAMES);
+	return Object.values(managed).some((value) => value !== undefined);
+}
 
 // correlation.md「CLI」の手順6。送らない区分も明示に`0`で書く。
 // 未設定の変数がagentの既定や他の変数に従って、選んでいない区分の本文が届かないようにするため。

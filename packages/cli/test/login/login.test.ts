@@ -9,6 +9,7 @@ import {
 import { join } from "node:path";
 import { parse } from "@decimalturn/toml-patch";
 import { storedToken } from "@harnessforce/test-support/api-token";
+import { tempDir } from "@harnessforce/test-support/temp-dir";
 import { describe, expect, it } from "vitest";
 import { codeChallenge } from "../../src/login/pkce.js";
 import { fakeKeychain, untouchableKeychain } from "../support/cli.js";
@@ -56,6 +57,8 @@ const M = {
 		"Automatic updates for the Harnessforce plugin are on. To turn them off, run `harnessforce login --no-plugin-auto-update` or use /plugin",
 	contentNotStored:
 		"This workspace does not store content, so sending content was not enabled. An owner or admin can turn it on under Collection & retention in the workspace settings, then run `harnessforce config set send-content on` again",
+	managed:
+		"Your organization's managed settings also set whether content is sent, and they override this machine's setting. Ask your administrator to change them",
 	contentNotSent:
 		"Content is not sent from this machine. Run `harnessforce config set send-content on` to send it",
 	deviceSettingsUnreadable:
@@ -91,12 +94,12 @@ const codexNotes = (home: string) =>
 // 最後の行は次の1手（手順8）。
 const afterContentNotice = (home: string) =>
 	`${M.success}\n${M.pluginAutoUpdateOn}\n${codexNotes(home)}\n${M.next}\n`;
-// 本文の案内（手順6）は、完了の表示（手順8）より前に出る。端末の本文の送信の設定が無ければ送らない旨を示す。
+// 本文の案内（手順6）は、完了の表示（手順8）より前に出る。既定の応答のWorkspaceは本文を保存しない。
 const finished = (home: string) =>
-	`${M.contentNotSent}\n${afterContentNotice(home)}`;
+	`${M.contentNotStored}\n${afterContentNotice(home)}`;
 
 const contentEnabled = (categories: string, readers: string, days = 30) =>
-	`Sending ${categories} is now enabled. Values that match known patterns for secrets and personal information are masked, but not everything can be detected. ${readers}. It is deleted after ${days} days`;
+	`Sending ${categories} is now enabled. Values that match known patterns for secrets and personal information are masked, but not everything can be detected. ${readers}. It is deleted after ${days} days. To stop sending it, run \`harnessforce config set send-content off\`.`;
 
 const content = (
 	overrides: Partial<{
@@ -391,7 +394,7 @@ describe("harnessforce login", () => {
 		});
 		expect(result).toEqual({
 			code: 0,
-			out: `${M.contentNotSent}\n${M.success}\n${M.kernelKeyring}\n${M.pluginAutoUpdateOn}\n${codexNotes(home.home)}\n${M.next}\n`,
+			out: `${M.contentNotStored}\n${M.success}\n${M.kernelKeyring}\n${M.pluginAutoUpdateOn}\n${codexNotes(home.home)}\n${M.next}\n`,
 			err: "",
 		});
 	});
@@ -939,6 +942,7 @@ describe("harnessforce login", () => {
 			device: string | undefined,
 			overrides: Parameters<typeof content>[0],
 			seed?: string,
+			managedEnv?: Record<string, string>,
 		) => {
 			const server = await startCredentialsServer({
 				credentials: {
@@ -952,8 +956,15 @@ describe("harnessforce login", () => {
 				mkdirSync(join(home.home, ".harnessforce"));
 				writeFileSync(devicePath, device);
 			}
+			const managedDir = tempDir("hf-managed-");
+			if (managedEnv)
+				writeFileSync(
+					join(managedDir, "managed-settings.json"),
+					JSON.stringify({ env: managedEnv }),
+				);
 			const result = await runLogin([], {
 				homeDir: home.home,
+				managedDir,
 				defaultUrl: server.base,
 				openBrowser: fakeBrowser().open,
 			});
@@ -1050,9 +1061,33 @@ describe("harnessforce login", () => {
 			expect(device).toBe("{not json");
 		});
 
-		it("writes 0 for every variable without the setting, whatever the workspace stores", async () => {
+		// 一度も選んでいない端末は送る。loginは端末の設定のfileを作らず、変えない。
+		it.each([
+			["no device settings file", undefined],
+			["no send_content key", '{"insights":{"send_report":false}}'],
+		])("turns content on with %s", async (_name, seed) => {
 			const { result, home, env, device } = await send(
-				undefined,
+				seed,
+				{ prompts: true, model_and_tools: true },
+				'{"env":{"OTEL_LOG_USER_PROMPTS":"0"}}',
+			);
+			expect(result).toEqual({
+				code: 0,
+				out: `${contentEnabled("the prompts you type, model responses and tool input and output", "Everyone in the workspace can read it")}\n${afterContentNotice(home.home)}`,
+				err: "",
+			});
+			expect(env).toMatchObject({
+				OTEL_LOG_USER_PROMPTS: "1",
+				OTEL_LOG_ASSISTANT_RESPONSES: "1",
+				OTEL_LOG_TOOL_DETAILS: "1",
+				OTEL_LOG_TOOL_CONTENT: "1",
+			});
+			expect(device).toBe(seed);
+		});
+
+		it("writes 0 for every variable when the setting is off", async () => {
+			const { result, home, env, device } = await send(
+				'{"send_content":false}',
 				{ prompts: true, model_and_tools: true },
 				'{"env":{"OTEL_LOG_USER_PROMPTS":"1"}}',
 			);
@@ -1062,7 +1097,77 @@ describe("harnessforce login", () => {
 				err: "",
 			});
 			expect(env).toMatchObject(NO_CONTENT_ENV);
-			expect(device).toBeUndefined();
+			expect(device).toBe('{"send_content":false}');
+		});
+
+		it.each([
+			["a send_content that is a string", '{"send_content":"off"}'],
+			["an array", "[]"],
+		])("writes 0 for every variable with %s", async (_name, text) => {
+			const { result, home, env } = await send(
+				text,
+				{ prompts: true, model_and_tools: true },
+				'{"env":{"OTEL_LOG_USER_PROMPTS":"1"}}',
+			);
+			expect(result).toEqual({
+				code: 0,
+				out: `${M.deviceSettingsUnreadable}\n${M.contentNotSent}\n${afterContentNotice(home.home)}`,
+				err: "",
+			});
+			expect(env).toMatchObject(NO_CONTENT_ENV);
+		});
+
+		it("writes 0 for every variable when it has no permission to read the setting", async () => {
+			// WindowsはPOSIXのpermission bitを持たず、rootはmodeによらず読める。
+			if (process.platform === "win32" || process.getuid?.() === 0) return;
+			const server = await startCredentialsServer({
+				credentials: {
+					status: 201,
+					body: {
+						...issued,
+						content: content({ prompts: true, model_and_tools: true }),
+					},
+				},
+			});
+			const home = makeHome();
+			const devicePath = join(home.home, ".harnessforce", "config.json");
+			mkdirSync(join(home.home, ".harnessforce"));
+			writeFileSync(devicePath, ON);
+			chmodSync(devicePath, 0o000);
+			const result = await runLogin([], {
+				homeDir: home.home,
+				defaultUrl: server.base,
+				openBrowser: fakeBrowser().open,
+			});
+			expect(result.out).toBe(
+				`${M.deviceSettingsUnreadable}\n${M.contentNotSent}\n${afterContentNotice(home.home)}`,
+			);
+			expect(JSON.parse(home.read() ?? "").env).toMatchObject(NO_CONTENT_ENV);
+		});
+
+		// managed settingsは本人が上書きできないため、止め方の文だけでは止まらないことを示す。
+		it("names managed settings that also set content after turning content on", async () => {
+			const { result, home } = await send(
+				undefined,
+				{ prompts: true, model_and_tools: true },
+				undefined,
+				{ OTEL_LOG_TOOL_CONTENT: "1" },
+			);
+			expect(result.out).toBe(
+				`${contentEnabled("the prompts you type, model responses and tool input and output", "Everyone in the workspace can read it")}\n${M.managed}\n${afterContentNotice(home.home)}`,
+			);
+		});
+
+		it("does not name managed settings when content was not turned on", async () => {
+			const { result, home } = await send(
+				'{"send_content":false}',
+				{ prompts: true, model_and_tools: true },
+				undefined,
+				{ OTEL_LOG_TOOL_CONTENT: "1" },
+			);
+			expect(result.out).toBe(
+				`${M.contentNotSent}\n${afterContentNotice(home.home)}`,
+			);
 		});
 	});
 
@@ -1263,11 +1368,11 @@ describe("harnessforce login", () => {
 					},
 				});
 				const home = makeHome();
-				if (sendContent) {
+				if (!sendContent) {
 					mkdirSync(join(home.home, ".harnessforce"));
 					writeFileSync(
 						join(home.home, ".harnessforce", "config.json"),
-						'{"send_content":true}',
+						'{"send_content":false}',
 					);
 				}
 				await runLogin([], {

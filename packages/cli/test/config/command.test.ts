@@ -1,4 +1,5 @@
 import {
+	chmodSync,
 	existsSync,
 	mkdirSync,
 	readFileSync,
@@ -86,8 +87,8 @@ const runConfig = (args: string[], deps: Partial<CliDeps> = {}) =>
 
 describe("harnessforce config get send-content", () => {
 	it.each([
-		["no file", undefined, "off"],
-		["no send_content key", { insights: { send_report: false } }, "off"],
+		["no file", undefined, "on"],
+		["no send_content key", { insights: { send_report: false } }, "on"],
 		["send_content true", { send_content: true }, "on"],
 		["send_content false", { send_content: false }, "off"],
 	])("prints the setting for %s", async (_name, device, value) => {
@@ -108,6 +109,10 @@ describe("harnessforce config get send-content", () => {
 			"a send_content that is not a boolean",
 			JSON.stringify({ send_content: 1 }),
 		],
+		[
+			"a send_content that is a string",
+			JSON.stringify({ send_content: "off" }),
+		],
 	])("refuses a device settings file with %s", async (_name, text) => {
 		const home = tempDir("hf-home-");
 		writeFile(devicePath(home), text);
@@ -117,6 +122,17 @@ describe("harnessforce config get send-content", () => {
 				out: "",
 				err: UNREADABLE_GET,
 			},
+		);
+	});
+	// 権限で読めないfileは、無いfileと違って`on`としない。
+	it("refuses a device settings file it has no permission to read", async () => {
+		// WindowsはPOSIXのpermission bitを持たず、rootはmodeによらず読める。
+		if (process.platform === "win32" || process.getuid?.() === 0) return;
+		const home = tempDir("hf-home-");
+		writeFile(devicePath(home), JSON.stringify({ send_content: false }));
+		chmodSync(devicePath(home), 0o000);
+		expect(await runConfig(["get", "send-content"], { homeDir: home })).toEqual(
+			{ code: 1, out: "", err: UNREADABLE_GET },
 		);
 	});
 });
@@ -175,6 +191,11 @@ describe("harnessforce config set send-content off", () => {
 		expect(readJson(devicePath(home))).toEqual({ send_content: false });
 		expect(existsSync(settingsPath(home))).toBe(false);
 		expect(existsSync(codexPath(home))).toBe(false);
+		// WindowsはPOSIXのpermission bitを持たない。
+		if (process.platform !== "win32") {
+			expect(statSync(devicePath(home)).mode & 0o777).toBe(0o600);
+			expect(statSync(join(home, ".harnessforce")).mode & 0o777).toBe(0o700);
+		}
 	});
 
 	it("names managed settings that also set content", async () => {
@@ -309,7 +330,7 @@ describe("harnessforce config set send-content on", () => {
 		expect(r).toEqual({
 			code: 0,
 			out:
-				"Sending the prompts you type is now enabled. Values that match known patterns for secrets and personal information are masked, but not everything can be detected. Within the workspace, only you can read it. It is deleted after 14 days\n" +
+				"Sending the prompts you type is now enabled. Values that match known patterns for secrets and personal information are masked, but not everything can be detected. Within the workspace, only you can read it. It is deleted after 14 days. To stop sending it, run `harnessforce config set send-content off`.\n" +
 				RESTART,
 			err: "",
 		});

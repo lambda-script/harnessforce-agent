@@ -1,4 +1,3 @@
-import { readManagedEnv } from "@harnessforce/agent-core/managed";
 import type { Fetch } from "@harnessforce/agent-core/types";
 import {
 	type AccessDeps,
@@ -20,6 +19,7 @@ import {
 	CONTENT_ENV_NAMES,
 	type ContentSettings,
 	contentEnv,
+	hasManagedContentEnv,
 } from "../shared/login-settings.js";
 import {
 	CONFIG_MESSAGES,
@@ -223,8 +223,7 @@ async function writeContentSettings(
 
 // managed settingsのfileの`env`が本文の変数を持てば、本人は上書きできないことを続けて示す。
 async function printApplied(lines: string[], deps: ConfigDeps): Promise<void> {
-	const managed = await readManagedEnv(deps.managedDir, CONTENT_ENV_NAMES);
-	const isManaged = Object.values(managed).some((value) => value !== undefined);
+	const isManaged = await hasManagedContentEnv(deps.managedDir);
 	deps.stdout(
 		`${[...lines, ...(isManaged ? [CONFIG_MESSAGES.managed] : [])].join("\n")}\n`,
 	);

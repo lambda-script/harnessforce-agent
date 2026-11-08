@@ -105,11 +105,11 @@ Codex runs this command through the `[[hooks.SessionStart]]` entry that `harness
 
 ## What is never sent
 
-Harnessforce never turns on prompt or body logging by itself. `harnessforce run` never turns it on, and `harnessforce login`
-sets `OTEL_LOG_USER_PROMPTS`, `OTEL_LOG_ASSISTANT_RESPONSES`, `OTEL_LOG_TOOL_DETAILS` and
-`OTEL_LOG_TOOL_CONTENT` in the Claude Code user settings to `1` only when `harnessforce config set send-content on`
-was run on this machine, and only for
-the categories the Workspace stores (prompts, and model responses with tool input and output). Without that,
+`harnessforce run` never turns on prompt or body logging. `harnessforce login` sets `OTEL_LOG_USER_PROMPTS`,
+`OTEL_LOG_ASSISTANT_RESPONSES`, `OTEL_LOG_TOOL_DETAILS` and `OTEL_LOG_TOOL_CONTENT` in the Claude Code user
+settings to `1` only for the categories the Workspace stores (prompts, and model responses with tool input and
+output). A machine that never chose sends them, and `harnessforce login` then says how to stop. After
+`harnessforce config set send-content off`, or when it cannot read `~/.harnessforce/config.json`,
 `harnessforce login` writes all four as `0` (and Codex's `log_user_prompt` and `log_agent_responses` as
 `false`), so a value left from an earlier run cannot keep sending. `OTEL_LOG_RAW_API_BODIES` is never written.
 For a Workspace that stores no content, `harnessforce login` writes `0` even then, prints the reason, and

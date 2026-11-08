@@ -25,10 +25,12 @@ import {
 import {
 	type ContentSettings,
 	contentEnv,
+	hasManagedContentEnv,
 	loginEnv,
 	sha256Hex,
 } from "../shared/login-settings.js";
 import {
+	CONFIG_MESSAGES,
 	codexNotes,
 	contentEnabledMessage,
 	keychainUnavailableMessage,
@@ -75,6 +77,8 @@ export type LoginDeps = {
 	openBrowser: (url: string) => Promise<boolean>;
 	startLoopback: typeof startLoopback;
 	homeDir: string;
+	// managed settingsのfileの基点のdirectory。本文の変数を持つかを読む。
+	managedDir: string;
 	// buildの入力で与えた既定の接続先（correlation.md「接続先」）。
 	defaultUrl: string;
 	callbackTimeoutMs: number;
@@ -205,6 +209,12 @@ async function runLogin(
 			deps.stdout(`${LOGIN_MESSAGES.deviceSettingsUnreadable}\n`);
 		// 発行と保存は済んでいるため、Workspaceが本文を保存しないことを失敗とせず、設定の場所を示す。
 		deps.stdout(`${contentNotice(issued.content, sendContent)}\n`);
+		// 止め方の文の通りに操作しても、managed settingsの値が優先されて止まらないことを続けて示す。
+		if (
+			isContentEnabled(issued.content, sendContent) &&
+			(await hasManagedContentEnv(deps.managedDir))
+		)
+			deps.stdout(`${CONFIG_MESSAGES.managed}\n`);
 		return {
 			codexPath,
 			connection: recordedUrl,
@@ -395,11 +405,15 @@ async function save(
 	};
 }
 
+const isContentEnabled = (content: ContentSettings, sendContent: boolean) =>
+	sendContent && (content.isPromptsStored || content.isModelAndToolsStored);
+
 function contentNotice(content: ContentSettings, sendContent: boolean): string {
-	if (!sendContent) return LOGIN_MESSAGES.contentNotSent;
-	return content.isPromptsStored || content.isModelAndToolsStored
-		? contentEnabledMessage(content)
-		: LOGIN_MESSAGES.contentNotStored;
+	if (isContentEnabled(content, sendContent))
+		return contentEnabledMessage(content);
+	return sendContent
+		? LOGIN_MESSAGES.contentNotStored
+		: LOGIN_MESSAGES.contentNotSent;
 }
 
 // correlation.md「Codex」: 利用者用のIngestKeyだけを書く。ApiTokenは書かない。
