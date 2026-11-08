@@ -7,7 +7,7 @@ import {
 	type Keychain,
 } from "./credentials/keychain.js";
 
-// 利用者用のkeyを付けて送られうる送信先（correlation.md「CLI」の送信先の固定）。
+// keyを付けて送られうる送信先（correlation.md「CLI」の送信先の固定）。
 const DESTINATION_VARIABLES = [
 	"HARNESSFORCE_ENDPOINT",
 	"OTEL_EXPORTER_OTLP_ENDPOINT",
@@ -72,9 +72,20 @@ async function selectKey(
 ): Promise<KeySelection> {
 	// managed settingsのfileが配るWorkspace用のkeyを優先し、テレメトリとsession registrationのkeyを揃える。
 	// processの環境変数はrepositoryのsettingsが書けるため、Workspace用のkeyには使わない。
-	const managed = await readManagedEnv(managedDir, ["HARNESSFORCE_INGEST_KEY"]);
-	if (managed.HARNESSFORCE_INGEST_KEY)
-		return { kind: "key", key: managed.HARNESSFORCE_INGEST_KEY };
+	const managed = await readManagedEnv(managedDir, [
+		"HARNESSFORCE_INGEST_KEY",
+		...DESTINATION_VARIABLES,
+	]);
+	if (managed.HARNESSFORCE_INGEST_KEY) {
+		// v2.1.282より前のClaude Codeでは、fileが配らない送信先の変数をrepositoryが書ける。
+		// 拒否してもhookが選ぶkeyと揃えるため、利用者用のkeyへ切り替えない。
+		const shippedOrigins = DESTINATION_VARIABLES.map(
+			(name) => parseAllowedUrl(managed[name])?.origin,
+		).filter((origin) => origin !== undefined);
+		return isShippedDestination(env, shippedOrigins)
+			? { kind: "key", key: managed.HARNESSFORCE_INGEST_KEY }
+			: { kind: "withheld" };
+	}
 	const workspaceId = env.HARNESSFORCE_WORKSPACE_ID;
 	if (!workspaceId) return { kind: "missing" };
 	// hookはこのprocessを1秒で打ち切る（correlation.md「実行環境」）。解錠の確認を待つ操作もその時間で止める。
@@ -90,11 +101,22 @@ async function selectKey(
 
 // projectのsettingsのenvはuser settingsより優先されるため、repositoryが送信先を書き換えて利用者用のkeyを受け取ることを防ぐ。
 function isPinnedDestination(env: Env, pinnedOrigin: string): boolean {
-	const destinations = DESTINATION_VARIABLES.map((name) => env[name]).filter(
-		(value): value is string => Boolean(value),
-	);
-	// otelHeadersHelperのprocessに渡る環境変数は記載されていない。変数が無ければOTLPの送信先はrepositoryが変えられないため出す。
-	return destinations.every(
+	return destinationsOf(env).every(
 		(value) => parseAllowedUrl(value)?.origin === pinnedOrigin,
+	);
+}
+
+// 組織がfileの`OTEL_EXPORTER_OTLP_*ENDPOINT`で自前のcollectorへ送る構成を壊さないため、`HARNESSFORCE_ENDPOINT`だけとは比べない。
+function isShippedDestination(env: Env, shippedOrigins: string[]): boolean {
+	return destinationsOf(env).every((value) => {
+		const origin = parseAllowedUrl(value)?.origin;
+		return origin !== undefined && shippedOrigins.includes(origin);
+	});
+}
+
+// otelHeadersHelperのprocessに渡る環境変数は記載されていない。変数が無ければOTLPの送信先はrepositoryが変えられないため、確かめずに出す。
+function destinationsOf(env: Env): string[] {
+	return DESTINATION_VARIABLES.map((name) => env[name]).filter(
+		(value): value is string => Boolean(value),
 	);
 }

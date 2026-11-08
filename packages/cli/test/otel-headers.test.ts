@@ -87,18 +87,104 @@ describe("harnessforce otel-headers", () => {
 			}),
 		).toEqual({ code: 0, out: header("hf_ik_ws1_user"), err: "" }));
 
-	it("prints the managed Workspace key without reading the keychain or the destination", async () =>
-		// runCliの既定のkeychainは、触れると例外になる。
+	// correlation.md「CLI」の送信先の固定: Workspace用のkeyはmanaged settingsのfileが配るoriginと比べる。
+	// runCliの既定のkeychainは触れると例外になるため、keychainを読まないことも確かめる。
+	const managedIngest = (env: Record<string, string> = {}) =>
+		managedDir({
+			env: {
+				HARNESSFORCE_INGEST_KEY: "hf_ik_ws9_managed",
+				HARNESSFORCE_ENDPOINT: "https://ingest.example.test/base",
+				...env,
+			},
+		});
+
+	it("prints the managed Workspace key without reading the keychain when no destination variable is present", async () =>
+		expect(
+			await runCli(["otel-headers"], { env: {}, managedDir: managedIngest() }),
+		).toEqual({ code: 0, out: header("hf_ik_ws9_managed"), err: "" }));
+
+	it("prints the managed Workspace key when every destination matches an origin the managed file ships", async () =>
 		expect(
 			await runCli(["otel-headers"], {
 				env: {
-					OTEL_EXPORTER_OTLP_ENDPOINT: "https://elsewhere.example.test",
+					HARNESSFORCE_ENDPOINT: "https://INGEST.example.test:443/base",
+					OTEL_EXPORTER_OTLP_ENDPOINT: "https://ingest.example.test/base/",
 				},
-				managedDir: managedDir({
-					env: { HARNESSFORCE_INGEST_KEY: "hf_ik_ws9_managed" },
-				}),
+				managedDir: managedIngest(),
 			}),
 		).toEqual({ code: 0, out: header("hf_ik_ws9_managed"), err: "" }));
+
+	// 組織がテレメトリを自前のcollectorへ送る構成を壊さない。
+	it("prints the managed Workspace key for the organization's collector shipped in the managed file", async () =>
+		expect(
+			await runCli(["otel-headers"], {
+				env: {
+					HARNESSFORCE_ENDPOINT: "https://ingest.example.test/base",
+					OTEL_EXPORTER_OTLP_ENDPOINT: "https://collector.corp.test:4318",
+					OTEL_EXPORTER_OTLP_LOGS_ENDPOINT:
+						"https://collector.corp.test:4318/v1/logs",
+				},
+				managedDir: managedDir(
+					{ env: { HARNESSFORCE_INGEST_KEY: "hf_ik_ws9_managed" } },
+					{
+						"20-endpoints.json": JSON.stringify({
+							env: {
+								HARNESSFORCE_ENDPOINT: "https://ingest.example.test/base",
+								OTEL_EXPORTER_OTLP_ENDPOINT: "https://collector.corp.test:4318",
+							},
+						}),
+					},
+				),
+			}),
+		).toEqual({ code: 0, out: header("hf_ik_ws9_managed"), err: "" }));
+
+	it.each([
+		[
+			"a project sets a per-signal endpoint the managed file does not ship",
+			{
+				HARNESSFORCE_ENDPOINT: "https://ingest.example.test/base",
+				OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: "https://evil.example.test/v1/logs",
+			},
+			() => managedIngest(),
+		],
+		[
+			"a destination breaks the scheme rule",
+			{ OTEL_EXPORTER_OTLP_ENDPOINT: "http://ingest.example.test/base" },
+			() => managedIngest(),
+		],
+		[
+			"the managed file ships no destination",
+			{ OTEL_EXPORTER_OTLP_ENDPOINT: "https://ingest.example.test" },
+			() =>
+				managedDir({ env: { HARNESSFORCE_INGEST_KEY: "hf_ik_ws9_managed" } }),
+		],
+		[
+			"the managed file's only destination breaks the scheme rule",
+			{ HARNESSFORCE_ENDPOINT: "http://ingest.example.test" },
+			() =>
+				managedIngest({ HARNESSFORCE_ENDPOINT: "http://ingest.example.test" }),
+		],
+	])("withholds the managed Workspace key when %s", async (_, env, dir) =>
+		expect(await runCli(["otel-headers"], { env, managedDir: dir() })).toEqual({
+			code: 4,
+			out: "",
+			err: WITHHELD,
+		}),
+	);
+
+	// hookが選ぶWorkspace用のkeyと異なるkeyでテレメトリを送らない。
+	it("does not fall back to the user key when the managed Workspace key is withheld", async () =>
+		expect(
+			await runCli(["otel-headers"], {
+				env: {
+					HARNESSFORCE_WORKSPACE_ID: "ws1",
+					OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: "https://evil.example.test/v1/logs",
+				},
+				// 利用者用のkeyだけなら送信先の固定を通る組。
+				keychain: pinned({ "ws1:ingest-origin": "https://evil.example.test" }),
+				managedDir: managedIngest(),
+			}),
+		).toEqual({ code: 4, out: "", err: WITHHELD }));
 
 	it("ignores HARNESSFORCE_INGEST_KEY from the process environment", async () =>
 		expect(

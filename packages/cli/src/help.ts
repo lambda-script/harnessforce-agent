@@ -194,8 +194,9 @@ When to use:
   You normally never run it. Claude Code calls it as its otelHeadersHelper.
 
 What it does:
-  Reads the ingest key from the keychain and prints {"Authorization": "Bearer <key>"}
-  as JSON on stdout.
+  Prints {"Authorization": "Bearer <key>"} as JSON on stdout. The key is the
+  Workspace key from the managed settings file if it has one, otherwise the
+  ingest key from the keychain.
 
 Sends:
   ${SENDS_NOTHING_LOCAL}
@@ -207,7 +208,8 @@ Exit codes:
   0  Header printed.
   3  No key for the Workspace (not logged in, or the keychain item is gone, for
      example after a reboot cleared the kernel keyring).
-  4  The destination was not verified: it differs from the origin login pinned.
+  4  The destination was not verified: it differs from the origin login pinned,
+     or, for the Workspace key, from every origin the managed settings file sets.
   5  This CLI version is unsupported. The keychain is not read.
   1  Any other failure (keychain unavailable, read failed, timed out, or bad
      arguments).
