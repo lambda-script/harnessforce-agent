@@ -117,7 +117,7 @@ export function contentEnabledMessage(content: ContentSettings): string {
 			? ["model responses and tool input and output"]
 			: []),
 	].join(", ");
-	return `Sending ${categories} is now enabled. Values that match known patterns for secrets and personal information are masked, but not everything can be detected. ${CONTENT_READERS[content.visibility]}. It is deleted after ${content.retentionDays} days`;
+	return `Sending ${categories} is now enabled. Values that match known patterns for secrets and personal information are masked, but not everything can be detected. ${CONTENT_READERS[content.visibility]}. It is deleted after ${content.retentionDays} days. To stop sending it, run \`harnessforce config set send-content off\`.`;
 }
 
 // correlation.md「端末の本文の送信の設定」が定める文言。

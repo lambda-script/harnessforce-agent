@@ -32,6 +32,7 @@ include:
   The one intended exception is the user ingest key in Codex's `config.toml`, which `harnessforce login`
   writes with mode `0600` because Codex cannot read a header from a command (see the
   [CLI README](packages/cli/README.md)). Reading that file through another path, or a wider mode, is in scope.
-- Prompts, responses, tool inputs or outputs, or file contents being sent anywhere.
+- Prompts, responses, tool inputs or outputs being sent anywhere other than the pinned destination, or after
+  `harnessforce config set send-content off` or managed settings stopped them, and file contents being sent anywhere.
 - A repository's `.claude/settings.json` or other untrusted input changing where keys are sent, or
   making `harnessforce` or the plugin hook run unintended commands.

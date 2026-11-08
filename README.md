@@ -60,7 +60,7 @@ workspace steps from `harnessforce status`. Restart Claude Code and run `/harnes
 that the first event arrived.
 
 With Codex only, set up through the CLI instead: install it with `npm install -g @harnessforce/cli`, run
-`harnessforce login` and `harnessforce import` (run `harnessforce config set send-content on` first to send content), restart Codex, trust the
+`harnessforce login` and `harnessforce import` (to keep content from being sent, run `harnessforce config set send-content off` first), restart Codex, trust the
 harnessforce `SessionStart`, `PostToolUse` and `Stop` hooks in `/hooks`, and check the remaining steps with
 `harnessforce status`.
 
@@ -85,9 +85,9 @@ the [plugin README](plugins/harnessforce/README.md#session-registration-hooks).
 
 ## Privacy
 
-- **Sent only if you choose:** prompts, responses, and tool inputs and outputs, and only for the categories your
-  Workspace stores (`harnessforce config set send-content on` or managed settings). Without that, `harnessforce login`
-  turns all of them off, and `harnessforce config set send-content off` stops them again. File contents are never sent. `harnessforce run` never turns on prompt or body
+- **Sent unless you stop it:** prompts, responses, and tool inputs and outputs, and only for the categories your
+  Workspace stores. A machine that never chose sends them; `harnessforce config set send-content off` stops them,
+  and `harnessforce login` keeps that choice. Managed settings override this machine's setting. File contents are never sent. `harnessforce run` never turns on prompt or body
   logging, and `harnessforce import` sends no content, only session and first prompt IDs, start and end times, repository,
   branch, model, token counts and per-tool call and failure counts.
 - **Hashes only:** the config snapshot describes CLAUDE.md files, rules, skills, agents, commands,

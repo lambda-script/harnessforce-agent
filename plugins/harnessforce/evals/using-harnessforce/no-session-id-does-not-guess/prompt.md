@@ -67,7 +67,7 @@ append_system_prompt: "# Using Harnessforce
   ## What is not collected
 
 
-  - Prompts, responses, tool input and output, and the body of code diffs arrive only when the user sends them (`harnessforce config set send-content on` or managed settings) and the Workspace stores that category. The members the Workspace chooses can read them. `harnessforce import` never sends them. Codex telemetry carries tool arguments and results up to 2 KiB whatever the user chose.
+  - Prompts, responses, tool input and output, and the body of code diffs arrive only when this machine sends them (the default; `harnessforce config set send-content off` stops it, and managed settings override this machine's setting) and the Workspace stores that category. The members the Workspace chooses can read them. `harnessforce import` never sends them. Codex telemetry carries tool arguments and results up to 2 KiB whatever the user chose.
 
   - Never put these contents, secrets, or environment variable values in MCP tool input or in a record.
 

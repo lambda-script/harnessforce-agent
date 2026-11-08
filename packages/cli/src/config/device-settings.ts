@@ -32,13 +32,13 @@ async function readDeviceSettings(homeDir: string): Promise<DeviceSettings> {
 	}
 }
 
-// `send_content`が無ければ送らない。真偽値でない値は、送らない指示を読み損ねて送らないよう読めないものとする。
+// 一度も選んでいない端末（fileか`send_content`が無い）は送る。真偽値でない値は、送らない指示を読み損ねて送らないよう読めないものとする。
 export async function readSendContent(
 	homeDir: string,
 ): Promise<boolean | "unreadable"> {
 	const settings = await readDeviceSettings(homeDir);
 	if (settings.kind === "unreadable") return "unreadable";
-	if (!("send_content" in settings.value)) return false;
+	if (!("send_content" in settings.value)) return true;
 	const sendContent = settings.value.send_content;
 	return typeof sendContent === "boolean" ? sendContent : "unreadable";
 }
