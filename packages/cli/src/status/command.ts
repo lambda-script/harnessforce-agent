@@ -17,6 +17,7 @@ import {
 	NOT_LOGGED_IN_MESSAGE,
 } from "../shared/messages.js";
 import { runUntilStop, stopWith } from "../shared/stop.js";
+import { printable } from "../shared/terminal.js";
 import {
 	type AgentVersionReader,
 	outdatedAgentLine,
@@ -80,7 +81,7 @@ async function originRepository(
 
 function stepLine(step: OnboardingStep): string {
 	const parts = [STATUS_MARKS[step.status], STEP_TITLES[step.step]];
-	if (step.status === "todo") parts.push(step.url);
+	if (step.status === "todo") parts.push(printable(step.url));
 	return parts.join(" ");
 }
 
@@ -131,7 +132,7 @@ async function runStatus(json: boolean, deps: StatusDeps): Promise<number> {
 		`This repository (${repository.name}) is ${repository.connected ? "assigned" : "not assigned"} to a project`;
 	deps.stdout(
 		`${[
-			`${onboarding.workspace_name} (${onboarding.role})`,
+			`${printable(onboarding.workspace_name)} (${onboarding.role})`,
 			...lines,
 			...(repositoryLine ? [repositoryLine] : []),
 			...outdated_agents.map(outdatedAgentLine),

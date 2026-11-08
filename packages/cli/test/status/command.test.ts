@@ -186,6 +186,33 @@ describe("harnessforce status", () => {
 		expect(JSON.parse(result.out).repository).toBeNull();
 	});
 
+	// Workspaceの名前とstepのURLはserverから届く。端末の制御文字と文字の向きを変える文字は表示しない。
+	it("does not print terminal control characters from the workspace name or a step URL", async () => {
+		const { run } = await setup({
+			onboarding: {
+				status: 200,
+				body: {
+					...OWNER,
+					workspace_name:
+						"\u001b]8;;https://evil.example\u0007Acme\u009b2K株式会社\u202e",
+					steps: [
+						{
+							step: 3,
+							status: "todo",
+							url: "https://app.example.test/step-3\u001b[1A\r",
+						},
+					],
+				},
+			},
+		});
+		const result = await run();
+		expect(result.code).toBe(0);
+		expect(result.out.split("\n").slice(0, 2)).toEqual([
+			"]8;;https://evil.exampleAcme2K株式会社 (owner)",
+			"・ Assign repositories to a project https://app.example.test/step-3[1A",
+		]);
+	});
+
 	it("exits 0 for a Viewer with no steps", async () => {
 		const { run } = await setup({
 			onboarding: {

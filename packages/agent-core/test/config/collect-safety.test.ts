@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, symlinkSync } from "node:fs";
+import { mkdirSync, readFileSync, statSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { writeTree } from "@harnessforce/test-support/write-tree";
 import { describe, expect, it } from "vitest";
@@ -28,6 +28,30 @@ describe("collection safety", () => {
 			},
 		]);
 	});
+
+	// procfsのfileは大きさを0と報告するが、読むと1 MiBを超えうる（/proc/self/pagemapは数百GiB）。
+	const PSEUDO_FILE = "/proc/kallsyms";
+	const pseudoFileIsLarge = (() => {
+		try {
+			return (
+				statSync(PSEUDO_FILE).size === 0 &&
+				readFileSync(PSEUDO_FILE).length > MIB
+			);
+		} catch {
+			return false;
+		}
+	})();
+	it.skipIf(!pseudoFileIsLarge)(
+		"skips a file that reports size 0 but reads longer than 1 MiB",
+		async () => {
+			const f = fixture();
+			symlinkSync(PSEUDO_FILE, join(f.options.projectRoot, "CLAUDE.md"));
+			f.project({ ".claude/rules/ok.md": "ok" });
+			expect((await components(f.options)).map((c) => c.id)).toEqual([
+				"rules/ok.md",
+			]);
+		},
+	);
 
 	it("skips files larger than 1 MiB", async () => {
 		const f = fixture();
