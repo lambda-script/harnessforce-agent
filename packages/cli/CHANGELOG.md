@@ -1,5 +1,12 @@
 # @harnessforce/cli
 
+## 0.7.1
+
+### Patch Changes
+
+- 8b233a2: `harnessforce otel-headers` now checks the destination before it prints the Workspace key from the managed settings file, as it already did for the user key. It prints the key only when every destination in its environment (`HARNESSFORCE_ENDPOINT` and the `OTEL_EXPORTER_OTLP_*ENDPOINT` variables) has an origin that the managed settings file itself sets, and otherwise exits with code 4 without falling back to the user key. Before Claude Code v2.1.282, a repository's settings could set an OpenTelemetry endpoint that the managed settings file did not, and the Workspace key was sent there. An organization that sends telemetry to its own collector keeps working when the managed settings file sets that collector's endpoint.
+- 02b22d4: `harnessforce status` no longer prints terminal control characters or characters that change the text direction from the Workspace name and the setup step links, and `harnessforce run` drops the direction characters from issue titles too. Collecting the configuration now stops reading a file after 1 MiB even when the file reports a size of 0, so a repository that links `CLAUDE.md` to a Linux `/proc` file can no longer make `harnessforce run` or the hooks read without end. The diagram skill's render script no longer starts mermaid-cli on Windows, as its compatibility line already said.
+
 ## 0.7.0
 
 ### Minor Changes
