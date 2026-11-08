@@ -1806,6 +1806,9 @@ describe("harnessforce login and the next step", () => {
 		["returns 401", [{ status: 401 }]],
 		["is not the documented shape", [{ status: 200, body: { items: "x" } }]],
 		["fails on a later page", [page([], "1"), { status: 500 }]],
+		["repeats a cursor", [page([], "1"), page([], "1")]],
+		["returns 429", [{ status: 429 }]],
+		["returns 503", [{ status: 503 }]],
 	])(
 		"keeps the import line and succeeds when the repository list %s",
 		async (_case, repositories) => {
@@ -1815,6 +1818,10 @@ describe("harnessforce login and the next step", () => {
 			});
 			const { home, result } = await login(server);
 			expect(result).toEqual({ code: 0, out: finished(home), err: "" });
+			// 一覧を読めなければonboardingを読まず、429と503も再送しない。
+			expect(server.readRequests).toHaveLength(repositories.length);
+			for (const request of server.readRequests)
+				expect(request.url).toMatch(/^\/api\/v1\/repositories/);
 		},
 	);
 
