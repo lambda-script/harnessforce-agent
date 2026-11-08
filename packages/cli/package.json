@@ -1,6 +1,6 @@
 {
 	"name": "@harnessforce/cli",
-	"version": "0.7.0",
+	"version": "0.7.1",
 	"description": "Harnessforce command line (harnessforce)",
 	"keywords": [
 		"harnessforce",

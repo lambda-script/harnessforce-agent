@@ -1,5 +1,12 @@
 # @harnessforce/claude-code-plugin
 
+## 0.6.1
+
+### Patch Changes
+
+- a5c1af9: `/harnessforce:insights` now finds `harnessforce` the same way the hooks do: it looks only in the absolute directories of `PATH`, skips the current directory and the repository it is in, and starts the npm `.cmd` shim on Windows with Node.js instead of `cmd.exe`. Before, a `harnessforce.cmd` (or `.bat`, `.exe`) placed in the opened repository could run in place of the CLI on Windows.
+- 02b22d4: `harnessforce status` no longer prints terminal control characters or characters that change the text direction from the Workspace name and the setup step links, and `harnessforce run` drops the direction characters from issue titles too. Collecting the configuration now stops reading a file after 1 MiB even when the file reports a size of 0, so a repository that links `CLAUDE.md` to a Linux `/proc` file can no longer make `harnessforce run` or the hooks read without end. The diagram skill's render script no longer starts mermaid-cli on Windows, as its compatibility line already said.
+
 ## 0.6.0
 
 ### Minor Changes
