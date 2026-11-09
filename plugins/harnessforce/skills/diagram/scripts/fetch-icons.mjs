@@ -218,10 +218,15 @@ export function parseSpec(spec, baseDir = process.cwd()) {
 	};
 }
 
+// What the skill keeps between runs (logos, check renders) lives outside the repository.
+export function diagramCacheDir() {
+	const cacheHome = process.env.XDG_CACHE_HOME || join(homedir(), ".cache");
+	return join(cacheHome, "harnessforce-diagram");
+}
+
 // Logos are not committed: they are fetched into a cache outside the repository and embedded at render time.
 export function defaultIconsDir() {
-	const cacheHome = process.env.XDG_CACHE_HOME || join(homedir(), ".cache");
-	return join(cacheHome, "harnessforce-diagram", "icons");
+	return join(diagramCacheDir(), "icons");
 }
 
 // Fetches each spec into dir and returns the specs that failed. Prints one line per spec. Tests pass loadPackages to
