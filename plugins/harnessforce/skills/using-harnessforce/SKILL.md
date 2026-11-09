@@ -58,6 +58,7 @@ Stop when one of these thoughts comes up.
 | I am a subagent working on the Issue, so I register my own Session | The parent registers and closes the Session |
 | Summarizing the content before recording would help | Do not pass content to a tool. It goes beyond what is collected |
 | A warning appeared, but I can ignore it | Sending is not working. Tell the user |
+| `start_session` returned `conflict`, so I will call it again or try another session ID | This session belongs to another user. Do not call it again or guess an ID. Tell the user why it cannot be linked |
 
 ## Priority
 

@@ -101,6 +101,8 @@ append_system_prompt: "harnessforce agent_session_id: eval-session-1
 
   | A warning appeared, but I can ignore it | Sending is not working. Tell the user |
 
+  | `start_session` returned `conflict`, so I will call it again or try another session ID | This session belongs to another user. Do not call it again or guess an ID. Tell the user why it cannot be linked |
+
 
   ## Priority
 
