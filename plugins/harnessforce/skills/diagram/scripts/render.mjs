@@ -790,22 +790,108 @@ export function countCrossings(svg) {
 	}));
 }
 
-// Puts css on the frontmatter's one-line themeCSS, which replaces any themeCSS the diagram had, and the font the labels
-// were measured in, unless the diagram names its own: a page's default font ("trebuchet ms", verdana, arial; on Linux
-// often a wider fallback) wraps a name that fits in Arial onto a line its box cuts off.
+// The block keeps its light theme on a dark page (GitHub in dark mode), where text the theme draws straight on the
+// page in its dark ink vanishes. CSS cannot recolor all of it: mermaid colors the tspans of names and conditions with
+// "> tspan" rules, which a rule needs ">" to outrank, and it empties a diagram's whole themeCSS that holds one; titles
+// take the diagram's root fill. Theme variables reach each of them, so the text on the page gets the palette's
+// secondary gray through themeVariables, which reads on white and on GitHub's dark page alike (about 4.8:1 and 4.0:1,
+// short of the 4.5:1 WCAG asks of small text on the dark page, which no one color reaches on both). Text on light
+// boxes (notes, alt labels, states, bars) keeps its dark ink. Actor names take the gray, since a stick figure's or a
+// database's name stands on the page, and so do an ER diagram's entities: GitHub's mermaid colors them and the title
+// with the same textColor. On their light boxes the gray still reads 4.5:1. A %%{init}%% directive that sets these
+// variables overrides the frontmatter and brings the dark ink back.
+const PAGE_TEXT_COLOR = "#64748b";
+const PAGE_TEXT_VARIABLES = [
+	[
+		/^sequenceDiagram\b/,
+		["textColor", "actorTextColor", "signalTextColor", "loopTextColor"],
+	],
+	[/^(?:erDiagram|stateDiagram(?:-v2)?)\b/, ["textColor"]],
+	[/^gantt\b/, ["textColor", "titleColor", "taskTextOutsideColor"]],
+];
+
+function pageTextVariables(text) {
+	const declaration = text
+		.replace(/^---\n[\s\S]*?\n---\n?/, "")
+		.split("\n")
+		.map((line) => line.trim())
+		.find((line) => line && !line.startsWith("%%"));
+	const keys =
+		PAGE_TEXT_VARIABLES.find(([type]) => type.test(declaration ?? ""))?.[1] ??
+		[];
+	return keys.map((key) => `${key}: "${PAGE_TEXT_COLOR}"`);
+}
+
+// Sets each "key: value" in the frontmatter's themeVariables, replacing the diagram's own value of that key (quoted or
+// not: js-yaml refuses a map that names a key twice) and keeping its other keys, blank lines and comments. Returns the
+// frontmatter body and the lines to add under config: when it has no themeVariables.
+function withThemeVariables(body, variables) {
+	if (variables.length === 0) return { body, added: [] };
+	const lines = body.split("\n");
+	const start = lines.findIndex((line) => /^\s+themeVariables:/.test(line));
+	if (start === -1) {
+		return {
+			body,
+			added: ["  themeVariables:", ...variables.map((line) => `    ${line}`)],
+		};
+	}
+	if (/^\s+themeVariables:[ \t]*[^\s#]/.test(lines[start])) {
+		throw new Error(
+			"write the frontmatter themeVariables as a block, one key per line",
+		);
+	}
+	const indentOf = (line) => line.match(/^\s*/)[0].length;
+	const isBlankOrComment = (line) => /^\s*(#.*)?$/.test(line);
+	let end = start + 1;
+	while (
+		end < lines.length &&
+		(isBlankOrComment(lines[end]) ||
+			indentOf(lines[end]) > indentOf(lines[start]))
+	)
+		end++;
+	while (end > start + 1 && isBlankOrComment(lines[end - 1])) end--;
+	const entries = lines.slice(start + 1, end);
+	const inner =
+		entries.find((line) => !isBlankOrComment(line))?.match(/^\s*/)[0] ??
+		`${lines[start].match(/^\s*/)[0]}  `;
+	const keyOf = (line) =>
+		line
+			.trim()
+			.split(":")[0]
+			.replace(/^(["'])(.*)\1$/, "$2");
+	const keys = new Set(variables.map(keyOf));
+	const kept = entries.filter((line) => !keys.has(keyOf(line)));
+	lines.splice(
+		start + 1,
+		end - start - 1,
+		...kept,
+		...variables.map((line) => `${inner}${line}`),
+	);
+	return { body: lines.join("\n"), added: [] };
+}
+
+// Puts css on the frontmatter's one-line themeCSS, which replaces any themeCSS the diagram had, the colors of the text
+// on the page (pageTextVariables), and the font the labels were measured in, unless the diagram names its own: a page's
+// default font ("trebuchet ms", verdana, arial; on Linux often a wider fallback) wraps a name that fits in Arial onto a
+// line its box cuts off.
 function withPortableConfig(text, css) {
 	const frontmatter = text.match(/^---\n([\s\S]*?)\n---/);
 	if (/^\s+themeCSS:\s*[|>]/m.test(frontmatter?.[1] ?? "")) {
 		throw new Error("write the frontmatter themeCSS on one quoted line");
 	}
+	const themed = withThemeVariables(
+		frontmatter?.[1] ?? "",
+		pageTextVariables(text),
+	);
 	const lines = [
 		`  themeCSS: "${css.replace(/"/g, "'").replace(/\s*\n\s*/g, " ")}"`,
+		...themed.added,
 	];
 	if (!/^\s+fontFamily:/m.test(frontmatter?.[1] ?? ""))
 		lines.push(`  fontFamily: '${FONT_FAMILY}'`);
 	const added = lines.join("\n");
 	if (!frontmatter) return `---\nconfig:\n${added}\n---\n${text}`;
-	const body = frontmatter[1].replace(/^\s+themeCSS:.*(\n|$)/m, "");
+	const body = themed.body.replace(/^\s+themeCSS:.*(\n|$)/m, "");
 	const config = /^config:\s*$/m;
 	const merged = config.test(body)
 		? body.replace(config, () => `config:\n${added}`)
