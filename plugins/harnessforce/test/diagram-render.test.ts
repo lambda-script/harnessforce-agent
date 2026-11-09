@@ -912,6 +912,107 @@ it("portableMarkdown keeps a font the diagram sets itself", () => {
 	assert.ok(markdown.includes("  fontFamily: Inter\n"));
 });
 
+function themeVariablesOf(markdown: string | undefined) {
+	const frontmatter = markdown?.match(
+		/```mermaid\n---\n([\s\S]*?)\n---\n/,
+	)?.[1];
+	assert.ok(frontmatter, String(markdown));
+	const block = frontmatter.match(
+		/^ {2}themeVariables:\n((?: {4}.*(?:\n|$))*)/m,
+	)?.[1];
+	return Object.fromEntries(
+		[...(block ?? "").matchAll(/^ {4}(\w+): "?([^"\n]*)"?$/gm)].map(
+			([, key, value]) => [key, value],
+		),
+	);
+}
+
+// The block keeps its light theme on GitHub's dark page: text straight on the page needs the gray that reads on both.
+const PAGE_TEXT = "#64748b";
+
+it("portableMarkdown colors the text a sequence diagram draws on the page gray, through themeVariables", () => {
+	const diagram =
+		"---\ntitle: T\nconfig:\n  theme: neutral\n---\nsequenceDiagram\n  box Platform\n    participant a\n  end\n  actor u\n  a->>u: hi\n  loop every minute\n    u-->>a: ok\n  end\n  Note over a: n\n";
+	const variables = themeVariablesOf(portableMarkdown(diagram, "x"));
+	assert.deepEqual(variables, {
+		textColor: PAGE_TEXT,
+		actorTextColor: PAGE_TEXT,
+		signalTextColor: PAGE_TEXT,
+		loopTextColor: PAGE_TEXT,
+	});
+});
+
+it("portableMarkdown colors the titles of ER and state diagrams gray", () => {
+	for (const type of ["erDiagram", "stateDiagram-v2", "stateDiagram"]) {
+		const diagram = `---\ntitle: T\n---\n%% source.prisma:1\n${type}\n`;
+		assert.deepEqual(
+			themeVariablesOf(portableMarkdown(diagram, "x")),
+			{ textColor: PAGE_TEXT },
+			type,
+		);
+	}
+});
+
+it("portableMarkdown colors a gantt chart's title, sections, axis and labels beside their bars gray", () => {
+	assert.deepEqual(
+		themeVariablesOf(
+			portableMarkdown("gantt\n  section A\n  t :t1, 2026-01-01, 1d\n", "x"),
+		),
+		{
+			textColor: PAGE_TEXT,
+			titleColor: PAGE_TEXT,
+			taskTextOutsideColor: PAGE_TEXT,
+		},
+	);
+});
+
+it("portableMarkdown replaces the diagram's own colors for text on the page and keeps its other theme variables", () => {
+	const diagram =
+		'---\nconfig:\n  theme: neutral\n  themeVariables:\n    noteTextColor: "#1e293b"\n    signalTextColor: "#1e293b"\n    signalColor: "#64748b"\n  sequence:\n    mirrorActors: false\n---\nsequenceDiagram\n  a->>b: hi\n';
+	const markdown = portableMarkdown(diagram, "x") ?? "";
+	assert.equal(markdown.match(/themeVariables:/g)?.length, 1, markdown);
+	assert.deepEqual(themeVariablesOf(markdown), {
+		noteTextColor: "#1e293b",
+		signalColor: "#64748b",
+		textColor: PAGE_TEXT,
+		actorTextColor: PAGE_TEXT,
+		signalTextColor: PAGE_TEXT,
+		loopTextColor: PAGE_TEXT,
+	});
+	assert.ok(
+		markdown.includes("  sequence:\n    mirrorActors: false\n"),
+		markdown,
+	);
+});
+
+it("portableMarkdown merges into a themeVariables block that ends the frontmatter or holds blank lines, comments and quoted keys", () => {
+	const layouts = [
+		'---\nconfig:\n  theme: neutral\n  themeVariables:\n    noteTextColor: "#1e293b"\n    signalTextColor: "#1e293b"\n---\nsequenceDiagram\n  a->>b: hi\n',
+		'---\nconfig:\n  themeVariables: # palette\n    noteTextColor: "#1e293b"\n\n    # messages\n    "signalTextColor": "#1e293b"\n  theme: neutral\n---\nsequenceDiagram\n  a->>b: hi\n',
+	];
+	for (const diagram of layouts) {
+		const markdown = portableMarkdown(diagram, "x") ?? "";
+		assert.equal(markdown.match(/themeVariables:/g)?.length, 1, markdown);
+		assert.equal(markdown.match(/signalTextColor/g)?.length, 1, markdown);
+		assert.equal(
+			markdown.match(/noteTextColor: "#1e293b"/g)?.length,
+			1,
+			markdown,
+		);
+		assert.ok(markdown.includes('    signalTextColor: "#64748b"\n'), markdown);
+	}
+});
+
+it("portableMarkdown leaves a flowchart's theme variables alone, since its themeCSS reaches GitHub", () => {
+	assert.deepEqual(themeVariablesOf(portableMarkdown(GROUPED, "x")), {});
+});
+
+it("portableMarkdown refuses theme variables written on one line, which it cannot merge into", () => {
+	const diagram =
+		'---\nconfig:\n  themeVariables: { textColor: "#000" }\n---\nerDiagram\n';
+	assert.throws(() => portableMarkdown(diagram, "x"), /themeVariables/);
+});
+
 it("portableMarkdown refuses a block-style themeCSS, whose rules it cannot carry over", () => {
 	const diagram =
 		"---\nconfig:\n  themeCSS: |\n    .a { fill: red; }\n  theme: neutral\n---\nflowchart LR\n  a\n";

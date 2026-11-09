@@ -69,7 +69,7 @@ config:
     taskBorderColor: "#2563eb"
     taskTextDarkColor: "#1e293b"
     taskTextColor: "#1e293b"
-    taskTextOutsideColor: "#1e293b"
+    taskTextOutsideColor: "#64748b"
   themeCSS: ".tick text { font-size: 13px; } .titleText { font-size: 20px; font-weight: 600; }"
   gantt:
     useWidth: 1600
