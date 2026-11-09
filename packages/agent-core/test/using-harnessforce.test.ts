@@ -32,6 +32,18 @@ describe("using-harnessforce body", () => {
 		expect(usingHarnessforceBody).toContain(heading),
 	);
 
+	// correlation.md「using-harnessforce」の5: Red Flagsの言い訳は9つ。
+	it("lists the nine Red Flags of the spec", () => {
+		const section = /## Red Flags\n([\s\S]*?)\n## Priority/.exec(
+			usingHarnessforceBody,
+		)?.[1];
+		const redFlags = section?.match(/^\| (?!Thought \||---).+$/gm);
+		expect(redFlags).toHaveLength(9);
+		expect(usingHarnessforceBody).toContain(
+			"| `start_session` returned `conflict`, so I will call it again or try another session ID |",
+		);
+	});
+
 	// correlation.md「using-harnessforce」: 第三者のpluginの文として、強調で利用者の指示より強く読ませない。
 	it("states the rules without emphasis", () =>
 		expect(usingHarnessforceBody).not.toMatch(

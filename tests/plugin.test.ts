@@ -131,6 +131,23 @@ describe("session recording skill", () => {
 			/Do not pass the repository, branch, or commit[^\n]*hook/,
 		));
 
+	// correlation.md「MCP」: start_sessionのforbiddenとconflictは同じtokenとsessionでは変わらず、推測したIDは別のsessionに結び付く。
+	it("tells the user and stops recording when start_session returns forbidden or conflict", () => {
+		expect(body).toContain("## When the Session cannot be linked");
+		expect(body).toMatch(
+			/`start_session` returns `forbidden`[^\n]*or `conflict`[^\n]*tell the user the reason as it is and continue the work[^\n]*`get_issue`[^\n]*continue with it/,
+		);
+		expect(body).toMatch(
+			/returns `forbidden` or `conflict` for the Issue the user picked[^\n]*do not ask again for that session ID/,
+		);
+		expect(body).toMatch(
+			/even if the user names another Issue later, do not call `start_session` again[^\n]*do not call `complete_session`[^\n]*do not guess another session ID/,
+		);
+		expect(body).toMatch(
+			/`complete_session` returns `forbidden` or `conflict`[^\n]*do not call it again/,
+		);
+	});
+
 	// correlation.md「Issueを指定しない作業」: 既存のIssueから選ぶかを1回だけ尋ねる。
 	it("asks once to pick an existing Issue for committing work without one", () => {
 		expect(body).toContain("## When no Issue is specified");

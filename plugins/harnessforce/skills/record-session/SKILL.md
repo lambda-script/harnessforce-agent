@@ -29,11 +29,16 @@ Ask the user once whether to link the work to an existing Issue, only when all o
 
 To show the candidates, pick up to 3 words from the summary of the work that are likely to appear in an Issue title, and call `list_issues` once per word with `q` set to `-status:resolved,not_planned <word>` and `sort` set to `updated`. Merge the results, remove duplicates, and show at most 5 Issues, most recently updated first. If the user picks one, call `start_session` with that Issue. If there is no candidate or the user picks none, continue the work without calling `start_session`.
 
-If `start_session` returns `forbidden` (a view-only token or a view-only Workspace), tell the user the reason as it is, and do not ask again for that session ID.
+If `start_session` returns `forbidden` or `conflict` for the Issue the user picked, follow "When the Session cannot be linked" below, and do not ask again for that session ID.
 
 ## At the end of the work
 
 - Call `complete_session` with the `session_id`.
+
+## When the Session cannot be linked
+
+- If `start_session` returns `forbidden` (a view-only token or a view-only Workspace) or `conflict` (this session belongs to another user), tell the user the reason as it is and continue the work. For that session ID, even if the user names another Issue later, do not call `start_session` again, do not call `complete_session`, and do not guess another session ID (a new value in the context after a fork or `/clear` is not a guess). `conflict` is decided by who sent this session and who owns the Session, `forbidden` lasts until the role or the billing changes, and you cannot resolve either; a guessed ID links another session. `get_issue` does not depend on the Session, so continue with it.
+- If `complete_session` returns `forbidden` or `conflict`, tell the user the reason as it is, and do not call it again.
 
 ## When the session ID is missing
 
