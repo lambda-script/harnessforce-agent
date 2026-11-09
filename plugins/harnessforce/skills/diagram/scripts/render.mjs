@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Renders Mermaid files to PNG with mermaid-cli, in a light and a dark theme.
+// Renders Mermaid files with mermaid-cli: PNGs in a light and a dark theme to look at, and one file per diagram to deliver.
 // `img: "icon:<spec>"` in a node is replaced with the logo as a data URI. <spec> is a fetch-icons.mjs spec
 // (`neon`, `workers:cloudflare-workers`, `cli:lucide/square-terminal`); its name is the part before `:` or `=`.
 // Logos are looked up in the icons dir, and a missing one is fetched into it. Logos never need to be committed.
@@ -9,17 +9,26 @@
 // frame is cut back to what it holds. For a flowchart, state or ER diagram it prints how many times edges cross.
 //
 // Usage: node render.mjs <file.mmd>... [--icons-dir <dir>] [--no-fetch] [--out <dir>] [--theme both|light|dark]
-//                        [--scale <n>] [--svg] [--portable]
+//                        [--scale <n>] [--portable] [--png] [--svg]
+//        node render.mjs --source <file.md>... [--out <dir>]
+// Without --portable, --png or --svg it writes <name>.png and <name>.dark.png to look at into
+// ${XDG_CACHE_HOME:-~/.cache}/harnessforce-diagram/renders/<hash of the .mmd's path>/, outside the repository, and
+// prints their paths. Each delivery option writes one file into --out instead, and no picture to look at:
+//   --portable  <name>.portable.md: a ```mermaid block with the logos inside, for pages that run mermaid, followed by
+//               the .mmd in a comment, which --source takes back out
+//   --png       <name>.png, in the light theme
+//   --svg       <name>.svg, in the light theme: self-contained, with the logos inside
+//   --source    writes the <name>.mmd of each diagram a Markdown file carries into --out
 //   --icons-dir  default: ${XDG_CACHE_HOME:-~/.cache}/harnessforce-diagram/icons
 //   --no-fetch   fail on a missing logo instead of fetching it
-//   --out     default: next to each .mmd. Writes <name>.png and <name>.dark.png
-//   --theme   default: both
+//   --out     where the delivered files go, default next to each .mmd; unused without a delivery option. For --source,
+//             default ${XDG_CACHE_HOME:-~/.cache}/harnessforce-diagram/sources/<hash of the Markdown file's path>
+//   --theme   default: both for the pictures to look at; light for a delivered PNG or SVG unless dark
 //   --scale   default: 2 (text stays crisp when the PNG is viewed at full width)
-//   --svg       also writes <name>.svg and <name>.dark.svg: self-contained, with the logos inside
-//   --portable  also writes <name>.portable.md: a ```mermaid block with the logos inside, for pages that run mermaid
 // mermaid-cli: $MMDC if set, else `npx -y @mermaid-js/mermaid-cli@12.2.0`. Chromium: $PUPPETEER_EXECUTABLE_PATH,
 // and $MERMAID_PUPPETEER_CONFIG (a JSON file passed to mmdc -p, e.g. for --no-sandbox) when set.
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
 	existsSync,
 	mkdirSync,
@@ -29,9 +38,13 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { defaultIconsDir, fetchIcons } from "./fetch-icons.mjs";
+import {
+	defaultIconsDir,
+	diagramCacheDir,
+	fetchIcons,
+} from "./fetch-icons.mjs";
 
 const MERMAID_CLI = "@mermaid-js/mermaid-cli@12.2.0";
 // Inlined logos make the source far longer than mermaid's default maxTextSize of 50000 characters.
@@ -813,7 +826,11 @@ function withGithubSafeTags(text) {
 // render.mjs passes mermaid-cli, IMAGE_LABEL_CSS is left out: portableCss decides which names keep their box. Returns
 // undefined when the block is longer than mermaid's maxTextSize; throws on a block-style themeCSS, whose rules
 // diagramThemeCss cannot read.
-export function portableMarkdown(text, name, titleCss = "") {
+// The .mmd rides after the block in base64, so the comment holding it cannot be ended early by an arrow (`-->`) and the
+// delivered file is all a repository needs to keep.
+const SOURCE_COMMENT = /<!-- render\.mjs source (.+?): ([A-Za-z0-9+/=]*) -->/g;
+
+export function portableMarkdown(text, name, titleCss = "", source) {
 	const css = [
 		portableCss(text),
 		SVG_TEXT_CSS,
@@ -825,8 +842,19 @@ export function portableMarkdown(text, name, titleCss = "") {
 		.join("\n");
 	const block = withPortableConfig(withGithubSafeTags(text), css);
 	if (block.length > PORTABLE_MAX_CHARS) return undefined;
-	const note = `<!-- ${name}.mmd as drawn by render.mjs --portable, logos inside. Edit the .mmd and run it again. -->`;
-	return `${note}\n\n\`\`\`mermaid\n${block.trimEnd()}\n\`\`\`\n`;
+	const note = `<!-- ${name}: drawn by render.mjs --portable, logos inside. To change it, take its Mermaid out with render.mjs --source, edit that and render it again. -->`;
+	const drawn = `${note}\n\n\`\`\`mermaid\n${block.trimEnd()}\n\`\`\`\n`;
+	if (source === undefined) return drawn;
+	const encoded = Buffer.from(source).toString("base64");
+	return `${drawn}\n<!-- render.mjs source ${name}: ${encoded} -->\n`;
+}
+
+// The .mmd of each diagram portableMarkdown wrote into a Markdown file, also after the file was pasted into a page.
+export function sourcesOfMarkdown(markdown) {
+	return [...markdown.matchAll(SOURCE_COMMENT)].map(([, name, encoded]) => ({
+		name,
+		source: Buffer.from(encoded, "base64").toString("utf8"),
+	}));
 }
 
 // The diagram types whose edges mermaid draws with their points (data-points), which countCrossings reads.
@@ -903,7 +931,9 @@ function parseArgs(argv) {
 		if (flag === "--help") args.help = true;
 		else if (flag === "--no-fetch") args.fetch = false;
 		else if (flag === "--svg") args.svg = true;
+		else if (flag === "--png") args.png = true;
 		else if (flag === "--portable") args.portable = true;
+		else if (flag === "--source") args.source = true;
 		else if (OPTIONS[flag]) {
 			const value = argv[++i];
 			if (value === undefined || value.startsWith("--")) valid = false;
@@ -918,7 +948,7 @@ function parseArgs(argv) {
 		valid = false;
 	if (args.help || !valid || args.files.length === 0) {
 		(args.help ? console.log : console.error)(
-			"usage: render.mjs <file.mmd>... [--icons-dir <dir>] [--no-fetch] [--out <dir>] [--theme both|light|dark] [--scale <n>] [--svg] [--portable]",
+			"usage: render.mjs <file.mmd>... [--icons-dir <dir>] [--no-fetch] [--out <dir>] [--theme both|light|dark] [--scale <n>] [--portable] [--png] [--svg]\n       render.mjs --source <file.md>... [--out <dir>]",
 		);
 		process.exit(args.help ? 0 : 2);
 	}
@@ -977,15 +1007,68 @@ function mmdc(input, output, theme, configFile, scale) {
 		.trim();
 }
 
+function writeSources(files, outDir) {
+	let failures = 0;
+	for (const file of files) {
+		const dir = outDir ?? hashedCacheDir("sources", file);
+		mkdirSync(dir, { recursive: true });
+		const written = new Set();
+		let diagrams;
+		try {
+			diagrams = sourcesOfMarkdown(readFileSync(file, "utf8"));
+		} catch (error) {
+			console.error(`fail ${file}: ${error.message}`);
+			failures++;
+			continue;
+		}
+		if (diagrams.length === 0) {
+			console.error(
+				`fail ${file}: no diagram source; only files written by render.mjs --portable carry one`,
+			);
+			failures++;
+		}
+		for (const { name, source } of diagrams) {
+			// The file may come from someone else's repository: a name cannot place the .mmd outside outDir.
+			const output = join(dir, `${basename(name)}.mmd`);
+			if (written.has(output)) {
+				console.error(
+					`fail ${file}: two diagrams are named ${basename(name)}; rename one and render it again`,
+				);
+				failures++;
+				continue;
+			}
+			written.add(output);
+			writeFileSync(output, source);
+			console.log(`ok   ${output}`);
+		}
+	}
+	return failures;
+}
+
+// Pictures to look at and sources taken out of a page stay out of the repository, in one directory per file, so two
+// diagrams or pages of one name, in two repositories or sessions, do not overwrite each other.
+function hashedCacheDir(kind, file) {
+	const hash = createHash("sha256")
+		.update(resolve(file))
+		.digest("hex")
+		.slice(0, 12);
+	return join(diagramCacheDir(), kind, hash);
+}
+
 async function main() {
 	const args = parseArgs(process.argv.slice(2));
+	if (args.source) {
+		process.exit(writeSources(args.files, args.out) > 0 ? 1 : 0);
+	}
+	const delivers = args.portable || args.png || args.svg;
+	const deliveredTheme = args.theme === "dark" ? "dark" : "light";
 	const work = mkdtempSync(join(tmpdir(), "render-"));
 	const themeCSS = {
 		light: `${IMAGE_LABEL_CSS}\n${SVG_TEXT_CSS}`,
 		dark: `${IMAGE_LABEL_CSS}\n${SVG_TEXT_CSS}\n${DARK_EDGE_LABEL_CSS}`,
 	};
 	const themes = args.theme === "both" ? ["light", "dark"] : [args.theme];
-	if (args.out) mkdirSync(args.out, { recursive: true });
+	if (args.out && delivers) mkdirSync(args.out, { recursive: true });
 	let failures = 0;
 	try {
 		for (const file of args.files) {
@@ -1092,7 +1175,7 @@ async function main() {
 				let markdown;
 				try {
 					markdown =
-						portableMarkdown(text, name, titleCss) ??
+						portableMarkdown(text, name, titleCss, source) ??
 						new Error(
 							`over ${PORTABLE_MAX_CHARS} characters with the logos inside; split it`,
 						);
@@ -1107,23 +1190,33 @@ async function main() {
 					console.log(`ok   ${output}`);
 				}
 			}
-			const formats = args.svg ? ["png", "svg"] : ["png"];
-			for (const theme of themes) {
+			const pictures = delivers
+				? ["png", "svg"]
+						.filter((format) => args[format])
+						.map((format) => ({
+							theme: deliveredTheme,
+							format,
+							output: join(outDir, `${name}.${format}`),
+						}))
+				: themes.map((theme) => ({
+						theme,
+						format: "png",
+						output: join(
+							hashedCacheDir("renders", file),
+							theme === "dark" ? `${name}.dark.png` : `${name}.png`,
+						),
+					}));
+			for (const { theme, format, output } of pictures) {
+				mkdirSync(dirname(output), { recursive: true });
 				const { input, css } = writeInput(theme);
 				const config = writeConfig(theme, `${css}\n${titleCss}`);
-				for (const format of formats) {
-					const output = join(
-						outDir,
-						theme === "dark" ? `${name}.dark.${format}` : `${name}.${format}`,
-					);
-					const error = mmdc(input, output, theme, config, args.scale);
-					if (error) {
-						console.error(`fail ${file} (${theme} ${format})\n${error}`);
-						failures++;
-						continue;
-					}
-					console.log(`ok   ${output}`);
+				const error = mmdc(input, output, theme, config, args.scale);
+				if (error) {
+					console.error(`fail ${file} (${theme} ${format})\n${error}`);
+					failures++;
+					continue;
 				}
+				console.log(`ok   ${output}`);
 			}
 		}
 	} finally {

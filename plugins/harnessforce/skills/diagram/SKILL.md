@@ -1,12 +1,12 @@
 ---
 name: diagram
-description: Experimental. Draws diagrams of a software project from its repository or from a description of the system: architecture and infrastructure diagrams with product logos and AWS, Google Cloud and Azure service icons, CI/CD pipelines, state machines, error-handling flows, ER diagrams, Gantt charts of issues and PRs, and request sequences. Reads IaC, workflows, schemas, specs and issue/PR history, writes Mermaid, renders light and dark SVGs and PNGs, and checks the picture against the sources. Needs the network: mermaid-cli and Chromium are downloaded on first use, and logos are fetched from icon sites (svgl, devicon, gilbarbara/logos, Lucide), which see the products asked for. Use when the user asks for an architecture, system, infra, stack, CI/CD, pipeline, state, lifecycle, error-flow, ER, schema, timeline, roadmap or Gantt diagram, of a repository or a described system, or asks whether an existing diagram still matches the code, even if Mermaid is not mentioned; not for explaining code without a diagram.
+description: Experimental. Draws diagrams of a software project from its repository or from a description of the system: architecture and infrastructure diagrams with product logos and AWS, Google Cloud and Azure service icons, CI/CD pipelines, state machines, error-handling flows, ER diagrams, Gantt charts of issues and PRs, and request sequences. Reads IaC, workflows, schemas, specs and issue/PR history, writes Mermaid, checks the picture against the sources, and delivers one file per diagram. Needs the network: mermaid-cli and Chromium are downloaded on first use, and logos are fetched from icon sites (svgl, devicon, gilbarbara/logos, Lucide), which see the products asked for. Use when the user asks for an architecture, system, infra, stack, CI/CD, pipeline, state, lifecycle, error-flow, ER, schema, timeline, roadmap or Gantt diagram, of a repository or a described system, or asks whether an existing diagram still matches the code, even if Mermaid is not mentioned; not for explaining code without a diagram.
 compatibility: Node.js 18+ on macOS or Linux (the render script does not start mermaid-cli on Windows). mermaid-cli 12.2.0 (npx, or $MMDC) with Chromium for rendering; both are downloaded on first use (about 1.4 GB in the npm and Puppeteer caches), which fails without network access. Network access to fetch logos and the cloud providers' icon packages.
 ---
 
 # diagram
 
-Turns a repository into diagrams a person understands at a glance. The Mermaid text is the editable source; the SVG and PNG rendered from it are what people look at. Every element is drawn from a file in the repository, so the diagram can be checked against the sources instead of trusted.
+Turns a repository into diagrams a person understands at a glance. The Mermaid text is the editable source, and each diagram is delivered as one file that carries it. Every element is drawn from a file in the repository, so the diagram can be checked against the sources instead of trusted.
 
 ## Workflow
 
@@ -70,13 +70,15 @@ Start from the template and rules in [references/mermaid-layout.md](references/m
 
 Put a `%% <path>:<line>` comment above each node or group of edges, so a reviewer can find the source. Labels default to English; use the language of the target repository's docs when the user asks for it.
 
+Write it to `<name>.mmd` in a scratch directory outside the repository: the delivered file carries the `.mmd` (step 7), so the repository never holds it. To change a delivered diagram, start from its source: `node scripts/render.mjs --source <file.md>` writes the `<name>.mmd` of each diagram the file carries into a cache directory and prints the paths.
+
 ### 5. Render and look
 
 ```sh
 node scripts/render.mjs <diagram.mmd>...
 ```
 
-This puts each `icon:<spec>` logo (fetched if needed) on a white tile and embeds the tile as a data URI and writes `<diagram>.png` and `<diagram>.dark.png` at the diagram's natural width (mermaid-cli would otherwise shrink anything wider than about 800 px). For a flowchart, state or ER diagram it also prints how many times edges cross and which (`a → c + b → c × d → e`: merged edges on one line, crossed by another). Count crossings from this line, not by eye: an agent looking at a PNG reported one crossing where there were two. Run it with `--help` for the options. Then open both PNGs and check:
+This puts each `icon:<spec>` logo (fetched if needed) on a white tile and embeds the tile as a data URI and writes `<diagram>.png` and `<diagram>.dark.png` at the diagram's natural width (mermaid-cli would otherwise shrink anything wider than about 800 px) into a cache directory outside the repository, and prints their paths. For a flowchart, state or ER diagram it also prints how many times edges cross and which (`a → c + b → c × d → e`: merged edges on one line, crossed by another). Count crossings from this line, not by eye: an agent looking at a PNG reported one crossing where there were two. Run it with `--help` for the options. Then open both PNGs and check:
 
 - No arrow crosses a label; labels and logos are readable in both themes.
 - The primary flow reads left to right as one path; groups are not scattered; no line crosses the whole diagram or runs around a group (if one does, split the diagram as in step 1, or try node declaration orders, rule 37).
@@ -100,23 +102,18 @@ Do not resolve disagreements in the diagram; report them to the owner.
 
 ### 7. Deliver
 
-Render the delivery files from the finished `.mmd`:
+Deliver one file per diagram, rendered from the finished `.mmd` into the directory it goes to:
 
 ```sh
-node scripts/render.mjs --svg --portable <diagram.mmd>
+node scripts/render.mjs --portable --out <dir> <diagram.mmd>
 ```
 
-`--svg` writes `<diagram>.svg` and `<diagram>.dark.svg` with the logos inside, so they show in any viewer and stay sharp at any zoom; `--portable` writes `<diagram>.portable.md`, one ```` ```mermaid ```` block with the logos inside as data URIs. Pick by where the diagram goes:
-
-| It goes to | Deliver | Why |
+| It goes to | Option | Delivers |
 | --- | --- | --- |
-| A README, docs page or PR description in a repository | the `.mmd` and both SVGs, shown with GitHub's theme switch (below) | Exactly the rendered picture, in light and dark |
-| A chat, slide, issue comment or anything that takes only an uploaded image | the PNGs | No SVG support there |
-| A page where readers edit the diagram as text, and which runs mermaid itself (GitHub or GitLab Markdown, mermaid.live) | the `.portable.md` block | It redraws from the text, with the logos; it keeps its light colors in dark mode |
+| A repository (README, docs page), a PR or issue description, or another page that runs mermaid (GitHub or GitLab Markdown, mermaid.live) | `--portable` | `<diagram>.portable.md` |
+| A chat, slide or anything else that takes only an uploaded image | `--png` | `<diagram>.png` |
+| An SVG, only when the user asks for one | `--svg` | `<diagram>.svg` |
 
-```markdown
-![Architecture](architecture.svg#gh-light-mode-only)
-![Architecture](architecture.dark.svg#gh-dark-mode-only)
-```
+`--portable` writes one ```` ```mermaid ```` block with the logos inside as data URIs, followed by the `.mmd` in a comment: the page draws the block, and the one file is both the picture and its source. Commit the file, or paste all of it (the note, the block and the comment) into the page. Do not deliver the `.mmd`, the PNGs from step 5 or a second picture of the same diagram, such as a dark copy; the block keeps its light colors in dark mode. `--png` and `--svg` write one picture with the logos inside, in the light theme (`--theme dark` for a dark one).
 
-Outside GitHub, use `<picture>` with a `prefers-color-scheme: dark` source for the dark SVG. Never point a node at a logo URL instead of `icon:<spec>`: GitHub blocks images from other hosts and then draws nothing at all. A `.portable.md` longer than mermaid's limit of 50,000 characters is refused; split the diagram (step 1). What each page shows of a diagram, with the versions tested: [references/embedding.md](references/embedding.md). Logo files stay in the cache.
+Never point a node at a logo URL instead of `icon:<spec>`: GitHub blocks images from other hosts and then draws nothing at all. A `.portable.md` longer than mermaid's limit of 50,000 characters is refused; split the diagram (step 1). What each page shows of a diagram, with the versions tested: [references/embedding.md](references/embedding.md). Logo files stay in the cache.

@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import {
 	chmodSync,
 	existsSync,
+	mkdirSync,
 	mkdtempSync,
 	readdirSync,
 	readFileSync,
@@ -10,7 +11,7 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, it } from "vitest";
 import {
@@ -23,6 +24,7 @@ import {
 	inlineIcons,
 	liftTitleLogos,
 	portableMarkdown,
+	sourcesOfMarkdown,
 	titleLogoCss,
 	toDark,
 } from "../skills/diagram/scripts/render.mjs";
@@ -32,6 +34,8 @@ const RENDER = fileURLToPath(
 );
 const work = mkdtempSync(join(tmpdir(), "render-test-"));
 afterAll(() => rmSync(work, { recursive: true, force: true }));
+// render.mjs writes its check renders into ${XDG_CACHE_HOME}/harnessforce-diagram; the spawned scripts inherit this.
+process.env.XDG_CACHE_HOME = join(work, "cache");
 
 function iconsDir() {
 	const dir = mkdtempSync(join(work, "icons-"));
@@ -809,10 +813,7 @@ function themeCssOf(markdown: string | undefined) {
 
 it("portableMarkdown wraps the diagram in one mermaid block with every label rule in its frontmatter themeCSS", () => {
 	const markdown = portableMarkdown(GROUPED, "x") ?? "";
-	assert.match(
-		markdown,
-		/^<!-- x\.mmd [^\n]*-->\n\n```mermaid\n---\nconfig:\n/,
-	);
+	assert.match(markdown, /^<!-- x: [^\n]*-->\n\n```mermaid\n---\nconfig:\n/);
 	assert.ok(markdown.endsWith("\n```\n"));
 	assert.equal(markdown.match(/themeCSS:/g)?.length, 1);
 	const css = themeCssOf(markdown);
@@ -917,57 +918,234 @@ it("portableMarkdown refuses a block-style themeCSS, whose rules it cannot carry
 	assert.throws(() => portableMarkdown(diagram, "x"), /one quoted line/);
 });
 
+// A stub mermaid-cli that writes what it was asked for, so a test can list the files a render leaves.
+function writingStub(dir: string) {
+	const stub = join(dir, "mmdc");
+	writeFileSync(
+		stub,
+		[
+			"#!/usr/bin/env node",
+			'const { readFileSync, writeFileSync } = require("node:fs");',
+			"const arg = (flag) => process.argv[process.argv.indexOf(flag) + 1];",
+			'const { fontFamily, themeCSS } = JSON.parse(readFileSync(arg("-c"), "utf8"));',
+			'if (!fontFamily.startsWith("Arimo, Arial")) process.exit(1);',
+			'if (!themeCSS.includes(".label [height], .cluster-label [height] { overflow: visible; }")) process.exit(1);',
+			'const theme = arg("-b") === "#0f172a" ? "dark" : "light";',
+			"writeFileSync(arg('-o'), '<svg id=\"my-svg\" data-theme=\"' + theme + '\"><g/></svg>');",
+			"",
+		].join("\n"),
+	);
+	chmodSync(stub, 0o755);
+	return stub;
+}
+
+function renderWithStub(dir: string, args: string[]) {
+	const diagram = join(dir, "x.mmd");
+	writeFileSync(diagram, "flowchart LR\n  a --> b\n");
+	const result = spawnSync("node", [RENDER, diagram, "--no-fetch", ...args], {
+		encoding: "utf8",
+		env: { ...process.env, MMDC: writingStub(dir) },
+	});
+	assert.equal(result.status, 0, result.stderr);
+	return result.stdout;
+}
+
+const filesOf = (dir: string) =>
+	readdirSync(dir)
+		.filter((name) => name.startsWith("x."))
+		.sort();
+
 it.skipIf(process.platform === "win32")(
-	"render.mjs --svg --portable writes the PNGs, SVGs whose labels may overflow their boxes, and the portable Markdown",
+	"render.mjs without a delivery option writes the light and dark PNGs into the cache, not next to the diagram",
 	() => {
-		const dir = mkdtempSync(join(work, "svg-"));
-		const cache = join(dir, "cache");
-		const stub = join(dir, "mmdc");
-		writeFileSync(
-			stub,
-			[
-				"#!/usr/bin/env node",
-				'const { readFileSync, writeFileSync } = require("node:fs");',
-				"const arg = (flag) => process.argv[process.argv.indexOf(flag) + 1];",
-				'const { fontFamily, themeCSS } = JSON.parse(readFileSync(arg("-c"), "utf8"));',
-				'if (!fontFamily.startsWith("Arimo, Arial")) process.exit(1);',
-				'if (!themeCSS.includes(".label [height], .cluster-label [height] { overflow: visible; }")) process.exit(1);',
-				'writeFileSync(arg("-o"), "<svg id=\\"my-svg\\"><g/></svg>");',
-				"",
-			].join("\n"),
+		const dir = mkdtempSync(join(work, "check-"));
+		const stdout = renderWithStub(dir, []);
+		assert.deepEqual(filesOf(dir), ["x.mmd"]);
+		const written = [...stdout.matchAll(/^ok {3}(.+)$/gm)].map(
+			(m) => m[1] ?? "",
 		);
-		chmodSync(stub, 0o755);
-		const diagram = join(dir, "x.mmd");
-		writeFileSync(diagram, "flowchart LR\n  a --> b\n");
-		const result = spawnSync(
-			"node",
-			[
-				RENDER,
-				diagram,
-				"--icons-dir",
-				join(cache, "icons"),
-				"--no-fetch",
-				"--svg",
-				"--portable",
-			],
-			{ encoding: "utf8", env: { ...process.env, MMDC: stub } },
-		);
-		assert.equal(result.status, 0, result.stderr);
-		assert.deepEqual(
-			readdirSync(dir)
-				.filter((name) => name.startsWith("x."))
-				.sort(),
-			["x.dark.png", "x.dark.svg", "x.mmd", "x.png", "x.portable.md", "x.svg"],
-		);
-		for (const svg of ["x.svg", "x.dark.svg"]) {
-			assert.equal(
-				readFileSync(join(dir, svg), "utf8"),
-				'<svg id="my-svg"><g/></svg>',
-				"no font is embedded",
+		assert.equal(written.length, 2, stdout);
+		for (const file of written) {
+			assert.ok(
+				file.startsWith(join(work, "cache", "harnessforce-diagram")),
+				file,
 			);
+			assert.ok(existsSync(file), file);
 		}
+		assert.deepEqual(written.map((file) => basename(file)).sort(), [
+			"x.dark.png",
+			"x.png",
+		]);
 	},
 );
+
+it.skipIf(process.platform === "win32")(
+	"render.mjs --portable delivers one file next to the diagram and renders no picture",
+	() => {
+		const dir = mkdtempSync(join(work, "portable-only-"));
+		const stdout = renderWithStub(dir, ["--portable"]);
+		assert.deepEqual(filesOf(dir), ["x.mmd", "x.portable.md"]);
+		assert.deepEqual(
+			[...stdout.matchAll(/^ok {3}(.+)$/gm)].map((m) => m[1]),
+			[join(dir, "x.portable.md")],
+		);
+	},
+);
+
+it.skipIf(process.platform === "win32")(
+	"render.mjs --png and --svg each deliver one light picture, with no dark copy, and --theme dark makes it dark",
+	() => {
+		const light = mkdtempSync(join(work, "png-svg-"));
+		renderWithStub(light, ["--png", "--svg"]);
+		assert.deepEqual(filesOf(light), ["x.mmd", "x.png", "x.svg"]);
+		assert.equal(
+			readFileSync(join(light, "x.svg"), "utf8"),
+			'<svg id="my-svg" data-theme="light"><g/></svg>',
+			"no font is embedded",
+		);
+		const dark = mkdtempSync(join(work, "svg-dark-"));
+		renderWithStub(dark, ["--svg", "--theme", "dark"]);
+		assert.deepEqual(filesOf(dark), ["x.mmd", "x.svg"]);
+		assert.match(
+			readFileSync(join(dark, "x.svg"), "utf8"),
+			/data-theme="dark"/,
+		);
+	},
+);
+
+it.skipIf(process.platform === "win32")(
+	"render.mjs --source takes the Mermaid back out of a delivered file, and the source renders to the same file",
+	() => {
+		const dir = mkdtempSync(join(work, "source-"));
+		renderWithStub(dir, ["--portable"]);
+		const delivered = readFileSync(join(dir, "x.portable.md"), "utf8");
+		const page = join(dir, "page.md");
+		writeFileSync(page, `# Page\n\n${delivered}\nMore text.\n`);
+		const back = join(dir, "back");
+
+		const result = spawnSync(
+			"node",
+			[RENDER, "--source", page, "--out", back],
+			{ encoding: "utf8" },
+		);
+
+		assert.equal(result.status, 0, result.stderr);
+		assert.equal(
+			readFileSync(join(back, "x.mmd"), "utf8"),
+			"flowchart LR\n  a --> b\n",
+		);
+		const again = join(back, "again");
+		const rerender = spawnSync(
+			"node",
+			[RENDER, join(back, "x.mmd"), "--no-fetch", "--portable", "--out", again],
+			{ encoding: "utf8", env: { ...process.env, MMDC: writingStub(dir) } },
+		);
+		assert.equal(rerender.status, 0, rerender.stderr);
+		assert.equal(readFileSync(join(again, "x.portable.md"), "utf8"), delivered);
+	},
+);
+
+it("render.mjs --source writes each diagram a page carries into --out only, whatever its name says", () => {
+	const dir = mkdtempSync(join(work, "source-names-"));
+	const page = join(dir, "page.md");
+	const comment = (name: string, source: string) =>
+		`<!-- render.mjs source ${name}: ${Buffer.from(source).toString("base64")} -->`;
+	writeFileSync(
+		page,
+		`${comment("my diagram", "flowchart LR\n  a --> b\n")}\n${comment("../escape", "x")}\n`,
+	);
+	const out = join(dir, "out");
+	const result = spawnSync("node", [RENDER, "--source", page, "--out", out], {
+		encoding: "utf8",
+	});
+	assert.equal(result.status, 0, result.stderr);
+	assert.deepEqual(readdirSync(out).sort(), ["escape.mmd", "my diagram.mmd"]);
+	assert.equal(existsSync(join(dir, "escape.mmd")), false);
+});
+
+const sourceComment = (name: string, source: string) =>
+	`<!-- render.mjs source ${name}: ${Buffer.from(source).toString("base64")} -->`;
+
+it("render.mjs --source keeps the diagrams of two pages apart in its default directory, even under one name", () => {
+	const dir = mkdtempSync(join(work, "source-pages-"));
+	const pages = ["a", "b"].map((page) => {
+		mkdirSync(join(dir, page));
+		const file = join(dir, page, "README.md");
+		writeFileSync(file, `${sourceComment("x", `flowchart LR\n  ${page}\n`)}\n`);
+		return file;
+	});
+	const result = spawnSync("node", [RENDER, "--source", ...pages], {
+		encoding: "utf8",
+	});
+	assert.equal(result.status, 0, result.stderr);
+	const written = [...result.stdout.matchAll(/^ok {3}(.+)$/gm)].map(
+		(m) => m[1] ?? "",
+	);
+	assert.equal(new Set(written).size, 2, result.stdout);
+	assert.deepEqual(
+		written.map((file) => readFileSync(file, "utf8")),
+		["flowchart LR\n  a\n", "flowchart LR\n  b\n"],
+	);
+});
+
+it("render.mjs --source fails on a page with two diagrams of one name instead of keeping one", () => {
+	const dir = mkdtempSync(join(work, "source-twice-"));
+	const page = join(dir, "page.md");
+	writeFileSync(
+		page,
+		`${sourceComment("x", "a")}\n${sourceComment("x", "b")}\n`,
+	);
+	const result = spawnSync(
+		"node",
+		[RENDER, "--source", page, "--out", join(dir, "out")],
+		{ encoding: "utf8" },
+	);
+	assert.equal(result.status, 1);
+	assert.match(result.stderr, /two diagrams are named x/);
+});
+
+it("render.mjs --source fails on a file that holds no diagram source", () => {
+	const dir = mkdtempSync(join(work, "no-source-"));
+	const page = join(dir, "page.md");
+	writeFileSync(page, "```mermaid\nflowchart LR\n  a --> b\n```\n");
+	const result = spawnSync(
+		"node",
+		[RENDER, "--source", page, "--out", join(dir, "out")],
+		{ encoding: "utf8" },
+	);
+	assert.equal(result.status, 1);
+	assert.match(result.stderr, /no diagram source/);
+});
+
+it("portableMarkdown carries the source after the block, which sourcesOfMarkdown reads back whole", () => {
+	const source =
+		'flowchart LR\n  %% src/a.ts:1\n  a@{ img: "icon:neon" } --> b\n  b -.-> c\n';
+	const markdown = portableMarkdown(
+		"flowchart LR\n  a --> b\n",
+		"x",
+		"",
+		source,
+	);
+	assert.ok(markdown);
+	const [block, after] = markdown.split("\n```\n");
+	assert.ok(block?.includes("```mermaid\n"));
+	assert.doesNotMatch(block ?? "", /icon:neon/);
+	assert.match(after ?? "", /^\n<!-- /);
+	assert.doesNotMatch(
+		after?.slice(5) ?? "",
+		/-->(?!\n$)/,
+		"the comment holding the source does not end early",
+	);
+	assert.deepEqual(
+		sourcesOfMarkdown(
+			`${markdown}\n${markdown.replace(/source x/, "source y")}`,
+		),
+		[
+			{ name: "x", source },
+			{ name: "y", source },
+		],
+	);
+});
 
 it("portableMarkdown boxes the title of an unfilled group in the nearest filled group's color, or white", () => {
 	const diagram = [
