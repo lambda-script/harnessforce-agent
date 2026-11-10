@@ -1,5 +1,13 @@
 # @harnessforce/claude-code-plugin
 
+## 0.6.3
+
+### Patch Changes
+
+- d6fdf8a: The diagram skill's portable block stays readable on GitHub in dark mode for sequence, ER, state and gantt diagrams. The block keeps its light theme on the dark page, where the titles, messages, conditions, section names and axis labels that stand on the page vanished in dark ink. `render.mjs --portable` now sets those text colors to `#64748b` through `themeVariables`, which reach every diagram type, instead of relying on CSS, which mermaid empties when a rule needs `>`.
+- 7ec4e43: The diagram skill delivers one file per diagram. `render.mjs` without a delivery option writes the light and dark PNGs it looks at into `~/.cache/harnessforce-diagram/renders/` instead of next to the diagram. `--portable`, `--png` and `--svg` each write one file (a PNG or SVG in the light theme, `--theme dark` for a dark one), and the portable Markdown carries the `.mmd` after the block, which `render.mjs --source` writes back out, so a repository no longer keeps the `.mmd` or a light and dark pair of SVGs.
+- eb5b69d: When `start_session` returns `forbidden` or `conflict` (this session belongs to another user), the record-session skill now tells the user why the work cannot be linked and continues without calling `start_session` again, calling `complete_session`, or guessing another session ID, for an Issue the user named as well as one picked from the candidates. A `forbidden` or `conflict` from `complete_session` is reported and not retried. The injected introduction lists this as a Red Flag.
+
 ## 0.6.2
 
 ### Patch Changes
