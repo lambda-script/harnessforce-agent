@@ -1,5 +1,12 @@
 # @harnessforce/cli
 
+## 0.7.3
+
+### Patch Changes
+
+- 0e7edb2: `harnessforce login` now ends by pointing at the page that assigns repositories to a project while the Workspace has none assigned, instead of suggesting `harnessforce import`, which imports nothing until a repository is assigned.
+- eb5b69d: When `start_session` returns `forbidden` or `conflict` (this session belongs to another user), the record-session skill now tells the user why the work cannot be linked and continues without calling `start_session` again, calling `complete_session`, or guessing another session ID, for an Issue the user named as well as one picked from the candidates. A `forbidden` or `conflict` from `complete_session` is reported and not retried. The injected introduction lists this as a Red Flag.
+
 ## 0.7.2
 
 ### Patch Changes
