@@ -40,7 +40,7 @@
 		"build": "tsdown && node scripts/build-config.mjs"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.6.6",
+		"@biomejs/biome": "2.6.7",
 		"@decimalturn/toml-patch": "3.3.2",
 		"@harnessforce/agent-core": "workspace:*",
 		"@harnessforce/test-support": "workspace:*",
