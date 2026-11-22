@@ -8,6 +8,14 @@ import { SessionWorkLocationSchema } from "./schemas/session-work-location.js";
 
 export * from "./attributes.js";
 export {
+	MCP_AGENT_QUERIES,
+	MCP_AGENT_QUERY_WORD,
+	MCP_AGENT_QUERY_WORD_PATTERN,
+	MCP_AGENT_TOOLS,
+	type McpAgentToolName,
+	openResult,
+} from "./contracts/mcp-agent.js";
+export {
 	REDACTION_KINDS,
 	REDACTION_RULES,
 	type RedactedText,
