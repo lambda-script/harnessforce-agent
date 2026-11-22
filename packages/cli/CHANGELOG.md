@@ -1,5 +1,12 @@
 # @harnessforce/cli
 
+## 0.7.4
+
+### Patch Changes
+
+- Updated dependencies [f264c11]
+  - @harnessforce/semconv@0.6.0
+
 ## 0.7.3
 
 ### Patch Changes
