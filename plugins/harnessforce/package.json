@@ -35,7 +35,7 @@
 		"build": "node build.mjs"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.6.8",
+		"@biomejs/biome": "2.6.9",
 		"@harnessforce/agent-core": "workspace:*",
 		"@harnessforce/cli": "workspace:*",
 		"@harnessforce/semconv": "workspace:*",
