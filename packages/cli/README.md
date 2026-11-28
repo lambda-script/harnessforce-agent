@@ -1,6 +1,6 @@
 # @harnessforce/cli
 
-`harnessforce`, the command line of [Harnessforce](https://github.com/lambda-script/harnessforce-agent). It
+`harnessforce`, the command line of [Harnessforce](https://harnessforce.dev). It
 connects a machine to a Harnessforce Workspace, supplies the ingest key to Claude Code's OpenTelemetry
 exporter, launches an agent linked to an Issue, and imports the metadata of past Claude Code and Codex sessions.
 

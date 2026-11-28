@@ -10,7 +10,7 @@
 		"ai-agents"
 	],
 	"license": "Apache-2.0",
-	"homepage": "https://github.com/lambda-script/harnessforce-agent/tree/main/plugins/harnessforce#readme",
+	"homepage": "https://harnessforce.dev",
 	"bugs": {
 		"url": "https://github.com/lambda-script/harnessforce-agent/issues"
 	},

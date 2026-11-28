@@ -28,6 +28,7 @@ describe("@harnessforce/claude-code-plugin", () => {
 			name: source.name,
 			version: source.version,
 			license: "Apache-2.0",
+			homepage: "https://harnessforce.dev",
 			repository: {
 				type: "git",
 				url: "git+https://github.com/lambda-script/harnessforce-agent.git",
