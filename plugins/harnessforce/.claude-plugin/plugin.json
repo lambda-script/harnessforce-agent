@@ -2,7 +2,7 @@
 	"name": "harnessforce",
 	"description": "Harnessforce plugin for Claude Code",
 	"author": { "name": "Lambda Script" },
-	"homepage": "https://github.com/lambda-script/harnessforce-agent",
+	"homepage": "https://harnessforce.dev",
 	"repository": "https://github.com/lambda-script/harnessforce-agent",
 	"license": "Apache-2.0"
 }

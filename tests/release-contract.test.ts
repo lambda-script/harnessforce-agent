@@ -34,13 +34,11 @@ describe("release contract", () => {
 		},
 	);
 
-	// npmはfilesに関係なくpackageのREADMEを同梱し、package pageに表示する。
+	// npmはfilesに関係なくpackageのREADMEを同梱し、package pageに表示する。homepageは製品のsiteを指し、repositoryへはrepository fieldが繋ぐ。
 	it.each(packages)(
-		"$dir links its npm page to the repository",
+		"$dir links its npm page to the product site",
 		({ dir, pkg }) => {
-			expect(pkg.homepage).toBe(
-				`https://github.com/lambda-script/harnessforce-agent/tree/main/packages/${dir}#readme`,
-			);
+			expect(pkg.homepage).toBe("https://harnessforce.dev");
 			expect(pkg.bugs).toEqual({
 				url: "https://github.com/lambda-script/harnessforce-agent/issues",
 			});
