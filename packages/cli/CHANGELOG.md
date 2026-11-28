@@ -1,5 +1,13 @@
 # @harnessforce/cli
 
+## 0.7.5
+
+### Patch Changes
+
+- 3dde9c0: Point the npm package homepage and the README link at https://harnessforce.dev.
+- Updated dependencies [3dde9c0]
+  - @harnessforce/semconv@0.6.1
+
 ## 0.7.4
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @harnessforce/claude-code-plugin
 
+## 0.6.4
+
+### Patch Changes
+
+- 3dde9c0: Point the npm package homepage and the README link at https://harnessforce.dev.
+
 ## 0.6.3
 
 ### Patch Changes
