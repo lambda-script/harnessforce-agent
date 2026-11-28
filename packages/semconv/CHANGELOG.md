@@ -1,5 +1,11 @@
 # @harnessforce/semconv
 
+## 0.6.1
+
+### Patch Changes
+
+- 3dde9c0: Point the npm package homepage and the README link at https://harnessforce.dev.
+
 ## 0.6.0
 
 ### Minor Changes
